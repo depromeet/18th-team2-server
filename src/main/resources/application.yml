@@ -1,13 +1,8 @@
 spring:
   application:
     name: team2-backend
-
-  datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
-
+  profiles:
+    include: secret
   jpa:
     hibernate:
       ddl-auto: update
