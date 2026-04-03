@@ -8,7 +8,7 @@ plugins {
 
 group = "com.team2"
 version = "0.0.1-SNAPSHOT"
-description = "team2-backend"
+description = "server"
 
 java {
     toolchain {

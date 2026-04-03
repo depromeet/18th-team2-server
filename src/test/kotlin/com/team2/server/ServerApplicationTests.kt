@@ -1,10 +1,10 @@
-package com.team2.team2backend
+package com.team2.server
 
 import org.junit.jupiter.api.Test
 import org.springframework.boot.test.context.SpringBootTest
 
 @SpringBootTest
-class Team2BackendApplicationTests {
+class ServerApplicationTests {
 
     @Test
     fun contextLoads() {

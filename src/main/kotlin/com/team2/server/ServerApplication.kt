@@ -1,11 +1,11 @@
-package com.team2.team2backend
+package com.team2.server
 
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 
 @SpringBootApplication
-class Team2BackendApplication
+class ServerApplication
 
 fun main(args: Array<String>) {
-    runApplication<Team2BackendApplication>(*args)
+    runApplication<ServerApplication>(*args)
 }
