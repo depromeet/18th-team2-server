@@ -47,6 +47,13 @@ allOpen {
     annotation("jakarta.persistence.Embeddable")
 }
 
+tasks.processResources {
+    from("config/secret") {
+        include("*.yml", "*.yaml")
+        into("")
+    }
+}
+
 tasks.withType<Test> {
     useJUnitPlatform()
 }

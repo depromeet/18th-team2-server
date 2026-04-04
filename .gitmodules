@@ -1,0 +1,3 @@
+[submodule "config/secret"]
+	path = config/secret
+	url = https://github.com/suker80/18th-team2-server-secret.git
