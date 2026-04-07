@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write  # JaCoCo 커버리지 코멘트용
 
 jobs:
   build:
@@ -24,11 +25,38 @@ jobs:
           java-version: '25'
           distribution: 'temurin'
 
+      # ── Gradle Setup (Build Cache 포함) ──
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
+      # ── Lint ──
       - name: Run ktlint
         run: ./gradlew ktlintCheck
 
+      # ── Detekt (정적 분석) ──
+      - name: Run Detekt
+        run: ./gradlew detekt
+
+      # ── Build & Test + JaCoCo 리포트 생성 ──
       - name: Build and Test
-        run: ./gradlew build
+        run: ./gradlew build jacocoTestReport
+
+      # ── JaCoCo 커버리지 PR 코멘트 ──
+      - name: JaCoCo Coverage Report
+        if: github.event_name == 'pull_request'
+        uses: madrapps/jacoco-report@v1.7.1
+        with:
+          paths: '**/build/reports/jacoco/test/jacocoTestReport.xml'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          min-coverage-overall: 50
+          min-coverage-changed-files: 70
+          title: '📊 테스트 커버리지 리포트'
+          update-comment: true
+
+      # ── Docker 이미지 빌드 검증 ──
+      - name: Docker Build (verification only)
+        if: hashFiles('Dockerfile') != ''
+        run: |
+          docker build -t ${{ github.repository }}:pr-${{ github.event.pull_request.number }} .
