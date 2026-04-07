@@ -17,5 +17,4 @@
   - head-branch: ['^test/', 'test/']
 
 ⚙️ SETTING:
-  - changed-files:
-    - any-glob-to-any-file: 'monitoring/**'
+  - head-branch: ['^setting/', 'setting/']
