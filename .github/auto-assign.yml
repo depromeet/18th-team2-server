@@ -1,0 +1,12 @@
+addAssignees: author
+
+addReviewers: true
+reviewers:
+  - lydbsdud
+  - suker80
+  - eundeang
+
+numberOfReviewers: 2  # 작성자 제외 나머지 전원 리뷰어 지정 (3명 중 2명)
+skipKeywords:
+  - wip
+  - draft
