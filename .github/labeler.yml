@@ -1,0 +1,21 @@
+✨ FEATURE:
+  - head-branch: ['^feat/', 'feat/']
+
+🔧 FIX:
+  - head-branch: ['^fix/', 'fix/']
+
+🗑️ CHORE:
+  - head-branch: ['^chore/', 'chore/']
+
+♻️ REFACTOR:
+  - head-branch: ['^refactor/', 'refactor/']
+
+📝 DOCS:
+  - head-branch: ['^docs/', 'docs/']
+
+🧪 TEST:
+  - head-branch: ['^test/', 'test/']
+
+⚙️ SETTING:
+  - changed-files:
+    - any-glob-to-any-file: 'monitoring/**'
