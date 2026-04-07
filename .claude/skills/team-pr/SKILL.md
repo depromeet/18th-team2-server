@@ -22,16 +22,16 @@ description: 팀 PR 템플릿에 맞는 기능 단위 Pull Request 생성. 빌�
 ```bash
 git branch --show-current
 git status
-git log main..HEAD --oneline
-git diff main...HEAD --stat
+git log develop..HEAD --oneline
+git diff develop...HEAD --stat
 ```
 
 **차단 조건:**
 
 | 조건 | 메시지 | 동작 |
 |------|--------|------|
-| 현재 브랜치가 `main` | "main 브랜치에서는 PR을 생성할 수 없습니다" | **중단** |
-| `main..HEAD` 커밋 없음 | "main 대비 변경사항이 없습니다" | **중단** |
+| 현재 브랜치가 `develop` | "develop 브랜치에서는 PR을 생성할 수 없습니다" | **중단** |
+| `develop..HEAD` 커밋 없음 | "develop 대비 변경사항이 없습니다" | **중단** |
 | 커밋되지 않은 변경사항 존재 | "커밋되지 않은 변경사항이 있습니다. `/team-commit`을 먼저 실행하세요" | **중단** |
 
 ### Step 2: 빌드 및 테스트 검증
@@ -45,7 +45,7 @@ git diff main...HEAD --stat
 
 ### Step 3: 기능 단위 검증
 
-`git diff main...HEAD`를 분석하여 PR이 **하나의 기능 단위**인지 확인:
+`git diff develop...HEAD`를 분석하여 PR이 **하나의 기능 단위**인지 확인:
 
 - 여러 관심사가 섞여 있으면 **경고**: "이 PR에 여러 기능이 섞여 있을 수 있습니다. 기능별로 분리하는 것을 권장합니다."
   - 예: Controller + 완전히 무관한 설정 변경, 서로 다른 도메인의 엔티티 변경
@@ -88,7 +88,7 @@ git diff main...HEAD --stat
 <왜 이 변경이 필요했는지, 어떤 문제를 해결하는지>
 
 ## 🛠 Changes
-<git diff main...HEAD 기반 핵심 변경사항>
+<git diff develop...HEAD 기반 핵심 변경사항>
 - <변경사항 1>
 - <변경사항 2>
 - <변경사항 3>
@@ -123,7 +123,7 @@ git push -u origin <current-branch>
 2. PR 생성:
 ```bash
 gh pr create \
-  --base main \
+  --base develop \
   --title "<타이틀>" \
   --body "<본문>" \
   --assignee "@me"
@@ -142,7 +142,7 @@ gh pr create \
 
 ## 금지 사항
 
-- `main` 브랜치에서 PR 생성 금지
+- `develop` 브랜치에서 PR 생성 금지
 - 빌드/테스트 실패 상태에서 PR 생성 금지
 - PR 본문에서 팀 템플릿 섹션(Issue, Context, Changes, Review Focus, Check List) 누락 금지
 - `--no-verify` 플래그 사용 금지

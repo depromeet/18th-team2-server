@@ -68,8 +68,8 @@ EOF
 ### Step 4: 브랜치 생성 및 checkout
 
 ```bash
-git checkout main
-git pull origin main
+git checkout develop
+git pull origin develop
 git checkout -b <prefix>/<kebab-case-설명>
 ```
 
@@ -93,6 +93,6 @@ git checkout -b <prefix>/<kebab-case-설명>
 
 ## 금지 사항
 
-- main 브랜치에서 직접 작업 시작 금지 (반드시 새 브랜치 생성)
+- develop 브랜치에서 직접 작업 시작 금지 (반드시 새 브랜치 생성)
 - 브랜치명에 한국어 사용 금지
 - 이슈 없이 브랜치 생성 금지 (이 스킬은 항상 이슈를 먼저 만듦)

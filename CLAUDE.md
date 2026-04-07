@@ -26,14 +26,15 @@
 ## PR 규칙
 
 - 기능 단위로 PR 생성 (하나의 PR = 하나의 기능)
-- base 브랜치: `main`
+- base 브랜치: `develop`
 - PR 템플릿(`.github/PULL_REQUEST_TEMPLATE.md`) 필수 준수
 - 빌드 + 테스트 통과 후 PR 생성
 
 ## 금지 사항
 
 - `--no-verify` 사용 금지
-- `main` 브랜치 직접 커밋 금지
+- `main` 브랜치 직접 커밋/푸시 금지 (마스터 브랜치, 보호 대상)
+- `develop` 브랜치 직접 커밋 금지
 - `git add -A` / `git add .` 사용 금지 (파일 개별 지정)
 - 시크릿 파일 커밋 금지 (`.env`, `application-*.yml`, `*.pem`, `*.key` 등)
 - 영문 커밋 메시지 금지
