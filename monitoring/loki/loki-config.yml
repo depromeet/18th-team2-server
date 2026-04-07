@@ -1,3 +1,4 @@
+# TODO: [운영] 외부 접근이 가능한 환경이라면 auth_enabled: true 로 변경 후 인증 설정 추가
 auth_enabled: false
 
 server:
@@ -8,6 +9,7 @@ common:
   instance_addr: 127.0.0.1
   path_prefix: /tmp/loki
   storage:
+    # TODO: [운영] filesystem은 단일 서버 전용. 운영 환경에서는 S3 등 외부 오브젝트 스토리지로 교체
     filesystem:
       chunks_directory: /tmp/loki/chunks
       rules_directory: /tmp/loki/rules

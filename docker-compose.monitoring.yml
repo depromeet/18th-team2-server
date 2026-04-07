@@ -13,12 +13,14 @@ services:
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
     restart: unless-stopped
+    # TODO: [운영] 앱도 Docker로 띄울 경우 extra_hosts 제거 후 같은 네트워크로 묶고 서비스명으로 통신
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
   loki:
     image: grafana/loki:latest
     container_name: loki
+    # TODO: [운영] root 대신 전용 유저 생성 후 볼륨 디렉토리 소유권을 해당 유저로 변경하여 최소 권한 원칙 적용
     user: root
     ports:
       - "3100:3100"
@@ -34,6 +36,7 @@ services:
     ports:
       - "3000:3000"
     environment:
+      # TODO: [운영] 환경변수 또는 시크릿 관리 도구로 교체 (현재 하드코딩된 admin/admin은 로컬 전용)
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
