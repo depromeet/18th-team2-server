@@ -4,6 +4,7 @@ plugins {
     id("org.springframework.boot") version "4.0.5"
     id("io.spring.dependency-management") version "1.1.7"
     kotlin("plugin.jpa") version "2.2.21"
+    id("org.jlleitschuh.gradle.ktlint") version "12.3.0"
 }
 
 group = "com.team2"
@@ -52,6 +53,10 @@ tasks.processResources {
         include("*.yml", "*.yaml")
         into("")
     }
+}
+
+ktlint {
+    version.set("1.6.0")
 }
 
 tasks.withType<Test> {
