@@ -1,11 +1,11 @@
 plugins {
-    kotlin("jvm") version "2.3.10"
-    kotlin("plugin.spring") version "2.3.10"
+    kotlin("jvm") version "2.3.0"
+    kotlin("plugin.spring") version "2.3.0"
     id("org.springframework.boot") version "4.0.5"
     id("io.spring.dependency-management") version "1.1.7"
-    kotlin("plugin.jpa") version "2.2.21"
+    kotlin("plugin.jpa") version "2.3.0"
     id("org.jlleitschuh.gradle.ktlint") version "12.3.0"
-    id("io.gitlab.arturbosch.detekt") version "1.23.8"
+    id("dev.detekt") version "2.0.0-alpha.2"
     jacoco
 }
 
@@ -60,6 +60,7 @@ tasks.processResources {
         into("")
     }
 }
+
 
 ktlint {
     version.set("1.6.0")
