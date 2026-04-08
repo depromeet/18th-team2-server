@@ -48,6 +48,13 @@ allOpen {
     annotation("jakarta.persistence.Embeddable")
 }
 
+tasks.processResources {
+    from("config/secret") {
+        include("*.yml", "*.yaml")
+        into("")
+    }
+}
+
 ktlint {
     version.set("1.6.0")
 }
