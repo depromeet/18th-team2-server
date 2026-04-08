@@ -31,10 +31,14 @@ parse_db_info() {
     local file="$1"
     local prefix="$2"
 
-    local username=$(yq '.spring.datasource.username' "$file")
-    local password=$(yq '.spring.datasource.password' "$file")
+    local username
+    username=$(yq -e -r '.spring.datasource.username' "$file") || { echo "ERROR: username 파싱 실패 ($file)"; exit 1; }
 
-    local root_password=$(yq '.spring.datasource.root-password // .spring.datasource.password' "$file")
+    local password
+    password=$(yq -e -r '.spring.datasource.password' "$file") || { echo "ERROR: password 파싱 실패 ($file)"; exit 1; }
+
+    local root_password
+    root_password=$(yq -r '.spring.datasource.root-password // .spring.datasource.password' "$file") || { echo "ERROR: root-password 파싱 실패 ($file)"; exit 1; }
 
     echo "${prefix}_DB_USERNAME=$username"
     echo "${prefix}_DB_PASSWORD=$password"
@@ -42,6 +46,7 @@ parse_db_info() {
 }
 
 echo "==> Generating .env from secret submodule..."
+umask 077
 > "$PROJECT_ROOT/.env"
 
 if [ "$ENV" = "dev" ] || [ "$ENV" = "all" ]; then
@@ -53,8 +58,12 @@ if [ "$ENV" = "prod" ] || [ "$ENV" = "all" ]; then
 fi
 
 # 공유 네트워크 생성
-docker network create dev-network 2>/dev/null || true
-docker network create prod-network 2>/dev/null || true
+for network in dev-network prod-network; do
+    if ! docker network inspect "$network" &>/dev/null; then
+        echo "==> Creating network: $network"
+        docker network create "$network"
+    fi
+done
 
 if [ "$ENV" = "dev" ] || [ "$ENV" = "all" ]; then
     echo "==> Building and starting DEV containers..."
