@@ -23,7 +23,13 @@ WORKDIR /app
 # healthcheck용 curl 설치
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
-# 빌드된 JAR만 복사 (빌드 도구 제외하여 이미지 경량화)
-COPY --from=builder /app/build/libs/*.jar app.jar
+# non-root 유저 생성
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# 빌드된 JAR 복사
+COPY --from=builder /app/build/libs/app.jar app.jar
+RUN chown appuser:appuser app.jar
+
+USER appuser
 
 ENTRYPOINT ["java", "-jar", "app.jar"]
