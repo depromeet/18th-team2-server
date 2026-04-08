@@ -19,4 +19,5 @@ jobs:
           script: |
             cd ${{ secrets.PROJECT_PATH }}
             git checkout main
+            git pull origin main
             ./scripts/deploy.sh prod
