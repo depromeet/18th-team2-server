@@ -61,7 +61,6 @@ tasks.processResources {
     }
 }
 
-
 ktlint {
     version.set("1.6.0")
 }

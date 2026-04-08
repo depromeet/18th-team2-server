@@ -10,7 +10,6 @@ import java.util.UUID
 
 @Component
 class MdcLoggingFilter : OncePerRequestFilter() {
-
     override fun doFilterInternal(
         request: HttpServletRequest,
         response: HttpServletResponse,
