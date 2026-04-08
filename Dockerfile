@@ -3,16 +3,17 @@ FROM eclipse-temurin:25-jdk AS builder
 
 WORKDIR /app
 
-# Gradle 빌드에 필요한 파일 복사
+# Gradle 래퍼 + 빌드 설정 먼저 복사 (의존성 캐시 레이어)
 COPY gradlew settings.gradle.kts build.gradle.kts ./
 COPY gradle ./gradle
-COPY src ./src
+RUN chmod +x gradlew && ./gradlew dependencies --no-daemon
 
-# 서브모듈 시크릿 설정 파일 복사 (빌드 시에만 사용, 런타임에는 volume mount)
+# 소스코드 + 서브모듈 시크릿 복사 (소스 변경 시에만 재빌드)
+COPY src ./src
 COPY config ./config
 
 # 테스트 제외하고 JAR 빌드
-RUN chmod +x gradlew && ./gradlew bootJar -x test --no-daemon
+RUN ./gradlew bootJar -x test --no-daemon
 
 # === 2단계: 실행 ===
 FROM eclipse-temurin:25-jre
