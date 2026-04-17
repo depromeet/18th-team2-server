@@ -54,6 +54,14 @@ allOpen {
     annotation("jakarta.persistence.Embeddable")
 }
 
+tasks.bootJar {
+    archiveFileName.set("app.jar")
+}
+
+tasks.jar {
+    enabled = false
+}
+
 tasks.processResources {
     from("config/secret") {
         include("*.yml", "*.yaml")
