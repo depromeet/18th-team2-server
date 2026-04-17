@@ -12,9 +12,6 @@ fi
 
 cd "$PROJECT_ROOT"
 
-echo "==> Pulling latest changes..."
-git pull origin "$(git branch --show-current)"
-
 echo "==> Updating submodules..."
 git submodule update --init --recursive
 

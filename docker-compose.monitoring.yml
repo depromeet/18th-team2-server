@@ -36,9 +36,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      # TODO: [운영] 환경변수 또는 시크릿 관리 도구로 교체 (현재 하드코딩된 admin/admin은 로컬 전용)
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - grafana_data:/var/lib/grafana
