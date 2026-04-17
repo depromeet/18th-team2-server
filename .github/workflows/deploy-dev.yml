@@ -7,17 +7,11 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Deploy to server
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USERNAME }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_SSH_PORT }}
-          script: |
-            cd ${{ secrets.PROJECT_PATH }}
-            git checkout develop
-            git pull origin develop
-            ./scripts/deploy.sh dev
+        run: |
+          cd ${{ secrets.PROJECT_PATH }}
+          git checkout develop
+          git pull origin develop
+          ./scripts/deploy.sh dev
