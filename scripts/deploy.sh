@@ -35,7 +35,7 @@ parse_db_info() {
     password=$(yq -e -r '.spring.datasource.password' "$file") || { echo "ERROR: password 파싱 실패 ($file)"; exit 1; }
 
     local root_password
-    root_password=$(yq -r '.spring.datasource.root-password // .spring.datasource.password' "$file") || { echo "ERROR: root-password 파싱 실패 ($file)"; exit 1; }
+    root_password=$(yq -e -r '.spring.datasource.root-password // .spring.datasource.password' "$file") || { echo "ERROR: root-password 파싱 실패 ($file)"; exit 1; }
 
     echo "${prefix}_DB_USERNAME=$username"
     echo "${prefix}_DB_PASSWORD=$password"
