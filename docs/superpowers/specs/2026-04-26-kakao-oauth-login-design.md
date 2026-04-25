@@ -33,9 +33,12 @@ com.team2.server.auth/
 │   └── JwtAuthenticationEntryPoint.kt # 401 응답 (ApiResponse 포맷)
 ├── oauth2/
 │   ├── CustomOAuth2UserService.kt     # extends DefaultOAuth2UserService
-│   ├── KakaoAttributes.kt             # 카카오 응답 파서
 │   ├── OAuth2SuccessHandler.kt        # JWT 발급 + redirect
-│   └── OAuth2FailureHandler.kt        # 에러 redirect
+│   ├── OAuth2FailureHandler.kt        # 에러 redirect
+│   └── attributes/
+│       ├── OAuth2Attributes.kt        # provider 공통 인터페이스 (sealed)
+│       ├── OAuth2AttributesFactory.kt # registrationId → OAuth2Attributes 디스패치
+│       └── KakaoAttributes.kt         # KAKAO 구현
 ├── principal/
 │   └── UserPrincipal.kt               # OAuth2User + UserDetails
 └── controller/
@@ -250,19 +253,61 @@ interface UserRepository : JpaRepository<User, Long> {
 }
 ```
 
-## 8. OAuth2 사용자 처리
+## 8. OAuth2 사용자 처리 (provider 확장 가능 구조)
+
+### 확장 전략
+
+이번 PR은 KAKAO만 구현하지만 GOOGLE/APPLE/NAVER 추가를 쉽게 하기 위해 **provider별 응답 파싱을 전략 패턴으로 분리**한다. `CustomOAuth2UserService`는 provider에 무관한 공통 흐름만 담당하고, provider 응답 구조 차이는 `OAuth2Attributes` 구현체가 흡수한다.
+
+새 provider 추가 시 변경 범위:
+1. `AuthProvider` enum에 항목 추가 (이미 GOOGLE/APPLE/NAVER 존재)
+2. `OAuth2Attributes` 구현체 1개 추가 (예: `GoogleAttributes`)
+3. `OAuth2AttributesFactory.of(provider, attrs)` 분기에 한 줄 추가
+4. `application-secret.yml`에 `spring.security.oauth2.client.registration.<id>` 등록
+5. `SecurityConfig`/필터/핸들러/JwtTokenProvider/Repository는 **수정 불필요**
+
+### 공통 인터페이스
+
+```kotlin
+interface OAuth2Attributes {
+    val provider: AuthProvider
+    val providerId: String
+    val email: String
+    val nickname: String
+}
+```
 
 ### `KakaoAttributes`
 
 ```kotlin
-class KakaoAttributes(val attributes: Map<String, Any>) {
-    val providerId: String = attributes["id"].toString()
-    private val account: Map<String, Any> = attributes["kakao_account"] as Map<String, Any>? ?: emptyMap()
+class KakaoAttributes(raw: Map<String, Any>) : OAuth2Attributes {
+    override val provider = AuthProvider.KAKAO
+    override val providerId: String = raw["id"].toString()
+    private val account: Map<String, Any> = raw["kakao_account"] as Map<String, Any>? ?: emptyMap()
     private val profile: Map<String, Any> = account["profile"] as Map<String, Any>? ?: emptyMap()
-    val email: String = account["email"] as String? ?: "$providerId@kakao.local"
-    val nickname: String = profile["nickname"] as String? ?: "사용자$providerId"
+    override val email: String = account["email"] as String? ?: "$providerId@kakao.local"
+    override val nickname: String = profile["nickname"] as String? ?: "사용자$providerId"
 }
 ```
+
+### `OAuth2AttributesFactory`
+
+```kotlin
+object OAuth2AttributesFactory {
+    fun of(registrationId: String, raw: Map<String, Any>): OAuth2Attributes {
+        val provider = AuthProvider.valueOf(registrationId.uppercase())
+        return when (provider) {
+            AuthProvider.KAKAO -> KakaoAttributes(raw)
+            AuthProvider.GOOGLE,
+            AuthProvider.APPLE,
+            AuthProvider.NAVER ->
+                throw OAuth2AuthenticationException(OAuth2Error("unsupported_provider", "지원하지 않는 provider: $provider", null))
+        }
+    }
+}
+```
+
+> `when`은 sealed-like exhaustive. 새 provider 추가 시 컴파일러가 분기 누락을 잡지는 못하지만(enum이라 `else` 없는 경우 워닝), `else`를 두지 않고 명시적 분기로 작성해 누락 시 미지원 예외가 명확히 발생하게 한다.
 
 ### `CustomOAuth2UserService`
 
@@ -274,15 +319,14 @@ class CustomOAuth2UserService(
     @Transactional
     override fun loadUser(req: OAuth2UserRequest): OAuth2User {
         val oauth2User = super.loadUser(req)
-        val provider = AuthProvider.valueOf(req.clientRegistration.registrationId.uppercase())
-        val attrs = KakaoAttributes(oauth2User.attributes)
+        val attrs = OAuth2AttributesFactory.of(req.clientRegistration.registrationId, oauth2User.attributes)
 
-        val user = userRepository.findByProviderAndProviderId(provider, attrs.providerId)
+        val user = userRepository.findByProviderAndProviderId(attrs.provider, attrs.providerId)
             ?: userRepository.save(
                 User(
                     name = attrs.nickname,
                     birthDay = "01-01",
-                    provider = provider,
+                    provider = attrs.provider,
                     providerId = attrs.providerId,
                     email = attrs.email,
                 )
@@ -292,6 +336,8 @@ class CustomOAuth2UserService(
     }
 }
 ```
+
+이 클래스는 provider-agnostic 하다. 새 provider 추가 시 본 클래스는 수정하지 않는다.
 
 ### `UserPrincipal`
 
@@ -356,6 +402,7 @@ class AuthController(private val userRepository: UserRepository) {
 
 - `JwtTokenProvider`: issue→parse 라운드트립, 만료, 시그니처 위조, 변조
 - `KakaoAttributes`: 정상/email 미동의/profile 누락/account 누락 파싱
+- `OAuth2AttributesFactory`: `kakao` registrationId → KakaoAttributes 반환, 미지원 provider → `OAuth2AuthenticationException`
 - `OAuth2SuccessHandler`: redirect URL 토큰 포함, 화이트리스트 거부, 디폴트 폴백
 
 ### 슬라이스 / 통합 테스트
@@ -387,7 +434,7 @@ class AuthController(private val userRepository: UserRepository) {
 
 - Refresh token, 토큰 블랙리스트
 - 로그아웃 API (stateless JWT는 클라이언트 토큰 폐기로 충분)
-- 추가 provider (GOOGLE/APPLE/NAVER) — 구조는 확장 가능하게 설계됨
+- 추가 provider (GOOGLE/APPLE/NAVER) **구현** — 구조(8장 전략 패턴)는 확장 가능하게 설계됨, 실제 구현체는 후속 PR
 - prod DDL 마이그레이션 스크립트
 - Rate limiting
 
