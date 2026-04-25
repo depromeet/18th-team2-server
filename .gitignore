@@ -1,7 +1,18 @@
 # Spring
 .env
-application-secret.yml
+.env.*
+application-secret*.yml
+application-secret*.yaml
 HELP.md
+
+# Secrets / Credentials
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+secrets.json
+*credential*
 
 # IntelliJ IDEA
 .idea/

@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
-      - SPRING_PROFILES_ACTIVE=secret-prod
+      - SPRING_PROFILES_ACTIVE=prod,secret-prod
       - DB_HOST=db-prod
     depends_on:
       db-prod:
