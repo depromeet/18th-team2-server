@@ -6,7 +6,7 @@ import jakarta.persistence.Entity
 import jakarta.persistence.Table
 
 @Entity
-@Table(name = "character")
+@Table(name = "avatar")
 class Character(
     @Column(nullable = false)
     var name: String,

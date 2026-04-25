@@ -28,7 +28,7 @@ class Party(
     @Column(name = "paper_opened_at")
     var paperOpenedAt: LocalDateTime? = null,
     @Enumerated(EnumType.STRING)
-    @Column(name = "option")
+    @Column(name = "party_type")
     var option: PartyOption? = null,
     @Enumerated(EnumType.STRING)
     @Column(name = "purpose")
