@@ -5,7 +5,7 @@ services:
     ports:
       - "3306:3306"
     environment:
-      - MYSQL_DATABASE=team2
+      - MYSQL_DATABASE=team2-local-db
       - MYSQL_USER=team2
       - MYSQL_PASSWORD=team2
       - MYSQL_ROOT_PASSWORD=root
