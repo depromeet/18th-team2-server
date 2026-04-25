@@ -1,0 +1,53 @@
+services:
+  app-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - SPRING_PROFILES_ACTIVE=secret-prod
+      - DB_HOST=db-prod
+    depends_on:
+      db-prod:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./logs/prod:/app/logs
+    mem_limit: 1g
+    cpus: 0.7
+    restart: unless-stopped
+    networks:
+      - prod-network
+
+  db-prod:
+    image: mysql:8.0
+    environment:
+      - MYSQL_DATABASE=team2_prod
+      - MYSQL_USER=${PROD_DB_USERNAME}
+      - MYSQL_PASSWORD=${PROD_DB_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${PROD_DB_ROOT_PASSWORD}
+    volumes:
+      - db-prod-data:/var/lib/mysql
+      - /etc/localtime:/etc/localtime:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    mem_limit: 1g
+    cpus: 0.5
+    restart: unless-stopped
+    networks:
+      - prod-network
+
+volumes:
+  db-prod-data:
+
+networks:
+  prod-network:
+    external: true

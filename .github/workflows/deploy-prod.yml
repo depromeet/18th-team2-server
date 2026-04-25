@@ -1,0 +1,17 @@
+name: Deploy Prod
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Deploy to server
+        run: |
+          cd ${{ secrets.PROJECT_PATH }}
+          git checkout main
+          git pull origin main
+          ./scripts/deploy.sh prod
