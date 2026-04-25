@@ -65,6 +65,7 @@ tasks.jar {
 }
 
 tasks.processResources {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from("config/secret") {
         include("*.yml", "*.yaml")
         into("")
