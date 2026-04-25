@@ -1,6 +1,6 @@
 package com.team2.server.auth.jwt
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import tools.jackson.databind.ObjectMapper
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.common.response.ErrorResponse
 import jakarta.servlet.http.HttpServletRequest
