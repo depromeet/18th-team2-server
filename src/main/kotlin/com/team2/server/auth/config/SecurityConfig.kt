@@ -37,38 +37,39 @@ class SecurityConfig(
             .formLogin { it.disable() }
             .httpBasic { it.disable() }
             .authorizeHttpRequests { auth ->
-                auth.requestMatchers(
-                    "/oauth2/**",
-                    "/login/**",
-                    "/actuator/health",
-                    "/actuator/info",
-                    "/swagger-ui/**",
-                    "/v3/api-docs/**",
-                ).permitAll()
+                auth
+                    .requestMatchers(
+                        "/oauth2/**",
+                        "/login/**",
+                        "/actuator/health",
+                        "/actuator/info",
+                        "/swagger-ui/**",
+                        "/v3/api-docs/**",
+                    ).permitAll()
                 auth.anyRequest().authenticated()
-            }
-            .oauth2Login { oauth ->
+            }.oauth2Login { oauth ->
                 oauth.userInfoEndpoint { it.userService(customOAuth2UserService) }
                 oauth.successHandler(oAuth2SuccessHandler)
                 oauth.failureHandler(oAuth2FailureHandler)
-            }
-            .exceptionHandling { it.authenticationEntryPoint(jwtAuthenticationEntryPoint) }
+            }.exceptionHandling { it.authenticationEntryPoint(jwtAuthenticationEntryPoint) }
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
         return http.build()
     }
 
     @Bean
     fun corsConfigurationSource(): CorsConfigurationSource {
-        val origins = allowedRedirectUris
-            .mapNotNull { runCatching { java.net.URI(it) }.getOrNull() }
-            .map { "${it.scheme}://${it.authority}" }
-            .distinct()
-        val config = CorsConfiguration().apply {
-            allowedOrigins = origins
-            allowedMethods = listOf("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
-            allowedHeaders = listOf("*")
-            allowCredentials = true
-        }
+        val origins =
+            allowedRedirectUris
+                .mapNotNull { runCatching { java.net.URI(it) }.getOrNull() }
+                .map { "${it.scheme}://${it.authority}" }
+                .distinct()
+        val config =
+            CorsConfiguration().apply {
+                allowedOrigins = origins
+                allowedMethods = listOf("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+                allowedHeaders = listOf("*")
+                allowCredentials = true
+            }
         return UrlBasedCorsConfigurationSource().apply { registerCorsConfiguration("/**", config) }
     }
 }

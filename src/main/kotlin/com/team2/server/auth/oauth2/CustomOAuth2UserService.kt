@@ -26,19 +26,23 @@ class CustomOAuth2UserService(
      * 카카오 API 호출 결과(attributes)를 받아 사용자를 upsert 하고 UserPrincipal 을 만든다.
      * super.loadUser() 를 우회하여 단위 테스트가 가능하도록 분리.
      */
-    fun processOAuth2User(registrationId: String, attributes: Map<String, Any>): OAuth2User {
+    fun processOAuth2User(
+        registrationId: String,
+        attributes: Map<String, Any>,
+    ): OAuth2User {
         val attrs = OAuth2AttributesFactory.of(registrationId, attributes)
 
-        val user = userRepository.findByProviderAndProviderId(attrs.provider, attrs.providerId)
-            ?: userRepository.save(
-                User(
-                    name = attrs.nickname,
-                    birthDay = DEFAULT_BIRTH_DAY,
-                    provider = attrs.provider,
-                    providerId = attrs.providerId,
-                    email = attrs.email,
-                ),
-            )
+        val user =
+            userRepository.findByProviderAndProviderId(attrs.provider, attrs.providerId)
+                ?: userRepository.save(
+                    User(
+                        name = attrs.nickname,
+                        birthDay = DEFAULT_BIRTH_DAY,
+                        provider = attrs.provider,
+                        providerId = attrs.providerId,
+                        email = attrs.email,
+                    ),
+                )
 
         return UserPrincipal.from(user, attributes)
     }

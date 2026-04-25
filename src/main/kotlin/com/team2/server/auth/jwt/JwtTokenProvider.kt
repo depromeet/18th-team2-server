@@ -21,7 +21,8 @@ class JwtTokenProvider(
     fun issue(user: User): String {
         val now = Instant.now()
         val exp = now.plus(props.expirationHours, ChronoUnit.HOURS)
-        return Jwts.builder()
+        return Jwts
+            .builder()
             .subject(user.id.toString())
             .claim("email", user.email)
             .claim("provider", user.provider.name)
@@ -32,7 +33,8 @@ class JwtTokenProvider(
     }
 
     fun parse(token: String): Claims =
-        Jwts.parser()
+        Jwts
+            .parser()
             .verifyWith(key)
             .build()
             .parseSignedClaims(token)

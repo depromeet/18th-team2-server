@@ -30,21 +30,21 @@ class JwtAuthenticationFilterTest {
     private val tokenProvider = JwtTokenProvider(JwtProperties(secret = secret, expirationHours = 24))
 
     private fun userWithId(id: Long): User {
-        val user = User(
-            name = "n",
-            birthDay = "01-01",
-            provider = AuthProvider.KAKAO,
-            providerId = "p$id",
-            email = "$id@kakao.local",
-        )
+        val user =
+            User(
+                name = "n",
+                birthDay = "01-01",
+                provider = AuthProvider.KAKAO,
+                providerId = "p$id",
+                email = "$id@kakao.local",
+            )
         val idField: Field = user.javaClass.superclass.getDeclaredField("id")
         idField.isAccessible = true
         idField.set(user, id)
         return user
     }
 
-    private fun newFilter(repo: UserRepository): JwtAuthenticationFilter =
-        JwtAuthenticationFilter(tokenProvider, repo)
+    private fun newFilter(repo: UserRepository): JwtAuthenticationFilter = JwtAuthenticationFilter(tokenProvider, repo)
 
     @AfterEach
     fun clear() = SecurityContextHolder.clearContext()
@@ -89,12 +89,13 @@ class JwtAuthenticationFilterTest {
 
     @Test
     fun `잘못된 시그니처는 INVALID_TOKEN 속성`() {
-        val other = JwtTokenProvider(
-            JwtProperties(
-                secret = Base64.getEncoder().encodeToString(ByteArray(64) { (it + 1).toByte() }),
-                expirationHours = 24,
-            ),
-        )
+        val other =
+            JwtTokenProvider(
+                JwtProperties(
+                    secret = Base64.getEncoder().encodeToString(ByteArray(64) { (it + 1).toByte() }),
+                    expirationHours = 24,
+                ),
+            )
         val token = other.issue(userWithId(2L))
         val repo = mock<UserRepository>()
 

@@ -20,13 +20,14 @@ class JwtTokenProviderTest {
         JwtTokenProvider(JwtProperties(secret = secret, expirationHours = expirationHours))
 
     private fun newUser(id: Long = 42L): User {
-        val user = User(
-            name = "닉",
-            birthDay = "01-01",
-            provider = AuthProvider.KAKAO,
-            providerId = "kakao-1",
-            email = "u@kakao.local",
-        )
+        val user =
+            User(
+                name = "닉",
+                birthDay = "01-01",
+                provider = AuthProvider.KAKAO,
+                providerId = "kakao-1",
+                email = "u@kakao.local",
+            )
         // BaseEntity.id 는 val 이지만 테스트용으로 reflection 으로 주입
         val idField: Field = user.javaClass.superclass.getDeclaredField("id")
         idField.isAccessible = true

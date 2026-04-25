@@ -13,7 +13,8 @@ data class UserPrincipal(
     val provider: AuthProvider,
     private val attrs: Map<String, Any> = emptyMap(),
     private val authoritiesSet: Collection<GrantedAuthority> = listOf(SimpleGrantedAuthority("ROLE_USER")),
-) : OAuth2User, UserDetails {
+) : OAuth2User,
+    UserDetails {
     override fun getAuthorities(): Collection<GrantedAuthority> = authoritiesSet
 
     override fun getName(): String = userId.toString()
@@ -33,7 +34,10 @@ data class UserPrincipal(
     override fun isEnabled(): Boolean = true
 
     companion object {
-        fun from(user: User, attrs: Map<String, Any> = emptyMap()): UserPrincipal =
+        fun from(
+            user: User,
+            attrs: Map<String, Any> = emptyMap(),
+        ): UserPrincipal =
             UserPrincipal(
                 userId = user.id,
                 email = user.email,

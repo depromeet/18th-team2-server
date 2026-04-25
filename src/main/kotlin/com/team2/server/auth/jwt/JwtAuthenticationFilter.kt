@@ -41,7 +41,10 @@ class JwtAuthenticationFilter(
         return if (header.startsWith(BEARER_PREFIX)) header.removePrefix(BEARER_PREFIX).trim() else null
     }
 
-    private fun authenticate(token: String, request: HttpServletRequest) {
+    private fun authenticate(
+        token: String,
+        request: HttpServletRequest,
+    ) {
         try {
             val claims = jwtTokenProvider.parse(token)
             val userId = claims.subject.toLong()

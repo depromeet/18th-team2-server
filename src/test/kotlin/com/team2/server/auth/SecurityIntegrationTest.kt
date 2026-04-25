@@ -7,8 +7,8 @@ import com.team2.server.user.entity.User
 import com.team2.server.user.repository.UserRepository
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 
@@ -40,35 +40,38 @@ class SecurityIntegrationTest
 
         @Test
         fun `api auth me 는 유효한 토큰으로 200`() {
-            val user = userRepository.save(
-                User(
-                    name = "n",
-                    birthDay = "01-01",
-                    provider = AuthProvider.KAKAO,
-                    providerId = "kakao-int-1",
-                    email = "int@kakao.local",
-                ),
-            )
+            val user =
+                userRepository.save(
+                    User(
+                        name = "n",
+                        birthDay = "01-01",
+                        provider = AuthProvider.KAKAO,
+                        providerId = "kakao-int-1",
+                        email = "int@kakao.local",
+                    ),
+                )
             val token = tokenProvider.issue(user)
 
-            mockMvc.get("/api/auth/me") {
-                header("Authorization", "Bearer $token")
-            }.andExpect {
-                status { isOk() }
-                jsonPath("$.data.id") { value(user.id) }
-                jsonPath("$.data.email") { value("int@kakao.local") }
-                jsonPath("$.data.provider") { value("KAKAO") }
-            }
+            mockMvc
+                .get("/api/auth/me") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.id") { value(user.id) }
+                    jsonPath("$.data.email") { value("int@kakao.local") }
+                    jsonPath("$.data.provider") { value("KAKAO") }
+                }
         }
 
         @Test
         fun `잘못된 토큰은 INVALID_TOKEN`() {
-            mockMvc.get("/api/auth/me") {
-                header("Authorization", "Bearer not-a-jwt")
-            }.andExpect {
-                status { isUnauthorized() }
-                jsonPath("$.error.code") { value("AUTH_INVALID_TOKEN") }
-            }
+            mockMvc
+                .get("/api/auth/me") {
+                    header("Authorization", "Bearer not-a-jwt")
+                }.andExpect {
+                    status { isUnauthorized() }
+                    jsonPath("$.error.code") { value("AUTH_INVALID_TOKEN") }
+                }
         }
 
         @Test

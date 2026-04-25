@@ -39,8 +39,15 @@
         </root>
     </springProfile>
 
+    <!-- 테스트 프로필: Loki 미사용 -->
+    <springProfile name="test">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
     <!-- 프로필 미지정 시 기본 -->
-    <springProfile name="!local &amp; !prod">
+    <springProfile name="!local &amp; !prod &amp; !test">
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
             <appender-ref ref="LOKI"/>

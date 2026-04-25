@@ -16,9 +16,13 @@ class AuthController(
     private val userRepository: UserRepository,
 ) {
     @GetMapping("/me")
-    fun me(@AuthenticationPrincipal principal: UserPrincipal): ApiResponse<UserResponse> {
-        val user = userRepository.findById(principal.userId)
-            .orElseThrow { BusinessException(ErrorCode.AUTH_USER_NOT_FOUND) }
+    fun me(
+        @AuthenticationPrincipal principal: UserPrincipal,
+    ): ApiResponse<UserResponse> {
+        val user =
+            userRepository
+                .findById(principal.userId)
+                .orElseThrow { BusinessException(ErrorCode.AUTH_USER_NOT_FOUND) }
         return ApiResponse.success(UserResponse.from(user))
     }
 }

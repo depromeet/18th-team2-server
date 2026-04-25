@@ -5,7 +5,10 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticationException
 import org.springframework.security.oauth2.core.OAuth2Error
 
 object OAuth2AttributesFactory {
-    fun of(registrationId: String, raw: Map<String, Any>): OAuth2Attributes {
+    fun of(
+        registrationId: String,
+        raw: Map<String, Any>,
+    ): OAuth2Attributes {
         val provider = AuthProvider.valueOf(registrationId.uppercase())
         return when (provider) {
             AuthProvider.KAKAO -> KakaoAttributes(raw)

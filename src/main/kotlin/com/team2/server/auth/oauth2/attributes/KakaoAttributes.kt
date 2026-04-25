@@ -2,7 +2,9 @@ package com.team2.server.auth.oauth2.attributes
 
 import com.team2.server.user.entity.AuthProvider
 
-class KakaoAttributes(raw: Map<String, Any>) : OAuth2Attributes {
+class KakaoAttributes(
+    raw: Map<String, Any>,
+) : OAuth2Attributes {
     override val provider: AuthProvider = AuthProvider.KAKAO
     override val providerId: String = raw["id"].toString()
 

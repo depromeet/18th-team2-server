@@ -7,13 +7,15 @@ import kotlin.test.assertEquals
 class KakaoAttributesTest {
     @Test
     fun `정상 응답 파싱`() {
-        val raw = mapOf(
-            "id" to 123456789L,
-            "kakao_account" to mapOf(
-                "email" to "user@kakao.com",
-                "profile" to mapOf("nickname" to "홍길동"),
-            ),
-        )
+        val raw =
+            mapOf(
+                "id" to 123456789L,
+                "kakao_account" to
+                    mapOf(
+                        "email" to "user@kakao.com",
+                        "profile" to mapOf("nickname" to "홍길동"),
+                    ),
+            )
 
         val attrs = KakaoAttributes(raw)
 
@@ -25,12 +27,14 @@ class KakaoAttributesTest {
 
     @Test
     fun `email 미동의 시 fallback`() {
-        val raw = mapOf(
-            "id" to 999L,
-            "kakao_account" to mapOf(
-                "profile" to mapOf("nickname" to "닉"),
-            ),
-        )
+        val raw =
+            mapOf(
+                "id" to 999L,
+                "kakao_account" to
+                    mapOf(
+                        "profile" to mapOf("nickname" to "닉"),
+                    ),
+            )
 
         val attrs = KakaoAttributes(raw)
 
@@ -40,10 +44,11 @@ class KakaoAttributesTest {
 
     @Test
     fun `profile 누락 시 nickname fallback`() {
-        val raw = mapOf(
-            "id" to 555L,
-            "kakao_account" to mapOf("email" to "x@kakao.com"),
-        )
+        val raw =
+            mapOf(
+                "id" to 555L,
+                "kakao_account" to mapOf("email" to "x@kakao.com"),
+            )
 
         val attrs = KakaoAttributes(raw)
 

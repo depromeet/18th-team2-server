@@ -25,10 +25,12 @@ class OAuth2FailureHandler(
         log.warn("OAuth2 authentication failed", exception)
 
         val target = allowedRedirectUris.first()
-        val redirectUrl = UriComponentsBuilder.fromUriString(target)
-            .queryParam("error", ErrorCode.AUTH_OAUTH_FAILURE.name)
-            .build()
-            .toUriString()
+        val redirectUrl =
+            UriComponentsBuilder
+                .fromUriString(target)
+                .queryParam("error", ErrorCode.AUTH_OAUTH_FAILURE.name)
+                .build()
+                .toUriString()
 
         redirectStrategy.sendRedirect(request, response, redirectUrl)
     }

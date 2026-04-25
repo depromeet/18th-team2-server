@@ -8,10 +8,11 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class OAuth2AttributesFactoryTest {
-    private val rawKakao = mapOf<String, Any>(
-        "id" to 1L,
-        "kakao_account" to mapOf("email" to "a@kakao.com", "profile" to mapOf("nickname" to "n")),
-    )
+    private val rawKakao =
+        mapOf<String, Any>(
+            "id" to 1L,
+            "kakao_account" to mapOf("email" to "a@kakao.com", "profile" to mapOf("nickname" to "n")),
+        )
 
     @Test
     fun `kakao registrationId는 KakaoAttributes 반환`() {

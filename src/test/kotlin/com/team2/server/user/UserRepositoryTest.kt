@@ -18,14 +18,16 @@ class UserRepositoryTest
     constructor(
         private val userRepository: UserRepository,
     ) {
-        private fun newUser(providerId: String, email: String = "$providerId@kakao.local") =
-            User(
-                name = "닉",
-                birthDay = "01-01",
-                provider = AuthProvider.KAKAO,
-                providerId = providerId,
-                email = email,
-            )
+        private fun newUser(
+            providerId: String,
+            email: String = "$providerId@kakao.local",
+        ) = User(
+            name = "닉",
+            birthDay = "01-01",
+            provider = AuthProvider.KAKAO,
+            providerId = providerId,
+            email = email,
+        )
 
         @Test
         fun `findByProviderAndProviderId 매칭 사용자 반환`() {

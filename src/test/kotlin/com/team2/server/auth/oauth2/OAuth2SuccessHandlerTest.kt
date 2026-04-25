@@ -22,14 +22,18 @@ class OAuth2SuccessHandlerTest {
     private val secret = Base64.getEncoder().encodeToString(ByteArray(64) { it.toByte() })
     private val tokenProvider = JwtTokenProvider(JwtProperties(secret = secret))
 
-    private fun seedUser(repo: FakeUserRepository, id: Long): User {
-        val u = User(
-            name = "n",
-            birthDay = "01-01",
-            provider = AuthProvider.KAKAO,
-            providerId = "p$id",
-            email = "$id@kakao.local",
-        )
+    private fun seedUser(
+        repo: FakeUserRepository,
+        id: Long,
+    ): User {
+        val u =
+            User(
+                name = "n",
+                birthDay = "01-01",
+                provider = AuthProvider.KAKAO,
+                providerId = "p$id",
+                email = "$id@kakao.local",
+            )
         val idField: Field = u.javaClass.superclass.getDeclaredField("id")
         idField.isAccessible = true
         idField.set(u, id)
@@ -52,7 +56,13 @@ class OAuth2SuccessHandlerTest {
     fun `허용 redirect_uri 쿼리에 토큰 포함하여 302`() {
         val repo = FakeUserRepository()
         val user = seedUser(repo, 10L)
-        val req = MockHttpServletRequest().apply { setParameter("redirect_uri", "http://localhost:3000/oauth/redirect") }
+        val req =
+            MockHttpServletRequest().apply {
+                setParameter(
+                    "redirect_uri",
+                    "http://localhost:3000/oauth/redirect",
+                )
+            }
         val res = MockHttpServletResponse()
         val auth = authWith(UserPrincipal.from(user))
 
