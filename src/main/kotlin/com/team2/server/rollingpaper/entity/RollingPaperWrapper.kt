@@ -10,6 +10,4 @@ import jakarta.persistence.Table
 class RollingPaperWrapper(
     @Column(nullable = false)
     var name: String,
-    @Column(name = "image_url", nullable = false)
-    var imageUrl: String,
 ) : BaseEntity()
