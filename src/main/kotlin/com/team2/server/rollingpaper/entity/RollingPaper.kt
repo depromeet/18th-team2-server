@@ -20,9 +20,6 @@ class RollingPaper(
     @JoinColumn(name = "writer_participant_id", nullable = false)
     var writer: Participant,
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "recipient_participant_id", nullable = false)
-    var recipient: Participant,
-    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "party_id", nullable = false)
     var party: Party,
     @Column(nullable = false, length = 1000)
