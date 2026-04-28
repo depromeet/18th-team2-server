@@ -1,4 +1,4 @@
-package com.team2.server.party.controller.dto
+package com.team2.server.party.dto
 
 import com.team2.server.party.entity.Party
 import com.team2.server.party.entity.PartyOption

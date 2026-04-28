@@ -2,9 +2,9 @@ package com.team2.server.party.service
 
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
-import com.team2.server.party.controller.dto.JoinPartyResponse
-import com.team2.server.party.controller.dto.ParticipantResponse
-import com.team2.server.party.controller.dto.PartyInfoResponse
+import com.team2.server.party.dto.JoinPartyResponse
+import com.team2.server.party.dto.ParticipantResponse
+import com.team2.server.party.dto.PartyInfoResponse
 import com.team2.server.party.entity.Participant
 import com.team2.server.party.repository.CharacterRepository
 import com.team2.server.party.repository.ParticipantRepository

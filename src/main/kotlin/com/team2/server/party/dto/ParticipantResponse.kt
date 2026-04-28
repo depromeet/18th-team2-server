@@ -1,4 +1,4 @@
-package com.team2.server.party.controller.dto
+package com.team2.server.party.dto
 
 import com.team2.server.party.entity.Participant
 import io.swagger.v3.oas.annotations.media.Schema

@@ -1,4 +1,4 @@
-package com.team2.server.party.controller.dto
+package com.team2.server.party.dto
 
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.constraints.NotBlank

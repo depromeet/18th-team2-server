@@ -2,9 +2,9 @@ package com.team2.server.party.controller
 
 import com.team2.server.auth.principal.UserPrincipal
 import com.team2.server.common.response.ApiResponse
-import com.team2.server.party.controller.dto.JoinPartyRequest
-import com.team2.server.party.controller.dto.JoinPartyResponse
-import com.team2.server.party.controller.dto.PartyInfoResponse
+import com.team2.server.party.dto.JoinPartyRequest
+import com.team2.server.party.dto.JoinPartyResponse
+import com.team2.server.party.dto.PartyInfoResponse
 import com.team2.server.party.service.PartyService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
