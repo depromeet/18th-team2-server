@@ -22,8 +22,6 @@ data class PartyInfoResponse(
     val endedAt: LocalDateTime?,
     @Schema(description = "파티 생성일")
     val createdAt: LocalDateTime,
-    @Schema(description = "채팅 허용 여부")
-    val isChattingAllow: Boolean,
     @Schema(description = "파티 종료 여부")
     val ended: Boolean,
     @Schema(description = "나의 참여 정보 (회원이 이미 참여한 경우)")
@@ -42,7 +40,6 @@ data class PartyInfoResponse(
                 startedAt = party.startedAt,
                 endedAt = party.endedAt,
                 createdAt = party.createdAt,
-                isChattingAllow = party.isChattingAllow,
                 ended = party.endedAt?.isBefore(LocalDateTime.now()) ?: false,
                 myParticipant = myParticipant,
             )

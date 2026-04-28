@@ -20,4 +20,6 @@ enum class ErrorCode(
     PARTY_ENDED(HttpStatus.BAD_REQUEST, "이미 종료된 파티입니다"),
     ALREADY_JOINED(HttpStatus.CONFLICT, "이미 참여한 파티입니다"),
     CHARACTER_NOT_FOUND(HttpStatus.NOT_FOUND, "캐릭터를 찾을 수 없습니다"),
-}
+    CHARACTER_REQUIRED(HttpStatus.BAD_REQUEST, "채팅 허용 파티는 캐릭터 선택이 필수입니다"),
+    CHARACTER_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "채팅 비허용 파티는 캐릭터를 선택할 수 없습니다"),
+}    

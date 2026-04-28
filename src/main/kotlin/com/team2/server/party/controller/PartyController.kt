@@ -3,7 +3,7 @@ package com.team2.server.party.controller
 import com.team2.server.auth.principal.UserPrincipal
 import com.team2.server.common.response.ApiResponse
 import com.team2.server.party.dto.JoinPartyRequest
-import com.team2.server.party.dto.JoinPartyResponse
+import com.team2.server.party.dto.ParticipantResponse
 import com.team2.server.party.dto.PartyInfoResponse
 import com.team2.server.party.service.PartyService
 import io.swagger.v3.oas.annotations.Operation
@@ -39,7 +39,7 @@ class PartyController(
         @PathVariable shareLink: String,
         @Valid @RequestBody request: JoinPartyRequest,
         @AuthenticationPrincipal principal: UserPrincipal?,
-    ): ApiResponse<JoinPartyResponse> {
+    ): ApiResponse<ParticipantResponse> {
         val result = partyService.joinParty(shareLink, principal?.userId, request.nickname, request.characterId)
         return ApiResponse.success(result)
     }

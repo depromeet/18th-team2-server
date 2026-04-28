@@ -1,5 +1,6 @@
 package com.team2.server.party.service
 
+import com.team2.server.party.dto.CharacterImageUrlResolver
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.entity.Character
@@ -40,6 +41,9 @@ class PartyServiceTest {
     lateinit var characterRepository: CharacterRepository
 
     @Mock
+    lateinit var characterImageUrlResolver: CharacterImageUrlResolver
+
+    @Mock
     lateinit var userRepository: UserRepository
 
     @InjectMocks
@@ -58,6 +62,7 @@ class PartyServiceTest {
         id: Long = 1L,
         shareLink: String = "abc123",
         endedAt: LocalDateTime = LocalDateTime.now().plusDays(7),
+        isChattingAllow: Boolean = true,
     ): Party {
         val party =
             Party(
@@ -68,7 +73,7 @@ class PartyServiceTest {
                 option = PartyOption.REALTIME,
                 startedAt = LocalDateTime.now(),
                 endedAt = endedAt,
-                isChattingAllow = true,
+                isChattingAllow = isChattingAllow,
             )
         setId(party, id)
         return party
@@ -106,7 +111,6 @@ class PartyServiceTest {
         assertEquals("홍길동", result.celebrantNickname)
         assertEquals(PartyPurpose.BIRTHDAY, result.purpose)
         assertEquals(PartyOption.REALTIME, result.option)
-        assertTrue(result.isChattingAllow)
         assertFalse(result.ended)
         assertNull(result.myParticipant)
     }
@@ -149,13 +153,14 @@ class PartyServiceTest {
         whenever(partyRepository.findByShareLink("abc123")).thenReturn(party)
         whenever(userRepository.findById(10L)).thenReturn(java.util.Optional.of(user))
         whenever(participantRepository.findByPartyAndUser(party, user)).thenReturn(participant)
+        whenever(characterImageUrlResolver.resolve(character)).thenReturn("/images/characters/character1.jpg")
 
         val result = partyService.getPartyInfo("abc123", 10L)
 
-        assertNotNull(result.myParticipant)
-        assertEquals(5L, result.myParticipant!!.participantId)
-        assertEquals("닉네임", result.myParticipant!!.nickname)
-        assertEquals(1L, result.myParticipant!!.characterId)
+        val myParticipant = assertNotNull(result.myParticipant)
+        assertEquals(5L, myParticipant.participantId)
+        assertEquals("닉네임", myParticipant.nickname)
+        assertEquals("/images/characters/character1.jpg", myParticipant.characterImageUrl)
     }
 
     @Test
@@ -181,6 +186,7 @@ class PartyServiceTest {
 
         whenever(partyRepository.findByShareLink("abc123")).thenReturn(party)
         whenever(characterRepository.findById(1L)).thenReturn(java.util.Optional.of(character))
+        whenever(characterImageUrlResolver.resolve(character)).thenReturn("/images/characters/character1.jpg")
         whenever(participantRepository.save(org.mockito.kotlin.any<Participant>())).thenAnswer {
             val p = it.getArgument<Participant>(0)
             setId(p, 99L)
@@ -191,7 +197,7 @@ class PartyServiceTest {
 
         assertEquals(99L, result.participantId)
         assertEquals("참여자", result.nickname)
-        assertEquals(1L, result.characterId)
+        assertEquals("/images/characters/character1.jpg", result.characterImageUrl)
     }
 
     @Test
@@ -204,6 +210,7 @@ class PartyServiceTest {
         whenever(userRepository.findById(10L)).thenReturn(java.util.Optional.of(user))
         whenever(participantRepository.existsByPartyAndUser(party, user)).thenReturn(false)
         whenever(characterRepository.findById(1L)).thenReturn(java.util.Optional.of(character))
+        whenever(characterImageUrlResolver.resolve(character)).thenReturn("/images/characters/character1.jpg")
         whenever(participantRepository.save(org.mockito.kotlin.any<Participant>())).thenAnswer {
             val p = it.getArgument<Participant>(0)
             setId(p, 100L)
@@ -214,6 +221,7 @@ class PartyServiceTest {
 
         assertEquals(100L, result.participantId)
         assertEquals("회원참여자", result.nickname)
+        assertEquals("/images/characters/character1.jpg", result.characterImageUrl)
     }
 
     @Test
@@ -266,5 +274,47 @@ class PartyServiceTest {
                 partyService.joinParty("abc123", null, "닉", 999L)
             }
         assertEquals(ErrorCode.CHARACTER_NOT_FOUND, ex.errorCode)
+    }
+
+    @Test
+    fun `joinParty 채팅 허용 파티에서 characterId 없으면 CHARACTER_REQUIRED`() {
+        val party = newParty(isChattingAllow = true)
+        whenever(partyRepository.findByShareLink("abc123")).thenReturn(party)
+
+        val ex =
+            assertThrows<BusinessException> {
+                partyService.joinParty("abc123", null, "닉", null)
+            }
+        assertEquals(ErrorCode.CHARACTER_REQUIRED, ex.errorCode)
+    }
+
+    @Test
+    fun `joinParty 채팅 비허용 파티에서 characterId 있으면 CHARACTER_NOT_ALLOWED`() {
+        val party = newParty(isChattingAllow = false)
+        whenever(partyRepository.findByShareLink("abc123")).thenReturn(party)
+
+        val ex =
+            assertThrows<BusinessException> {
+                partyService.joinParty("abc123", null, "닉", 1L)
+            }
+        assertEquals(ErrorCode.CHARACTER_NOT_ALLOWED, ex.errorCode)
+    }
+
+    @Test
+    fun `joinParty 채팅 비허용 파티는 characterId 없이 참여 성공`() {
+        val party = newParty(isChattingAllow = false)
+
+        whenever(partyRepository.findByShareLink("abc123")).thenReturn(party)
+        whenever(participantRepository.save(org.mockito.kotlin.any<Participant>())).thenAnswer {
+            val p = it.getArgument<Participant>(0)
+            setId(p, 101L)
+            p
+        }
+
+        val result = partyService.joinParty("abc123", null, "참여자", null)
+
+        assertEquals(101L, result.participantId)
+        assertEquals("참여자", result.nickname)
+        assertNull(result.characterImageUrl)
     }
 }

@@ -2,6 +2,9 @@ package com.team2.server.party.controller
 
 import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
+import com.team2.server.common.entity.Image
+import com.team2.server.common.entity.ImageTargetType
+import com.team2.server.common.repository.ImageRepository
 import com.team2.server.party.entity.Character
 import com.team2.server.party.entity.Party
 import com.team2.server.party.entity.PartyOption
@@ -32,11 +35,13 @@ class PartyControllerTest
         private val partyRepository: PartyRepository,
         private val characterRepository: CharacterRepository,
         private val participantRepository: ParticipantRepository,
+        private val imageRepository: ImageRepository,
         private val userRepository: UserRepository,
         private val jwtProperties: JwtProperties,
     ) {
         private val tokenProvider = JwtTokenProvider(jwtProperties)
         private lateinit var party: Party
+        private lateinit var noChatParty: Party
         private lateinit var endedParty: Party
         private lateinit var character: Character
 
@@ -45,6 +50,7 @@ class PartyControllerTest
             participantRepository.deleteAll()
             partyRepository.deleteAll()
             characterRepository.deleteAll()
+            imageRepository.deleteAll()
             userRepository.deleteAll()
 
             party =
@@ -60,6 +66,19 @@ class PartyControllerTest
                         isChattingAllow = true,
                     ),
                 )
+            noChatParty =
+                partyRepository.save(
+                    Party(
+                        shareLink = "no-chat-link",
+                        name = "페이퍼파티",
+                        celebrantNickname = "박영희",
+                        purpose = PartyPurpose.BIRTHDAY,
+                        option = PartyOption.PAPER_ONLY,
+                        startedAt = LocalDateTime.now(),
+                        endedAt = LocalDateTime.now().plusDays(7),
+                        isChattingAllow = false,
+                    ),
+                )
             endedParty =
                 partyRepository.save(
                     Party(
@@ -73,7 +92,14 @@ class PartyControllerTest
                         isChattingAllow = false,
                     ),
                 )
-            character = characterRepository.save(Character(name = "곰돌이"))
+	            character = characterRepository.save(Character(name = "곰돌이"))
+            imageRepository.save(
+                Image(
+                    imageUrl = "/images/characters/character1.jpg",
+                    targetType = ImageTargetType.CHARACTER,
+                    targetId = character.id,
+                ),
+            )
         }
 
         // --- GET /api/parties/{shareLink} ---
@@ -86,7 +112,6 @@ class PartyControllerTest
                 jsonPath("$.data.celebrantNickname") { value("홍길동") }
                 jsonPath("$.data.purpose") { value("BIRTHDAY") }
                 jsonPath("$.data.option") { value("REALTIME") }
-                jsonPath("$.data.isChattingAllow") { value(true) }
                 jsonPath("$.data.ended") { value(false) }
                 jsonPath("$.data.myParticipant") { doesNotExist() }
             }
@@ -136,6 +161,7 @@ class PartyControllerTest
                 }.andExpect {
                     status { isOk() }
                     jsonPath("$.data.myParticipant.nickname") { value("기존참여자") }
+                    jsonPath("$.data.myParticipant.characterImageUrl") { value("/images/characters/character1.jpg") }
                 }
         }
 
@@ -150,7 +176,7 @@ class PartyControllerTest
                 }.andExpect {
                     status { isOk() }
                     jsonPath("$.data.nickname") { value("비회원") }
-                    jsonPath("$.data.characterId") { value(character.id) }
+                    jsonPath("$.data.characterImageUrl") { value("/images/characters/character1.jpg") }
                     jsonPath("$.data.participantId") { isNumber() }
                 }
         }
@@ -177,6 +203,7 @@ class PartyControllerTest
                 }.andExpect {
                     status { isOk() }
                     jsonPath("$.data.nickname") { value("회원참여") }
+                    jsonPath("$.data.characterImageUrl") { value("/images/characters/character1.jpg") }
                 }
         }
 
@@ -245,6 +272,43 @@ class PartyControllerTest
                 }.andExpect {
                     status { isNotFound() }
                     jsonPath("$.error.code") { value("CHARACTER_NOT_FOUND") }
+                }
+        }
+
+        @Test
+        fun `채팅 허용 파티에서 characterId 없으면 400`() {
+            mockMvc
+                .post("/api/parties/active-link/participants") {
+                    contentType = MediaType.APPLICATION_JSON
+                    content = """{"nickname": "닉네임"}"""
+                }.andExpect {
+                    status { isBadRequest() }
+                    jsonPath("$.error.code") { value("CHARACTER_REQUIRED") }
+                }
+        }
+
+        @Test
+        fun `채팅 비허용 파티에서 characterId 있으면 400`() {
+            mockMvc
+                .post("/api/parties/no-chat-link/participants") {
+                    contentType = MediaType.APPLICATION_JSON
+                    content = """{"nickname": "닉네임", "characterId": ${character.id}}"""
+                }.andExpect {
+                    status { isBadRequest() }
+                    jsonPath("$.error.code") { value("CHARACTER_NOT_ALLOWED") }
+                }
+        }
+
+        @Test
+        fun `채팅 비허용 파티는 characterId 없이 참여 성공`() {
+            mockMvc
+                .post("/api/parties/no-chat-link/participants") {
+                    contentType = MediaType.APPLICATION_JSON
+                    content = """{"nickname": "닉네임"}"""
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.nickname") { value("닉네임") }
+                    jsonPath("$.data.characterImageUrl") { doesNotExist() }
                 }
         }
 
