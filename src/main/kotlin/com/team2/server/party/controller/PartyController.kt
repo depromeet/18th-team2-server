@@ -1,7 +1,6 @@
 package com.team2.server.party.controller
 
-import com.team2.server.common.exception.BusinessException
-import com.team2.server.common.exception.ErrorCode
+import com.team2.server.auth.principal.UserPrincipal
 import com.team2.server.common.response.ApiResponse
 import com.team2.server.party.dto.CreatePartyRequest
 import com.team2.server.party.dto.CreatePartyResponse
@@ -10,9 +9,9 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.HttpStatus
+import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
-import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
@@ -30,12 +29,7 @@ class PartyController(
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping
     fun createParty(
-        @RequestHeader(value = "Authorization", required = false) authorization: String?,
+        @AuthenticationPrincipal principal: UserPrincipal,
         @RequestBody request: CreatePartyRequest,
-    ): ApiResponse<CreatePartyResponse> {
-        if (authorization.isNullOrBlank() || !authorization.startsWith("Bearer ")) {
-            throw BusinessException(ErrorCode.UNAUTHORIZED)
-        }
-        return ApiResponse.success(partyService.createParty(request))
-    }
+    ): ApiResponse<CreatePartyResponse> = ApiResponse.success(partyService.createParty(principal.userId, request))
 }

@@ -13,10 +13,14 @@ class PartyService(
     private val partyRepository: PartyRepository,
 ) {
     @Transactional
-    fun createParty(request: CreatePartyRequest): CreatePartyResponse {
+    fun createParty(
+        userId: Long,
+        request: CreatePartyRequest,
+    ): CreatePartyResponse {
         val startedAt = LocalDateTime.of(request.startedDate, request.startTime)
         val party =
             Party(
+                ownerId = userId,
                 celebrantNickname = request.celebrantNickname,
                 startedAt = startedAt,
             )
