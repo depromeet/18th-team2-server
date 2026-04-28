@@ -8,16 +8,25 @@ import jakarta.persistence.FetchType
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
 
 @Entity
-@Table(name = "participant")
+@Table(
+    name = "participant",
+    uniqueConstraints = [
+        UniqueConstraint(
+            name = "uk_participant_party_user",
+            columnNames = ["party_id", "user_id"],
+        ),
+    ],
+)
 class Participant(
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "party_id", nullable = false)
     var party: Party,
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "character_id", nullable = false)
-    var character: Character,
+    @JoinColumn(name = "character_id")
+    var character: Character? = null,
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     var user: User? = null,

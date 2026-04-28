@@ -29,7 +29,7 @@ class PartyInviteService(
             partyRepository.findByIdOrNull(partyId)
                 ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
 
-        if (!participantRepository.existsByPartyIdAndUserId(partyId, userId)) {
+        if (!canActivateInviteLink(party, userId)) {
             throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
         }
 
@@ -41,6 +41,13 @@ class PartyInviteService(
 
         return ActivateInviteLinkResponse(token = invite.token)
     }
+
+    private fun canActivateInviteLink(
+        party: Party,
+        userId: Long,
+    ): Boolean =
+        party.ownerId == userId ||
+            participantRepository.existsByPartyIdAndUserId(party.id, userId)
 
     private fun createInvite(
         party: Party,

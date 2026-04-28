@@ -44,7 +44,11 @@ class JwtAuthenticationFilterTest {
         return user
     }
 
-    private fun newFilter(repo: UserRepository): JwtAuthenticationFilter = JwtAuthenticationFilter(tokenProvider, repo)
+    private fun newFilter(repo: UserRepository): JwtAuthenticationFilter =
+        JwtAuthenticationFilter(
+            tokenProvider,
+            repo,
+        )
 
     @AfterEach
     fun clear() = SecurityContextHolder.clearContext()
@@ -69,7 +73,7 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    fun `만료 토큰은 컨텍스트 미설정 + 요청 속성에 EXPIRED 코드`() {
+    fun `만료 토큰은 인증 없이 체인 통과 + 요청 속성에 EXPIRED 코드`() {
         val user = userWithId(1L)
         val expiredProvider = JwtTokenProvider(JwtProperties(secret = secret, expirationHours = 0))
         val repo = mock<UserRepository>()
@@ -88,7 +92,7 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    fun `잘못된 시그니처는 INVALID_TOKEN 속성`() {
+    fun `잘못된 시그니처는 인증 없이 체인 통과 + INVALID_TOKEN 속성`() {
         val other =
             JwtTokenProvider(
                 JwtProperties(
@@ -107,10 +111,11 @@ class JwtAuthenticationFilterTest {
 
         assertNull(SecurityContextHolder.getContext().authentication)
         assertEquals(ErrorCode.AUTH_INVALID_TOKEN, req.getAttribute(AUTH_ERROR_REQUEST_ATTRIBUTE))
+        verify(chain).doFilter(any<HttpServletRequest>(), any<HttpServletResponse>())
     }
 
     @Test
-    fun `userId DB 미존재면 USER_NOT_FOUND 속성`() {
+    fun `userId DB 미존재면 인증 없이 체인 통과 + USER_NOT_FOUND 속성`() {
         val token = tokenProvider.issue(userWithId(99L))
         val repo = mock<UserRepository>()
         whenever(repo.findById(99L)).thenReturn(Optional.empty())
@@ -123,6 +128,7 @@ class JwtAuthenticationFilterTest {
 
         assertNull(SecurityContextHolder.getContext().authentication)
         assertEquals(ErrorCode.AUTH_USER_NOT_FOUND, req.getAttribute(AUTH_ERROR_REQUEST_ATTRIBUTE))
+        verify(chain).doFilter(any<HttpServletRequest>(), any<HttpServletResponse>())
     }
 
     @Test
