@@ -45,7 +45,10 @@ class PartyServiceTest {
     @InjectMocks
     lateinit var partyService: PartyService
 
-    private fun setId(entity: Any, id: Long) {
+    private fun setId(
+        entity: Any,
+        id: Long,
+    ) {
         val idField: Field = entity.javaClass.superclass.getDeclaredField("id")
         idField.isAccessible = true
         idField.set(entity, id)
@@ -56,28 +59,30 @@ class PartyServiceTest {
         shareLink: String = "abc123",
         endedAt: LocalDateTime = LocalDateTime.now().plusDays(7),
     ): Party {
-        val party = Party(
-            shareLink = shareLink,
-            name = "생일파티",
-            celebrantNickname = "홍길동",
-            purpose = PartyPurpose.BIRTHDAY,
-            option = PartyOption.REALTIME,
-            startedAt = LocalDateTime.now(),
-            endedAt = endedAt,
-            isChattingAllow = true,
-        )
+        val party =
+            Party(
+                shareLink = shareLink,
+                name = "생일파티",
+                celebrantNickname = "홍길동",
+                purpose = PartyPurpose.BIRTHDAY,
+                option = PartyOption.REALTIME,
+                startedAt = LocalDateTime.now(),
+                endedAt = endedAt,
+                isChattingAllow = true,
+            )
         setId(party, id)
         return party
     }
 
     private fun newUser(id: Long = 10L): User {
-        val user = User(
-            name = "유저",
-            birthDay = "01-01",
-            provider = AuthProvider.KAKAO,
-            providerId = "kakao-1",
-            email = "u@kakao.local",
-        )
+        val user =
+            User(
+                name = "유저",
+                birthDay = "01-01",
+                provider = AuthProvider.KAKAO,
+                providerId = "kakao-1",
+                email = "u@kakao.local",
+            )
         setId(user, id)
         return user
     }
@@ -120,9 +125,10 @@ class PartyServiceTest {
     fun `getPartyInfo 존재하지 않는 shareLink면 PARTY_NOT_FOUND`() {
         whenever(partyRepository.findByShareLink("no-link")).thenReturn(null)
 
-        val ex = assertThrows<BusinessException> {
-            partyService.getPartyInfo("no-link", null)
-        }
+        val ex =
+            assertThrows<BusinessException> {
+                partyService.getPartyInfo("no-link", null)
+            }
         assertEquals(ErrorCode.PARTY_NOT_FOUND, ex.errorCode)
     }
 
@@ -131,12 +137,13 @@ class PartyServiceTest {
         val party = newParty()
         val user = newUser()
         val character = newCharacter()
-        val participant = Participant(
-            party = party,
-            character = character,
-            user = user,
-            nickname = "닉네임",
-        )
+        val participant =
+            Participant(
+                party = party,
+                character = character,
+                user = user,
+                nickname = "닉네임",
+            )
         setId(participant, 5L)
 
         whenever(partyRepository.findByShareLink("abc123")).thenReturn(party)
@@ -163,5 +170,101 @@ class PartyServiceTest {
         val result = partyService.getPartyInfo("abc123", 10L)
 
         assertNull(result.myParticipant)
+    }
+
+    // --- 파티 참여 ---
+
+    @Test
+    fun `joinParty 비회원 참여 성공`() {
+        val party = newParty()
+        val character = newCharacter()
+
+        whenever(partyRepository.findByShareLink("abc123")).thenReturn(party)
+        whenever(characterRepository.findById(1L)).thenReturn(java.util.Optional.of(character))
+        whenever(participantRepository.save(org.mockito.kotlin.any<Participant>())).thenAnswer {
+            val p = it.getArgument<Participant>(0)
+            setId(p, 99L)
+            p
+        }
+
+        val result = partyService.joinParty("abc123", null, "참여자", 1L)
+
+        assertEquals(99L, result.participantId)
+        assertEquals("참여자", result.nickname)
+        assertEquals(1L, result.characterId)
+    }
+
+    @Test
+    fun `joinParty 회원 참여 성공`() {
+        val party = newParty()
+        val user = newUser()
+        val character = newCharacter()
+
+        whenever(partyRepository.findByShareLink("abc123")).thenReturn(party)
+        whenever(userRepository.findById(10L)).thenReturn(java.util.Optional.of(user))
+        whenever(participantRepository.existsByPartyAndUser(party, user)).thenReturn(false)
+        whenever(characterRepository.findById(1L)).thenReturn(java.util.Optional.of(character))
+        whenever(participantRepository.save(org.mockito.kotlin.any<Participant>())).thenAnswer {
+            val p = it.getArgument<Participant>(0)
+            setId(p, 100L)
+            p
+        }
+
+        val result = partyService.joinParty("abc123", 10L, "회원참여자", 1L)
+
+        assertEquals(100L, result.participantId)
+        assertEquals("회원참여자", result.nickname)
+    }
+
+    @Test
+    fun `joinParty 존재하지 않는 shareLink면 PARTY_NOT_FOUND`() {
+        whenever(partyRepository.findByShareLink("no-link")).thenReturn(null)
+
+        val ex =
+            assertThrows<BusinessException> {
+                partyService.joinParty("no-link", null, "닉", 1L)
+            }
+        assertEquals(ErrorCode.PARTY_NOT_FOUND, ex.errorCode)
+    }
+
+    @Test
+    fun `joinParty 종료된 파티면 PARTY_ENDED`() {
+        val party = newParty(endedAt = LocalDateTime.now().minusDays(1))
+        whenever(partyRepository.findByShareLink("abc123")).thenReturn(party)
+
+        val ex =
+            assertThrows<BusinessException> {
+                partyService.joinParty("abc123", null, "닉", 1L)
+            }
+        assertEquals(ErrorCode.PARTY_ENDED, ex.errorCode)
+    }
+
+    @Test
+    fun `joinParty 회원 중복 참여면 ALREADY_JOINED`() {
+        val party = newParty()
+        val user = newUser()
+
+        whenever(partyRepository.findByShareLink("abc123")).thenReturn(party)
+        whenever(userRepository.findById(10L)).thenReturn(java.util.Optional.of(user))
+        whenever(participantRepository.existsByPartyAndUser(party, user)).thenReturn(true)
+
+        val ex =
+            assertThrows<BusinessException> {
+                partyService.joinParty("abc123", 10L, "닉", 1L)
+            }
+        assertEquals(ErrorCode.ALREADY_JOINED, ex.errorCode)
+    }
+
+    @Test
+    fun `joinParty 존재하지 않는 characterId면 CHARACTER_NOT_FOUND`() {
+        val party = newParty()
+        whenever(partyRepository.findByShareLink("abc123")).thenReturn(party)
+        whenever(characterRepository.findById(999L)).thenReturn(java.util.Optional.empty())
+
+        val ex =
+            assertThrows<BusinessException> {
+                partyService.joinParty("abc123", null, "닉", 999L)
+            }
+        assertEquals(ErrorCode.CHARACTER_NOT_FOUND, ex.errorCode)
     }
 }
