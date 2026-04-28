@@ -6,6 +6,13 @@ import com.team2.server.user.entity.User
 import org.springframework.data.jpa.repository.JpaRepository
 
 interface ParticipantRepository : JpaRepository<Participant, Long> {
-    fun findByPartyAndUser(party: Party, user: User): Participant?
-    fun existsByPartyAndUser(party: Party, user: User): Boolean
+    fun findByPartyAndUser(
+        party: Party,
+        user: User,
+    ): Participant?
+
+    fun existsByPartyAndUser(
+        party: Party,
+        user: User,
+    ): Boolean
 }

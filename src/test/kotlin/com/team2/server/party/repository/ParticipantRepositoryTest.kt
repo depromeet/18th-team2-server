@@ -32,28 +32,30 @@ class ParticipantRepositoryTest
 
         @BeforeEach
         fun setUp() {
-            party = partyRepository.save(
-                Party(
-                    shareLink = "test-link",
-                    name = "테스트파티",
-                    celebrantNickname = "홍길동",
-                    purpose = PartyPurpose.BIRTHDAY,
-                    option = PartyOption.REALTIME,
-                    startedAt = LocalDateTime.now(),
-                    endedAt = LocalDateTime.now().plusDays(7),
-                    isChattingAllow = true,
-                ),
-            )
+            party =
+                partyRepository.save(
+                    Party(
+                        shareLink = "test-link",
+                        name = "테스트파티",
+                        celebrantNickname = "홍길동",
+                        purpose = PartyPurpose.BIRTHDAY,
+                        option = PartyOption.REALTIME,
+                        startedAt = LocalDateTime.now(),
+                        endedAt = LocalDateTime.now().plusDays(7),
+                        isChattingAllow = true,
+                    ),
+                )
             character = characterRepository.save(Character(name = "곰돌이"))
-            user = userRepository.save(
-                User(
-                    name = "유저",
-                    birthDay = "01-01",
-                    provider = AuthProvider.KAKAO,
-                    providerId = "kakao-test",
-                    email = "test@kakao.local",
-                ),
-            )
+            user =
+                userRepository.save(
+                    User(
+                        name = "유저",
+                        birthDay = "01-01",
+                        provider = AuthProvider.KAKAO,
+                        providerId = "kakao-test",
+                        email = "test@kakao.local",
+                    ),
+                )
         }
 
         @Test

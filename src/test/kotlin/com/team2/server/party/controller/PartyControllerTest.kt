@@ -47,30 +47,32 @@ class PartyControllerTest
             characterRepository.deleteAll()
             userRepository.deleteAll()
 
-            party = partyRepository.save(
-                Party(
-                    shareLink = "active-link",
-                    name = "생일파티",
-                    celebrantNickname = "홍길동",
-                    purpose = PartyPurpose.BIRTHDAY,
-                    option = PartyOption.REALTIME,
-                    startedAt = LocalDateTime.now(),
-                    endedAt = LocalDateTime.now().plusDays(7),
-                    isChattingAllow = true,
-                ),
-            )
-            endedParty = partyRepository.save(
-                Party(
-                    shareLink = "ended-link",
-                    name = "종료파티",
-                    celebrantNickname = "김철수",
-                    purpose = PartyPurpose.BIRTHDAY,
-                    option = PartyOption.PAPER_ONLY,
-                    startedAt = LocalDateTime.now().minusDays(14),
-                    endedAt = LocalDateTime.now().minusDays(1),
-                    isChattingAllow = false,
-                ),
-            )
+            party =
+                partyRepository.save(
+                    Party(
+                        shareLink = "active-link",
+                        name = "생일파티",
+                        celebrantNickname = "홍길동",
+                        purpose = PartyPurpose.BIRTHDAY,
+                        option = PartyOption.REALTIME,
+                        startedAt = LocalDateTime.now(),
+                        endedAt = LocalDateTime.now().plusDays(7),
+                        isChattingAllow = true,
+                    ),
+                )
+            endedParty =
+                partyRepository.save(
+                    Party(
+                        shareLink = "ended-link",
+                        name = "종료파티",
+                        celebrantNickname = "김철수",
+                        purpose = PartyPurpose.BIRTHDAY,
+                        option = PartyOption.PAPER_ONLY,
+                        startedAt = LocalDateTime.now().minusDays(14),
+                        endedAt = LocalDateTime.now().minusDays(1),
+                        isChattingAllow = false,
+                    ),
+                )
             character = characterRepository.save(Character(name = "곰돌이"))
         }
 
@@ -108,15 +110,16 @@ class PartyControllerTest
 
         @Test
         fun `회원이 이미 참여한 파티 조회 시 myParticipant 포함`() {
-            val user = userRepository.save(
-                User(
-                    name = "유저",
-                    birthDay = "01-01",
-                    provider = AuthProvider.KAKAO,
-                    providerId = "kakao-info-1",
-                    email = "info@kakao.local",
-                ),
-            )
+            val user =
+                userRepository.save(
+                    User(
+                        name = "유저",
+                        birthDay = "01-01",
+                        provider = AuthProvider.KAKAO,
+                        providerId = "kakao-info-1",
+                        email = "info@kakao.local",
+                    ),
+                )
             val token = tokenProvider.issue(user)
             participantRepository.save(
                 com.team2.server.party.entity.Participant(
@@ -127,74 +130,80 @@ class PartyControllerTest
                 ),
             )
 
-            mockMvc.get("/api/parties/active-link") {
-                header("Authorization", "Bearer $token")
-            }.andExpect {
-                status { isOk() }
-                jsonPath("$.data.myParticipant.nickname") { value("기존참여자") }
-            }
+            mockMvc
+                .get("/api/parties/active-link") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.myParticipant.nickname") { value("기존참여자") }
+                }
         }
 
         // --- POST /api/parties/{shareLink}/participants ---
 
         @Test
         fun `비회원 파티 참여 성공`() {
-            mockMvc.post("/api/parties/active-link/participants") {
-                contentType = MediaType.APPLICATION_JSON
-                content = """{"nickname": "비회원", "characterId": ${character.id}}"""
-            }.andExpect {
-                status { isOk() }
-                jsonPath("$.data.nickname") { value("비회원") }
-                jsonPath("$.data.characterId") { value(character.id) }
-                jsonPath("$.data.participantId") { isNumber() }
-            }
+            mockMvc
+                .post("/api/parties/active-link/participants") {
+                    contentType = MediaType.APPLICATION_JSON
+                    content = """{"nickname": "비회원", "characterId": ${character.id}}"""
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.nickname") { value("비회원") }
+                    jsonPath("$.data.characterId") { value(character.id) }
+                    jsonPath("$.data.participantId") { isNumber() }
+                }
         }
 
         @Test
         fun `회원 파티 참여 성공`() {
-            val user = userRepository.save(
-                User(
-                    name = "회원",
-                    birthDay = "01-01",
-                    provider = AuthProvider.KAKAO,
-                    providerId = "kakao-join-1",
-                    email = "join@kakao.local",
-                ),
-            )
+            val user =
+                userRepository.save(
+                    User(
+                        name = "회원",
+                        birthDay = "01-01",
+                        provider = AuthProvider.KAKAO,
+                        providerId = "kakao-join-1",
+                        email = "join@kakao.local",
+                    ),
+                )
             val token = tokenProvider.issue(user)
 
-            mockMvc.post("/api/parties/active-link/participants") {
-                contentType = MediaType.APPLICATION_JSON
-                content = """{"nickname": "회원참여", "characterId": ${character.id}}"""
-                header("Authorization", "Bearer $token")
-            }.andExpect {
-                status { isOk() }
-                jsonPath("$.data.nickname") { value("회원참여") }
-            }
+            mockMvc
+                .post("/api/parties/active-link/participants") {
+                    contentType = MediaType.APPLICATION_JSON
+                    content = """{"nickname": "회원참여", "characterId": ${character.id}}"""
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.nickname") { value("회원참여") }
+                }
         }
 
         @Test
         fun `종료된 파티 참여 시 400`() {
-            mockMvc.post("/api/parties/ended-link/participants") {
-                contentType = MediaType.APPLICATION_JSON
-                content = """{"nickname": "늦참", "characterId": ${character.id}}"""
-            }.andExpect {
-                status { isBadRequest() }
-                jsonPath("$.error.code") { value("PARTY_ENDED") }
-            }
+            mockMvc
+                .post("/api/parties/ended-link/participants") {
+                    contentType = MediaType.APPLICATION_JSON
+                    content = """{"nickname": "늦참", "characterId": ${character.id}}"""
+                }.andExpect {
+                    status { isBadRequest() }
+                    jsonPath("$.error.code") { value("PARTY_ENDED") }
+                }
         }
 
         @Test
         fun `회원 중복 참여 시 409`() {
-            val user = userRepository.save(
-                User(
-                    name = "중복유저",
-                    birthDay = "01-01",
-                    provider = AuthProvider.KAKAO,
-                    providerId = "kakao-dup-1",
-                    email = "dup@kakao.local",
-                ),
-            )
+            val user =
+                userRepository.save(
+                    User(
+                        name = "중복유저",
+                        birthDay = "01-01",
+                        provider = AuthProvider.KAKAO,
+                        providerId = "kakao-dup-1",
+                        email = "dup@kakao.local",
+                    ),
+                )
             val token = tokenProvider.issue(user)
             participantRepository.save(
                 com.team2.server.party.entity.Participant(
@@ -205,35 +214,38 @@ class PartyControllerTest
                 ),
             )
 
-            mockMvc.post("/api/parties/active-link/participants") {
-                contentType = MediaType.APPLICATION_JSON
-                content = """{"nickname": "또참여", "characterId": ${character.id}}"""
-                header("Authorization", "Bearer $token")
-            }.andExpect {
-                status { isConflict() }
-                jsonPath("$.error.code") { value("ALREADY_JOINED") }
-            }
+            mockMvc
+                .post("/api/parties/active-link/participants") {
+                    contentType = MediaType.APPLICATION_JSON
+                    content = """{"nickname": "또참여", "characterId": ${character.id}}"""
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isConflict() }
+                    jsonPath("$.error.code") { value("ALREADY_JOINED") }
+                }
         }
 
         @Test
         fun `닉네임 빈값이면 400`() {
-            mockMvc.post("/api/parties/active-link/participants") {
-                contentType = MediaType.APPLICATION_JSON
-                content = """{"nickname": "", "characterId": ${character.id}}"""
-            }.andExpect {
-                status { isBadRequest() }
-            }
+            mockMvc
+                .post("/api/parties/active-link/participants") {
+                    contentType = MediaType.APPLICATION_JSON
+                    content = """{"nickname": "", "characterId": ${character.id}}"""
+                }.andExpect {
+                    status { isBadRequest() }
+                }
         }
 
         @Test
         fun `존재하지 않는 characterId면 404`() {
-            mockMvc.post("/api/parties/active-link/participants") {
-                contentType = MediaType.APPLICATION_JSON
-                content = """{"nickname": "닉네임", "characterId": 99999}"""
-            }.andExpect {
-                status { isNotFound() }
-                jsonPath("$.error.code") { value("CHARACTER_NOT_FOUND") }
-            }
+            mockMvc
+                .post("/api/parties/active-link/participants") {
+                    contentType = MediaType.APPLICATION_JSON
+                    content = """{"nickname": "닉네임", "characterId": 99999}"""
+                }.andExpect {
+                    status { isNotFound() }
+                    jsonPath("$.error.code") { value("CHARACTER_NOT_FOUND") }
+                }
         }
 
         @Test

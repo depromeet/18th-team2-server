@@ -30,7 +30,10 @@ data class PartyInfoResponse(
     val myParticipant: ParticipantResponse?,
 ) {
     companion object {
-        fun from(party: Party, myParticipant: ParticipantResponse?): PartyInfoResponse =
+        fun from(
+            party: Party,
+            myParticipant: ParticipantResponse?,
+        ): PartyInfoResponse =
             PartyInfoResponse(
                 name = party.name,
                 celebrantNickname = party.celebrantNickname,
