@@ -46,7 +46,7 @@ class PartyInviteService(
         party: Party,
         now: LocalDateTime,
     ): PartyInvite {
-        val expiresAt = (party.startedAt?.minusHours(EXPIRY_HOURS)) ?: now.plusHours(EXPIRY_HOURS)
+        val expiresAt = party.endedAt ?: now.plusHours(EXPIRY_HOURS)
         return partyInviteRepository.save(
             PartyInvite(
                 party = party,

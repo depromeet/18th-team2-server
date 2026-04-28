@@ -30,8 +30,9 @@ class PartyInviteServiceTest {
         id: Long = 1L,
         ownerId: Long = 1L,
         startedAt: LocalDateTime? = LocalDateTime.now().plusDays(2),
+        endedAt: LocalDateTime? = LocalDateTime.now().plusDays(2).plusHours(3),
     ): Party {
-        val party = Party(ownerId = ownerId, startedAt = startedAt)
+        val party = Party(ownerId = ownerId, startedAt = startedAt, endedAt = endedAt)
         val idField: Field = party.javaClass.superclass.getDeclaredField("id")
         idField.isAccessible = true
         idField.set(party, id)
@@ -91,9 +92,9 @@ class PartyInviteServiceTest {
     }
 
     @Test
-    fun `링크 만료 시간은 파티 시작 시간 24시간 전`() {
-        val startedAt = LocalDateTime.of(2024, 11, 26, 14, 0)
-        val party = makeParty(startedAt = startedAt)
+    fun `링크 만료 시간은 파티 종료 시간까지`() {
+        val endedAt = LocalDateTime.of(2024, 11, 26, 22, 0)
+        val party = makeParty(endedAt = endedAt)
         whenever(partyRepository.findById(1L)).thenReturn(Optional.of(party))
         whenever(participantRepository.existsByPartyIdAndUserId(1L, 1L)).thenReturn(true)
         whenever(partyInviteRepository.findByPartyIdAndExpiresAtAfter(any(), any())).thenReturn(null)
@@ -105,6 +106,6 @@ class PartyInviteServiceTest {
 
         service.activateInviteLink(1L, 1L)
 
-        assertEquals(startedAt.minusHours(24), savedInvite!!.expiresAt)
+        assertEquals(endedAt, savedInvite!!.expiresAt)
     }
 }
