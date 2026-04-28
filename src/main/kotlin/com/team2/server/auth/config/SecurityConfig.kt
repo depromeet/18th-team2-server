@@ -45,6 +45,7 @@ class SecurityConfig(
                         "/actuator/info",
                         "/swagger-ui/**",
                         "/v3/api-docs/**",
+                        "/api/dev/**",
                     ).permitAll()
                 auth.anyRequest().authenticated()
             }.oauth2Login { oauth ->
