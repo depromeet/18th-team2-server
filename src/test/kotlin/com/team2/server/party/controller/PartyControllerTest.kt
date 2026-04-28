@@ -320,26 +320,26 @@ class PartyControllerTest
         }
 
         @Test
-        fun `잘못된 토큰으로 파티 조회 시 401`() {
+        fun `잘못된 토큰으로 파티 조회 시 비회원으로 처리`() {
             mockMvc
                 .get("/api/parties/active-link") {
                     header("Authorization", "Bearer not-a-jwt")
                 }.andExpect {
-                    status { isUnauthorized() }
-                    jsonPath("$.error.code") { value("AUTH_INVALID_TOKEN") }
+                    status { isOk() }
+                    jsonPath("$.data.myParticipant") { doesNotExist() }
                 }
         }
 
         @Test
-        fun `잘못된 토큰으로 파티 참여 시 401`() {
+        fun `잘못된 토큰으로 파티 참여 시 비회원으로 참여`() {
             mockMvc
                 .post("/api/parties/active-link/participants") {
                     contentType = MediaType.APPLICATION_JSON
                     content = """{"nickname": "닉네임", "characterId": ${character.id}}"""
                     header("Authorization", "Bearer not-a-jwt")
                 }.andExpect {
-                    status { isUnauthorized() }
-                    jsonPath("$.error.code") { value("AUTH_INVALID_TOKEN") }
+                    status { isOk() }
+                    jsonPath("$.data.nickname") { value("닉네임") }
                 }
         }
     }
