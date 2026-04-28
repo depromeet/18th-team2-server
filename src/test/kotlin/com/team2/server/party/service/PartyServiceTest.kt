@@ -187,7 +187,7 @@ class PartyServiceTest {
         whenever(partyRepository.findByShareLink("abc123")).thenReturn(party)
         whenever(characterRepository.findById(1L)).thenReturn(java.util.Optional.of(character))
         whenever(characterImageUrlResolver.resolve(character)).thenReturn("/images/characters/character1.jpg")
-        whenever(participantRepository.save(org.mockito.kotlin.any<Participant>())).thenAnswer {
+        whenever(participantRepository.saveAndFlush(org.mockito.kotlin.any<Participant>())).thenAnswer {
             val p = it.getArgument<Participant>(0)
             setId(p, 99L)
             p
@@ -211,7 +211,7 @@ class PartyServiceTest {
         whenever(participantRepository.existsByPartyAndUser(party, user)).thenReturn(false)
         whenever(characterRepository.findById(1L)).thenReturn(java.util.Optional.of(character))
         whenever(characterImageUrlResolver.resolve(character)).thenReturn("/images/characters/character1.jpg")
-        whenever(participantRepository.save(org.mockito.kotlin.any<Participant>())).thenAnswer {
+        whenever(participantRepository.saveAndFlush(org.mockito.kotlin.any<Participant>())).thenAnswer {
             val p = it.getArgument<Participant>(0)
             setId(p, 100L)
             p
@@ -305,7 +305,7 @@ class PartyServiceTest {
         val party = newParty(isChattingAllow = false)
 
         whenever(partyRepository.findByShareLink("abc123")).thenReturn(party)
-        whenever(participantRepository.save(org.mockito.kotlin.any<Participant>())).thenAnswer {
+        whenever(participantRepository.saveAndFlush(org.mockito.kotlin.any<Participant>())).thenAnswer {
             val p = it.getArgument<Participant>(0)
             setId(p, 101L)
             p

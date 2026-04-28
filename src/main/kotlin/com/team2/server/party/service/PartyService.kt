@@ -11,6 +11,7 @@ import com.team2.server.party.repository.CharacterRepository
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyRepository
 import com.team2.server.user.repository.UserRepository
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -74,14 +75,18 @@ class PartyService(
             }
 
         val participant =
-            participantRepository.save(
-                Participant(
-                    party = party,
-                    character = character,
-                    user = user,
-                    nickname = nickname,
-                ),
-            )
+            try {
+                participantRepository.saveAndFlush(
+                    Participant(
+                        party = party,
+                        character = character,
+                        user = user,
+                        nickname = nickname,
+                    ),
+                )
+            } catch (_: DataIntegrityViolationException) {
+                throw BusinessException(ErrorCode.ALREADY_JOINED)
+            }
 
         return ParticipantResponse.from(participant, character?.let { characterImageUrlResolver.resolve(it) })
     }
