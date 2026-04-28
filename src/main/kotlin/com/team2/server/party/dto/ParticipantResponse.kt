@@ -22,10 +22,5 @@ data class ParticipantResponse(
                 nickname = participant.nickname,
                 characterImageUrl = characterImageUrl,
             )
-
-        fun joined(
-            participant: Participant,
-            characterImageUrl: String?,
-        ): ParticipantResponse = from(participant, characterImageUrl)
     }
 }

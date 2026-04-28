@@ -92,7 +92,7 @@ class PartyControllerTest
                         isChattingAllow = false,
                     ),
                 )
-	            character = characterRepository.save(Character(name = "곰돌이"))
+            character = characterRepository.save(Character(name = "곰돌이"))
             imageRepository.save(
                 Image(
                     imageUrl = "/images/characters/character1.jpg",
