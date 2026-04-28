@@ -4,6 +4,7 @@ import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.entity.Party
 import com.team2.server.party.entity.PartyInvite
+import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyInviteRepository
 import com.team2.server.party.repository.PartyRepository
 import org.junit.jupiter.api.Test
@@ -22,7 +23,8 @@ import kotlin.test.assertTrue
 class PartyInviteServiceTest {
     private val partyRepository: PartyRepository = mock()
     private val partyInviteRepository: PartyInviteRepository = mock()
-    private val service = PartyInviteService(partyRepository, partyInviteRepository)
+    private val participantRepository: ParticipantRepository = mock()
+    private val service = PartyInviteService(partyRepository, partyInviteRepository, participantRepository)
 
     private fun makeParty(
         id: Long = 1L,
@@ -45,8 +47,18 @@ class PartyInviteServiceTest {
     fun `파티가 없으면 PARTY_NOT_FOUND 예외`() {
         whenever(partyRepository.findById(99L)).thenReturn(Optional.empty())
 
-        val ex = assertThrows<BusinessException> { service.activateInviteLink(99L) }
+        val ex = assertThrows<BusinessException> { service.activateInviteLink(99L, 1L) }
         assertEquals(ErrorCode.PARTY_NOT_FOUND, ex.errorCode)
+    }
+
+    @Test
+    fun `파티 멤버가 아니면 PARTY_FORBIDDEN 예외`() {
+        val party = makeParty()
+        whenever(partyRepository.findById(1L)).thenReturn(Optional.of(party))
+        whenever(participantRepository.existsByPartyIdAndUserId(1L, 2L)).thenReturn(false)
+
+        val ex = assertThrows<BusinessException> { service.activateInviteLink(1L, 2L) }
+        assertEquals(ErrorCode.PARTY_FORBIDDEN, ex.errorCode)
     }
 
     @Test
@@ -54,9 +66,10 @@ class PartyInviteServiceTest {
         val party = makeParty()
         val existingInvite = makeInvite(party, token = "existingtoken1234")
         whenever(partyRepository.findById(1L)).thenReturn(Optional.of(party))
+        whenever(participantRepository.existsByPartyIdAndUserId(1L, 1L)).thenReturn(true)
         whenever(partyInviteRepository.findByPartyIdAndExpiresAtAfter(any(), any())).thenReturn(existingInvite)
 
-        val result = service.activateInviteLink(1L)
+        val result = service.activateInviteLink(1L, 1L)
 
         verify(partyInviteRepository, never()).save(any())
         assertEquals(existingInvite.token, result.token)
@@ -66,10 +79,11 @@ class PartyInviteServiceTest {
     fun `유효한 링크가 없으면 새 토큰으로 생성`() {
         val party = makeParty()
         whenever(partyRepository.findById(1L)).thenReturn(Optional.of(party))
+        whenever(participantRepository.existsByPartyIdAndUserId(1L, 1L)).thenReturn(true)
         whenever(partyInviteRepository.findByPartyIdAndExpiresAtAfter(any(), any())).thenReturn(null)
         whenever(partyInviteRepository.save(any())).thenAnswer { it.arguments[0] as PartyInvite }
 
-        val result = service.activateInviteLink(1L)
+        val result = service.activateInviteLink(1L, 1L)
 
         verify(partyInviteRepository).save(any())
         assertTrue(result.token.isNotBlank())
@@ -80,6 +94,7 @@ class PartyInviteServiceTest {
         val startedAt = LocalDateTime.of(2024, 11, 26, 14, 0)
         val party = makeParty(startedAt = startedAt)
         whenever(partyRepository.findById(1L)).thenReturn(Optional.of(party))
+        whenever(participantRepository.existsByPartyIdAndUserId(1L, 1L)).thenReturn(true)
         whenever(partyInviteRepository.findByPartyIdAndExpiresAtAfter(any(), any())).thenReturn(null)
 
         var savedInvite: PartyInvite? = null
@@ -87,7 +102,7 @@ class PartyInviteServiceTest {
             (it.arguments[0] as PartyInvite).also { invite -> savedInvite = invite }
         }
 
-        service.activateInviteLink(1L)
+        service.activateInviteLink(1L, 1L)
 
         assertEquals(startedAt.minusHours(24), savedInvite!!.expiresAt)
     }

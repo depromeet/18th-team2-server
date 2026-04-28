@@ -27,5 +27,6 @@ class PartyInviteController(
     fun activateInviteLink(
         @AuthenticationPrincipal principal: UserPrincipal,
         @PathVariable partyId: Long,
-    ): ApiResponse<ActivateInviteLinkResponse> = ApiResponse.success(partyInviteService.activateInviteLink(partyId))
+    ): ApiResponse<ActivateInviteLinkResponse> =
+        ApiResponse.success(partyInviteService.activateInviteLink(partyId, principal.userId))
 }

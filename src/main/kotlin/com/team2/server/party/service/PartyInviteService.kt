@@ -5,6 +5,7 @@ import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.dto.ActivateInviteLinkResponse
 import com.team2.server.party.entity.Party
 import com.team2.server.party.entity.PartyInvite
+import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyInviteRepository
 import com.team2.server.party.repository.PartyRepository
 import org.springframework.data.repository.findByIdOrNull
@@ -17,12 +18,20 @@ import java.time.LocalDateTime
 class PartyInviteService(
     private val partyRepository: PartyRepository,
     private val partyInviteRepository: PartyInviteRepository,
+    private val participantRepository: ParticipantRepository,
 ) {
     @Transactional
-    fun activateInviteLink(partyId: Long): ActivateInviteLinkResponse {
+    fun activateInviteLink(
+        partyId: Long,
+        userId: Long,
+    ): ActivateInviteLinkResponse {
         val party: Party =
             partyRepository.findByIdOrNull(partyId)
                 ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
+
+        if (!participantRepository.existsByPartyIdAndUserId(partyId, userId)) {
+            throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
+        }
 
         val now = LocalDateTime.now()
 
@@ -37,7 +46,7 @@ class PartyInviteService(
         party: Party,
         now: LocalDateTime,
     ): PartyInvite {
-        val expiresAt = (party.startedAt ?: now).minusHours(EXPIRY_HOURS)
+        val expiresAt = (party.startedAt?.minusHours(EXPIRY_HOURS)) ?: now.plusHours(EXPIRY_HOURS)
         return partyInviteRepository.save(
             PartyInvite(
                 party = party,
