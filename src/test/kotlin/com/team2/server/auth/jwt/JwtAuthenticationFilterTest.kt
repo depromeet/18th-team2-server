@@ -13,6 +13,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.mock.web.MockHttpServletRequest
@@ -44,7 +45,12 @@ class JwtAuthenticationFilterTest {
         return user
     }
 
-    private fun newFilter(repo: UserRepository): JwtAuthenticationFilter = JwtAuthenticationFilter(tokenProvider, repo)
+    private fun newFilter(repo: UserRepository): JwtAuthenticationFilter =
+        JwtAuthenticationFilter(
+            tokenProvider,
+            repo,
+            JwtAuthenticationEntryPoint(tools.jackson.databind.ObjectMapper()),
+        )
 
     @AfterEach
     fun clear() = SecurityContextHolder.clearContext()
@@ -69,7 +75,7 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    fun `만료 토큰은 컨텍스트 미설정 + 요청 속성에 EXPIRED 코드`() {
+    fun `만료 토큰은 401 + 요청 속성에 EXPIRED 코드`() {
         val user = userWithId(1L)
         val expiredProvider = JwtTokenProvider(JwtProperties(secret = secret, expirationHours = 0))
         val repo = mock<UserRepository>()
@@ -84,7 +90,8 @@ class JwtAuthenticationFilterTest {
 
         assertNull(SecurityContextHolder.getContext().authentication)
         assertEquals(ErrorCode.AUTH_EXPIRED_TOKEN, req.getAttribute(AUTH_ERROR_REQUEST_ATTRIBUTE))
-        verify(chain).doFilter(any<HttpServletRequest>(), any<HttpServletResponse>())
+        assertEquals(401, res.status)
+        verify(chain, never()).doFilter(any<HttpServletRequest>(), any<HttpServletResponse>())
     }
 
     @Test
@@ -107,6 +114,8 @@ class JwtAuthenticationFilterTest {
 
         assertNull(SecurityContextHolder.getContext().authentication)
         assertEquals(ErrorCode.AUTH_INVALID_TOKEN, req.getAttribute(AUTH_ERROR_REQUEST_ATTRIBUTE))
+        assertEquals(401, res.status)
+        verify(chain, never()).doFilter(any<HttpServletRequest>(), any<HttpServletResponse>())
     }
 
     @Test
@@ -123,6 +132,8 @@ class JwtAuthenticationFilterTest {
 
         assertNull(SecurityContextHolder.getContext().authentication)
         assertEquals(ErrorCode.AUTH_USER_NOT_FOUND, req.getAttribute(AUTH_ERROR_REQUEST_ATTRIBUTE))
+        assertEquals(401, res.status)
+        verify(chain, never()).doFilter(any<HttpServletRequest>(), any<HttpServletResponse>())
     }
 
     @Test
