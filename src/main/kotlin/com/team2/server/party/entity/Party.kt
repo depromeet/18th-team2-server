@@ -13,8 +13,6 @@ import java.time.LocalDateTime
 class Party(
     @Column(name = "owner_id", nullable = false)
     val ownerId: Long,
-    @Column(name = "share_link")
-    var shareLink: String? = null,
     @Column(name = "background_image_url")
     var backgroundImageUrl: String? = null,
     @Column(name = "started_at")
