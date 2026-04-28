@@ -28,9 +28,10 @@ class PartyInviteServiceTest {
 
     private fun makeParty(
         id: Long = 1L,
+        ownerId: Long = 1L,
         startedAt: LocalDateTime? = LocalDateTime.now().plusDays(2),
     ): Party {
-        val party = Party(startedAt = startedAt)
+        val party = Party(ownerId = ownerId, startedAt = startedAt)
         val idField: Field = party.javaClass.superclass.getDeclaredField("id")
         idField.isAccessible = true
         idField.set(party, id)
