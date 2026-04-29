@@ -13,10 +13,12 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockHttpServletResponse
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.context.SecurityContextHolder
 import java.lang.reflect.Field
 import java.util.Base64
@@ -24,6 +26,7 @@ import java.util.Optional
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 
 class JwtAuthenticationFilterTest {
     private val secret = Base64.getEncoder().encodeToString(ByteArray(64) { it.toByte() })
@@ -44,7 +47,11 @@ class JwtAuthenticationFilterTest {
         return user
     }
 
-    private fun newFilter(repo: UserRepository): JwtAuthenticationFilter = JwtAuthenticationFilter(tokenProvider, repo)
+    private fun newFilter(repo: UserRepository): JwtAuthenticationFilter =
+        JwtAuthenticationFilter(
+            tokenProvider,
+            repo,
+        )
 
     @AfterEach
     fun clear() = SecurityContextHolder.clearContext()
@@ -69,7 +76,7 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    fun `만료 토큰은 컨텍스트 미설정 + 요청 속성에 EXPIRED 코드`() {
+    fun `만료 토큰은 인증 없이 체인 통과 + 요청 속성에 EXPIRED 코드`() {
         val user = userWithId(1L)
         val expiredProvider = JwtTokenProvider(JwtProperties(secret = secret, expirationHours = 0))
         val repo = mock<UserRepository>()
@@ -88,7 +95,7 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    fun `잘못된 시그니처는 INVALID_TOKEN 속성`() {
+    fun `잘못된 시그니처는 인증 없이 체인 통과 + INVALID_TOKEN 속성`() {
         val other =
             JwtTokenProvider(
                 JwtProperties(
@@ -107,10 +114,11 @@ class JwtAuthenticationFilterTest {
 
         assertNull(SecurityContextHolder.getContext().authentication)
         assertEquals(ErrorCode.AUTH_INVALID_TOKEN, req.getAttribute(AUTH_ERROR_REQUEST_ATTRIBUTE))
+        verify(chain).doFilter(any<HttpServletRequest>(), any<HttpServletResponse>())
     }
 
     @Test
-    fun `userId DB 미존재면 USER_NOT_FOUND 속성`() {
+    fun `userId DB 미존재면 인증 없이 체인 통과 + USER_NOT_FOUND 속성`() {
         val token = tokenProvider.issue(userWithId(99L))
         val repo = mock<UserRepository>()
         whenever(repo.findById(99L)).thenReturn(Optional.empty())
@@ -123,6 +131,7 @@ class JwtAuthenticationFilterTest {
 
         assertNull(SecurityContextHolder.getContext().authentication)
         assertEquals(ErrorCode.AUTH_USER_NOT_FOUND, req.getAttribute(AUTH_ERROR_REQUEST_ATTRIBUTE))
+        verify(chain).doFilter(any<HttpServletRequest>(), any<HttpServletResponse>())
     }
 
     @Test
@@ -136,6 +145,24 @@ class JwtAuthenticationFilterTest {
 
         assertNull(SecurityContextHolder.getContext().authentication)
         assertNull(req.getAttribute(AUTH_ERROR_REQUEST_ATTRIBUTE))
+        verify(chain).doFilter(any<HttpServletRequest>(), any<HttpServletResponse>())
+    }
+
+    @Test
+    fun `이미 인증 객체가 있으면 기존 SecurityContext를 유지하고 JWT 인증을 건너뜀`() {
+        val existingAuth = UsernamePasswordAuthenticationToken("existing", null, emptyList())
+        SecurityContextHolder.getContext().authentication = existingAuth
+        val repo = mock<UserRepository>()
+        val token = tokenProvider.issue(userWithId(7L))
+        val req = MockHttpServletRequest().apply { addHeader("Authorization", "Bearer $token") }
+        val res = MockHttpServletResponse()
+        val chain = mock<FilterChain>()
+
+        newFilter(repo).doFilter(req, res, chain)
+
+        assertSame(existingAuth, SecurityContextHolder.getContext().authentication)
+        assertNull(req.getAttribute(AUTH_ERROR_REQUEST_ATTRIBUTE))
+        verify(repo, never()).findById(any())
         verify(chain).doFilter(any<HttpServletRequest>(), any<HttpServletResponse>())
     }
 }

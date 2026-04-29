@@ -64,8 +64,21 @@ class PartyInviteServiceTest {
     }
 
     @Test
+    fun `파티 주인이면 참여자가 아니어도 초대링크 활성화 가능`() {
+        val party = makeParty(ownerId = 1L)
+        val existingInvite = makeInvite(party, token = "existingtoken1234")
+        whenever(partyRepository.findById(1L)).thenReturn(Optional.of(party))
+        whenever(partyInviteRepository.findByPartyIdAndExpiresAtAfter(any(), any())).thenReturn(existingInvite)
+
+        val result = service.activateInviteLink(1L, 1L)
+
+        verify(participantRepository, never()).existsByPartyIdAndUserId(any(), any())
+        assertEquals(existingInvite.token, result.token)
+    }
+
+    @Test
     fun `유효한 초대링크가 이미 있으면 새로 만들지 않고 재사용`() {
-        val party = makeParty()
+        val party = makeParty(ownerId = 2L)
         val existingInvite = makeInvite(party, token = "existingtoken1234")
         whenever(partyRepository.findById(1L)).thenReturn(Optional.of(party))
         whenever(participantRepository.existsByPartyIdAndUserId(1L, 1L)).thenReturn(true)

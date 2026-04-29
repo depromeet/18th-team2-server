@@ -8,6 +8,7 @@ import com.team2.server.auth.oauth2.OAuth2SuccessHandler
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.http.HttpMethod
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
@@ -47,6 +48,8 @@ class SecurityConfig(
                         "/v3/api-docs/**",
                         "/api/dev/**",
                     ).permitAll()
+                auth.requestMatchers(HttpMethod.GET, "/api/v1/parties/*").permitAll()
+                auth.requestMatchers(HttpMethod.POST, "/api/v1/parties/*/participants").permitAll()
                 auth.anyRequest().authenticated()
             }.oauth2Login { oauth ->
                 oauth.userInfoEndpoint { it.userService(customOAuth2UserService) }
