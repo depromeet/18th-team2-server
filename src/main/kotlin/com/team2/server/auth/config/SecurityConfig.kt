@@ -42,6 +42,7 @@ class SecurityConfig(
                         "/login/**",
                         "/actuator/health",
                         "/actuator/info",
+                        "/actuator/prometheus",
                         "/swagger-ui/**",
                         "/v3/api-docs/**",
                         "/api/dev/**",
