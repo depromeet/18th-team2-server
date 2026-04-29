@@ -2,6 +2,7 @@ package com.team2.server.auth.oauth2
 
 import com.team2.server.auth.FakeUserRepository
 import com.team2.server.auth.config.JwtProperties
+import com.team2.server.auth.config.OAuth2Properties
 import com.team2.server.auth.jwt.JwtTokenProvider
 import com.team2.server.auth.principal.UserPrincipal
 import com.team2.server.user.entity.AuthProvider
@@ -44,7 +45,7 @@ class OAuth2SuccessHandlerTest {
     private fun handler(
         repo: FakeUserRepository,
         allowed: List<String> = listOf("http://localhost:3000/oauth/redirect"),
-    ): OAuth2SuccessHandler = OAuth2SuccessHandler(tokenProvider, repo, allowed)
+    ): OAuth2SuccessHandler = OAuth2SuccessHandler(tokenProvider, repo, OAuth2Properties(allowed))
 
     private fun authWith(principal: UserPrincipal): Authentication {
         val auth = mock<Authentication>()

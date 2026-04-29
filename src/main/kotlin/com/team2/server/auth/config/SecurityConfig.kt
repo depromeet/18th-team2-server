@@ -5,7 +5,6 @@ import com.team2.server.auth.jwt.JwtAuthenticationFilter
 import com.team2.server.auth.oauth2.CustomOAuth2UserService
 import com.team2.server.auth.oauth2.OAuth2FailureHandler
 import com.team2.server.auth.oauth2.OAuth2SuccessHandler
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpMethod
@@ -26,8 +25,7 @@ class SecurityConfig(
     private val oAuth2FailureHandler: OAuth2FailureHandler,
     private val jwtAuthenticationFilter: JwtAuthenticationFilter,
     private val jwtAuthenticationEntryPoint: JwtAuthenticationEntryPoint,
-    @Value("\${app.oauth2.authorized-redirect-uris}")
-    private val allowedRedirectUris: List<String>,
+    private val oAuth2Properties: OAuth2Properties,
 ) {
     @Bean
     fun filterChain(http: HttpSecurity): SecurityFilterChain {
@@ -63,7 +61,7 @@ class SecurityConfig(
     @Bean
     fun corsConfigurationSource(): CorsConfigurationSource {
         val origins =
-            allowedRedirectUris
+            oAuth2Properties.authorizedRedirectUris
                 .mapNotNull { runCatching { java.net.URI(it) }.getOrNull() }
                 .map { "${it.scheme}://${it.authority}" }
                 .distinct()
