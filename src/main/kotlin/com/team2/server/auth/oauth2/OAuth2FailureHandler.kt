@@ -4,7 +4,7 @@ import com.team2.server.common.exception.ErrorCode
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Value
+import com.team2.server.auth.config.OAuth2Properties
 import org.springframework.security.core.AuthenticationException
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationFailureHandler
 import org.springframework.stereotype.Component
@@ -12,8 +12,7 @@ import org.springframework.web.util.UriComponentsBuilder
 
 @Component
 class OAuth2FailureHandler(
-    @Value("\${app.oauth2.authorized-redirect-uris}")
-    private val allowedRedirectUris: List<String>,
+    private val oAuth2Properties: OAuth2Properties,
 ) : SimpleUrlAuthenticationFailureHandler() {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -24,7 +23,7 @@ class OAuth2FailureHandler(
     ) {
         log.warn("OAuth2 authentication failed", exception)
 
-        val target = allowedRedirectUris.first()
+        val target = oAuth2Properties.authorizedRedirectUris.first()
         val redirectUrl =
             UriComponentsBuilder
                 .fromUriString(target)
