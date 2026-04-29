@@ -3,4 +3,6 @@ package com.team2.server.party.repository
 import com.team2.server.party.entity.Character
 import org.springframework.data.jpa.repository.JpaRepository
 
-interface CharacterRepository : JpaRepository<Character, Long>
+interface CharacterRepository : JpaRepository<Character, Long> {
+    fun findByName(name: String): Character?
+}

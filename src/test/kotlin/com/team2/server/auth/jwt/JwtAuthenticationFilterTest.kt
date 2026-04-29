@@ -13,10 +13,12 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockHttpServletResponse
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.context.SecurityContextHolder
 import java.lang.reflect.Field
 import java.util.Base64
@@ -24,6 +26,7 @@ import java.util.Optional
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 
 class JwtAuthenticationFilterTest {
     private val secret = Base64.getEncoder().encodeToString(ByteArray(64) { it.toByte() })
@@ -142,6 +145,23 @@ class JwtAuthenticationFilterTest {
 
         assertNull(SecurityContextHolder.getContext().authentication)
         assertNull(req.getAttribute(AUTH_ERROR_REQUEST_ATTRIBUTE))
+        verify(chain).doFilter(any<HttpServletRequest>(), any<HttpServletResponse>())
+    }
+
+    @Test
+    fun `이미 인증 객체가 있으면 기존 SecurityContext를 유지하고 JWT 인증을 건너뜀`() {
+        val existingAuth = UsernamePasswordAuthenticationToken("existing", null, emptyList())
+        SecurityContextHolder.getContext().authentication = existingAuth
+        val repo = mock<UserRepository>()
+        val token = tokenProvider.issue(userWithId(7L))
+        val req = MockHttpServletRequest().apply { addHeader("Authorization", "Bearer $token") }
+        val res = MockHttpServletResponse()
+        val chain = mock<FilterChain>()
+
+        newFilter(repo).doFilter(req, res, chain)
+
+        assertSame(existingAuth, SecurityContextHolder.getContext().authentication)
+        verify(repo, never()).findById(any())
         verify(chain).doFilter(any<HttpServletRequest>(), any<HttpServletResponse>())
     }
 }

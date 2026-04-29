@@ -7,6 +7,7 @@ import com.team2.server.party.dto.CreatePartyRequest
 import com.team2.server.party.dto.CreatePartyResponse
 import com.team2.server.party.dto.ParticipantResponse
 import com.team2.server.party.dto.PartyInfoResponse
+import com.team2.server.party.entity.Character
 import com.team2.server.party.entity.Participant
 import com.team2.server.party.entity.Party
 import com.team2.server.party.entity.PartyInvite
@@ -139,13 +140,22 @@ class PartyService(
     private fun resolveCharacter(
         party: Party,
         characterId: Long?,
-    ) = when {
-        party.isChattingAllow && characterId == null -> throw BusinessException(ErrorCode.CHARACTER_REQUIRED)
-        !party.isChattingAllow && characterId != null -> throw BusinessException(ErrorCode.CHARACTER_NOT_ALLOWED)
-        characterId != null ->
+    ): Character? {
+        validateCharacterSelection(party, characterId)
+        return characterId?.let {
             characterRepository
-                .findById(characterId)
+                .findById(it)
                 .orElseThrow { BusinessException(ErrorCode.CHARACTER_NOT_FOUND) }
-        else -> null
+        }
+    }
+
+    private fun validateCharacterSelection(
+        party: Party,
+        characterId: Long?,
+    ) {
+        when {
+            party.isChattingAllow && characterId == null -> throw BusinessException(ErrorCode.CHARACTER_REQUIRED)
+            !party.isChattingAllow && characterId != null -> throw BusinessException(ErrorCode.CHARACTER_NOT_ALLOWED)
+        }
     }
 }
