@@ -1,19 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
     <springProperty scope="context" name="APP_NAME" source="spring.application.name"/>
+    <springProperty scope="context" name="LOKI_URL" source="loki.url" defaultValue="http://localhost:3100"/>
 
-    <!-- 콘솔 출력 (MDC 포함) -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
             <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId}] [%X{requestId}] %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 
-    <!-- Loki 전송 -->
-    <!-- TODO: [운영] 앱을 Docker로 띄울 경우 URL을 http://loki:3100/loki/api/v1/push 로 변경 -->
     <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
         <http>
-            <url>http://localhost:3100/loki/api/v1/push</url>
+            <url>${LOKI_URL}/loki/api/v1/push</url>
         </http>
         <format>
             <label>
@@ -26,6 +24,7 @@
         </format>
     </appender>
 
+    <!-- 로컬: 콘솔 + Loki (localhost:3100) -->
     <springProfile name="local">
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
@@ -33,24 +32,25 @@
         </root>
     </springProfile>
 
+    <!-- dev: 콘솔 + Loki (Docker loki:3100) -->
+    <springProfile name="dev">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="LOKI"/>
+        </root>
+    </springProfile>
+
+    <!-- prod: Loki만 (Docker loki:3100) -->
     <springProfile name="prod">
         <root level="INFO">
             <appender-ref ref="LOKI"/>
         </root>
     </springProfile>
 
-    <!-- 테스트 프로필: Loki 미사용 -->
+    <!-- test: 콘솔만 -->
     <springProfile name="test">
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
-        </root>
-    </springProfile>
-
-    <!-- 프로필 미지정 시 기본 -->
-    <springProfile name="!local &amp; !prod &amp; !test">
-        <root level="INFO">
-            <appender-ref ref="CONSOLE"/>
-            <appender-ref ref="LOKI"/>
         </root>
     </springProfile>
 </configuration>

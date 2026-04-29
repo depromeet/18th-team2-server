@@ -10,3 +10,18 @@ spring:
 springdoc:
   swagger-ui:
     enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+loki:
+  url: http://loki:3100
