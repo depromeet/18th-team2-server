@@ -8,6 +8,7 @@ import com.team2.server.party.dto.CreatePartyResponse
 import com.team2.server.party.dto.JoinPartyRequest
 import com.team2.server.party.dto.ParticipantResponse
 import com.team2.server.party.dto.PartyInfoResponse
+import com.team2.server.party.entity.PartyOption
 import com.team2.server.party.service.PartyParticipationService
 import com.team2.server.party.service.PartyService
 import io.swagger.v3.oas.annotations.Operation
@@ -36,15 +37,17 @@ class PartyController(
     private val partyParticipationService: PartyParticipationService,
 ) {
     @Operation(
-        summary = "파티 생성",
+        summary = "파티 생성 (REALTIME | PAPER_ONLY)",
         security = [SecurityRequirement(name = "Bearer Authentication")],
     )
     @ResponseStatus(HttpStatus.CREATED)
-    @PostMapping()
+    @PostMapping("/{partyOption}")
     fun createParty(
         @AuthenticationPrincipal principal: UserPrincipal,
+        @PathVariable partyOption: PartyOption,
         @RequestBody request: CreatePartyRequest,
-    ): ApiResponse<CreatePartyResponse> = ApiResponse.success(partyService.createParty(principal.userId, request))
+    ): ApiResponse<CreatePartyResponse> =
+        ApiResponse.success(partyService.createParty(principal.userId, request, partyOption))
 
     @Operation(summary = "파티 정보 조회", description = "초대 토큰으로 파티 정보를 조회한다.")
     @ApiResponses(

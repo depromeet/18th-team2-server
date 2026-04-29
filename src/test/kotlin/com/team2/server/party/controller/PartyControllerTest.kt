@@ -376,9 +376,9 @@ class PartyControllerTest
         }
 
         @Test
-        fun `인증 없이 파티 생성 시 401`() {
+        fun `인증 없이 실시간 파티 생성 시 401`() {
             mockMvc
-                .post("/api/v1/parties") {
+                .post("/api/v1/parties/REALTIME") {
                     contentType = MediaType.APPLICATION_JSON
                     content =
                         """
@@ -390,6 +390,111 @@ class PartyControllerTest
                         """.trimIndent()
                 }.andExpect {
                     status { isUnauthorized() }
+                }
+        }
+
+        @Test
+        fun `인증 없이 롤링페이퍼 파티 생성 시 401`() {
+            mockMvc
+                .post("/api/v1/parties/PAPER_ONLY") {
+                    contentType = MediaType.APPLICATION_JSON
+                    content =
+                        """
+                        {
+                          "celebrantNickname": "홍길동",
+                          "startedDate": "2026-04-28",
+                          "startTime": "14:30"
+                        }
+                        """.trimIndent()
+                }.andExpect {
+                    status { isUnauthorized() }
+                }
+        }
+
+        @Test
+        fun `REALTIME 파티 생성 성공`() {
+            val user =
+                userRepository.save(
+                    User(
+                        name = "파티장",
+                        birthDay = "01-01",
+                        provider = AuthProvider.KAKAO,
+                        providerId = "kakao-create-1",
+                        email = "create@kakao.local",
+                    ),
+                )
+            val token = tokenProvider.issue(user)
+
+            mockMvc
+                .post("/api/v1/parties/REALTIME") {
+                    contentType = MediaType.APPLICATION_JSON
+                    content =
+                        """
+                        {
+                          "celebrantNickname": "홍길동",
+                          "startedDate": "2026-04-28",
+                          "startTime": "14:30"
+                        }
+                        """.trimIndent()
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isCreated() }
+                    jsonPath("$.data.partyId") { isNumber() }
+                }
+        }
+
+        @Test
+        fun `PAPER_ONLY 파티 생성 성공 - startTime 없이 가능`() {
+            val user =
+                userRepository.save(
+                    User(
+                        name = "파티장",
+                        birthDay = "01-01",
+                        provider = AuthProvider.KAKAO,
+                        providerId = "kakao-create-2",
+                        email = "create2@kakao.local",
+                    ),
+                )
+            val token = tokenProvider.issue(user)
+
+            mockMvc
+                .post("/api/v1/parties/PAPER_ONLY") {
+                    contentType = MediaType.APPLICATION_JSON
+                    content =
+                        """
+                        {
+                          "celebrantNickname": "홍길동",
+                          "startedDate": "2026-04-28"
+                        }
+                        """.trimIndent()
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isCreated() }
+                    jsonPath("$.data.partyId") { isNumber() }
+                }
+        }
+
+        @Test
+        fun `잘못된 파티 유형으로 생성 시 400`() {
+            val user =
+                userRepository.save(
+                    User(
+                        name = "파티장",
+                        birthDay = "01-01",
+                        provider = AuthProvider.KAKAO,
+                        providerId = "kakao-invalid-1",
+                        email = "invalid@kakao.local",
+                    ),
+                )
+            val token = tokenProvider.issue(user)
+
+            mockMvc
+                .post("/api/v1/parties/invalid-type") {
+                    contentType = MediaType.APPLICATION_JSON
+                    content = """{"celebrantNickname": "홍길동", "startedDate": "2026-04-28", "startTime": "14:30"}"""
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isBadRequest() }
                 }
         }
 

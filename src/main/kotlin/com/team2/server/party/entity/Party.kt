@@ -29,10 +29,10 @@ class Party(
     var paperOpenedAt: LocalDateTime? = null,
     @Enumerated(EnumType.STRING)
     @Column(name = "party_type")
-    var option: PartyOption? = null,
+    var option: PartyOption,
     @Enumerated(EnumType.STRING)
     @Column(name = "purpose")
-    var purpose: PartyPurpose? = null,
+    var purpose: PartyPurpose = PartyPurpose.BIRTHDAY,
 ) : BaseEntity()
 
 enum class PartyOption {

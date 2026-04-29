@@ -4,6 +4,7 @@ import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.entity.Party
 import com.team2.server.party.entity.PartyInvite
+import com.team2.server.party.entity.PartyOption
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyInviteRepository
 import com.team2.server.party.repository.PartyRepository
@@ -31,8 +32,9 @@ class PartyInviteServiceTest {
         ownerId: Long = 1L,
         startedAt: LocalDateTime? = LocalDateTime.now().plusDays(2),
         endedAt: LocalDateTime? = LocalDateTime.now().plusDays(2).plusHours(3),
+        option: PartyOption = PartyOption.REALTIME,
     ): Party {
-        val party = Party(ownerId = ownerId, startedAt = startedAt, endedAt = endedAt)
+        val party = Party(ownerId = ownerId, startedAt = startedAt, endedAt = endedAt, option = option)
         val idField: Field = party.javaClass.superclass.getDeclaredField("id")
         idField.isAccessible = true
         idField.set(party, id)

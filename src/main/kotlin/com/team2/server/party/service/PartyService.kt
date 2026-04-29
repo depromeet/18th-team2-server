@@ -10,6 +10,7 @@ import com.team2.server.party.dto.PartyInfoResponse
 import com.team2.server.party.entity.Participant
 import com.team2.server.party.entity.Party
 import com.team2.server.party.entity.PartyInvite
+import com.team2.server.party.entity.PartyOption
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyInviteRepository
 import com.team2.server.party.repository.PartyRepository
@@ -17,6 +18,7 @@ import com.team2.server.user.repository.UserRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
+import java.time.LocalTime
 
 @Service
 class PartyService(
@@ -30,14 +32,25 @@ class PartyService(
     fun createParty(
         userId: Long,
         request: CreatePartyRequest,
+        partyOption: PartyOption,
     ): CreatePartyResponse {
         val user = findUser(userId)
-        val startedAt = LocalDateTime.of(request.startedDate, request.startTime)
+        val startedAt =
+            when (partyOption) {
+                PartyOption.PAPER_ONLY ->
+                    LocalDateTime.of(request.startedDate, request.startTime ?: LocalTime.MIDNIGHT)
+                PartyOption.REALTIME ->
+                    LocalDateTime.of(
+                        request.startedDate,
+                        requireNotNull(request.startTime) { "REALTIME 파티에는 startTime이 필요합니다." },
+                    )
+            }
         val party =
             Party(
                 ownerId = userId,
                 celebrantNickname = request.celebrantNickname,
                 startedAt = startedAt,
+                option = partyOption,
             )
         val saved = partyRepository.save(party)
         participantRepository.save(
