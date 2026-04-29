@@ -2,7 +2,11 @@ spring:
   application:
     name: team2-backend
   profiles:
-    include: secret
+    default: local
+    group:
+      local: secret
+      dev: secret-dev
+      prod: secret-prod
   jpa:
     hibernate:
       ddl-auto: update
