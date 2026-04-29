@@ -21,3 +21,6 @@ management:
 
 loki:
   url: http://loki:3100
+
+app:
+  env: dev
