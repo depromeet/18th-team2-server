@@ -57,7 +57,14 @@ interface PartyApi {
         request: CreatePartyRequest,
     ): ApiResponse<CreatePartyResponse>
 
-    @Operation(summary = "파티 정보 조회", description = "초대 토큰으로 파티 정보를 조회한다.")
+    @Operation(
+        summary = "파티 정보 조회",
+        description = "초대 토큰으로 파티 정보를 조회한다. 인증은 선택사항이며, 토큰이 있으면 회원 정보를 활용한다.",
+        security = [
+            SecurityRequirement(name = "Bearer Authentication"),
+            SecurityRequirement(name = ""),
+        ],
+    )
     @SwaggerApiResponse(
         responseCode = "200",
         description = "파티 정보 조회 성공",
@@ -145,6 +152,10 @@ interface PartyApi {
             "초대 토큰으로 파티에 참여한다. 회원/비회원 모두 가능. " +
                 "채팅 허용 파티는 characterId가 필수이며 누락 시 CHARACTER_REQUIRED를 반환한다. " +
                 "채팅 비허용 파티는 characterId를 보낼 수 없으며 전달 시 CHARACTER_NOT_ALLOWED를 반환한다.",
+        security = [
+            SecurityRequirement(name = "Bearer Authentication"),
+            SecurityRequirement(name = ""),
+        ],
     )
     @SwaggerApiResponse(
         responseCode = "200",
