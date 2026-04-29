@@ -33,8 +33,6 @@ services:
     restart: unless-stopped
     networks:
       - monitoring-net
-      - dev-network
-      - prod-network
 
   grafana:
     image: grafana/grafana:latest
