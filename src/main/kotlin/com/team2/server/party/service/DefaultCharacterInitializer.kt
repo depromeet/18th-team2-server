@@ -29,7 +29,12 @@ class DefaultCharacterInitializer(
                     .findById(defaultCharacter.id)
                     .orElseGet { createCharacter(defaultCharacter) }
 
-            if (imageRepository.findFirstByTargetTypeAndTargetIdOrderBySortOrderAsc(ImageTargetType.CHARACTER, character.id) == null) {
+            val characterImage =
+                imageRepository.findFirstByTargetTypeAndTargetIdOrderBySortOrderAsc(
+                    ImageTargetType.CHARACTER,
+                    character.id,
+                )
+            if (characterImage == null) {
                 createCharacterImage(defaultCharacter)
             }
         }
