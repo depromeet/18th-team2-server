@@ -1,5 +1,6 @@
 services:
   app-dev:
+    container_name: team2-app-dev
     build:
       context: .
       dockerfile: Dockerfile
