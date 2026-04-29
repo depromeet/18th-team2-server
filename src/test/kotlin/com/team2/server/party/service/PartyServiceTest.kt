@@ -3,6 +3,7 @@ package com.team2.server.party.service
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.dto.CharacterImageUrlResolver
+import com.team2.server.party.dto.CreatePartyRequest
 import com.team2.server.party.entity.Character
 import com.team2.server.party.entity.Participant
 import com.team2.server.party.entity.Party
@@ -22,9 +23,16 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
+import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.never
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.lang.reflect.Field
+import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
+import java.util.Optional
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
@@ -110,6 +118,54 @@ class PartyServiceTest {
         val character = Character(name = "곰돌이")
         setId(character, id)
         return character
+    }
+
+    // --- 파티 생성 ---
+
+    @Test
+    fun `createParty 파티 생성 시 주최자를 참여자로 저장`() {
+        val user = newUser(id = 1L)
+        val savedParty = newParty(id = 7L)
+        val request =
+            CreatePartyRequest(
+                celebrantNickname = "홍길동",
+                startedDate = LocalDate.of(2026, 4, 29),
+                startTime = LocalTime.of(14, 30),
+            )
+
+        whenever(userRepository.findById(1L)).thenReturn(Optional.of(user))
+        whenever(partyRepository.save(any())).thenReturn(savedParty)
+
+        val result = partyService.createParty(1L, request)
+
+        val participantCaptor = argumentCaptor<Participant>()
+        verify(participantRepository).save(participantCaptor.capture())
+        val participant = participantCaptor.firstValue
+        assertEquals(7L, result.partyId)
+        assertEquals(savedParty, participant.party)
+        assertEquals(user, participant.user)
+        assertEquals("홍길동", participant.nickname)
+        assertTrue(participant.isCelebrant)
+    }
+
+    @Test
+    fun `createParty 유저가 없으면 AUTH_USER_NOT_FOUND`() {
+        val request =
+            CreatePartyRequest(
+                celebrantNickname = "홍길동",
+                startedDate = LocalDate.of(2026, 4, 29),
+                startTime = LocalTime.of(14, 30),
+            )
+        whenever(userRepository.findById(1L)).thenReturn(Optional.empty())
+
+        val ex =
+            assertThrows<BusinessException> {
+                partyService.createParty(1L, request)
+            }
+
+        assertEquals(ErrorCode.AUTH_USER_NOT_FOUND, ex.errorCode)
+        verify(partyRepository, never()).save(any())
+        verify(participantRepository, never()).save(any())
     }
 
     // --- 파티 정보 조회 ---

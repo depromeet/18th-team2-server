@@ -34,6 +34,10 @@ class PartyService(
         userId: Long,
         request: CreatePartyRequest,
     ): CreatePartyResponse {
+        val user =
+            userRepository
+                .findById(userId)
+                .orElseThrow { BusinessException(ErrorCode.AUTH_USER_NOT_FOUND) }
         val startedAt = LocalDateTime.of(request.startedDate, request.startTime)
         val party =
             Party(
@@ -42,6 +46,14 @@ class PartyService(
                 startedAt = startedAt,
             )
         val saved = partyRepository.save(party)
+        participantRepository.save(
+            Participant(
+                party = saved,
+                user = user,
+                nickname = request.celebrantNickname,
+                isCelebrant = true,
+            ),
+        )
         return CreatePartyResponse(partyId = saved.id)
     }
 
