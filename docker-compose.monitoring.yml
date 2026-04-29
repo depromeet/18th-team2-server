@@ -16,13 +16,13 @@ services:
       - '--web.console.templates=/usr/share/prometheus/consoles'
     restart: unless-stopped
     networks:
+      - monitoring-net
       - dev-network
       - prod-network
 
   loki:
     image: grafana/loki:latest
     container_name: loki
-    # TODO: [운영] root 대신 전용 유저 생성 후 볼륨 디렉토리 소유권을 해당 유저로 변경하여 최소 권한 원칙 적용
     user: root
     ports:
       - "3100:3100"
@@ -31,6 +31,8 @@ services:
       - loki_data:/tmp/loki
     command: -config.file=/etc/loki/local-config.yaml
     restart: unless-stopped
+    networks:
+      - monitoring-net
 
   grafana:
     image: grafana/grafana:latest
@@ -49,6 +51,8 @@ services:
       - prometheus
       - loki
     restart: unless-stopped
+    networks:
+      - monitoring-net
 
 volumes:
   prometheus_data:
@@ -56,6 +60,7 @@ volumes:
   grafana_data:
 
 networks:
+  monitoring-net: {}
   dev-network:
     external: true
   prod-network:
