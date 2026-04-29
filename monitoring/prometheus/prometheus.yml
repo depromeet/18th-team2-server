@@ -6,9 +6,9 @@ scrape_configs:
   - job_name: 'team2-backend-dev'
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['18th-team2-server-app-dev-1:8080']
+      - targets: ['team2-app-dev:8080']
 
   - job_name: 'team2-backend-prod'
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['18th-team2-server-app-prod-1:8080']
+      - targets: ['team2-app-prod:8080']
