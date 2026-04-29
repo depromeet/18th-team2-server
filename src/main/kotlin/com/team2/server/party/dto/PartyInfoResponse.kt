@@ -20,8 +20,6 @@ data class PartyInfoResponse(
     val startedAt: LocalDateTime?,
     @Schema(description = "파티 종료일")
     val endedAt: LocalDateTime?,
-    @Schema(description = "파티 생성일")
-    val createdAt: LocalDateTime,
     @Schema(description = "파티 종료 여부")
     val ended: Boolean,
     @Schema(description = "나의 참여 정보 (회원이 이미 참여한 경우)")
@@ -39,7 +37,6 @@ data class PartyInfoResponse(
                 option = party.option,
                 startedAt = party.startedAt,
                 endedAt = party.endedAt,
-                createdAt = party.createdAt,
                 ended = party.endedAt?.isBefore(LocalDateTime.now()) ?: false,
                 myParticipant = myParticipant,
             )
