@@ -26,6 +26,7 @@ services:
       - dev-network
 
   db-dev:
+    container_name: team2-db-dev
     image: mysql:8.0
     environment:
       - MYSQL_DATABASE=team2_dev
