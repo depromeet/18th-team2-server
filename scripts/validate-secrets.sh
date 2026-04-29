@@ -2,18 +2,15 @@
 set -euo pipefail
 
 SECRET_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/config/secret"
+BASE_FILE="$SECRET_DIR/application-secret.yml"
 
-# 필수 키 목록 (yq 경로 형식 + 표시용 이름)
-REQUIRED_KEYS=(
-    ".spring.datasource.url|spring.datasource.url"
-    ".spring.datasource.username|spring.datasource.username"
-    ".spring.datasource.password|spring.datasource.password"
-    '.spring.security.oauth2.client.registration.kakao["client-id"]|spring.security.oauth2.client.registration.kakao.client-id'
-    '.spring.security.oauth2.client.registration.kakao["client-secret"]|spring.security.oauth2.client.registration.kakao.client-secret'
-    ".app.jwt.secret|app.jwt.secret"
-    '.app.jwt["expiration-hours"]|app.jwt.expiration-hours'
-    '.app.oauth2["authorized-redirect-uris"]|app.oauth2.authorized-redirect-uris'
-)
+if [ ! -f "$BASE_FILE" ]; then
+    echo "FAIL: application-secret.yml (기준 파일)이 존재하지 않습니다."
+    exit 1
+fi
+
+# application-secret.yml에서 leaf 키 경로를 모두 추출
+BASE_KEYS=$(yq '.. | select(tag != "!!map" and tag != "!!seq") | path | join(".")' "$BASE_FILE" | sort)
 
 ENVS=("dev" "prod")
 HAS_ERROR=false
@@ -29,20 +26,16 @@ for env in "${ENVS[@]}"; do
     fi
 
     echo "Checking application-secret-${env}.yml ..."
+    TARGET_KEYS=$(yq '.. | select(tag != "!!map" and tag != "!!seq") | path | join(".")' "$FILE" | sort)
     ENV_MISSING=""
 
-    for entry in "${REQUIRED_KEYS[@]}"; do
-        yq_path="${entry%%|*}"
-        display_name="${entry##*|}"
-
-        value=$(yq -e -r "$yq_path" "$FILE" 2>/dev/null) || value=""
-
-        if [ -z "$value" ] || [ "$value" = "null" ]; then
-            echo "  MISSING: ${display_name}"
-            ENV_MISSING="${ENV_MISSING}\n  - ${display_name}"
+    while IFS= read -r key; do
+        if ! echo "$TARGET_KEYS" | grep -qxF "$key"; then
+            echo "  MISSING: $key"
+            ENV_MISSING="${ENV_MISSING}\n  - ${key}"
             HAS_ERROR=true
         fi
-    done
+    done <<< "$BASE_KEYS"
 
     if [ -n "$ENV_MISSING" ]; then
         MISSING_SUMMARY="${MISSING_SUMMARY}\n[${env}]${ENV_MISSING}"
@@ -54,7 +47,7 @@ if [ "$HAS_ERROR" = true ]; then
     echo "ERROR: 시크릿 서브모듈에 필수 키가 누락되어 있습니다."
     echo -e "\n누락 키 요약:${MISSING_SUMMARY}"
     echo ""
-    echo "config/secret 레포에 누락된 값을 추가한 후 서브모듈을 업데이트하세요."
+    echo "application-secret.yml 기준으로 dev/prod에 누락된 키를 추가하세요."
     exit 1
 fi
 
