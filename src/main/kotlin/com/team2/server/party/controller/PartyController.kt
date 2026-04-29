@@ -8,6 +8,7 @@ import com.team2.server.party.dto.CreatePartyResponse
 import com.team2.server.party.dto.JoinPartyRequest
 import com.team2.server.party.dto.ParticipantResponse
 import com.team2.server.party.dto.PartyInfoResponse
+import com.team2.server.party.service.PartyParticipationService
 import com.team2.server.party.service.PartyService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
@@ -32,6 +33,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse as SwaggerApiResponse
 @RequestMapping("/api/v1/parties")
 class PartyController(
     private val partyService: PartyService,
+    private val partyParticipationService: PartyParticipationService,
 ) {
     @Operation(
         summary = "파티 생성",
@@ -138,7 +140,7 @@ class PartyController(
         @AuthenticationPrincipal principal: UserPrincipal?,
     ): ApiResponse<ParticipantResponse> =
         ApiResponse.success(
-            partyService.joinParty(
+            partyParticipationService.joinParty(
                 inviteToken,
                 principal?.userId,
                 request.nickname,

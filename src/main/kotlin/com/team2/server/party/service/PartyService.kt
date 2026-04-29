@@ -7,16 +7,13 @@ import com.team2.server.party.dto.CreatePartyRequest
 import com.team2.server.party.dto.CreatePartyResponse
 import com.team2.server.party.dto.ParticipantResponse
 import com.team2.server.party.dto.PartyInfoResponse
-import com.team2.server.party.entity.Character
 import com.team2.server.party.entity.Participant
 import com.team2.server.party.entity.Party
 import com.team2.server.party.entity.PartyInvite
-import com.team2.server.party.repository.CharacterRepository
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyInviteRepository
 import com.team2.server.party.repository.PartyRepository
 import com.team2.server.user.repository.UserRepository
-import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -26,7 +23,6 @@ class PartyService(
     private val partyRepository: PartyRepository,
     private val partyInviteRepository: PartyInviteRepository,
     private val participantRepository: ParticipantRepository,
-    private val characterRepository: CharacterRepository,
     private val characterImageUrlResolver: CharacterImageUrlResolver,
     private val userRepository: UserRepository,
 ) {
@@ -35,10 +31,7 @@ class PartyService(
         userId: Long,
         request: CreatePartyRequest,
     ): CreatePartyResponse {
-        val user =
-            userRepository
-                .findById(userId)
-                .orElseThrow { BusinessException(ErrorCode.AUTH_USER_NOT_FOUND) }
+        val user = findUser(userId)
         val startedAt = LocalDateTime.of(request.startedDate, request.startTime)
         val party =
             Party(
@@ -79,40 +72,6 @@ class PartyService(
         return PartyInfoResponse.from(party, myParticipant)
     }
 
-    @Transactional
-    fun joinParty(
-        inviteToken: String,
-        userId: Long?,
-        nickname: String,
-        characterId: Long?,
-    ): ParticipantResponse {
-        val invite = findValidInvite(inviteToken)
-        val party = invite.party
-
-        validateJoinable(party)
-        val user = resolveUser(party, userId)
-        val character = resolveCharacter(party, characterId)
-
-        val participant =
-            try {
-                participantRepository.saveAndFlush(
-                    Participant(
-                        party = party,
-                        character = character,
-                        user = user,
-                        nickname = nickname,
-                    ),
-                )
-            } catch (e: DataIntegrityViolationException) {
-                if (e.isConstraintViolation(PARTICIPANT_UNIQUE_CONSTRAINT)) {
-                    throw BusinessException(ErrorCode.ALREADY_JOINED)
-                }
-                throw e
-            }
-
-        return ParticipantResponse.from(participant, character?.let { characterImageUrlResolver.resolve(it) })
-    }
-
     private fun findValidInvite(inviteToken: String): PartyInvite {
         val now = LocalDateTime.now()
         val invite =
@@ -124,62 +83,8 @@ class PartyService(
         return invite
     }
 
-    private fun validateJoinable(party: Party) {
-        val now = LocalDateTime.now()
-        if (party.endedAt?.let { !it.isAfter(now) } == true) {
-            throw BusinessException(ErrorCode.PARTY_ENDED)
-        }
-    }
-
-    private fun resolveUser(
-        party: Party,
-        userId: Long?,
-    ) = userId?.let {
-        val user = findUser(it)
-        if (participantRepository.existsByPartyAndUser(party, user)) {
-            throw BusinessException(ErrorCode.ALREADY_JOINED)
-        }
-        user
-    }
-
     private fun findUser(userId: Long) =
         userRepository
             .findById(userId)
             .orElseThrow { BusinessException(ErrorCode.AUTH_USER_NOT_FOUND) }
-
-    private fun resolveCharacter(
-        party: Party,
-        characterId: Long?,
-    ): Character? {
-        validateCharacterSelection(party, characterId)
-        return characterId?.let {
-            characterRepository
-                .findById(it)
-                .orElseThrow { BusinessException(ErrorCode.CHARACTER_NOT_FOUND) }
-        }
-    }
-
-    private fun validateCharacterSelection(
-        party: Party,
-        characterId: Long?,
-    ) {
-        when {
-            party.isChattingAllow && characterId == null -> throw BusinessException(ErrorCode.CHARACTER_REQUIRED)
-            !party.isChattingAllow && characterId != null -> throw BusinessException(ErrorCode.CHARACTER_NOT_ALLOWED)
-        }
-    }
-
-    private fun DataIntegrityViolationException.isConstraintViolation(constraintName: String): Boolean {
-        val message =
-            listOfNotNull(
-                message,
-                rootCause?.message,
-                mostSpecificCause.message,
-            ).joinToString(" ")
-        return message.contains(constraintName, ignoreCase = true)
-    }
-
-    companion object {
-        private const val PARTICIPANT_UNIQUE_CONSTRAINT = "uk_participant_party_user"
-    }
 }
