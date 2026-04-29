@@ -7,6 +7,7 @@ import com.team2.server.party.entity.Character
 import com.team2.server.party.repository.CharacterRepository
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -36,12 +37,19 @@ class DefaultCharacterInitializer(
             return character
         }
 
-        return characterRepository.save(
-            Character(
-                name = defaultCharacter.name,
-                imageUrl = defaultCharacter.imageUrl,
-            ),
-        )
+        return try {
+            characterRepository.saveAndFlush(
+                Character(
+                    name = defaultCharacter.name,
+                    imageUrl = defaultCharacter.imageUrl,
+                ),
+            )
+        } catch (e: DataIntegrityViolationException) {
+            if (!e.isConstraintViolation(AVATAR_NAME_UNIQUE_CONSTRAINT)) {
+                throw e
+            }
+            characterRepository.findByName(defaultCharacter.name) ?: throw e
+        }
     }
 
     private fun ensureCharacterImage(
@@ -54,14 +62,30 @@ class DefaultCharacterInitializer(
                 character.id,
             )
         if (characterImage == null) {
-            imageRepository.save(
-                Image(
-                    imageUrl = imageUrl,
-                    targetType = ImageTargetType.CHARACTER,
-                    targetId = character.id,
-                ),
-            )
+            try {
+                imageRepository.saveAndFlush(
+                    Image(
+                        imageUrl = imageUrl,
+                        targetType = ImageTargetType.CHARACTER,
+                        targetId = character.id,
+                    ),
+                )
+            } catch (e: DataIntegrityViolationException) {
+                if (!e.isConstraintViolation(IMAGE_TARGET_SORT_UNIQUE_CONSTRAINT)) {
+                    throw e
+                }
+            }
         }
+    }
+
+    private fun DataIntegrityViolationException.isConstraintViolation(constraintName: String): Boolean {
+        val message =
+            listOfNotNull(
+                message,
+                rootCause?.message,
+                mostSpecificCause.message,
+            ).joinToString(" ")
+        return message.contains(constraintName, ignoreCase = true)
     }
 
     private data class DefaultCharacter(
@@ -70,6 +94,9 @@ class DefaultCharacterInitializer(
     )
 
     companion object {
+        private const val AVATAR_NAME_UNIQUE_CONSTRAINT = "uk_avatar_name"
+        private const val IMAGE_TARGET_SORT_UNIQUE_CONSTRAINT = "uk_image_target_sort"
+
         private val DEFAULT_CHARACTERS =
             listOf(
                 DefaultCharacter("character1", "/images/characters/character1.jpg"),

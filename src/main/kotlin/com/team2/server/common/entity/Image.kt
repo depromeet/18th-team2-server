@@ -5,9 +5,18 @@ import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
 
 @Entity
-@Table(name = "image")
+@Table(
+    name = "image",
+    uniqueConstraints = [
+        UniqueConstraint(
+            name = "uk_image_target_sort",
+            columnNames = ["target_type", "target_id", "sort_order"],
+        ),
+    ],
+)
 class Image(
     @Column(name = "image_url", nullable = false)
     var imageUrl: String,

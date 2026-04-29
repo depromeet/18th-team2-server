@@ -28,6 +28,7 @@ import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.springframework.dao.DataIntegrityViolationException
 import java.lang.reflect.Field
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -221,6 +222,20 @@ class PartyServiceTest {
     }
 
     @Test
+    fun `getPartyInfo 만료 시간이 현재와 같으면 INVITE_LINK_EXPIRED`() {
+        val party = newParty()
+        whenever(partyInviteRepository.findByToken("expired")).thenReturn(
+            newInvite(token = "expired", party = party, expiresAt = LocalDateTime.now()),
+        )
+
+        val ex =
+            assertThrows<BusinessException> {
+                partyService.getPartyInfo("expired", null)
+            }
+        assertEquals(ErrorCode.INVITE_LINK_EXPIRED, ex.errorCode)
+    }
+
+    @Test
     fun `getPartyInfo 회원이 이미 참여했으면 myParticipant 포함`() {
         val party = newParty()
         val user = newUser()
@@ -259,6 +274,20 @@ class PartyServiceTest {
         val result = partyService.getPartyInfo("abc123", 10L)
 
         assertNull(result.myParticipant)
+    }
+
+    @Test
+    fun `getPartyInfo 인증 userId가 DB에 없으면 AUTH_USER_NOT_FOUND`() {
+        val party = newParty()
+        whenever(partyInviteRepository.findByToken("abc123")).thenReturn(newInvite(party = party))
+        whenever(userRepository.findById(10L)).thenReturn(java.util.Optional.empty())
+
+        val ex =
+            assertThrows<BusinessException> {
+                partyService.getPartyInfo("abc123", 10L)
+            }
+
+        assertEquals(ErrorCode.AUTH_USER_NOT_FOUND, ex.errorCode)
     }
 
     // --- 파티 참여 ---
@@ -332,6 +361,18 @@ class PartyServiceTest {
     }
 
     @Test
+    fun `joinParty 종료 시간이 현재와 같으면 PARTY_ENDED`() {
+        val party = newParty(endedAt = LocalDateTime.now())
+        whenever(partyInviteRepository.findByToken("abc123")).thenReturn(newInvite(party = party))
+
+        val ex =
+            assertThrows<BusinessException> {
+                partyService.joinParty("abc123", null, "닉", 1L)
+            }
+        assertEquals(ErrorCode.PARTY_ENDED, ex.errorCode)
+    }
+
+    @Test
     fun `joinParty 만료된 초대 토큰이면 INVITE_LINK_EXPIRED`() {
         val party = newParty()
         whenever(partyInviteRepository.findByToken("expired")).thenReturn(
@@ -359,6 +400,42 @@ class PartyServiceTest {
                 partyService.joinParty("abc123", 10L, "닉", 1L)
             }
         assertEquals(ErrorCode.ALREADY_JOINED, ex.errorCode)
+    }
+
+    @Test
+    fun `joinParty DB unique 제약으로 중복 참여가 감지되면 ALREADY_JOINED`() {
+        val party = newParty()
+        val user = newUser()
+        val character = newCharacter()
+
+        whenever(partyInviteRepository.findByToken("abc123")).thenReturn(newInvite(party = party))
+        whenever(userRepository.findById(10L)).thenReturn(java.util.Optional.of(user))
+        whenever(participantRepository.existsByPartyAndUser(party, user)).thenReturn(false)
+        whenever(characterRepository.findById(1L)).thenReturn(java.util.Optional.of(character))
+        whenever(participantRepository.saveAndFlush(org.mockito.kotlin.any<Participant>())).thenThrow(
+            DataIntegrityViolationException("duplicate key uk_participant_party_user"),
+        )
+
+        val ex =
+            assertThrows<BusinessException> {
+                partyService.joinParty("abc123", 10L, "닉", 1L)
+            }
+
+        assertEquals(ErrorCode.ALREADY_JOINED, ex.errorCode)
+    }
+
+    @Test
+    fun `joinParty 회원 userId가 DB에 없으면 AUTH_USER_NOT_FOUND`() {
+        val party = newParty()
+        whenever(partyInviteRepository.findByToken("abc123")).thenReturn(newInvite(party = party))
+        whenever(userRepository.findById(10L)).thenReturn(java.util.Optional.empty())
+
+        val ex =
+            assertThrows<BusinessException> {
+                partyService.joinParty("abc123", 10L, "닉", 1L)
+            }
+
+        assertEquals(ErrorCode.AUTH_USER_NOT_FOUND, ex.errorCode)
     }
 
     @Test

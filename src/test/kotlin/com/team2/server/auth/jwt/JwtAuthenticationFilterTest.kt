@@ -161,6 +161,7 @@ class JwtAuthenticationFilterTest {
         newFilter(repo).doFilter(req, res, chain)
 
         assertSame(existingAuth, SecurityContextHolder.getContext().authentication)
+        assertNull(req.getAttribute(AUTH_ERROR_REQUEST_ATTRIBUTE))
         verify(repo, never()).findById(any())
         verify(chain).doFilter(any<HttpServletRequest>(), any<HttpServletResponse>())
     }

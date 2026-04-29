@@ -52,7 +52,7 @@ class PartyController(
                 description = "파티 정보 조회 성공",
                 content = [
                     Content(
-                        schema = Schema(implementation = PartyInfoResponse::class),
+                        schema = Schema(implementation = ApiResponse::class),
                     ),
                 ],
             ),
@@ -82,7 +82,13 @@ class PartyController(
         @AuthenticationPrincipal principal: UserPrincipal?,
     ): ApiResponse<PartyInfoResponse> = ApiResponse.success(partyService.getPartyInfo(inviteToken, principal?.userId))
 
-    @Operation(summary = "파티 참여", description = "초대 토큰으로 파티에 참여한다. 회원/비회원 모두 가능.")
+    @Operation(
+        summary = "파티 참여",
+        description =
+            "초대 토큰으로 파티에 참여한다. 회원/비회원 모두 가능. " +
+                "채팅 허용 파티는 characterId가 필수이며 누락 시 CHARACTER_REQUIRED를 반환한다. " +
+                "채팅 비허용 파티는 characterId를 보낼 수 없으며 전달 시 CHARACTER_NOT_ALLOWED를 반환한다.",
+    )
     @ApiResponses(
         value = [
             SwaggerApiResponse(
@@ -90,13 +96,15 @@ class PartyController(
                 description = "파티 참여 성공",
                 content = [
                     Content(
-                        schema = Schema(implementation = ParticipantResponse::class),
+                        schema = Schema(implementation = ApiResponse::class),
                     ),
                 ],
             ),
             SwaggerApiResponse(
                 responseCode = "400",
-                description = "잘못된 요청, 만료된 초대 토큰, 종료된 파티, 캐릭터 선택 규칙 위반",
+                description =
+                    "잘못된 요청, 만료된 초대 토큰, 종료된 파티, 캐릭터 선택 규칙 위반 " +
+                        "(INVITE_LINK_EXPIRED, PARTY_ENDED, CHARACTER_REQUIRED, CHARACTER_NOT_ALLOWED)",
                 content = [
                     Content(
                         schema = Schema(implementation = ErrorResponse::class),

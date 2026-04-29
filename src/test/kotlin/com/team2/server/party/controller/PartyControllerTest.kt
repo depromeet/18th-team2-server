@@ -211,7 +211,7 @@ class PartyControllerTest
         // --- POST /api/v1/parties/{shareLink}/participants ---
 
         @Test
-        fun `비회원 파티 참여 성공`() {
+        fun `미인증 사용자가 characterId와 함께 파티 참여 성공`() {
             mockMvc
                 .post("/api/v1/parties/active-link/participants") {
                     contentType = MediaType.APPLICATION_JSON
@@ -303,6 +303,7 @@ class PartyControllerTest
                     content = """{"nickname": "", "characterId": ${character.id}}"""
                 }.andExpect {
                     status { isBadRequest() }
+                    jsonPath("$.error.code") { value("VALIDATION_ERROR") }
                 }
         }
 
@@ -315,6 +316,18 @@ class PartyControllerTest
                 }.andExpect {
                     status { isNotFound() }
                     jsonPath("$.error.code") { value("CHARACTER_NOT_FOUND") }
+                }
+        }
+
+        @Test
+        fun `characterId가 0 이하이면 400`() {
+            mockMvc
+                .post("/api/v1/parties/active-link/participants") {
+                    contentType = MediaType.APPLICATION_JSON
+                    content = """{"nickname": "닉네임", "characterId": 0}"""
+                }.andExpect {
+                    status { isBadRequest() }
+                    jsonPath("$.error.code") { value("VALIDATION_ERROR") }
                 }
         }
 

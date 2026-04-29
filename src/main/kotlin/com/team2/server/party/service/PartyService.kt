@@ -68,9 +68,9 @@ class PartyService(
 
         val myParticipant =
             if (userId != null) {
-                val user = userRepository.findById(userId).orElse(null)
-                user
-                    ?.let { participantRepository.findByPartyAndUser(party, it) }
+                val user = findUser(userId)
+                participantRepository
+                    .findByPartyAndUser(party, user)
                     ?.let { ParticipantResponse.from(it, it.character?.let(characterImageUrlResolver::resolve)) }
             } else {
                 null
@@ -103,25 +103,30 @@ class PartyService(
                         nickname = nickname,
                     ),
                 )
-            } catch (_: DataIntegrityViolationException) {
-                throw BusinessException(ErrorCode.ALREADY_JOINED)
+            } catch (e: DataIntegrityViolationException) {
+                if (e.isConstraintViolation(PARTICIPANT_UNIQUE_CONSTRAINT)) {
+                    throw BusinessException(ErrorCode.ALREADY_JOINED)
+                }
+                throw e
             }
 
         return ParticipantResponse.from(participant, character?.let { characterImageUrlResolver.resolve(it) })
     }
 
     private fun findValidInvite(inviteToken: String): PartyInvite {
+        val now = LocalDateTime.now()
         val invite =
             partyInviteRepository.findByToken(inviteToken)
                 ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
-        if (invite.expiresAt.isBefore(LocalDateTime.now())) {
+        if (!invite.expiresAt.isAfter(now)) {
             throw BusinessException(ErrorCode.INVITE_LINK_EXPIRED)
         }
         return invite
     }
 
     private fun validateJoinable(party: Party) {
-        if (party.endedAt?.isBefore(LocalDateTime.now()) == true) {
+        val now = LocalDateTime.now()
+        if (party.endedAt?.let { !it.isAfter(now) } == true) {
             throw BusinessException(ErrorCode.PARTY_ENDED)
         }
     }
@@ -130,12 +135,17 @@ class PartyService(
         party: Party,
         userId: Long?,
     ) = userId?.let {
-        val user = userRepository.findById(it).orElse(null)
-        if (user != null && participantRepository.existsByPartyAndUser(party, user)) {
+        val user = findUser(it)
+        if (participantRepository.existsByPartyAndUser(party, user)) {
             throw BusinessException(ErrorCode.ALREADY_JOINED)
         }
         user
     }
+
+    private fun findUser(userId: Long) =
+        userRepository
+            .findById(userId)
+            .orElseThrow { BusinessException(ErrorCode.AUTH_USER_NOT_FOUND) }
 
     private fun resolveCharacter(
         party: Party,
@@ -157,5 +167,19 @@ class PartyService(
             party.isChattingAllow && characterId == null -> throw BusinessException(ErrorCode.CHARACTER_REQUIRED)
             !party.isChattingAllow && characterId != null -> throw BusinessException(ErrorCode.CHARACTER_NOT_ALLOWED)
         }
+    }
+
+    private fun DataIntegrityViolationException.isConstraintViolation(constraintName: String): Boolean {
+        val message =
+            listOfNotNull(
+                message,
+                rootCause?.message,
+                mostSpecificCause.message,
+            ).joinToString(" ")
+        return message.contains(constraintName, ignoreCase = true)
+    }
+
+    companion object {
+        private const val PARTICIPANT_UNIQUE_CONSTRAINT = "uk_participant_party_user"
     }
 }

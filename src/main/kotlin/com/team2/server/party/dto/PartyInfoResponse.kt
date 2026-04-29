@@ -29,16 +29,18 @@ data class PartyInfoResponse(
         fun from(
             party: Party,
             myParticipant: ParticipantResponse?,
-        ): PartyInfoResponse =
-            PartyInfoResponse(
+        ): PartyInfoResponse {
+            val now = LocalDateTime.now()
+            return PartyInfoResponse(
                 name = party.name,
                 celebrantNickname = party.celebrantNickname,
                 purpose = party.purpose,
                 option = party.option,
                 startedAt = party.startedAt,
                 endedAt = party.endedAt,
-                ended = party.endedAt?.isBefore(LocalDateTime.now()) ?: false,
+                ended = party.endedAt?.let { !it.isAfter(now) } ?: false,
                 myParticipant = myParticipant,
             )
+        }
     }
 }
