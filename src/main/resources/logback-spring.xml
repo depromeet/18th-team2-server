@@ -2,6 +2,7 @@
 <configuration>
     <springProperty scope="context" name="APP_NAME" source="spring.application.name"/>
     <springProperty scope="context" name="LOKI_URL" source="loki.url" defaultValue="http://localhost:3100"/>
+    <springProperty scope="context" name="ENV" source="app.env" defaultValue="local"/>
 
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
@@ -15,7 +16,7 @@
         </http>
         <format>
             <label>
-                <pattern>app=${APP_NAME},host=${HOSTNAME},level=%level</pattern>
+                <pattern>app=${APP_NAME},env=${ENV},host=${HOSTNAME},level=%level</pattern>
             </label>
             <message>
                 <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [traceId=%X{traceId}] [requestId=%X{requestId}] %logger{36} - %msg%n</pattern>

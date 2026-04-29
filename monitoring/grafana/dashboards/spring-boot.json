@@ -19,7 +19,7 @@
       "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } },
       "targets": [
         {
-          "expr": "rate(http_server_requests_seconds_count{application=\"team2-backend\"}[1m])",
+          "expr": "rate(http_server_requests_seconds_count{job=\"team2-backend-$env\"}[1m])",
           "legendFormat": "{{method}} {{uri}} {{status}}",
           "refId": "A"
         }
@@ -38,7 +38,7 @@
       "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } },
       "targets": [
         {
-          "expr": "rate(http_server_requests_seconds_sum{application=\"team2-backend\"}[1m]) / rate(http_server_requests_seconds_count{application=\"team2-backend\"}[1m])",
+          "expr": "rate(http_server_requests_seconds_sum{job=\"team2-backend-$env\"}[1m]) / rate(http_server_requests_seconds_count{job=\"team2-backend-$env\"}[1m])",
           "legendFormat": "{{method}} {{uri}}",
           "refId": "A"
         }
@@ -57,7 +57,7 @@
       "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } },
       "targets": [
         {
-          "expr": "jvm_memory_used_bytes{application=\"team2-backend\"}",
+          "expr": "jvm_memory_used_bytes{job=\"team2-backend-$env\"}",
           "legendFormat": "{{area}} - {{id}}",
           "refId": "A"
         }
@@ -76,7 +76,7 @@
       "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } },
       "targets": [
         {
-          "expr": "rate(process_cpu_usage{application=\"team2-backend\"}[1m])",
+          "expr": "rate(process_cpu_usage{job=\"team2-backend-$env\"}[1m])",
           "legendFormat": "CPU 사용률",
           "refId": "A"
         }
@@ -100,7 +100,7 @@
       },
       "targets": [
         {
-          "expr": "{app=\"team2-backend\"}",
+          "expr": "{env=\"$env\"}",
           "legendFormat": "",
           "refId": "A"
         }
@@ -112,7 +112,24 @@
   "refresh": "10s",
   "schemaVersion": 38,
   "tags": ["spring-boot", "team2"],
-  "templating": { "list": [] },
+  "templating": {
+    "list": [
+      {
+        "current": { "text": "dev", "value": "dev" },
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "env",
+        "label": "Environment",
+        "options": [
+          { "selected": true, "text": "dev", "value": "dev" },
+          { "selected": false, "text": "prod", "value": "prod" }
+        ],
+        "query": "dev,prod",
+        "type": "custom"
+      }
+    ]
+  },
   "time": { "from": "now-1h", "to": "now" },
   "timepicker": {},
   "timezone": "browser",
