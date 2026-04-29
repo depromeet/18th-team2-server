@@ -13,9 +13,9 @@ services:
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
     restart: unless-stopped
-    # TODO: [운영] 앱도 Docker로 띄울 경우 extra_hosts 제거 후 같은 네트워크로 묶고 서비스명으로 통신
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    networks:
+      - dev-network
+      - prod-network
 
   loki:
     image: grafana/loki:latest
@@ -52,3 +52,9 @@ volumes:
   prometheus_data:
   loki_data:
   grafana_data:
+
+networks:
+  dev-network:
+    external: true
+  prod-network:
+    external: true
