@@ -1,6 +1,4 @@
 spring:
-  profiles:
-    include: secret-dev
   jpa:
     hibernate:
       ddl-auto: update
