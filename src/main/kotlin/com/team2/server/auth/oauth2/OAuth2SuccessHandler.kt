@@ -1,5 +1,6 @@
 package com.team2.server.auth.oauth2
 
+import com.team2.server.auth.config.OAuth2Properties
 import com.team2.server.auth.jwt.JwtTokenProvider
 import com.team2.server.auth.principal.UserPrincipal
 import com.team2.server.common.exception.BusinessException
@@ -7,7 +8,6 @@ import com.team2.server.common.exception.ErrorCode
 import com.team2.server.user.repository.UserRepository
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
-import com.team2.server.auth.config.OAuth2Properties
 import org.springframework.security.core.Authentication
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler
 import org.springframework.stereotype.Component
