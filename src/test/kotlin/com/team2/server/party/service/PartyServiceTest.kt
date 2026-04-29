@@ -119,7 +119,7 @@ class PartyServiceTest {
     // --- 파티 생성 ---
 
     @Test
-    fun `createParty startTime이 null이면 00시로 저장됨`() {
+    fun `createParty PAPER_ONLY에서 startTime null이면 00시로 저장됨`() {
         val user = newUser(id = 1L)
         val savedParty = newParty(id = 9L)
         val request =
@@ -137,6 +137,23 @@ class PartyServiceTest {
         val partyCaptor = argumentCaptor<Party>()
         verify(partyRepository).save(partyCaptor.capture())
         assertEquals(LocalDate.of(2026, 5, 1).atStartOfDay(), partyCaptor.firstValue.startedAt)
+    }
+
+    @Test
+    fun `createParty REALTIME에서 startTime null이면 예외 발생`() {
+        val request =
+            CreatePartyRequest(
+                celebrantNickname = "홍길동",
+                startedDate = LocalDate.of(2026, 5, 1),
+                startTime = null,
+            )
+
+        whenever(userRepository.findById(1L)).thenReturn(Optional.of(newUser(id = 1L)))
+
+        assertThrows<IllegalArgumentException> {
+            partyService.createParty(1L, request, PartyOption.REALTIME)
+        }
+        verify(partyRepository, never()).save(any())
     }
 
     @Test

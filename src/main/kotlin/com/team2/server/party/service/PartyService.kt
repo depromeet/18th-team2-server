@@ -35,7 +35,16 @@ class PartyService(
         partyOption: PartyOption,
     ): CreatePartyResponse {
         val user = findUser(userId)
-        val startedAt = LocalDateTime.of(request.startedDate, request.startTime ?: LocalTime.MIDNIGHT)
+        val startedAt =
+            when (partyOption) {
+                PartyOption.PAPER_ONLY ->
+                    LocalDateTime.of(request.startedDate, request.startTime ?: LocalTime.MIDNIGHT)
+                PartyOption.REALTIME ->
+                    LocalDateTime.of(
+                        request.startedDate,
+                        requireNotNull(request.startTime) { "REALTIME 파티에는 startTime이 필요합니다." },
+                    )
+            }
         val party =
             Party(
                 ownerId = userId,
