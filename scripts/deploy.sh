@@ -54,6 +54,42 @@ if [ "$ENV" = "prod" ] || [ "$ENV" = "all" ]; then
     parse_db_info "$SECRET_DIR/application-secret-prod.yml" "PROD" >> "$PROJECT_ROOT/.env"
 fi
 
+# 컨테이너 healthcheck 대기
+wait_healthy() {
+    local compose_files="$1"
+    local service="$2"
+    local max_attempts=10
+    local interval=10
+    local status
+
+    echo "==> Waiting for $service to become healthy..."
+    for i in $(seq 1 $max_attempts); do
+        if ! status=$(docker compose $compose_files ps "$service" --format '{{.Health}}' 2>/dev/null); then
+            echo "ERROR: failed to read health status for $service"
+            return 1
+        fi
+        status=${status:-unknown}
+
+        if [ "$status" = "healthy" ]; then
+            echo "==> $service is healthy!"
+            return 0
+        elif [ "$status" = "unhealthy" ]; then
+            echo "ERROR: $service is unhealthy. Dumping logs:"
+            docker compose $compose_files logs --tail=50 "$service"
+            return 1
+        fi
+
+        if [ "$i" -lt "$max_attempts" ]; then
+            echo "  [$i/$max_attempts] status=$status, waiting ${interval}s..."
+            sleep "$interval"
+        fi
+    done
+
+    echo "ERROR: $service failed to become healthy within $((max_attempts * interval))s. Dumping logs:"
+    docker compose $compose_files logs --tail=50 "$service"
+    return 1
+}
+
 # 공유 네트워크 생성
 for network in dev-network prod-network; do
     if ! docker network inspect "$network" &>/dev/null; then
@@ -63,20 +99,17 @@ for network in dev-network prod-network; do
 done
 
 if [ "$ENV" = "dev" ] || [ "$ENV" = "all" ]; then
+    DEV_FILES="-f docker-compose.yml -f docker-compose.dev.yml"
     echo "==> Building and starting DEV containers..."
-    docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+    docker compose $DEV_FILES up -d --build
+    wait_healthy "$DEV_FILES" "app-dev"
 fi
 
 if [ "$ENV" = "prod" ] || [ "$ENV" = "all" ]; then
+    PROD_FILES="-f docker-compose.yml -f docker-compose.prod.yml"
     echo "==> Building and starting PROD containers..."
-    docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+    docker compose $PROD_FILES up -d --build
+    wait_healthy "$PROD_FILES" "app-prod"
 fi
 
-echo "==> Done! Checking container status..."
-if [ "$ENV" = "dev" ]; then
-    docker compose -f docker-compose.yml -f docker-compose.dev.yml ps
-elif [ "$ENV" = "prod" ]; then
-    docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
-else
-    docker compose -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.prod.yml ps
-fi
+echo "==> Done!"
