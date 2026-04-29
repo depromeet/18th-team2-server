@@ -38,7 +38,7 @@ interface PartyApi {
                     ExampleObject(
                         value = """
                             {
-                              "status": 200,
+                              "status": 201,
                               "data": {
                                 "partyId": 1
                               }

@@ -13,6 +13,8 @@ data class ApiResponse<T>(
     companion object {
         fun <T> success(data: T): ApiResponse<T> = ApiResponse(HttpStatus.OK.value(), data)
 
+        fun <T> success(status: HttpStatus, data: T): ApiResponse<T> = ApiResponse(status.value(), data)
+
         fun success(): ApiResponse<Unit> = ApiResponse(HttpStatus.OK.value(), null)
     }
 }

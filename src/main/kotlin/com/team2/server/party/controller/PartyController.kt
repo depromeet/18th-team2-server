@@ -34,7 +34,7 @@ class PartyController(
         @PathVariable partyOption: PartyOption,
         @RequestBody request: CreatePartyRequest,
     ): ApiResponse<CreatePartyResponse> =
-        ApiResponse.success(partyService.createParty(principal.userId, request, partyOption))
+        ApiResponse.success(HttpStatus.CREATED, partyService.createParty(principal.userId, request, partyOption))
 
     @GetMapping("/{inviteToken}")
     override fun getPartyInfo(
