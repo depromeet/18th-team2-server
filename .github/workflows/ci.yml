@@ -19,6 +19,15 @@ jobs:
           submodules: recursive
           token: ${{ secrets.SUBMODULE_TOKEN != '' && secrets.SUBMODULE_TOKEN || github.token }}
 
+      # ── 시크릿 서브모듈 필수 키 검증 ──
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Validate secret keys
+        run: ./scripts/validate-secrets.sh
+
       - name: Set up JDK 25
         uses: actions/setup-java@v4
         with:
