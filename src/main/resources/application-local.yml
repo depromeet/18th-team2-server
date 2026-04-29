@@ -9,6 +9,3 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
-
-loki:
-  url: http://localhost:3100

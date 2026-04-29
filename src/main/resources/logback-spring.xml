@@ -24,11 +24,10 @@
         </format>
     </appender>
 
-    <!-- 로컬: 콘솔 + Loki (localhost:3100) -->
+    <!-- 로컬: 콘솔만 -->
     <springProfile name="local">
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
-            <appender-ref ref="LOKI"/>
         </root>
     </springProfile>
 
