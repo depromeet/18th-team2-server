@@ -378,7 +378,7 @@ class PartyControllerTest
         @Test
         fun `인증 없이 실시간 파티 생성 시 401`() {
             mockMvc
-                .post("/api/v1/parties/realtime") {
+                .post("/api/v1/parties/REALTIME") {
                     contentType = MediaType.APPLICATION_JSON
                     content =
                         """
@@ -396,7 +396,7 @@ class PartyControllerTest
         @Test
         fun `인증 없이 롤링페이퍼 파티 생성 시 401`() {
             mockMvc
-                .post("/api/v1/parties/paper") {
+                .post("/api/v1/parties/PAPER_ONLY") {
                     contentType = MediaType.APPLICATION_JSON
                     content =
                         """
@@ -412,7 +412,7 @@ class PartyControllerTest
         }
 
         @Test
-        fun `실시간 파티 생성 성공`() {
+        fun `REALTIME 파티 생성 성공`() {
             val user =
                 userRepository.save(
                     User(
@@ -426,7 +426,7 @@ class PartyControllerTest
             val token = tokenProvider.issue(user)
 
             mockMvc
-                .post("/api/v1/parties/realtime") {
+                .post("/api/v1/parties/REALTIME") {
                     contentType = MediaType.APPLICATION_JSON
                     content =
                         """
@@ -444,7 +444,7 @@ class PartyControllerTest
         }
 
         @Test
-        fun `롤링페이퍼 파티 생성 성공 - 닉네임과 시작일만 필요`() {
+        fun `PAPER_ONLY 파티 생성 성공 - startTime 없이 가능`() {
             val user =
                 userRepository.save(
                     User(
@@ -458,7 +458,7 @@ class PartyControllerTest
             val token = tokenProvider.issue(user)
 
             mockMvc
-                .post("/api/v1/parties/paper") {
+                .post("/api/v1/parties/PAPER_ONLY") {
                     contentType = MediaType.APPLICATION_JSON
                     content =
                         """
@@ -471,6 +471,30 @@ class PartyControllerTest
                 }.andExpect {
                     status { isCreated() }
                     jsonPath("$.data.partyId") { isNumber() }
+                }
+        }
+
+        @Test
+        fun `잘못된 파티 유형으로 생성 시 400`() {
+            val user =
+                userRepository.save(
+                    User(
+                        name = "파티장",
+                        birthDay = "01-01",
+                        provider = AuthProvider.KAKAO,
+                        providerId = "kakao-invalid-1",
+                        email = "invalid@kakao.local",
+                    ),
+                )
+            val token = tokenProvider.issue(user)
+
+            mockMvc
+                .post("/api/v1/parties/invalid-type") {
+                    contentType = MediaType.APPLICATION_JSON
+                    content = """{"celebrantNickname": "홍길동", "startedDate": "2026-04-28", "startTime": "14:30"}"""
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isBadRequest() }
                 }
         }
 

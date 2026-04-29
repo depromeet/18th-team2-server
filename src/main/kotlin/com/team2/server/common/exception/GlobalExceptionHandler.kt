@@ -2,10 +2,12 @@ package com.team2.server.common.exception
 
 import com.team2.server.common.response.ErrorResponse
 import org.slf4j.LoggerFactory
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 
 @RestControllerAdvice
 class GlobalExceptionHandler {
@@ -25,6 +27,12 @@ class GlobalExceptionHandler {
                 .joinToString(", ") { "${it.field}: ${it.defaultMessage}" }
         val response = ErrorResponse.of(e.statusCode, "VALIDATION_ERROR", message)
         return ResponseEntity.status(e.statusCode).body(response)
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException::class)
+    fun handleTypeMismatchException(e: MethodArgumentTypeMismatchException): ResponseEntity<ErrorResponse> {
+        val response = ErrorResponse.of(HttpStatus.BAD_REQUEST, "INVALID_INPUT", "잘못된 요청 값입니다: ${e.value}")
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response)
     }
 
     @ExceptionHandler(Exception::class)
