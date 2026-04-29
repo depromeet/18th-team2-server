@@ -60,10 +60,16 @@ wait_healthy() {
     local service="$2"
     local max_attempts=10
     local interval=10
+    local status
 
     echo "==> Waiting for $service to become healthy..."
     for i in $(seq 1 $max_attempts); do
-        status=$(docker compose $compose_files ps "$service" --format '{{.Health}}' 2>/dev/null || echo "unknown")
+        if ! status=$(docker compose $compose_files ps "$service" --format '{{.Health}}' 2>/dev/null); then
+            echo "ERROR: failed to read health status for $service"
+            return 1
+        fi
+        status=${status:-unknown}
+
         if [ "$status" = "healthy" ]; then
             echo "==> $service is healthy!"
             return 0
@@ -72,8 +78,11 @@ wait_healthy() {
             docker compose $compose_files logs --tail=50 "$service"
             return 1
         fi
-        echo "  [$i/$max_attempts] status=$status, waiting ${interval}s..."
-        sleep "$interval"
+
+        if [ "$i" -lt "$max_attempts" ]; then
+            echo "  [$i/$max_attempts] status=$status, waiting ${interval}s..."
+            sleep "$interval"
+        fi
     done
 
     echo "ERROR: $service failed to become healthy within $((max_attempts * interval))s. Dumping logs:"
