@@ -11,7 +11,7 @@ data class CreatePartyRequest(
     val celebrantNickname: String,
     @Schema(description = "파티 시작일", example = "2024-11-26")
     val startedDate: LocalDate,
-    @Schema(description = "파티 시작 시간 (HH:mm)", example = "14:30")
+    @Schema(description = "파티 시작 시간 (HH:mm). 미전송 시 00:00으로 설정됩니다.", example = "14:30")
     @JsonFormat(pattern = "HH:mm")
-    val startTime: LocalTime,
+    val startTime: LocalTime? = null,
 )

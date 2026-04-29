@@ -376,9 +376,9 @@ class PartyControllerTest
         }
 
         @Test
-        fun `인증 없이 파티 생성 시 401`() {
+        fun `인증 없이 실시간 파티 생성 시 401`() {
             mockMvc
-                .post("/api/v1/parties") {
+                .post("/api/v1/parties/realtime") {
                     contentType = MediaType.APPLICATION_JSON
                     content =
                         """
@@ -390,6 +390,87 @@ class PartyControllerTest
                         """.trimIndent()
                 }.andExpect {
                     status { isUnauthorized() }
+                }
+        }
+
+        @Test
+        fun `인증 없이 롤링페이퍼 파티 생성 시 401`() {
+            mockMvc
+                .post("/api/v1/parties/paper") {
+                    contentType = MediaType.APPLICATION_JSON
+                    content =
+                        """
+                        {
+                          "celebrantNickname": "홍길동",
+                          "startedDate": "2026-04-28",
+                          "startTime": "14:30"
+                        }
+                        """.trimIndent()
+                }.andExpect {
+                    status { isUnauthorized() }
+                }
+        }
+
+        @Test
+        fun `실시간 파티 생성 성공`() {
+            val user =
+                userRepository.save(
+                    User(
+                        name = "파티장",
+                        birthDay = "01-01",
+                        provider = AuthProvider.KAKAO,
+                        providerId = "kakao-create-1",
+                        email = "create@kakao.local",
+                    ),
+                )
+            val token = tokenProvider.issue(user)
+
+            mockMvc
+                .post("/api/v1/parties/realtime") {
+                    contentType = MediaType.APPLICATION_JSON
+                    content =
+                        """
+                        {
+                          "celebrantNickname": "홍길동",
+                          "startedDate": "2026-04-28",
+                          "startTime": "14:30"
+                        }
+                        """.trimIndent()
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isCreated() }
+                    jsonPath("$.data.partyId") { isNumber() }
+                }
+        }
+
+        @Test
+        fun `롤링페이퍼 파티 생성 성공 - 닉네임과 시작일만 필요`() {
+            val user =
+                userRepository.save(
+                    User(
+                        name = "파티장",
+                        birthDay = "01-01",
+                        provider = AuthProvider.KAKAO,
+                        providerId = "kakao-create-2",
+                        email = "create2@kakao.local",
+                    ),
+                )
+            val token = tokenProvider.issue(user)
+
+            mockMvc
+                .post("/api/v1/parties/paper") {
+                    contentType = MediaType.APPLICATION_JSON
+                    content =
+                        """
+                        {
+                          "celebrantNickname": "홍길동",
+                          "startedDate": "2026-04-28"
+                        }
+                        """.trimIndent()
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isCreated() }
+                    jsonPath("$.data.partyId") { isNumber() }
                 }
         }
 
