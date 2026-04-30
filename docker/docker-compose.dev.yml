@@ -2,10 +2,11 @@ services:
   app-dev:
     container_name: team2-app-dev
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile
     environment:
       - SPRING_PROFILES_ACTIVE=dev,secret-dev
+      - SERVER_FORWARD_HEADERS_STRATEGY=framework
       - DB_HOST=db-dev
     depends_on:
       db-dev:
@@ -18,7 +19,7 @@ services:
       start_period: 40s
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - ./logs/dev:/app/logs
+      - ../logs/dev:/app/logs
     mem_limit: 1g
     cpus: 0.7
     restart: unless-stopped

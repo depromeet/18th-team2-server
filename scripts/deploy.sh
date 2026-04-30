@@ -99,14 +99,14 @@ for network in dev-network prod-network; do
 done
 
 if [ "$ENV" = "dev" ] || [ "$ENV" = "all" ]; then
-    DEV_FILES="-f docker-compose.yml -f docker-compose.dev.yml"
+    DEV_FILES="-f docker/docker-compose.yml -f docker/docker-compose.dev.yml"
     echo "==> Building and starting DEV containers..."
     docker compose $DEV_FILES up -d --build
     wait_healthy "$DEV_FILES" "app-dev"
 fi
 
 if [ "$ENV" = "prod" ] || [ "$ENV" = "all" ]; then
-    PROD_FILES="-f docker-compose.yml -f docker-compose.prod.yml"
+    PROD_FILES="-f docker/docker-compose.yml -f docker/docker-compose.prod.yml"
     echo "==> Building and starting PROD containers..."
     docker compose $PROD_FILES up -d --build
     wait_healthy "$PROD_FILES" "app-prod"
