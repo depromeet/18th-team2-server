@@ -27,6 +27,7 @@ services:
       - prod-network
 
   db-prod:
+    container_name: team2-db-prod
     image: mysql:8.0
     environment:
       - MYSQL_DATABASE=team2_prod
@@ -41,6 +42,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
     mem_limit: 1g
     cpus: 0.5
     restart: unless-stopped
