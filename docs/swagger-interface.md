@@ -38,16 +38,6 @@ interface ExampleApi {
     @SwaggerApiResponse(
         responseCode = "200",
         description = "조회 성공",
-        content = [Content(
-            mediaType = "application/json",
-            schema = Schema(implementation = ApiResponse::class),
-            examples = [ExampleObject(value = """
-                {
-                  "status": 200,
-                  "data": { "id": 1, "name": "예시" }
-                }
-            """)]
-        )]
     )
     @AuthErrorResponses          // 401 자동 포함
     @InternalServerErrorResponse // 500 자동 포함
@@ -126,9 +116,11 @@ class ExampleController(
 
 ## 규칙
 
+- **성공 응답(2xx)**: `@SwaggerApiResponse`에 `content`를 지정하지 않는다. 리턴 타입(`ApiResponse<T>`)에서 스키마가 자동 추론된다. `content`를 넣으면 자동 추론이 꺼져서 Schemas 섹션에 응답 DTO가 등록되지 않는다.
+- **에러 응답(4xx, 5xx)**: `content`에 `schema`와 `examples`를 명시한다. 에러는 예외 핸들러에서 발생하므로 자동 추론이 불가능하다.
 - **Api 인터페이스**: `@Tag`, `@Operation`, `@SwaggerApiResponse`, `@Parameter`, 공통 에러 어노테이션만 작성
 - **Controller**: `@RestController`, `@RequestMapping`, HTTP 메서드 매핑(`@GetMapping` 등), `@AuthenticationPrincipal`, `@PathVariable`, `@RequestBody`만 작성
-- **ExampleObject**: 반드시 실제 JSON 예시를 포함 (schema만으로는 `"code": "string"` 같이 표시됨)
+- **ExampleObject**: 에러 응답에는 반드시 실제 JSON 예시를 포함 (schema만으로는 `"code": "string"` 같이 표시됨)
 - **import alias**: Swagger의 `@ApiResponse`는 우리 `ApiResponse`와 이름이 겹치므로 `import io.swagger.v3.oas.annotations.responses.ApiResponse as SwaggerApiResponse`로 사용
 
 ## 새 도메인 추가 체크리스트

@@ -30,24 +30,6 @@ interface PartyApi {
     @SwaggerApiResponse(
         responseCode = "201",
         description = "파티 생성 성공",
-        content = [
-            Content(
-                mediaType = "application/json",
-                schema = Schema(implementation = ApiResponse::class),
-                examples = [
-                    ExampleObject(
-                        value = """
-                            {
-                              "status": 201,
-                              "data": {
-                                "partyId": 1
-                              }
-                            }
-                        """,
-                    ),
-                ],
-            ),
-        ],
     )
     @AuthErrorResponses
     @InternalServerErrorResponse
@@ -68,31 +50,6 @@ interface PartyApi {
     @SwaggerApiResponse(
         responseCode = "200",
         description = "파티 정보 조회 성공",
-        content = [
-            Content(
-                mediaType = "application/json",
-                schema = Schema(implementation = ApiResponse::class),
-                examples = [
-                    ExampleObject(
-                        value = """
-                            {
-                              "status": 200,
-                              "data": {
-                                "name": "생일파티",
-                                "celebrantNickname": "홍길동",
-                                "purpose": "BIRTHDAY",
-                                "option": "CHAT_ALLOWED",
-                                "startedAt": "2024-11-26T14:30:00",
-                                "endedAt": null,
-                                "ended": false,
-                                "myParticipant": null
-                              }
-                            }
-                        """,
-                    ),
-                ],
-            ),
-        ],
     )
     @SwaggerApiResponse(
         responseCode = "400",
@@ -160,26 +117,6 @@ interface PartyApi {
     @SwaggerApiResponse(
         responseCode = "200",
         description = "파티 참여 성공",
-        content = [
-            Content(
-                mediaType = "application/json",
-                schema = Schema(implementation = ApiResponse::class),
-                examples = [
-                    ExampleObject(
-                        value = """
-                            {
-                              "status": 200,
-                              "data": {
-                                "participantId": 10,
-                                "nickname": "홍길동",
-                                "characterImageUrl": "/images/characters/character1.jpg"
-                              }
-                            }
-                        """,
-                    ),
-                ],
-            ),
-        ],
     )
     @SwaggerApiResponse(
         responseCode = "400",

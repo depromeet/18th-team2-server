@@ -25,24 +25,6 @@ interface PartyInviteApi {
     @SwaggerApiResponse(
         responseCode = "200",
         description = "초대링크 활성화 성공",
-        content = [
-            Content(
-                mediaType = "application/json",
-                schema = Schema(implementation = ApiResponse::class),
-                examples = [
-                    ExampleObject(
-                        value = """
-                            {
-                              "status": 200,
-                              "data": {
-                                "token": "a1b2c3d4e5f67890"
-                              }
-                            }
-                        """,
-                    ),
-                ],
-            ),
-        ],
     )
     @SwaggerApiResponse(
         responseCode = "404",
