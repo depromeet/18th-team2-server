@@ -106,7 +106,7 @@ docker compose $NGINX_FILES up -d
 if [ "$ENV" = "dev" ] || [ "$ENV" = "all" ]; then
     DEV_FILES="--env-file .env -f docker/docker-compose.dev.yml"
     echo "==> Stopping existing DEV containers..."
-    docker compose $DEV_FILES down
+    docker compose $DEV_FILES down --remove-orphans
     echo "==> Building and starting DEV containers..."
     docker compose $DEV_FILES up -d --build
     wait_healthy "$DEV_FILES" "app-dev"
@@ -115,7 +115,7 @@ fi
 if [ "$ENV" = "prod" ] || [ "$ENV" = "all" ]; then
     PROD_FILES="--env-file .env -f docker/docker-compose.prod.yml"
     echo "==> Stopping existing PROD containers..."
-    docker compose $PROD_FILES down
+    docker compose $PROD_FILES down --remove-orphans
     echo "==> Building and starting PROD containers..."
     docker compose $PROD_FILES up -d --build
     wait_healthy "$PROD_FILES" "app-prod"
