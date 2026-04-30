@@ -42,6 +42,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
     mem_limit: 1g
     cpus: 0.5
     restart: unless-stopped
