@@ -12,6 +12,7 @@ jobs:
       - name: Deploy to server
         run: |
           cd ${{ secrets.PROJECT_PATH }}
-          git checkout main
-          git pull origin main
+          git fetch origin main
+          git reset --hard origin/main
+          git submodule update --init --recursive
           ./scripts/deploy.sh prod

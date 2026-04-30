@@ -98,15 +98,24 @@ for network in dev-network prod-network; do
     fi
 done
 
+# nginx는 dev/prod와 독립적으로 관리 (항상 띄워둠)
+NGINX_FILES="-f docker/docker-compose.nginx.yml"
+echo "==> Ensuring nginx is running..."
+docker compose $NGINX_FILES up -d
+
 if [ "$ENV" = "dev" ] || [ "$ENV" = "all" ]; then
-    DEV_FILES="-f docker/docker-compose.yml -f docker/docker-compose.dev.yml"
+    DEV_FILES="--env-file .env -f docker/docker-compose.dev.yml"
+    echo "==> Stopping existing DEV containers..."
+    docker compose $DEV_FILES down --remove-orphans
     echo "==> Building and starting DEV containers..."
     docker compose $DEV_FILES up -d --build
     wait_healthy "$DEV_FILES" "app-dev"
 fi
 
 if [ "$ENV" = "prod" ] || [ "$ENV" = "all" ]; then
-    PROD_FILES="-f docker/docker-compose.yml -f docker/docker-compose.prod.yml"
+    PROD_FILES="--env-file .env -f docker/docker-compose.prod.yml"
+    echo "==> Stopping existing PROD containers..."
+    docker compose $PROD_FILES down --remove-orphans
     echo "==> Building and starting PROD containers..."
     docker compose $PROD_FILES up -d --build
     wait_healthy "$PROD_FILES" "app-prod"
