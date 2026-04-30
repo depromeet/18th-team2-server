@@ -2,10 +2,11 @@ services:
   app-prod:
     container_name: team2-app-prod
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile
     environment:
       - SPRING_PROFILES_ACTIVE=prod,secret-prod
+      - SERVER_FORWARD_HEADERS_STRATEGY=framework
       - DB_HOST=db-prod
     depends_on:
       db-prod:
@@ -18,7 +19,7 @@ services:
       start_period: 40s
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - ./logs/prod:/app/logs
+      - ../logs/prod:/app/logs
     mem_limit: 1g
     cpus: 0.7
     restart: unless-stopped
