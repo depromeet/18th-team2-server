@@ -1,3 +1,5 @@
+name: team2-nginx
+
 services:
   nginx:
     container_name: team2-nginx
