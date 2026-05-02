@@ -28,14 +28,13 @@ class DefaultCharacterInitializerTest
         }
 
         @Test
-        fun `기본 캐릭터가 없으면 이름과 이미지 URL로 생성`() {
+        fun `기본 캐릭터가 없으면 캐릭터와 이미지 데이터를 생성`() {
             initializer.initialize()
 
             val character1 = assertNotNull(characterRepository.findByName("character1"))
             val character2 = assertNotNull(characterRepository.findByName("character2"))
             val character3 = assertNotNull(characterRepository.findByName("character3"))
             assertEquals(3, characterRepository.count())
-            assertEquals("/images/characters/character1.jpg", character1.imageUrl)
             assertEquals("/images/characters/character1.jpg", findCharacterImageUrl(character1.id))
             assertEquals("/images/characters/character2.jpg", findCharacterImageUrl(character2.id))
             assertEquals("/images/characters/character3.jpg", findCharacterImageUrl(character3.id))

@@ -99,7 +99,7 @@ interface PartyApi {
     )
     @InternalServerErrorResponse
     fun getPartyInfo(
-        @Parameter(description = "초대 토큰", example = "a1b2c3d4e5f67890") inviteToken: String,
+        @Parameter(description = "초대 토큰", example = "example-token-0000") inviteToken: String,
         @Parameter(hidden = true) principal: UserPrincipal?,
     ): ApiResponse<PartyInfoResponse>
 
@@ -240,7 +240,7 @@ interface PartyApi {
     @ValidationErrorResponse
     @InternalServerErrorResponse
     fun joinParty(
-        @Parameter(description = "초대 토큰", example = "a1b2c3d4e5f67890") inviteToken: String,
+        @Parameter(description = "초대 토큰", example = "example-token-0000") inviteToken: String,
         request: JoinPartyRequest,
         @Parameter(hidden = true) principal: UserPrincipal?,
     ): ApiResponse<ParticipantResponse>

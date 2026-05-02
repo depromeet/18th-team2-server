@@ -19,6 +19,4 @@ import jakarta.persistence.UniqueConstraint
 class Character(
     @Column(nullable = false)
     var name: String,
-    @Column(name = "image_url", nullable = false)
-    var imageUrl: String = "",
 ) : BaseEntity()
