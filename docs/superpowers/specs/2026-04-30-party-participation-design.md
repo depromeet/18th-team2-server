@@ -180,10 +180,12 @@ POST /api/v1/parties/{partyId}/invite-link
 {
   "status": 200,
   "data": {
-    "token": "a1b2c3d4e5f67890"
+    "token": "example-token-0000"
   }
 }
 ```
+
+`token` 값은 문서용 placeholder이며 실제 초대 토큰이나 API key가 아니다.
 
 #### 에러
 
@@ -501,12 +503,12 @@ POST /api/v1/parties/{partyOption}
 {
   "status": 200,
   "data": {
-    "token": "a1b2c3d4e5f67890"
+    "token": "example-token-0000"
   }
 }
 ```
 
-프론트는 이 토큰으로 사용자에게 공유할 URL을 구성한다. 서버의 조회/참여 API에는 같은 토큰을 path variable로 전달한다.
+프론트는 이 토큰으로 사용자에게 공유할 URL을 구성한다. 위 `token` 값은 문서용 placeholder이며 실제 초대 토큰이나 API key가 아니다. 서버의 조회/참여 API에는 같은 토큰을 path variable로 전달한다.
 
 ### 파티 정보 화면
 
