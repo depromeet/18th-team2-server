@@ -1,4 +1,4 @@
-package com.team2.server.party.api
+package com.team2.server.party.controller
 
 import com.team2.server.common.entity.Image
 import com.team2.server.common.entity.ImageTargetType
