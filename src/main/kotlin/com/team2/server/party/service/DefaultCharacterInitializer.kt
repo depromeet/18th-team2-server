@@ -31,9 +31,6 @@ class DefaultCharacterInitializer(
     private fun findOrCreateCharacter(defaultCharacter: DefaultCharacter): Character {
         val character = characterRepository.findByName(defaultCharacter.name)
         if (character != null) {
-            if (character.imageUrl.isBlank()) {
-                character.imageUrl = defaultCharacter.imageUrl
-            }
             return character
         }
 
@@ -41,7 +38,6 @@ class DefaultCharacterInitializer(
             characterRepository.saveAndFlush(
                 Character(
                     name = defaultCharacter.name,
-                    imageUrl = defaultCharacter.imageUrl,
                 ),
             )
         } catch (e: DataIntegrityViolationException) {
