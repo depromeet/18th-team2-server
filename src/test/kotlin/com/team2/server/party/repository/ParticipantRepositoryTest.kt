@@ -142,7 +142,6 @@ class ParticipantRepositoryTest
                     party = party,
                     writerNickname = profile.nickname,
                     content = "축하해요",
-                    color = "#FFFFFF",
                 )
             entityManager.persist(rollingPaper)
 

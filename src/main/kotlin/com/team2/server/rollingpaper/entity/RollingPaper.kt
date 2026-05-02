@@ -26,8 +26,6 @@ class RollingPaper(
     var writerNickname: String? = null,
     @Column(nullable = false, length = 1000)
     var content: String,
-    @Column(nullable = false, length = 32)
-    var color: String,
     @Column(name = "is_read", nullable = false)
     var isRead: Boolean = false,
 ) : BaseEntity()
