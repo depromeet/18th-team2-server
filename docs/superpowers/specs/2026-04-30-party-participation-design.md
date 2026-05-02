@@ -19,6 +19,10 @@ POST /api/v1/parties/{partyId}/invite-link
 GET /api/v1/characters
 ```
 
+`POST /api/v1/parties/{partyId}/invite-link`는 현재 토큰 발급/재사용 API만 유지한다. 토큰을 소비하던 파티 조회/참여 API는 제거됐으므로, 프론트에서 초대 토큰을 사용하는 경로는 새 기획 확정 후 다시 연결해야 한다.
+
+운영 prod 설정은 DB schema `validate` 기준이다. 현재 변경은 엔티티 기준 도메인 정리이며, 운영 DB migration 적용 여부와 시점은 아직 이 문서 범위에서 다루지 않는다.
+
 ## 유지하는 도메인 변경
 
 API는 제거하지만, 참여자 모델은 이후 새 참여 플로우를 수용할 수 있도록 정리한다.
@@ -39,7 +43,8 @@ API는 제거하지만, 참여자 모델은 이후 새 참여 플로우를 수�
 
 - `(party_id, user_id)` unique: 회원 중복 참여 방지
 - `(party_id, guest_id)` unique: 비회원 중복 참여 방지
-- `ck_participant_user_guest_xor`: `user_id`와 `guest_id` 중 정확히 하나만 존재
+
+`user_id`와 `guest_id`는 도메인상 둘 중 하나만 존재하는 것이 목표다. 다만 기존 데이터에 둘 다 `null`인 참여자가 있을 수 있으므로, 현재 단계에서는 DB check constraint를 두지 않는다. 새 참여 API와 운영 migration 정책이 확정되면 데이터 보정 후 check constraint 도입 여부를 다시 판단한다.
 
 `role` 컬럼은 두지 않는다. 현재 도메인에서는 파티 생성자는 `party.owner_id`, 주인공은 `participant.is_celebrant`로 구분한다.
 
@@ -88,6 +93,7 @@ auth.requestMatchers(HttpMethod.GET, "/images/**").permitAll()
 - 파티 조회 화면에서 필요한 정보와 인증 정책
 - 비회원 식별 토큰을 쿠키, 헤더, 요청 body 중 어디로 전달할지
 - 비회원 중복 참여 판단 범위
+- `participant.user_id`/`guest_id` XOR 규칙을 DB check constraint로 승격할 migration 시점
 - `RealtimeParticipantProfile` 생성 시점
 - 롤링페이퍼 작성자 닉네임을 스냅샷으로 고정할지 여부
 - 캐릭터 선택이 어떤 파티 옵션에서 필요한지

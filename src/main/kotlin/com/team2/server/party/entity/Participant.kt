@@ -2,7 +2,6 @@ package com.team2.server.party.entity
 
 import com.team2.server.common.entity.BaseEntity
 import com.team2.server.user.entity.User
-import jakarta.persistence.CheckConstraint
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.FetchType
@@ -22,12 +21,6 @@ import jakarta.persistence.UniqueConstraint
         UniqueConstraint(
             name = "uk_participant_party_guest",
             columnNames = ["party_id", "guest_id"],
-        ),
-    ],
-    check = [
-        CheckConstraint(
-            name = "ck_participant_user_guest_xor",
-            constraint = "((user_id is not null and guest_id is null) or (user_id is null and guest_id is not null))",
         ),
     ],
 )
