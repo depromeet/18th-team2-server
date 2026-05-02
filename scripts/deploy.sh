@@ -98,11 +98,6 @@ for network in dev-network prod-network; do
     fi
 done
 
-# nginx는 dev/prod와 독립적으로 관리 (항상 띄워둠)
-NGINX_FILES="-p team2-nginx -f docker/docker-compose.nginx.yml"
-echo "==> Ensuring nginx is running..."
-docker compose $NGINX_FILES up -d
-
 if [ "$ENV" = "dev" ] || [ "$ENV" = "all" ]; then
     DEV_FILES="--env-file .env -f docker/docker-compose.dev.yml"
     echo "==> Stopping existing DEV containers..."
