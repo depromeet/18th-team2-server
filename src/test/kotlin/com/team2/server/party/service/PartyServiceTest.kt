@@ -2,17 +2,15 @@ package com.team2.server.party.service
 
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
-import com.team2.server.party.dto.CharacterImageUrlResolver
 import com.team2.server.party.dto.CreatePartyRequest
-import com.team2.server.party.entity.Character
 import com.team2.server.party.entity.Participant
 import com.team2.server.party.entity.Party
-import com.team2.server.party.entity.PartyInvite
 import com.team2.server.party.entity.PartyOption
 import com.team2.server.party.entity.PartyPurpose
+import com.team2.server.party.entity.RealtimeParticipantProfile
 import com.team2.server.party.repository.ParticipantRepository
-import com.team2.server.party.repository.PartyInviteRepository
 import com.team2.server.party.repository.PartyRepository
+import com.team2.server.party.repository.RealtimeParticipantProfileRepository
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
 import com.team2.server.user.repository.UserRepository
@@ -33,9 +31,6 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.util.Optional
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 @ExtendWith(MockitoExtension::class)
@@ -44,13 +39,10 @@ class PartyServiceTest {
     lateinit var partyRepository: PartyRepository
 
     @Mock
-    lateinit var partyInviteRepository: PartyInviteRepository
-
-    @Mock
     lateinit var participantRepository: ParticipantRepository
 
     @Mock
-    lateinit var characterImageUrlResolver: CharacterImageUrlResolver
+    lateinit var realtimeParticipantProfileRepository: RealtimeParticipantProfileRepository
 
     @Mock
     lateinit var userRepository: UserRepository
@@ -87,16 +79,6 @@ class PartyServiceTest {
         return party
     }
 
-    private fun newInvite(
-        token: String = "abc123",
-        party: Party = newParty(),
-        expiresAt: LocalDateTime = LocalDateTime.now().plusDays(7),
-    ) = PartyInvite(
-        party = party,
-        token = token,
-        expiresAt = expiresAt,
-    )
-
     private fun newUser(id: Long = 10L): User {
         val user =
             User(
@@ -108,12 +90,6 @@ class PartyServiceTest {
             )
         setId(user, id)
         return user
-    }
-
-    private fun newCharacter(id: Long = 1L): Character {
-        val character = Character(name = "곰돌이")
-        setId(character, id)
-        return character
     }
 
     // --- 파티 생성 ---
@@ -131,6 +107,7 @@ class PartyServiceTest {
 
         whenever(userRepository.findById(1L)).thenReturn(Optional.of(user))
         whenever(partyRepository.save(any())).thenReturn(savedParty)
+        whenever(participantRepository.save(any())).thenAnswer { it.getArgument<Participant>(0) }
 
         partyService.createParty(1L, request, PartyOption.PAPER_ONLY)
 
@@ -169,6 +146,7 @@ class PartyServiceTest {
 
         whenever(userRepository.findById(1L)).thenReturn(Optional.of(user))
         whenever(partyRepository.save(any())).thenReturn(savedParty)
+        whenever(participantRepository.save(any())).thenAnswer { it.getArgument<Participant>(0) }
 
         partyService.createParty(1L, request, PartyOption.REALTIME)
 
@@ -190,6 +168,7 @@ class PartyServiceTest {
 
         whenever(userRepository.findById(1L)).thenReturn(Optional.of(user))
         whenever(partyRepository.save(any())).thenReturn(savedParty)
+        whenever(participantRepository.save(any())).thenAnswer { it.getArgument<Participant>(0) }
 
         partyService.createParty(1L, request, PartyOption.PAPER_ONLY)
 
@@ -211,17 +190,21 @@ class PartyServiceTest {
 
         whenever(userRepository.findById(1L)).thenReturn(Optional.of(user))
         whenever(partyRepository.save(any())).thenReturn(savedParty)
+        whenever(participantRepository.save(any())).thenAnswer { it.getArgument<Participant>(0) }
 
         val result = partyService.createParty(1L, request, PartyOption.REALTIME)
 
         val participantCaptor = argumentCaptor<Participant>()
+        val profileCaptor = argumentCaptor<RealtimeParticipantProfile>()
         verify(participantRepository).save(participantCaptor.capture())
+        verify(realtimeParticipantProfileRepository).save(profileCaptor.capture())
         val participant = participantCaptor.firstValue
         assertEquals(7L, result.partyId)
         assertEquals(savedParty, participant.party)
         assertEquals(user, participant.user)
-        assertEquals("홍길동", participant.nickname)
         assertTrue(participant.isCelebrant)
+        assertEquals(participant, profileCaptor.firstValue.participant)
+        assertEquals("홍길동", profileCaptor.firstValue.nickname)
     }
 
     @Test
@@ -242,126 +225,5 @@ class PartyServiceTest {
         assertEquals(ErrorCode.AUTH_USER_NOT_FOUND, ex.errorCode)
         verify(partyRepository, never()).save(any())
         verify(participantRepository, never()).save(any())
-    }
-
-    // --- 파티 정보 조회 ---
-
-    @Test
-    fun `getPartyInfo 존재하는 파티 정보 반환`() {
-        val party = newParty()
-        whenever(partyInviteRepository.findByToken("abc123")).thenReturn(newInvite(party = party))
-
-        val result = partyService.getPartyInfo("abc123", null)
-
-        assertEquals("생일파티", result.name)
-        assertEquals("홍길동", result.celebrantNickname)
-        assertEquals(PartyPurpose.BIRTHDAY, result.purpose)
-        assertEquals(PartyOption.REALTIME, result.option)
-        assertFalse(result.ended)
-        assertNull(result.myParticipant)
-    }
-
-    @Test
-    fun `getPartyInfo 종료된 파티도 정상 반환하고 ended가 true`() {
-        val party = newParty(endedAt = LocalDateTime.now().minusDays(1))
-        whenever(partyInviteRepository.findByToken("abc123")).thenReturn(newInvite(party = party))
-
-        val result = partyService.getPartyInfo("abc123", null)
-
-        assertTrue(result.ended)
-    }
-
-    @Test
-    fun `getPartyInfo 존재하지 않는 shareLink면 PARTY_NOT_FOUND`() {
-        whenever(partyInviteRepository.findByToken("no-link")).thenReturn(null)
-
-        val ex =
-            assertThrows<BusinessException> {
-                partyService.getPartyInfo("no-link", null)
-            }
-        assertEquals(ErrorCode.PARTY_NOT_FOUND, ex.errorCode)
-    }
-
-    @Test
-    fun `getPartyInfo 만료된 초대 토큰이면 INVITE_LINK_EXPIRED`() {
-        val party = newParty()
-        whenever(partyInviteRepository.findByToken("expired")).thenReturn(
-            newInvite(token = "expired", party = party, expiresAt = LocalDateTime.now().minusSeconds(1)),
-        )
-
-        val ex =
-            assertThrows<BusinessException> {
-                partyService.getPartyInfo("expired", null)
-            }
-        assertEquals(ErrorCode.INVITE_LINK_EXPIRED, ex.errorCode)
-    }
-
-    @Test
-    fun `getPartyInfo 만료 시간이 현재와 같으면 INVITE_LINK_EXPIRED`() {
-        val party = newParty()
-        whenever(partyInviteRepository.findByToken("expired")).thenReturn(
-            newInvite(token = "expired", party = party, expiresAt = LocalDateTime.now()),
-        )
-
-        val ex =
-            assertThrows<BusinessException> {
-                partyService.getPartyInfo("expired", null)
-            }
-        assertEquals(ErrorCode.INVITE_LINK_EXPIRED, ex.errorCode)
-    }
-
-    @Test
-    fun `getPartyInfo 회원이 이미 참여했으면 myParticipant 포함`() {
-        val party = newParty()
-        val user = newUser()
-        val character = newCharacter()
-        val participant =
-            Participant(
-                party = party,
-                character = character,
-                user = user,
-                nickname = "닉네임",
-            )
-        setId(participant, 5L)
-
-        whenever(partyInviteRepository.findByToken("abc123")).thenReturn(newInvite(party = party))
-        whenever(userRepository.findById(10L)).thenReturn(java.util.Optional.of(user))
-        whenever(participantRepository.findByPartyAndUser(party, user)).thenReturn(participant)
-        whenever(characterImageUrlResolver.resolve(character)).thenReturn("/images/characters/character1.jpg")
-
-        val result = partyService.getPartyInfo("abc123", 10L)
-
-        val myParticipant = assertNotNull(result.myParticipant)
-        assertEquals(5L, myParticipant.participantId)
-        assertEquals("닉네임", myParticipant.nickname)
-        assertEquals("/images/characters/character1.jpg", myParticipant.characterImageUrl)
-    }
-
-    @Test
-    fun `getPartyInfo 회원이 미참여면 myParticipant가 null`() {
-        val party = newParty()
-        val user = newUser()
-
-        whenever(partyInviteRepository.findByToken("abc123")).thenReturn(newInvite(party = party))
-        whenever(userRepository.findById(10L)).thenReturn(java.util.Optional.of(user))
-        whenever(participantRepository.findByPartyAndUser(party, user)).thenReturn(null)
-
-        val result = partyService.getPartyInfo("abc123", 10L)
-
-        assertNull(result.myParticipant)
-    }
-
-    @Test
-    fun `getPartyInfo 인증 userId가 DB에 없으면 AUTH_USER_NOT_FOUND`() {
-        val party = newParty()
-        whenever(partyInviteRepository.findByToken("abc123")).thenReturn(newInvite(party = party))
-        whenever(userRepository.findById(10L)).thenReturn(java.util.Optional.empty())
-
-        val ex =
-            assertThrows<BusinessException> {
-                partyService.getPartyInfo("abc123", 10L)
-            }
-
-        assertEquals(ErrorCode.AUTH_USER_NOT_FOUND, ex.errorCode)
     }
 }

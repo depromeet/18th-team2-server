@@ -1,6 +1,5 @@
 package com.team2.server.party.repository
 
-import com.team2.server.party.entity.Character
 import com.team2.server.party.entity.Participant
 import com.team2.server.party.entity.Party
 import com.team2.server.party.entity.PartyOption
@@ -23,11 +22,9 @@ class ParticipantRepositoryTest
     constructor(
         private val participantRepository: ParticipantRepository,
         private val partyRepository: PartyRepository,
-        private val characterRepository: CharacterRepository,
         private val userRepository: UserRepository,
     ) {
         private lateinit var party: Party
-        private lateinit var character: Character
         private lateinit var user: User
 
         @BeforeEach
@@ -45,7 +42,6 @@ class ParticipantRepositoryTest
                         isChattingAllow = true,
                     ),
                 )
-            character = characterRepository.save(Character(name = "곰돌이"))
             user =
                 userRepository.save(
                     User(
@@ -63,9 +59,7 @@ class ParticipantRepositoryTest
             participantRepository.save(
                 Participant(
                     party = party,
-                    character = character,
                     user = user,
-                    nickname = "닉네임",
                 ),
             )
 
@@ -85,9 +79,7 @@ class ParticipantRepositoryTest
             participantRepository.save(
                 Participant(
                     party = party,
-                    character = character,
                     user = user,
-                    nickname = "닉네임",
                 ),
             )
 

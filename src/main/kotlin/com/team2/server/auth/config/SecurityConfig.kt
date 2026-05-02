@@ -49,8 +49,6 @@ class SecurityConfig(
                     ).permitAll()
                 auth.requestMatchers(HttpMethod.GET, "/api/v1/characters").permitAll()
                 auth.requestMatchers(HttpMethod.GET, "/images/**").permitAll()
-                auth.requestMatchers(HttpMethod.GET, "/api/v1/parties/*").permitAll()
-                auth.requestMatchers(HttpMethod.POST, "/api/v1/parties/*/participants").permitAll()
                 auth.anyRequest().authenticated()
             }.oauth2Login { oauth ->
                 oauth.userInfoEndpoint { it.userService(customOAuth2UserService) }
