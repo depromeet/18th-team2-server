@@ -12,7 +12,7 @@
 - 현재 구현된 초대 토큰 기반 파티 참여
 - 현재 구현된 참여 응답의 `characterImageUrl` 계약
 - 현재 구현된 캐릭터 기본 데이터 및 이미지 URL 구조
-- 이번 PR에서 추가할 캐릭터 조회 API 계약
+- 현재 구현된 캐릭터 조회 API 계약
 
 ## 현재 구현 요약
 
@@ -43,6 +43,10 @@
 | 참여자 응답 DTO | `src/main/kotlin/com/team2/server/party/dto/ParticipantResponse.kt` |
 | 파티 정보 응답 DTO | `src/main/kotlin/com/team2/server/party/dto/PartyInfoResponse.kt` |
 | 캐릭터 기본 데이터 초기화 | `src/main/kotlin/com/team2/server/party/service/DefaultCharacterInitializer.kt` |
+| 캐릭터 조회 컨트롤러 | `src/main/kotlin/com/team2/server/party/api/CharacterController.kt` |
+| 캐릭터 조회 UseCase | `src/main/kotlin/com/team2/server/party/application/usecase/GetCharactersUseCase.kt` |
+| 캐릭터 조회 application 결과 DTO | `src/main/kotlin/com/team2/server/party/application/dto/CharacterResult.kt` |
+| 캐릭터 조회 응답 DTO | `src/main/kotlin/com/team2/server/party/api/dto/CharacterResponse.kt` |
 | 보안 공개 경로 | `src/main/kotlin/com/team2/server/auth/config/SecurityConfig.kt` |
 
 ## 데이터 모델
@@ -273,7 +277,7 @@ GET /api/v1/parties/{inviteToken}
 | Authorization 헤더가 잘못됨 | `AUTH_INVALID_TOKEN` 또는 인증 관련 에러 | 401 |
 | Authorization 헤더의 회원을 찾을 수 없음 | `AUTH_USER_NOT_FOUND` | 401 |
 
-### 3. 캐릭터 조회: 이번 PR에서 추가할 API
+### 3. 캐릭터 조회
 
 ```http
 GET /api/v1/characters
@@ -281,7 +285,7 @@ GET /api/v1/characters
 
 파티 참여 화면에서 선택 가능한 캐릭터 목록을 조회한다.
 
-현재 코드에는 아직 이 API가 없으므로, 이번 PR에서 추가할 계약이다. 구현 시 기존 `Character`와 `Image` 데이터를 사용해 `characterId`, `name`, `characterImageUrl`을 반환한다.
+기존 `Character`와 `Image` 데이터를 사용해 `characterId`, `name`, `characterImageUrl`을 반환한다.
 
 #### 인증
 
@@ -323,11 +327,12 @@ GET /api/v1/characters
 
 #### 구현 메모
 
-- `CharacterRepository.findAll()`로 캐릭터 목록을 조회한다.
-- 각 캐릭터의 이미지 URL은 `CharacterImageUrlResolver` 또는 같은 기준의 조회 로직을 사용한다.
-- 정렬 정책이 필요하다면 우선 `id` 오름차순을 사용한다.
-- Swagger 문서와 Controller 테스트를 함께 추가한다.
-- 정적 이미지가 브라우저에서 직접 열려야 한다면 `SecurityConfig`에 `/images/**` 공개 허용을 추가해야 한다.
+- `GetCharactersUseCase`가 `CharacterRepository.findAll(Sort.by("id"))`로 캐릭터 목록을 조회한다.
+- 각 캐릭터의 이미지 URL은 `ImageTargetType.CHARACTER`, `targetId = character.id` 기준으로 조회한다.
+- UseCase는 `CharacterResult`를 반환하고, Controller가 API 응답 DTO인 `CharacterResponse`로 변환한다.
+- 캐릭터가 이미지 데이터를 갖고 있지 않으면 `characterImageUrl`은 응답에서 비어 있을 수 있다.
+- Swagger 문서와 Controller 테스트를 함께 관리한다.
+- 정적 이미지 브라우저 접근을 위해 `SecurityConfig`에 `/images/**` 공개 허용을 둔다.
 
 ### 4. 파티 참여
 
@@ -473,6 +478,8 @@ POST /api/v1/parties/{inviteToken}/participants
 현재 공개 경로는 메서드와 경로를 좁혀서 허용한다.
 
 ```kotlin
+auth.requestMatchers(HttpMethod.GET, "/api/v1/characters").permitAll()
+auth.requestMatchers(HttpMethod.GET, "/images/**").permitAll()
 auth.requestMatchers(HttpMethod.GET, "/api/v1/parties/*").permitAll()
 auth.requestMatchers(HttpMethod.POST, "/api/v1/parties/*/participants").permitAll()
 ```
@@ -482,18 +489,6 @@ auth.requestMatchers(HttpMethod.POST, "/api/v1/parties/*/participants").permitAl
 ```http
 POST /api/v1/parties/{partyId}/invite-link
 POST /api/v1/parties/{partyOption}
-```
-
-이번 PR에서 캐릭터 조회 API를 추가하면 다음 공개 허용이 필요하다.
-
-```kotlin
-auth.requestMatchers(HttpMethod.GET, "/api/v1/characters").permitAll()
-```
-
-캐릭터 이미지 파일을 브라우저에서 직접 열어야 한다면 다음 공개 허용도 필요하다.
-
-```kotlin
-auth.requestMatchers(HttpMethod.GET, "/images/**").permitAll()
 ```
 
 ## 프론트엔드 연동 기준
@@ -522,8 +517,9 @@ auth.requestMatchers(HttpMethod.GET, "/images/**").permitAll()
 
 ### 캐릭터 선택 화면
 
-- 이번 PR에서 `GET /api/v1/characters`를 추가한 뒤, 참여 폼 진입 시 캐릭터 목록을 조회한다.
-- 참여 요청에는 캐릭터 이미지 URL이 아니라 `characterId`를 보낸다.
+- 참여 폼 진입 시 `GET /api/v1/characters`로 캐릭터 목록을 조회한다.
+- 조회 응답의 `characterId`를 참여 요청의 `characterId`로 보낸다.
+- 참여 요청에는 캐릭터 이미지 URL이 아니라 캐릭터 ID를 보낸다.
 - 참여 성공 후에는 응답의 `characterImageUrl`을 사용한다.
 
 ### 파티 참여 요청
@@ -583,11 +579,11 @@ auth.requestMatchers(HttpMethod.GET, "/images/**").permitAll()
 
 ## 이번 PR 체크리스트
 
-- [ ] 캐릭터 조회 API 추가
-- [ ] 캐릭터 조회 응답 DTO 추가
-- [ ] 캐릭터 조회 Swagger 문서 추가
-- [ ] `GET /api/v1/characters` 공개 허용 추가
-- [ ] `/images/**` 공개 허용 필요 여부 확인 후 반영
+- [x] 캐릭터 조회 API 추가
+- [x] 캐릭터 조회 응답 DTO 추가
+- [x] 캐릭터 조회 Swagger 문서 추가
+- [x] `GET /api/v1/characters` 공개 허용 추가
+- [x] `/images/**` 공개 허용 반영
 - [ ] 파티 참여 응답이 `characterImageUrl`만 반환하는지 확인
 - [ ] 파티 정보 조회의 `myParticipant`도 같은 `ParticipantResponse` 계약을 사용하는지 확인
 - [ ] 문서와 Swagger 예시의 `PartyOption` 값이 실제 enum(`REALTIME`, `PAPER_ONLY`)과 일치하는지 확인
