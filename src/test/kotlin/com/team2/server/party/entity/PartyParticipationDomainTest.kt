@@ -5,7 +5,6 @@ import com.team2.server.rollingpaper.entity.RollingPaperWrapper
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
 import org.junit.jupiter.api.Test
-import java.time.LocalDateTime
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
@@ -14,39 +13,21 @@ import kotlin.test.assertTrue
 
 class PartyParticipationDomainTest {
     @Test
-    fun `guest는 비회원 식별 토큰 해시와 마지막 접근 시간을 가진다`() {
-        val lastSeenAt = LocalDateTime.of(2026, 5, 3, 1, 0)
-        val guest =
-            Guest(
-                tokenHash = "initial-hash",
-                lastSeenAt = lastSeenAt,
-            )
-
-        guest.tokenHash = "updated-hash"
-        guest.lastSeenAt = lastSeenAt.plusMinutes(10)
-
-        assertEquals("updated-hash", guest.tokenHash)
-        assertEquals(lastSeenAt.plusMinutes(10), guest.lastSeenAt)
-    }
-
-    @Test
-    fun `participant는 회원 또는 비회원 참여 관계를 표현한다`() {
+    fun `participant는 회원 또는 파티 내 비회원 참여 관계를 표현한다`() {
         val party = newParty()
         val user = newUser()
-        val guest = Guest(tokenHash = "guest-token-hash", lastSeenAt = LocalDateTime.now())
         val memberParticipant = Participant(party = party, user = user, isCelebrant = true)
-        val guestParticipant = Participant(party = party, guest = guest)
+        val anonymousParticipant = Participant(party = party)
 
         memberParticipant.hasWrittenPaper = true
 
         assertSame(party, memberParticipant.party)
         assertSame(user, memberParticipant.user)
-        assertNull(memberParticipant.guest)
         assertTrue(memberParticipant.isCelebrant)
         assertTrue(memberParticipant.hasWrittenPaper)
-        assertSame(guest, guestParticipant.guest)
-        assertNull(guestParticipant.user)
-        assertFalse(guestParticipant.isCelebrant)
+        assertSame(party, anonymousParticipant.party)
+        assertNull(anonymousParticipant.user)
+        assertFalse(anonymousParticipant.isCelebrant)
     }
 
     @Test

@@ -18,10 +18,6 @@ import jakarta.persistence.UniqueConstraint
             name = "uk_participant_party_user",
             columnNames = ["party_id", "user_id"],
         ),
-        UniqueConstraint(
-            name = "uk_participant_party_guest",
-            columnNames = ["party_id", "guest_id"],
-        ),
     ],
 )
 class Participant(
@@ -31,9 +27,6 @@ class Participant(
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     var user: User? = null,
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "guest_id")
-    var guest: Guest? = null,
     @Column(name = "is_celebrant", nullable = false)
     var isCelebrant: Boolean = false,
     @Column(name = "has_written_paper", nullable = false)

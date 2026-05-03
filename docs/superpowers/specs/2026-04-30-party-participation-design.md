@@ -35,29 +35,16 @@ API는 제거하지만, 참여자 모델은 이후 새 참여 플로우를 수�
 |------|------|
 | `party_id` | 참여한 파티 |
 | `user_id` | 회원 참여자 ID. 비회원이면 `null` |
-| `guest_id` | 비회원 참여자 ID. 회원이면 `null` |
 | `is_celebrant` | 주인공 여부 |
 | `has_written_paper` | 롤링페이퍼 작성 여부 |
 
 제약:
 
 - `(party_id, user_id)` unique: 회원 중복 참여 방지
-- `(party_id, guest_id)` unique: 비회원 중복 참여 방지
 
-`user_id`와 `guest_id`는 도메인상 둘 중 하나만 존재하는 것이 목표다. 다만 기존 데이터에 둘 다 `null`인 참여자가 있을 수 있으므로, 현재 단계에서는 DB check constraint를 두지 않는다. 새 참여 API와 운영 migration 정책이 확정되면 데이터 보정 후 check constraint 도입 여부를 다시 판단한다.
+비회원은 별도 guest 테이블 없이 파티 안의 `participant` 한 건으로만 표현한다. 현재 요구사항에서는 롤링페이퍼 작성 후 수정/삭제가 불가능하므로, 비회원 브라우저 식별 토큰을 장기 관리할 필요가 없다.
 
 `role` 컬럼은 두지 않는다. 현재 도메인에서는 파티 생성자는 `party.owner_id`, 주인공은 `participant.is_celebrant`로 구분한다.
-
-### Guest
-
-`guest`는 비회원 참여자를 서버에서 식별하기 위한 도메인이다.
-
-| 필드 | 설명 |
-|------|------|
-| `token_hash` | 비회원 식별 토큰의 hash 또는 서버 생성 식별값 |
-| `last_seen_at` | 마지막 접근 시각 |
-
-비회원 토큰 발급/전달 방식은 새 참여 API 기획 확정 후 다시 설계한다.
 
 ### RealtimeParticipantProfile
 
@@ -91,9 +78,7 @@ auth.requestMatchers(HttpMethod.GET, "/images/**").permitAll()
 ## 재설계 시 확인할 것
 
 - 파티 조회 화면에서 필요한 정보와 인증 정책
-- 비회원 식별 토큰을 쿠키, 헤더, 요청 body 중 어디로 전달할지
 - 비회원 중복 참여 판단 범위
-- `participant.user_id`/`guest_id` XOR 규칙을 DB check constraint로 승격할 migration 시점
 - `RealtimeParticipantProfile` 생성 시점
 - 롤링페이퍼 작성자 닉네임을 스냅샷으로 고정할지 여부
 - 캐릭터 선택이 어떤 파티 옵션에서 필요한지

@@ -1,6 +1,5 @@
 package com.team2.server.party.repository
 
-import com.team2.server.party.entity.Guest
 import com.team2.server.party.entity.Participant
 import com.team2.server.party.entity.Party
 import com.team2.server.party.entity.PartyOption
@@ -28,7 +27,6 @@ class ParticipantRepositoryTest
     constructor(
         private val participantRepository: ParticipantRepository,
         private val partyRepository: PartyRepository,
-        private val guestRepository: GuestRepository,
         private val realtimeParticipantProfileRepository: RealtimeParticipantProfileRepository,
         private val userRepository: UserRepository,
         private val entityManager: EntityManager,
@@ -96,24 +94,15 @@ class ParticipantRepositoryTest
         }
 
         @Test
-        fun `비회원 참여자는 guest로 저장된다`() {
-            val guest =
-                guestRepository.save(
-                    Guest(
-                        tokenHash = "guest-token-hash",
-                        lastSeenAt = LocalDateTime.now(),
-                    ),
-                )
-
+        fun `비회원 참여자는 파티 내 participant로 저장된다`() {
             val participant =
                 participantRepository.save(
                     Participant(
                         party = party,
-                        guest = guest,
                     ),
                 )
 
-            assertEquals(guest, participant.guest)
+            assertEquals(party, participant.party)
             assertNull(participant.user)
         }
 
