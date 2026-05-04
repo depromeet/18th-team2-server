@@ -9,10 +9,12 @@ import com.team2.server.party.entity.Participant
 import com.team2.server.party.entity.PartyOption
 import com.team2.server.party.entity.RealtimeParticipantProfile
 import com.team2.server.party.entity.RealtimeParty
+import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyInviteRepository
 import com.team2.server.party.repository.PartyRepository
 import com.team2.server.party.repository.RealtimeParticipantProfileRepository
+import com.team2.server.rollingpaper.repository.RollingPaperRepository
 import com.team2.server.user.repository.UserRepository
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -24,6 +26,8 @@ class PartyService(
     private val participantRepository: ParticipantRepository,
     private val realtimeParticipantProfileRepository: RealtimeParticipantProfileRepository,
     private val partyInviteRepository: PartyInviteRepository,
+    private val chatMessageRepository: ChatMessageRepository,
+    private val rollingPaperRepository: RollingPaperRepository,
     private val userRepository: UserRepository,
 ) {
     @Transactional
@@ -75,8 +79,10 @@ class PartyService(
         partyId: Long,
         userId: Long,
     ) {
-        val party = partyRepository.findById(partyId)
-            .orElseThrow { BusinessException(ErrorCode.PARTY_NOT_FOUND) }
+        val party =
+            partyRepository
+                .findById(partyId)
+                .orElseThrow { BusinessException(ErrorCode.PARTY_NOT_FOUND) }
 
         if (party.ownerId != userId) throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
 
@@ -87,6 +93,8 @@ class PartyService(
         val participants = participantRepository.findAllByPartyId(partyId)
         val participantIds = participants.map { it.id }
 
+        chatMessageRepository.deleteAllByPartyId(partyId)
+        rollingPaperRepository.deleteAllByPartyId(partyId)
         realtimeParticipantProfileRepository.deleteAllByParticipantIdIn(participantIds)
         participantRepository.deleteAll(participants)
         partyInviteRepository.deleteAllByPartyId(partyId)

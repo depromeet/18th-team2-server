@@ -10,10 +10,12 @@ import com.team2.server.party.entity.PartyOption
 import com.team2.server.party.entity.PartyPurpose
 import com.team2.server.party.entity.RealtimeParticipantProfile
 import com.team2.server.party.entity.RealtimeParty
+import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyInviteRepository
 import com.team2.server.party.repository.PartyRepository
 import com.team2.server.party.repository.RealtimeParticipantProfileRepository
+import com.team2.server.rollingpaper.repository.RollingPaperRepository
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
 import com.team2.server.user.repository.UserRepository
@@ -52,6 +54,12 @@ class PartyServiceTest {
 
     @Mock
     lateinit var partyInviteRepository: PartyInviteRepository
+
+    @Mock
+    lateinit var chatMessageRepository: ChatMessageRepository
+
+    @Mock
+    lateinit var rollingPaperRepository: RollingPaperRepository
 
     @InjectMocks
     lateinit var partyService: PartyService
@@ -241,9 +249,10 @@ class PartyServiceTest {
     fun `deleteParty 파티가 없으면 PARTY_NOT_FOUND`() {
         whenever(partyRepository.findById(99L)).thenReturn(Optional.empty())
 
-        val ex = assertThrows<BusinessException> {
-            partyService.deleteParty(partyId = 99L, userId = 1L)
-        }
+        val ex =
+            assertThrows<BusinessException> {
+                partyService.deleteParty(partyId = 99L, userId = 1L)
+            }
 
         assertEquals(ErrorCode.PARTY_NOT_FOUND, ex.errorCode)
         verify(partyRepository, never()).deleteById(any())
@@ -251,17 +260,19 @@ class PartyServiceTest {
 
     @Test
     fun `deleteParty 주최자가 아니면 PARTY_FORBIDDEN`() {
-        val party = RealtimeParty(
-            ownerId = 1L,
-            celebrantNickname = "홍길동",
-            startedAt = LocalDateTime.now().plusDays(1),
-        )
+        val party =
+            RealtimeParty(
+                ownerId = 1L,
+                celebrantNickname = "홍길동",
+                startedAt = LocalDateTime.now().plusDays(1),
+            )
         setId(party, 10L)
         whenever(partyRepository.findById(10L)).thenReturn(Optional.of(party))
 
-        val ex = assertThrows<BusinessException> {
-            partyService.deleteParty(partyId = 10L, userId = 999L)
-        }
+        val ex =
+            assertThrows<BusinessException> {
+                partyService.deleteParty(partyId = 10L, userId = 999L)
+            }
 
         assertEquals(ErrorCode.PARTY_FORBIDDEN, ex.errorCode)
         verify(partyRepository, never()).deleteById(any())
@@ -269,17 +280,19 @@ class PartyServiceTest {
 
     @Test
     fun `deleteParty 파티가 이미 시작됐으면 PARTY_ALREADY_STARTED`() {
-        val party = RealtimeParty(
-            ownerId = 1L,
-            celebrantNickname = "홍길동",
-            startedAt = LocalDateTime.now().minusMinutes(1),
-        )
+        val party =
+            RealtimeParty(
+                ownerId = 1L,
+                celebrantNickname = "홍길동",
+                startedAt = LocalDateTime.now().minusMinutes(1),
+            )
         setId(party, 10L)
         whenever(partyRepository.findById(10L)).thenReturn(Optional.of(party))
 
-        val ex = assertThrows<BusinessException> {
-            partyService.deleteParty(partyId = 10L, userId = 1L)
-        }
+        val ex =
+            assertThrows<BusinessException> {
+                partyService.deleteParty(partyId = 10L, userId = 1L)
+            }
 
         assertEquals(ErrorCode.PARTY_ALREADY_STARTED, ex.errorCode)
         verify(partyRepository, never()).deleteById(any())
@@ -287,11 +300,12 @@ class PartyServiceTest {
 
     @Test
     fun `deleteParty 정상 삭제 시 연관 데이터를 순서대로 삭제한다`() {
-        val party = RealtimeParty(
-            ownerId = 1L,
-            celebrantNickname = "홍길동",
-            startedAt = LocalDateTime.now().plusDays(1),
-        )
+        val party =
+            RealtimeParty(
+                ownerId = 1L,
+                celebrantNickname = "홍길동",
+                startedAt = LocalDateTime.now().plusDays(1),
+            )
         setId(party, 10L)
 
         val participant1 = Participant(party = party, user = null, isCelebrant = true)
@@ -305,13 +319,19 @@ class PartyServiceTest {
 
         partyService.deleteParty(partyId = 10L, userId = 1L)
 
-        val order = inOrder(
-            realtimeParticipantProfileRepository,
-            participantRepository,
-            partyInviteRepository,
-            partyRepository,
-        )
-        order.verify(realtimeParticipantProfileRepository)
+        val order =
+            inOrder(
+                chatMessageRepository,
+                rollingPaperRepository,
+                realtimeParticipantProfileRepository,
+                participantRepository,
+                partyInviteRepository,
+                partyRepository,
+            )
+        order.verify(chatMessageRepository).deleteAllByPartyId(10L)
+        order.verify(rollingPaperRepository).deleteAllByPartyId(10L)
+        order
+            .verify(realtimeParticipantProfileRepository)
             .deleteAllByParticipantIdIn(listOf(100L, 101L))
         order.verify(participantRepository).deleteAll(listOf(participant1, participant2))
         order.verify(partyInviteRepository).deleteAllByPartyId(10L)
