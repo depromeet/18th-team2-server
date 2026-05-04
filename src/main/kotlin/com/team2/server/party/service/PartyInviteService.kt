@@ -37,7 +37,7 @@ class PartyInviteService(
 
         val invite =
             partyInviteRepository.findByPartyIdAndExpiresAtAfter(partyId, now)
-                ?: createInvite(party)
+                ?: createInvite(party, now)
 
         return ActivateInviteLinkResponse(token = invite.token)
     }
@@ -49,8 +49,14 @@ class PartyInviteService(
         party.ownerId == userId ||
             participantRepository.existsByPartyIdAndUserId(party.id, userId)
 
-    private fun createInvite(party: Party): PartyInvite {
+    private fun createInvite(
+        party: Party,
+        now: LocalDateTime,
+    ): PartyInvite {
         val expiresAt = party.createdAt.plusDays(Party.ENDED_AFTER_DAYS)
+        if (!expiresAt.isAfter(now)) {
+            throw BusinessException(ErrorCode.PARTY_ENDED)
+        }
         return partyInviteRepository.save(
             PartyInvite(
                 party = party,
