@@ -16,8 +16,6 @@ import java.time.LocalDateTime
 abstract class Party(
     @Column(name = "owner_id", nullable = false)
     val ownerId: Long,
-    @Column(name = "background_image_url")
-    var backgroundImageUrl: String? = null,
     @Column(name = "name")
     var name: String? = null,
     @Column(name = "celebrant_nickname")

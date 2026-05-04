@@ -8,12 +8,11 @@ import java.time.LocalDateTime
 @Table(name = "paper_only_party")
 class PaperOnlyParty(
     ownerId: Long,
-    backgroundImageUrl: String? = null,
     name: String? = null,
     celebrantNickname: String? = null,
     purpose: PartyPurpose = PartyPurpose.BIRTHDAY,
     startedAt: LocalDateTime,
-) : Party(ownerId, backgroundImageUrl, name, celebrantNickname, startedAt, purpose, PartyOption.PAPER_ONLY) {
+) : Party(ownerId, name, celebrantNickname, startedAt, purpose, PartyOption.PAPER_ONLY) {
     fun status(now: LocalDateTime = LocalDateTime.now()): PaperOnlyPartyStatus {
         val openTime = startedAt
         val closeTime = createdAt.plusDays(CLOSED_AFTER_DAYS)
