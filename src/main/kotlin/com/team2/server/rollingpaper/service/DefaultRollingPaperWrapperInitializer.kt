@@ -10,12 +10,13 @@ import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionTemplate
 
 @Component
 class DefaultRollingPaperWrapperInitializer(
     private val rollingPaperWrapperRepository: RollingPaperWrapperRepository,
     private val imageRepository: ImageRepository,
+    private val transactionTemplate: TransactionTemplate,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -25,11 +26,12 @@ class DefaultRollingPaperWrapperInitializer(
             .onFailure { log.warn("Failed to initialize default rolling paper wrappers", it) }
     }
 
-    @Transactional
     fun initialize() {
-        DEFAULT_WRAPPERS.forEach { defaultWrapper ->
-            val wrapper = findOrCreateWrapper(defaultWrapper)
-            ensureWrapperImage(wrapper, defaultWrapper.imageUrl)
+        transactionTemplate.executeWithoutResult {
+            DEFAULT_WRAPPERS.forEach { defaultWrapper ->
+                val wrapper = findOrCreateWrapper(defaultWrapper)
+                ensureWrapperImage(wrapper, defaultWrapper.imageUrl)
+            }
         }
     }
 
