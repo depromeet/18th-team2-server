@@ -8,6 +8,7 @@ import com.team2.server.party.entity.PartyOption
 import com.team2.server.party.service.PartyService
 import org.springframework.http.HttpStatus
 import org.springframework.security.core.annotation.AuthenticationPrincipal
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -28,4 +29,14 @@ class PartyController(
         @RequestBody request: CreatePartyRequest,
     ): ApiResponse<CreatePartyResponse> =
         ApiResponse.success(HttpStatus.CREATED, partyService.createParty(principal.userId, request, partyOption))
+
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @DeleteMapping("/{partyId}")
+    override fun deleteParty(
+        @AuthenticationPrincipal principal: UserPrincipal,
+        @PathVariable partyId: Long,
+    ): ApiResponse<Unit> {
+        partyService.deleteParty(partyId = partyId, userId = principal.userId)
+        return ApiResponse.success(HttpStatus.NO_CONTENT, Unit)
+    }
 }

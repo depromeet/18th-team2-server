@@ -30,4 +30,16 @@ interface PartyApi {
         @Parameter(description = "파티 옵션", example = "REALTIME") partyOption: PartyOption,
         request: CreatePartyRequest,
     ): ApiResponse<CreatePartyResponse>
+
+    @Operation(
+        summary = "파티 삭제",
+        security = [SecurityRequirement(name = "Bearer Authentication")],
+    )
+    @SwaggerApiResponse(responseCode = "204", description = "파티 삭제 성공")
+    @AuthErrorResponses
+    @InternalServerErrorResponse
+    fun deleteParty(
+        @Parameter(hidden = true) principal: UserPrincipal,
+        @Parameter(description = "파티 ID", example = "1") partyId: Long,
+    ): ApiResponse<Unit>
 }
