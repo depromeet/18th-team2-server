@@ -9,4 +9,9 @@ interface ImageRepository : JpaRepository<Image, Long> {
         targetType: ImageTargetType,
         targetId: Long,
     ): Image?
+
+    fun findByTargetTypeAndTargetIdInOrderByTargetIdAscSortOrderAsc(
+        targetType: ImageTargetType,
+        targetIds: Collection<Long>,
+    ): List<Image>
 }
