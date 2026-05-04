@@ -72,7 +72,6 @@ GET /api/v1/party-invites/{inviteToken}
 
 ```json
 {
-  "partyId": 1,
   "celebrantNickname": "홍길동",
   "partyOption": "REALTIME",
   "partyEnded": false,
@@ -89,7 +88,6 @@ GET /api/v1/party-invites/{inviteToken}
 
 ```json
 {
-  "partyId": 2,
   "celebrantNickname": "홍길동",
   "partyOption": "PAPER_ONLY",
   "partyEnded": false,
@@ -106,7 +104,6 @@ GET /api/v1/party-invites/{inviteToken}
 
 | 응답 필드 | source | 계산 |
 |---|---|---|
-| `partyId` | `Party.id` | 그대로 |
 | `celebrantNickname` | `Party.celebrantNickname` | 컬럼명과 동일 의미 유지 |
 | `partyOption` | 현재 코드의 `Party.partyOption` | 그대로 |
 | `partyEnded` | `Party.createdAt` | `now >= createdAt.plusDays(7)` |
@@ -222,6 +219,7 @@ controller -> usecase -> repository/entity/dto
 트랜잭션:
 
 - 현재 `GetCharactersUseCase` 패턴에 맞춰 `LookupPartyInviteUseCase`의 조회 메서드에 `@Transactional(readOnly = true)`를 둔다.
+- public 메서드명은 컨트롤러에서 의미가 드러나도록 `lookup(...)`을 사용한다.
 - 조회 유스케이스이므로 Repository write method는 호출하지 않는다.
 
 ---
@@ -258,9 +256,11 @@ src/main/kotlin/com/team2/server/party/controller/PartyInviteLookupApi.kt
 
 문서화할 응답:
 
-- 200: REALTIME/PAPER_ONLY 예시
 - 404: `PARTY_NOT_FOUND`
 - 500: 공통 서버 오류
+
+성공 응답은 `ApiResponse<PartyInviteLookupResponse>` 반환 타입으로 자동 매칭되게 두고, Swagger에 200 응답을 수동 작성하지 않는다.
+Enum 필드는 DTO `@Schema` 설명에 값별 의미를 명시한다.
 
 만료된 토큰도 조회 가능하므로 `INVITE_LINK_EXPIRED`는 이 API의 Swagger 응답으로 문서화하지 않는다.
 
@@ -322,7 +322,6 @@ src/main/kotlin/com/team2/server/party/dto/PartyInviteLookupResponse.kt
 
 Kotlin 타입:
 
-- `partyId: Long`
 - `celebrantNickname: String?`
 - `partyOption: PartyOption`
 - `partyEnded: Boolean`
@@ -334,6 +333,7 @@ Kotlin 타입:
 - `liveDurationMinutes: Long?`
 
 현재 엔티티 필드명도 `partyOption`이므로 DTO 필드명도 그대로 `partyOption`으로 둔다.
+`partyOption`과 `realtimeStatus`는 Swagger 필드 설명에 enum 값별 의미를 함께 적는다.
 
 ### 7-5. SecurityConfig
 
