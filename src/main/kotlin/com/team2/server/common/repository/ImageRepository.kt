@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
 interface ImageRepository : JpaRepository<Image, Long> {
+    fun countByTargetType(targetType: ImageTargetType): Long
+
     fun findFirstByTargetTypeAndTargetIdOrderBySortOrderAsc(
         targetType: ImageTargetType,
         targetId: Long,

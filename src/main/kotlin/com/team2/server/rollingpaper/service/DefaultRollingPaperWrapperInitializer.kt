@@ -36,14 +36,21 @@ class DefaultRollingPaperWrapperInitializer(
     }
 
     private fun findOrCreateWrapper(defaultWrapper: DefaultWrapper): RollingPaperWrapper {
-        val wrapper = rollingPaperWrapperRepository.findFirstByNameOrderByIdAsc(defaultWrapper.name)
+        val wrapper = rollingPaperWrapperRepository.findByName(defaultWrapper.name)
         if (wrapper != null) {
             return wrapper
         }
 
-        return rollingPaperWrapperRepository.save(
-            RollingPaperWrapper(name = defaultWrapper.name),
-        )
+        return try {
+            rollingPaperWrapperRepository.saveAndFlush(
+                RollingPaperWrapper(name = defaultWrapper.name),
+            )
+        } catch (e: DataIntegrityViolationException) {
+            if (!e.isConstraintViolation(ROLLING_PAPER_WRAPPER_NAME_UNIQUE_CONSTRAINT)) {
+                throw e
+            }
+            rollingPaperWrapperRepository.findByName(defaultWrapper.name) ?: throw e
+        }
     }
 
     private fun ensureWrapperImage(
@@ -88,6 +95,7 @@ class DefaultRollingPaperWrapperInitializer(
     )
 
     companion object {
+        private const val ROLLING_PAPER_WRAPPER_NAME_UNIQUE_CONSTRAINT = "uk_rolling_paper_wrapper_name"
         private const val IMAGE_TARGET_SORT_UNIQUE_CONSTRAINT = "uk_image_target_sort"
 
         private val DEFAULT_WRAPPERS =
