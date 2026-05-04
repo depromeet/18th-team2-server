@@ -22,7 +22,7 @@ abstract class Party(
     var name: String? = null,
     @Column(name = "celebrant_nickname")
     var celebrantNickname: String? = null,
-    @Column(name = "started_at")
+    @Column(name = "started_at", nullable = false)
     var startedAt: LocalDateTime,
     @Enumerated(EnumType.STRING)
     @Column(name = "purpose")
