@@ -11,6 +11,7 @@ import com.team2.server.party.entity.PartyPurpose
 import com.team2.server.party.entity.RealtimeParticipantProfile
 import com.team2.server.party.entity.RealtimeParty
 import com.team2.server.party.repository.ParticipantRepository
+import com.team2.server.party.repository.PartyInviteRepository
 import com.team2.server.party.repository.PartyRepository
 import com.team2.server.party.repository.RealtimeParticipantProfileRepository
 import com.team2.server.user.entity.AuthProvider
@@ -24,6 +25,7 @@ import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.inOrder
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -47,6 +49,9 @@ class PartyServiceTest {
 
     @Mock
     lateinit var userRepository: UserRepository
+
+    @Mock
+    lateinit var partyInviteRepository: PartyInviteRepository
 
     @InjectMocks
     lateinit var partyService: PartyService
@@ -228,5 +233,88 @@ class PartyServiceTest {
         assertEquals(ErrorCode.AUTH_USER_NOT_FOUND, ex.errorCode)
         verify(partyRepository, never()).save(any())
         verify(participantRepository, never()).save(any())
+    }
+
+    // --- 파티 삭제 ---
+
+    @Test
+    fun `deleteParty 파티가 없으면 PARTY_NOT_FOUND`() {
+        whenever(partyRepository.findById(99L)).thenReturn(Optional.empty())
+
+        val ex = assertThrows<BusinessException> {
+            partyService.deleteParty(partyId = 99L, userId = 1L)
+        }
+
+        assertEquals(ErrorCode.PARTY_NOT_FOUND, ex.errorCode)
+        verify(partyRepository, never()).deleteById(any())
+    }
+
+    @Test
+    fun `deleteParty 주최자가 아니면 PARTY_FORBIDDEN`() {
+        val party = RealtimeParty(
+            ownerId = 1L,
+            celebrantNickname = "홍길동",
+            startedAt = LocalDateTime.now().plusDays(1),
+        )
+        setId(party, 10L)
+        whenever(partyRepository.findById(10L)).thenReturn(Optional.of(party))
+
+        val ex = assertThrows<BusinessException> {
+            partyService.deleteParty(partyId = 10L, userId = 999L)
+        }
+
+        assertEquals(ErrorCode.PARTY_FORBIDDEN, ex.errorCode)
+        verify(partyRepository, never()).deleteById(any())
+    }
+
+    @Test
+    fun `deleteParty 파티가 이미 시작됐으면 PARTY_ALREADY_STARTED`() {
+        val party = RealtimeParty(
+            ownerId = 1L,
+            celebrantNickname = "홍길동",
+            startedAt = LocalDateTime.now().minusMinutes(1),
+        )
+        setId(party, 10L)
+        whenever(partyRepository.findById(10L)).thenReturn(Optional.of(party))
+
+        val ex = assertThrows<BusinessException> {
+            partyService.deleteParty(partyId = 10L, userId = 1L)
+        }
+
+        assertEquals(ErrorCode.PARTY_ALREADY_STARTED, ex.errorCode)
+        verify(partyRepository, never()).deleteById(any())
+    }
+
+    @Test
+    fun `deleteParty 정상 삭제 시 연관 데이터를 순서대로 삭제한다`() {
+        val party = RealtimeParty(
+            ownerId = 1L,
+            celebrantNickname = "홍길동",
+            startedAt = LocalDateTime.now().plusDays(1),
+        )
+        setId(party, 10L)
+
+        val participant1 = Participant(party = party, user = null, isCelebrant = true)
+        setId(participant1, 100L)
+        val participant2 = Participant(party = party, user = null, isCelebrant = false)
+        setId(participant2, 101L)
+
+        whenever(partyRepository.findById(10L)).thenReturn(Optional.of(party))
+        whenever(participantRepository.findAllByPartyId(10L))
+            .thenReturn(listOf(participant1, participant2))
+
+        partyService.deleteParty(partyId = 10L, userId = 1L)
+
+        val order = inOrder(
+            realtimeParticipantProfileRepository,
+            participantRepository,
+            partyInviteRepository,
+            partyRepository,
+        )
+        order.verify(realtimeParticipantProfileRepository)
+            .deleteAllByParticipantIdIn(listOf(100L, 101L))
+        order.verify(participantRepository).deleteAll(listOf(participant1, participant2))
+        order.verify(partyInviteRepository).deleteAllByPartyId(10L)
+        order.verify(partyRepository).deleteById(10L)
     }
 }
