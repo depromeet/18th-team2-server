@@ -1,5 +1,6 @@
 package com.team2.server.party.controller
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
 import com.team2.server.party.repository.ParticipantRepository
@@ -34,6 +35,7 @@ class PartyControllerTest
         private val jwtProperties: JwtProperties,
     ) {
         private val tokenProvider = JwtTokenProvider(jwtProperties)
+        private val objectMapper = ObjectMapper()
 
         @BeforeEach
         fun setUp() {
@@ -227,13 +229,12 @@ class PartyControllerTest
                         contentType = MediaType.APPLICATION_JSON
                         content = """{"celebrantNickname": "홍길동", "startedDate": "$date", "startTime": "$time"}"""
                         header("Authorization", "Bearer $token")
+                    }.andExpect {
+                        status { isCreated() }
                     }.andReturn()
 
             val body = result.response.contentAsString
-            val node =
-                com.fasterxml.jackson.databind
-                    .ObjectMapper()
-                    .readTree(body)
+            val node = objectMapper.readTree(body)
             return node["data"]["partyId"].asLong()
         }
     }
