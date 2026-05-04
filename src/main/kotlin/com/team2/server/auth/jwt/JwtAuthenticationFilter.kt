@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
+import org.springframework.security.authentication.BadCredentialsException
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Component
@@ -21,6 +22,7 @@ private const val BEARER_PREFIX = "Bearer "
 class JwtAuthenticationFilter(
     private val jwtTokenProvider: JwtTokenProvider,
     private val userRepository: UserRepository,
+    private val jwtAuthenticationEntryPoint: JwtAuthenticationEntryPoint,
 ) : OncePerRequestFilter() {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -35,7 +37,10 @@ class JwtAuthenticationFilter(
             return
         }
 
-        authenticate(token, request)
+        if (!authenticate(token, request)) {
+            jwtAuthenticationEntryPoint.commence(request, response, BadCredentialsException("Invalid JWT"))
+            return
+        }
         filterChain.doFilter(request, response)
     }
 
@@ -47,18 +52,20 @@ class JwtAuthenticationFilter(
     private fun authenticate(
         token: String,
         request: HttpServletRequest,
-    ) {
+    ): Boolean {
+        var authenticated = false
         try {
             val claims = jwtTokenProvider.parse(token)
             val userId = claims.subject.toLong()
             val user = userRepository.findById(userId).orElse(null)
             if (user == null) {
                 request.setAttribute(AUTH_ERROR_REQUEST_ATTRIBUTE, ErrorCode.AUTH_USER_NOT_FOUND)
-                return
+            } else {
+                val principal = UserPrincipal.from(user)
+                SecurityContextHolder.getContext().authentication =
+                    UsernamePasswordAuthenticationToken(principal, null, principal.authorities)
+                authenticated = true
             }
-            val principal = UserPrincipal.from(user)
-            SecurityContextHolder.getContext().authentication =
-                UsernamePasswordAuthenticationToken(principal, null, principal.authorities)
         } catch (e: ExpiredJwtException) {
             log.debug("Expired JWT", e)
             request.setAttribute(AUTH_ERROR_REQUEST_ATTRIBUTE, ErrorCode.AUTH_EXPIRED_TOKEN)
@@ -69,5 +76,6 @@ class JwtAuthenticationFilter(
             log.debug("Malformed JWT", e)
             request.setAttribute(AUTH_ERROR_REQUEST_ATTRIBUTE, ErrorCode.AUTH_INVALID_TOKEN)
         }
+        return authenticated
     }
 }

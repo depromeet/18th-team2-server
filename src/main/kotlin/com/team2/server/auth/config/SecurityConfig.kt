@@ -48,6 +48,7 @@ class SecurityConfig(
                         "/api/dev/**",
                     ).permitAll()
                 auth.requestMatchers(HttpMethod.GET, "/api/v1/characters").permitAll()
+                auth.requestMatchers(HttpMethod.GET, "/api/v1/party-invites/*").permitAll()
                 auth.requestMatchers(HttpMethod.GET, "/images/**").permitAll()
                 auth.anyRequest().authenticated()
             }.oauth2Login { oauth ->

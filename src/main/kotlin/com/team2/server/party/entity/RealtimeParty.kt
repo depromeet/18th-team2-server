@@ -16,7 +16,7 @@ class RealtimeParty(
     fun status(now: LocalDateTime = LocalDateTime.now()): RealtimePartyStatus {
         val liveStart = startedAt
         val liveEnd = liveStart.plusMinutes(LIVE_DURATION_MINUTES)
-        val endedTime = createdAt.plusDays(ENDED_AFTER_DAYS)
+        val endedTime = createdAt.plusDays(Party.ENDED_AFTER_DAYS)
         return when {
             now >= endedTime -> RealtimePartyStatus.ROLLING_PAPER_CLOSED
             now >= liveEnd -> RealtimePartyStatus.LIVE_CLOSED
@@ -27,7 +27,7 @@ class RealtimeParty(
 
     companion object {
         const val LIVE_DURATION_MINUTES: Long = 10
-        const val ENDED_AFTER_DAYS: Long = 7
+        const val ENTERABLE_BEFORE_MINUTES: Long = 5
     }
 }
 
