@@ -28,7 +28,7 @@ class LookupPartyInviteUseCase(
                 ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
 
         val now = LocalDateTime.now()
-        val partyEndAt = party.createdAt.plusDays(PARTY_DURATION_DAYS)
+        val partyEndAt = party.createdAt.plusDays(Party.ENDED_AFTER_DAYS)
         val isRealtime = party.partyOption == PartyOption.REALTIME
 
         return PartyInviteLookupResponse(
@@ -58,7 +58,7 @@ class LookupPartyInviteUseCase(
         party: Party,
         now: LocalDateTime,
     ): RealtimeStatus {
-        val enterableAt = party.startedAt.minusMinutes(ENTERABLE_BEFORE_MINUTES)
+        val enterableAt = party.startedAt.minusMinutes(RealtimeParty.ENTERABLE_BEFORE_MINUTES)
         val liveEndAt = party.startedAt.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES)
 
         return when {
@@ -66,10 +66,5 @@ class LookupPartyInviteUseCase(
             now < liveEndAt -> RealtimeStatus.ENTERABLE
             else -> RealtimeStatus.ENDED
         }
-    }
-
-    private companion object {
-        const val PARTY_DURATION_DAYS = 7L
-        const val ENTERABLE_BEFORE_MINUTES = 5L
     }
 }

@@ -28,7 +28,11 @@ abstract class Party(
     @Enumerated(EnumType.STRING)
     @Column(name = "party_option", nullable = false)
     val partyOption: PartyOption,
-) : BaseEntity()
+) : BaseEntity() {
+    companion object {
+        const val ENDED_AFTER_DAYS: Long = 7
+    }
+}
 
 enum class PartyOption {
     REALTIME,
