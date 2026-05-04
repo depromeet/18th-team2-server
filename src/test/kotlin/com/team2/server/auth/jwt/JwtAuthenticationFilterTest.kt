@@ -79,10 +79,9 @@ class JwtAuthenticationFilterTest {
     @Test
     fun `만료 토큰은 인증 없이 entry point 호출 + 요청 속성에 EXPIRED 코드`() {
         val user = userWithId(1L)
-        val expiredProvider = JwtTokenProvider(JwtProperties(secret = secret, expirationHours = 0))
+        val expiredProvider = JwtTokenProvider(JwtProperties(secret = secret, expirationHours = -1))
         val repo = mock<UserRepository>()
         val expired = expiredProvider.issue(user)
-        Thread.sleep(50)
 
         val req = MockHttpServletRequest().apply { addHeader("Authorization", "Bearer $expired") }
         val res = MockHttpServletResponse()

@@ -22,6 +22,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import kotlin.test.assertEquals
 
 @SpringBootTest
@@ -48,7 +50,7 @@ class PartyInviteLookupControllerTest
 
         @Test
         fun `인증 없이 PAPER_ONLY 초대장 조회 성공 및 participant 미생성`() {
-            val createdAt = LocalDateTime.of(2026, 5, 4, 10, 0)
+            val createdAt = LocalDateTime.now().minusDays(1).truncatedTo(ChronoUnit.SECONDS)
             val party =
                 saveParty(
                     PaperOnlyParty(
@@ -68,8 +70,15 @@ class PartyInviteLookupControllerTest
                 jsonPath("$.data.partyOption") { value("PAPER_ONLY") }
                 jsonPath("$.data.partyEnded") { value(false) }
                 jsonPath("$.data.rollingPaperWritten") { value(false) }
-                jsonPath("$.data.partyStartDate") { value("2026-05-04") }
-                jsonPath("$.data.partyEndDate") { value("2026-05-11") }
+                jsonPath("$.data.partyStartDate") { value(createdAt.toLocalDate().toString()) }
+                jsonPath("$.data.partyEndDate") {
+                    value(
+                        createdAt
+                            .plusDays(Party.ENDED_AFTER_DAYS)
+                            .toLocalDate()
+                            .toString(),
+                    )
+                }
                 jsonPath("$.data.realtimeStatus") { value(nullValue()) }
                 jsonPath("$.data.liveStartAt") { value(nullValue()) }
                 jsonPath("$.data.liveDurationMinutes") { value(nullValue()) }
@@ -80,19 +89,15 @@ class PartyInviteLookupControllerTest
 
         @Test
         fun `생성 후 7일이 지난 파티는 partyEnded true`() {
+            val createdAt = LocalDateTime.now().minusDays(8).truncatedTo(ChronoUnit.SECONDS)
             val party =
                 saveParty(
                     PaperOnlyParty(
                         ownerId = 1L,
                         celebrantNickname = "홍길동",
-                        startedAt =
-                            LocalDateTime
-                                .now()
-                                .minusDays(8)
-                                .toLocalDate()
-                                .atStartOfDay(),
+                        startedAt = createdAt.toLocalDate().atStartOfDay(),
                     ),
-                    LocalDateTime.now().minusDays(8),
+                    createdAt,
                 )
             saveInvite(party, "endedparty00001")
 
@@ -154,7 +159,7 @@ class PartyInviteLookupControllerTest
 
         @Test
         fun `REALTIME 초대장 조회는 5분 전부터 ENTERABLE`() {
-            val liveStartAt = LocalDateTime.now().plusMinutes(4)
+            val liveStartAt = LocalDateTime.now().plusMinutes(4).truncatedTo(ChronoUnit.SECONDS)
             val party =
                 saveParty(
                     RealtimeParty(
@@ -170,8 +175,8 @@ class PartyInviteLookupControllerTest
                 status { isOk() }
                 jsonPath("$.data.partyOption") { value("REALTIME") }
                 jsonPath("$.data.realtimeStatus") { value("ENTERABLE") }
-                jsonPath("$.data.liveStartAt") { value(liveStartAt.toString()) }
-                jsonPath("$.data.liveDurationMinutes") { value(10) }
+                jsonPath("$.data.liveStartAt") { value(liveStartAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)) }
+                jsonPath("$.data.liveDurationMinutes") { value(RealtimeParty.LIVE_DURATION_MINUTES) }
             }
         }
 
