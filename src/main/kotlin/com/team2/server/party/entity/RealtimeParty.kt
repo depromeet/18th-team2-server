@@ -13,7 +13,7 @@ class RealtimeParty(
     celebrantNickname: String? = null,
     purpose: PartyPurpose = PartyPurpose.BIRTHDAY,
     startedAt: LocalDateTime,
-) : Party(ownerId, backgroundImageUrl, name, celebrantNickname, startedAt, purpose) {
+) : Party(ownerId, backgroundImageUrl, name, celebrantNickname, startedAt, purpose, PartyOption.REALTIME) {
     fun status(now: LocalDateTime = LocalDateTime.now()): RealtimePartyStatus {
         val liveStart = startedAt
         val liveEnd = liveStart.plusMinutes(LIVE_DURATION_MINUTES)

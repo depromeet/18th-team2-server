@@ -13,7 +13,7 @@ class PaperOnlyParty(
     celebrantNickname: String? = null,
     purpose: PartyPurpose = PartyPurpose.BIRTHDAY,
     startedAt: LocalDateTime,
-) : Party(ownerId, backgroundImageUrl, name, celebrantNickname, startedAt, purpose) {
+) : Party(ownerId, backgroundImageUrl, name, celebrantNickname, startedAt, purpose, PartyOption.PAPER_ONLY) {
     fun status(now: LocalDateTime = LocalDateTime.now()): PaperOnlyPartyStatus {
         val openTime = startedAt
         val closeTime = createdAt.plusDays(CLOSED_AFTER_DAYS)

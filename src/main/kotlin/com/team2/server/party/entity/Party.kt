@@ -27,6 +27,9 @@ abstract class Party(
     @Enumerated(EnumType.STRING)
     @Column(name = "purpose")
     var purpose: PartyPurpose = PartyPurpose.BIRTHDAY,
+    @Enumerated(EnumType.STRING)
+    @Column(name = "party_option", nullable = false)
+    val partyOption: PartyOption,
 ) : BaseEntity()
 
 enum class PartyOption {
