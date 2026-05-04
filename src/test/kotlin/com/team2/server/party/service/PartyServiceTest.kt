@@ -3,11 +3,13 @@ package com.team2.server.party.service
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.dto.CreatePartyRequest
+import com.team2.server.party.entity.PaperOnlyParty
 import com.team2.server.party.entity.Participant
 import com.team2.server.party.entity.Party
 import com.team2.server.party.entity.PartyOption
 import com.team2.server.party.entity.PartyPurpose
 import com.team2.server.party.entity.RealtimeParticipantProfile
+import com.team2.server.party.entity.RealtimeParty
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyRepository
 import com.team2.server.party.repository.RealtimeParticipantProfileRepository
@@ -25,7 +27,6 @@ import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
-import java.lang.reflect.Field
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -54,26 +55,28 @@ class PartyServiceTest {
         entity: Any,
         id: Long,
     ) {
-        val idField: Field = entity.javaClass.superclass.getDeclaredField("id")
-        idField.isAccessible = true
-        idField.set(entity, id)
+        var clazz: Class<*>? = entity.javaClass
+        while (clazz != null) {
+            try {
+                val idField = clazz.getDeclaredField("id")
+                idField.isAccessible = true
+                idField.set(entity, id)
+                return
+            } catch (_: NoSuchFieldException) {
+                clazz = clazz.superclass
+            }
+        }
+        throw NoSuchFieldException("id not found in class hierarchy of ${entity.javaClass.name}")
     }
 
-    private fun newParty(
-        id: Long = 1L,
-        endedAt: LocalDateTime = LocalDateTime.now().plusDays(7),
-        isChattingAllow: Boolean = true,
-    ): Party {
+    private fun newParty(id: Long = 1L): RealtimeParty {
         val party =
-            Party(
+            RealtimeParty(
                 ownerId = 1L,
                 name = "생일파티",
                 celebrantNickname = "홍길동",
                 purpose = PartyPurpose.BIRTHDAY,
-                option = PartyOption.REALTIME,
                 startedAt = LocalDateTime.now(),
-                endedAt = endedAt,
-                isChattingAllow = isChattingAllow,
             )
         setId(party, id)
         return party
@@ -95,7 +98,7 @@ class PartyServiceTest {
     // --- 파티 생성 ---
 
     @Test
-    fun `createParty PAPER_ONLY에서 startTime null이면 00시로 저장됨`() {
+    fun `createParty PAPER_ONLY는 startedDate를 당일 00시로 저장한다`() {
         val user = newUser(id = 1L)
         val savedParty = newParty(id = 9L)
         val request =
@@ -113,7 +116,7 @@ class PartyServiceTest {
 
         val partyCaptor = argumentCaptor<Party>()
         verify(partyRepository).save(partyCaptor.capture())
-        assertEquals(LocalDate.of(2026, 5, 1).atStartOfDay(), partyCaptor.firstValue.startedAt)
+        assertEquals(LocalDate.of(2026, 5, 1).atStartOfDay(), (partyCaptor.firstValue as PaperOnlyParty).startedAt)
     }
 
     @Test
@@ -152,7 +155,7 @@ class PartyServiceTest {
 
         val partyCaptor = argumentCaptor<Party>()
         verify(partyRepository).save(partyCaptor.capture())
-        assertEquals(PartyOption.REALTIME, partyCaptor.firstValue.option)
+        assertTrue(partyCaptor.firstValue is RealtimeParty)
     }
 
     @Test
@@ -174,7 +177,7 @@ class PartyServiceTest {
 
         val partyCaptor = argumentCaptor<Party>()
         verify(partyRepository).save(partyCaptor.capture())
-        assertEquals(PartyOption.PAPER_ONLY, partyCaptor.firstValue.option)
+        assertTrue(partyCaptor.firstValue is PaperOnlyParty)
     }
 
     @Test

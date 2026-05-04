@@ -2,9 +2,9 @@ package com.team2.server.party.repository
 
 import com.team2.server.party.entity.Participant
 import com.team2.server.party.entity.Party
-import com.team2.server.party.entity.PartyOption
 import com.team2.server.party.entity.PartyPurpose
 import com.team2.server.party.entity.RealtimeParticipantProfile
+import com.team2.server.party.entity.RealtimeParty
 import com.team2.server.rollingpaper.entity.RollingPaper
 import com.team2.server.rollingpaper.entity.RollingPaperWrapper
 import com.team2.server.user.entity.AuthProvider
@@ -38,15 +38,12 @@ class ParticipantRepositoryTest
         fun setUp() {
             party =
                 partyRepository.save(
-                    Party(
+                    RealtimeParty(
                         ownerId = 1L,
                         name = "테스트파티",
                         celebrantNickname = "홍길동",
                         purpose = PartyPurpose.BIRTHDAY,
-                        option = PartyOption.REALTIME,
                         startedAt = LocalDateTime.now(),
-                        endedAt = LocalDateTime.now().plusDays(7),
-                        isChattingAllow = true,
                     ),
                 )
             user =
