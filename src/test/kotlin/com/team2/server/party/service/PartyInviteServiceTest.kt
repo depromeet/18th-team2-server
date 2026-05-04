@@ -4,7 +4,7 @@ import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.entity.Party
 import com.team2.server.party.entity.PartyInvite
-import com.team2.server.party.entity.PartyOption
+import com.team2.server.party.entity.RealtimeParty
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyInviteRepository
 import com.team2.server.party.repository.PartyRepository
@@ -15,7 +15,6 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
-import java.lang.reflect.Field
 import java.time.LocalDateTime
 import java.util.Optional
 import kotlin.test.assertEquals
@@ -30,14 +29,20 @@ class PartyInviteServiceTest {
     private fun makeParty(
         id: Long = 1L,
         ownerId: Long = 1L,
-        startedAt: LocalDateTime? = LocalDateTime.now().plusDays(2),
-        endedAt: LocalDateTime? = LocalDateTime.now().plusDays(2).plusHours(3),
-        option: PartyOption = PartyOption.REALTIME,
-    ): Party {
-        val party = Party(ownerId = ownerId, startedAt = startedAt, endedAt = endedAt, option = option)
-        val idField: Field = party.javaClass.superclass.getDeclaredField("id")
-        idField.isAccessible = true
-        idField.set(party, id)
+        startedAt: LocalDateTime = LocalDateTime.now().plusDays(2),
+    ): RealtimeParty {
+        val party = RealtimeParty(ownerId = ownerId, startedAt = startedAt)
+        var clazz: Class<*>? = party.javaClass
+        while (clazz != null) {
+            try {
+                val idField = clazz.getDeclaredField("id")
+                idField.isAccessible = true
+                idField.set(party, id)
+                break
+            } catch (_: NoSuchFieldException) {
+                clazz = clazz.superclass
+            }
+        }
         return party
     }
 
@@ -107,9 +112,9 @@ class PartyInviteServiceTest {
     }
 
     @Test
-    fun `링크 만료 시간은 파티 종료 시간까지`() {
-        val endedAt = LocalDateTime.of(2024, 11, 26, 22, 0)
-        val party = makeParty(endedAt = endedAt)
+    fun `RealtimeParty 링크 만료 시간은 라이브 종료 시간(startedAt + 10분)`() {
+        val startedAt = LocalDateTime.of(2024, 11, 26, 22, 0)
+        val party = makeParty(startedAt = startedAt)
         whenever(partyRepository.findById(1L)).thenReturn(Optional.of(party))
         whenever(participantRepository.existsByPartyIdAndUserId(1L, 1L)).thenReturn(true)
         whenever(partyInviteRepository.findByPartyIdAndExpiresAtAfter(any(), any())).thenReturn(null)
@@ -121,6 +126,6 @@ class PartyInviteServiceTest {
 
         service.activateInviteLink(1L, 1L)
 
-        assertEquals(endedAt, savedInvite!!.expiresAt)
+        assertEquals(startedAt.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES), savedInvite!!.expiresAt)
     }
 }

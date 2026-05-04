@@ -5,6 +5,7 @@ import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.dto.ActivateInviteLinkResponse
 import com.team2.server.party.entity.Party
 import com.team2.server.party.entity.PartyInvite
+import com.team2.server.party.entity.RealtimeParty
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyInviteRepository
 import com.team2.server.party.repository.PartyRepository
@@ -53,7 +54,11 @@ class PartyInviteService(
         party: Party,
         now: LocalDateTime,
     ): PartyInvite {
-        val expiresAt = party.endedAt ?: now.plusHours(EXPIRY_HOURS)
+        val expiresAt =
+            (party as? RealtimeParty)
+                ?.startedAt
+                ?.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES)
+                ?: now.plusHours(EXPIRY_HOURS)
         return partyInviteRepository.save(
             PartyInvite(
                 party = party,

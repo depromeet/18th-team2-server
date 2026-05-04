@@ -1,5 +1,6 @@
 package com.team2.server.party.entity
 
+import com.team2.server.party.entity.RealtimeParty
 import com.team2.server.rollingpaper.entity.RollingPaper
 import com.team2.server.rollingpaper.entity.RollingPaperWrapper
 import com.team2.server.user.entity.AuthProvider
@@ -73,9 +74,12 @@ class PartyParticipationDomainTest {
     }
 
     private fun newParty(): Party =
-        Party(
+        RealtimeParty(
             ownerId = 1L,
-            option = PartyOption.REALTIME,
+            startedAt =
+                java.time.LocalDateTime
+                    .now()
+                    .plusDays(1),
         )
 
     private fun newUser(): User =
