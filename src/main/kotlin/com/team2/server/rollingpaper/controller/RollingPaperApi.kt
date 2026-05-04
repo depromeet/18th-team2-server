@@ -21,7 +21,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse as SwaggerApiResponse
 interface RollingPaperApi {
     @Operation(
         summary = "롤링페이퍼 작성",
-        description = "초대 토큰으로 롤링페이퍼를 작성한다. 인증 없이도 작성 가능하다.",
+        description =
+            "초대 토큰으로 롤링페이퍼를 작성한다. 인증 없이도 작성 가능하다. " +
+                "Authorization header를 보낼 경우 유효한 Bearer token이어야 한다.",
         security = [
             SecurityRequirement(name = "Bearer Authentication"),
             SecurityRequirement(name = ""),
@@ -65,12 +67,25 @@ interface RollingPaperApi {
                 schema = Schema(implementation = ErrorResponse::class),
                 examples = [
                     ExampleObject(
+                        name = "닉네임 중복",
                         value = """
                             {
                               "status": 409,
                               "error": {
                                 "code": "ROLLING_PAPER_NICKNAME_DUPLICATED",
                                 "message": "이미 사용 중인 롤링페이퍼 닉네임입니다"
+                              }
+                            }
+                        """,
+                    ),
+                    ExampleObject(
+                        name = "이미 작성함",
+                        value = """
+                            {
+                              "status": 409,
+                              "error": {
+                                "code": "ROLLING_PAPER_ALREADY_WRITTEN",
+                                "message": "이미 롤링페이퍼를 작성했습니다"
                               }
                             }
                         """,
