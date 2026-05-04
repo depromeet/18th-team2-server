@@ -16,7 +16,9 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.post
+import kotlin.test.assertEquals
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -135,6 +137,71 @@ class PartyControllerTest
                 }
         }
 
+        @Test
+        fun `인증 없이 파티 삭제 시 401`() {
+            mockMvc
+                .delete("/api/v1/parties/1")
+                .andExpect {
+                    status { isUnauthorized() }
+                }
+        }
+
+        @Test
+        fun `존재하지 않는 파티 삭제 시 404`() {
+            val token = tokenProvider.issue(saveUser("kakao-del-notfound", "del-notfound@kakao.local"))
+
+            mockMvc
+                .delete("/api/v1/parties/99999") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isNotFound() }
+                }
+        }
+
+        @Test
+        fun `주최자가 아닌 유저가 삭제 시 403`() {
+            val ownerToken = tokenProvider.issue(saveUser("kakao-del-owner", "del-owner@kakao.local"))
+            val otherToken = tokenProvider.issue(saveUser("kakao-del-other", "del-other@kakao.local"))
+
+            val partyId = createParty(ownerToken, "2099-12-31", "14:30")
+
+            mockMvc
+                .delete("/api/v1/parties/$partyId") {
+                    header("Authorization", "Bearer $otherToken")
+                }.andExpect {
+                    status { isForbidden() }
+                }
+        }
+
+        @Test
+        fun `이미 시작된 파티 삭제 시 409`() {
+            val token = tokenProvider.issue(saveUser("kakao-del-started", "del-started@kakao.local"))
+            val partyId = createParty(token, "2000-01-01", "00:00")
+
+            mockMvc
+                .delete("/api/v1/parties/$partyId") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isConflict() }
+                }
+        }
+
+        @Test
+        fun `파티 시작 전 주최자가 삭제 시 204`() {
+            val token = tokenProvider.issue(saveUser("kakao-del-success", "del-success@kakao.local"))
+            val partyId = createParty(token, "2099-12-31", "14:30")
+
+            mockMvc
+                .delete("/api/v1/parties/$partyId") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isNoContent() }
+                }
+
+            assertEquals(false, partyRepository.existsById(partyId))
+            assertEquals(0, participantRepository.findAllByPartyId(partyId).size)
+        }
+
         private fun saveUser(
             providerId: String,
             email: String,
@@ -148,4 +215,25 @@ class PartyControllerTest
                     email = email,
                 ),
             )
+
+        private fun createParty(
+            token: String,
+            date: String,
+            time: String,
+        ): Long {
+            val result =
+                mockMvc
+                    .post("/api/v1/parties/REALTIME") {
+                        contentType = MediaType.APPLICATION_JSON
+                        content = """{"celebrantNickname": "홍길동", "startedDate": "$date", "startTime": "$time"}"""
+                        header("Authorization", "Bearer $token")
+                    }.andReturn()
+
+            val body = result.response.contentAsString
+            val node =
+                com.fasterxml.jackson.databind
+                    .ObjectMapper()
+                    .readTree(body)
+            return node["data"]["partyId"].asLong()
+        }
     }
