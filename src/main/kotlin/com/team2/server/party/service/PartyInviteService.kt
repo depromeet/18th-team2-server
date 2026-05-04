@@ -53,15 +53,14 @@ class PartyInviteService(
         party: Party,
         now: LocalDateTime,
     ): PartyInvite {
-        val expiresAt = party.createdAt.plusDays(Party.ENDED_AFTER_DAYS)
-        if (!expiresAt.isAfter(now)) {
+        if (party.isEnded(now)) {
             throw BusinessException(ErrorCode.PARTY_ENDED)
         }
         return partyInviteRepository.save(
             PartyInvite(
                 party = party,
                 token = generateToken(),
-                expiresAt = expiresAt,
+                expiresAt = party.endedAt(),
             ),
         )
     }

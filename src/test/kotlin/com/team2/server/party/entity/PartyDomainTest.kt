@@ -2,6 +2,7 @@ package com.team2.server.party.entity
 
 import org.junit.jupiter.api.Test
 import java.time.LocalDateTime
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
@@ -43,5 +44,16 @@ class PartyDomainTest {
     fun `PaperOnlyParty는 RealtimeParty가 아니다`() {
         val party: Party = PaperOnlyParty(ownerId = 1L, startedAt = defaultStartedAt)
         assertFalse(party is RealtimeParty)
+    }
+
+    @Test
+    fun `Party는 생성 후 7일을 종료 시각으로 가진다`() {
+        val createdAt = LocalDateTime.of(2026, 5, 1, 12, 0)
+        val party = RealtimeParty(ownerId = 1L, startedAt = defaultStartedAt)
+        party.createdAt = createdAt
+
+        assertEquals(createdAt.plusDays(Party.ENDED_AFTER_DAYS), party.endedAt())
+        assertFalse(party.isEnded(createdAt.plusDays(Party.ENDED_AFTER_DAYS).minusNanos(1)))
+        assertTrue(party.isEnded(createdAt.plusDays(Party.ENDED_AFTER_DAYS)))
     }
 }
