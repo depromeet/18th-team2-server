@@ -4,5 +4,5 @@ import com.team2.server.rollingpaper.entity.RollingPaperWrapper
 import org.springframework.data.jpa.repository.JpaRepository
 
 interface RollingPaperWrapperRepository : JpaRepository<RollingPaperWrapper, Long> {
-    fun findByName(name: String): RollingPaperWrapper?
+    fun findFirstByNameOrderByIdAsc(name: String): RollingPaperWrapper?
 }
