@@ -20,6 +20,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse as SwaggerApiResponse
 interface PartyInviteApi {
     @Operation(
         summary = "파티 초대링크 활성화",
+        description =
+            "초대 토큰을 발급하거나 기존 유효 토큰을 재사용한다. " +
+                "현재 파티 조회/참여 API가 보류되어 토큰 소비 경로는 새 기획 확정 후 다시 연결한다.",
         security = [SecurityRequirement(name = "Bearer Authentication")],
     )
     @SwaggerApiResponse(

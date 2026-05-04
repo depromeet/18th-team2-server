@@ -22,10 +22,10 @@ class RollingPaper(
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "party_id", nullable = false)
     var party: Party,
+    @Column(name = "writer_nickname", length = 20)
+    var writerNickname: String? = null,
     @Column(nullable = false, length = 1000)
     var content: String,
-    @Column(nullable = false, length = 32)
-    var color: String,
     @Column(name = "is_read", nullable = false)
     var isRead: Boolean = false,
 ) : BaseEntity()
