@@ -123,7 +123,7 @@ class ParticipantRepositoryTest
             entityManager.persist(wrapper)
             val rollingPaper =
                 RollingPaper(
-                    theme = wrapper,
+                    wrapper = wrapper,
                     writer = participant,
                     party = party,
                     writerNickname = profile.nickname,
