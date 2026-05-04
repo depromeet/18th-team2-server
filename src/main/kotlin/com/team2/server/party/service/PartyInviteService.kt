@@ -5,7 +5,6 @@ import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.dto.ActivateInviteLinkResponse
 import com.team2.server.party.entity.Party
 import com.team2.server.party.entity.PartyInvite
-import com.team2.server.party.entity.RealtimeParty
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyInviteRepository
 import com.team2.server.party.repository.PartyRepository
@@ -38,7 +37,7 @@ class PartyInviteService(
 
         val invite =
             partyInviteRepository.findByPartyIdAndExpiresAtAfter(partyId, now)
-                ?: createInvite(party, now)
+                ?: createInvite(party)
 
         return ActivateInviteLinkResponse(token = invite.token)
     }
@@ -50,15 +49,8 @@ class PartyInviteService(
         party.ownerId == userId ||
             participantRepository.existsByPartyIdAndUserId(party.id, userId)
 
-    private fun createInvite(
-        party: Party,
-        now: LocalDateTime,
-    ): PartyInvite {
-        val expiresAt =
-            (party as? RealtimeParty)
-                ?.startedAt
-                ?.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES)
-                ?: now.plusHours(EXPIRY_HOURS)
+    private fun createInvite(party: Party): PartyInvite {
+        val expiresAt = party.createdAt.plusDays(Party.ENDED_AFTER_DAYS)
         return partyInviteRepository.save(
             PartyInvite(
                 party = party,
@@ -76,6 +68,5 @@ class PartyInviteService(
 
     companion object {
         private const val TOKEN_BYTES = 8
-        private const val EXPIRY_HOURS = 24L
     }
 }

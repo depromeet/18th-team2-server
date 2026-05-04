@@ -30,8 +30,10 @@ class PartyInviteServiceTest {
         id: Long = 1L,
         ownerId: Long = 1L,
         startedAt: LocalDateTime = LocalDateTime.now().plusDays(2),
+        createdAt: LocalDateTime = LocalDateTime.now(),
     ): RealtimeParty {
         val party = RealtimeParty(ownerId = ownerId, startedAt = startedAt)
+        party.createdAt = createdAt
         var clazz: Class<*>? = party.javaClass
         while (clazz != null) {
             try {
@@ -112,9 +114,10 @@ class PartyInviteServiceTest {
     }
 
     @Test
-    fun `RealtimeParty 링크 만료 시간은 라이브 종료 시간(startedAt + 10분)`() {
+    fun `초대 링크 만료 시간은 파티 생성 후 7일`() {
+        val createdAt = LocalDateTime.of(2024, 11, 26, 22, 0)
         val startedAt = LocalDateTime.of(2024, 11, 26, 22, 0)
-        val party = makeParty(startedAt = startedAt)
+        val party = makeParty(startedAt = startedAt, createdAt = createdAt)
         whenever(partyRepository.findById(1L)).thenReturn(Optional.of(party))
         whenever(participantRepository.existsByPartyIdAndUserId(1L, 1L)).thenReturn(true)
         whenever(partyInviteRepository.findByPartyIdAndExpiresAtAfter(any(), any())).thenReturn(null)
@@ -126,6 +129,6 @@ class PartyInviteServiceTest {
 
         service.activateInviteLink(1L, 1L)
 
-        assertEquals(startedAt.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES), savedInvite!!.expiresAt)
+        assertEquals(createdAt.plusDays(Party.ENDED_AFTER_DAYS), savedInvite!!.expiresAt)
     }
 }
