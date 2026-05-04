@@ -43,7 +43,7 @@ class CreateRollingPaperUseCase(
         }
 
         val party = invite.party
-        if (!now.isBefore(party.createdAt.plusDays(Party.ENDED_AFTER_DAYS))) {
+        if (party.isEnded(now)) {
             throw BusinessException(ErrorCode.PARTY_ENDED)
         }
 
