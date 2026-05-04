@@ -115,10 +115,7 @@ class CreateRollingPaperUseCase(
     private fun isWriterNicknameDuplicated(
         party: Party,
         writerNickname: String,
-    ): Boolean =
-        rollingPaperRepository
-            .findWriterNicknamesByPartyId(party.id)
-            .any { it == writerNickname }
+    ): Boolean = rollingPaperRepository.existsByPartyAndWriterNickname(party, writerNickname)
 
     private fun DataIntegrityViolationException.toRollingPaperBusinessException(): BusinessException =
         when {
