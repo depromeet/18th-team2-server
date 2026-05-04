@@ -1,5 +1,6 @@
 package com.team2.server.party.service
 
+import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.dto.CreatePartyRequest
@@ -10,7 +11,6 @@ import com.team2.server.party.entity.PartyOption
 import com.team2.server.party.entity.PartyPurpose
 import com.team2.server.party.entity.RealtimeParticipantProfile
 import com.team2.server.party.entity.RealtimeParty
-import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyInviteRepository
 import com.team2.server.party.repository.PartyRepository
