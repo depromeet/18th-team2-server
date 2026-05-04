@@ -79,9 +79,7 @@ class PartyInviteLookupControllerTest
                             .toString(),
                     )
                 }
-                jsonPath("$.data.realtimeStatus") { value(nullValue()) }
-                jsonPath("$.data.liveStartAt") { value(nullValue()) }
-                jsonPath("$.data.liveDurationMinutes") { value(nullValue()) }
+                jsonPath("$.data.realtimeSchedule") { value(nullValue()) }
             }
 
             assertEquals(0, participantRepository.count())
@@ -158,7 +156,7 @@ class PartyInviteLookupControllerTest
         }
 
         @Test
-        fun `REALTIME 초대장 조회는 5분 전부터 ENTERABLE`() {
+        fun `REALTIME 초대장 조회는 실시간 일정 기준 시각을 내려준다`() {
             val liveStartAt = LocalDateTime.now().plusMinutes(4).truncatedTo(ChronoUnit.SECONDS)
             val party =
                 saveParty(
@@ -174,47 +172,26 @@ class PartyInviteLookupControllerTest
             mockMvc.get("/api/v1/party-invites/enterable000001").andExpect {
                 status { isOk() }
                 jsonPath("$.data.partyOption") { value("REALTIME") }
-                jsonPath("$.data.realtimeStatus") { value("ENTERABLE") }
-                jsonPath("$.data.liveStartAt") { value(liveStartAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)) }
-                jsonPath("$.data.liveDurationMinutes") { value(RealtimeParty.LIVE_DURATION_MINUTES) }
-            }
-        }
-
-        @Test
-        fun `REALTIME 초대장 조회는 입장 가능 전이면 NOT_ENTERABLE`() {
-            val party =
-                saveParty(
-                    RealtimeParty(
-                        ownerId = 1L,
-                        celebrantNickname = "홍길동",
-                        startedAt = LocalDateTime.now().plusMinutes(6),
-                    ),
-                    LocalDateTime.now().minusDays(1),
-                )
-            saveInvite(party, "notenterable001")
-
-            mockMvc.get("/api/v1/party-invites/notenterable001").andExpect {
-                status { isOk() }
-                jsonPath("$.data.realtimeStatus") { value("NOT_ENTERABLE") }
-            }
-        }
-
-        @Test
-        fun `REALTIME 초대장 조회는 라이브 종료 이후 ENDED`() {
-            val party =
-                saveParty(
-                    RealtimeParty(
-                        ownerId = 1L,
-                        celebrantNickname = "홍길동",
-                        startedAt = LocalDateTime.now().minusMinutes(11),
-                    ),
-                    LocalDateTime.now().minusDays(1),
-                )
-            saveInvite(party, "realtimeended01")
-
-            mockMvc.get("/api/v1/party-invites/realtimeended01").andExpect {
-                status { isOk() }
-                jsonPath("$.data.realtimeStatus") { value("ENDED") }
+                jsonPath("$.data.realtimeSchedule.liveStartAt") {
+                    value(liveStartAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+                }
+                jsonPath("$.data.realtimeSchedule.enterableFrom") {
+                    value(
+                        liveStartAt
+                            .minusMinutes(RealtimeParty.ENTERABLE_BEFORE_MINUTES)
+                            .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+                    )
+                }
+                jsonPath("$.data.realtimeSchedule.liveEndAt") {
+                    value(
+                        liveStartAt
+                            .plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES)
+                            .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+                    )
+                }
+                jsonPath("$.data.realtimeSchedule.liveDurationMinutes") {
+                    value(RealtimeParty.LIVE_DURATION_MINUTES)
+                }
             }
         }
 

@@ -3,7 +3,7 @@ package com.team2.server.party.usecase
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.dto.PartyInviteLookupResponse
-import com.team2.server.party.dto.RealtimeStatus
+import com.team2.server.party.dto.RealtimeSchedule
 import com.team2.server.party.entity.Party
 import com.team2.server.party.entity.PartyOption
 import com.team2.server.party.entity.RealtimeParty
@@ -38,9 +38,7 @@ class LookupPartyInviteUseCase(
             rollingPaperWritten = hasWrittenPaper(party, userId),
             partyStartDate = party.createdAt.toLocalDate(),
             partyEndDate = partyEndAt.toLocalDate(),
-            realtimeStatus = if (isRealtime) calculateRealtimeStatus(party, now) else null,
-            liveStartAt = if (isRealtime) party.startedAt else null,
-            liveDurationMinutes = if (isRealtime) RealtimeParty.LIVE_DURATION_MINUTES else null,
+            realtimeSchedule = if (isRealtime) createRealtimeSchedule(party) else null,
         )
     }
 
@@ -54,17 +52,11 @@ class LookupPartyInviteUseCase(
         return participantRepository.findByPartyIdAndUserId(party.id, userId)?.hasWrittenPaper ?: false
     }
 
-    private fun calculateRealtimeStatus(
-        party: Party,
-        now: LocalDateTime,
-    ): RealtimeStatus {
-        val enterableAt = party.startedAt.minusMinutes(RealtimeParty.ENTERABLE_BEFORE_MINUTES)
-        val liveEndAt = party.startedAt.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES)
-
-        return when {
-            now < enterableAt -> RealtimeStatus.NOT_ENTERABLE
-            now < liveEndAt -> RealtimeStatus.ENTERABLE
-            else -> RealtimeStatus.ENDED
-        }
-    }
+    private fun createRealtimeSchedule(party: Party): RealtimeSchedule =
+        RealtimeSchedule(
+            liveStartAt = party.startedAt,
+            enterableFrom = party.startedAt.minusMinutes(RealtimeParty.ENTERABLE_BEFORE_MINUTES),
+            liveEndAt = party.startedAt.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES),
+            liveDurationMinutes = RealtimeParty.LIVE_DURATION_MINUTES,
+        )
 }

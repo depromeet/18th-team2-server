@@ -43,7 +43,7 @@
 - 신규 조회 API 경로는 `GET /api/v1/party-invites/{inviteToken}`이다.
 - 응답은 초대장 조회 전용 응답이다.
 - `partyEnded`, `partyStartDate`, `partyEndDate`는 `endedAt` 전용 컬럼이 아니라 `createdAt + 7일` 기준으로 계산한다.
-- `realtimeStatus`는 기존 도메인 상태가 아니라 초대장 조회 응답 전용 상태다.
+- `REALTIME` 파티는 조회 시점 상태값 대신 프론트가 버튼/카운트다운 상태를 계산할 기준 시각을 내려준다.
 
 ---
 
@@ -78,9 +78,12 @@ GET /api/v1/party-invites/{inviteToken}
   "rollingPaperWritten": false,
   "partyStartDate": "2026-05-04",
   "partyEndDate": "2026-05-11",
-  "realtimeStatus": "ENTERABLE",
-  "liveStartAt": "2026-05-04T20:00:00",
-  "liveDurationMinutes": 10
+  "realtimeSchedule": {
+    "liveStartAt": "2026-05-04T20:00:00",
+    "enterableFrom": "2026-05-04T19:55:00",
+    "liveEndAt": "2026-05-04T20:10:00",
+    "liveDurationMinutes": 10
+  }
 }
 ```
 
@@ -94,9 +97,7 @@ GET /api/v1/party-invites/{inviteToken}
   "rollingPaperWritten": false,
   "partyStartDate": "2026-05-04",
   "partyEndDate": "2026-05-11",
-  "realtimeStatus": null,
-  "liveStartAt": null,
-  "liveDurationMinutes": null
+  "realtimeSchedule": null
 }
 ```
 
@@ -110,37 +111,43 @@ GET /api/v1/party-invites/{inviteToken}
 | `rollingPaperWritten` | `Participant.hasWrittenPaper` | 식별 가능한 회원 participant가 있으면 해당 값, 없으면 false |
 | `partyStartDate` | `Party.createdAt` | `createdAt.toLocalDate()` |
 | `partyEndDate` | `Party.createdAt` | `createdAt.plusDays(7).toLocalDate()` |
-| `realtimeStatus` | 조회 응답 전용 계산 | `REALTIME`이면 계산, `PAPER_ONLY`이면 null |
-| `liveStartAt` | `Party.startedAt` | `REALTIME`이면 내려줌 |
-| `liveDurationMinutes` | 정책 상수 | `REALTIME`이면 `10` |
+| `realtimeSchedule` | 실시간 파티 일정 기준 시각 | `REALTIME`이면 내려주고, `PAPER_ONLY`이면 null |
+| `realtimeSchedule.liveStartAt` | `Party.startedAt` | 실시간 파티 시작 시각 |
+| `realtimeSchedule.enterableFrom` | `Party.startedAt - 5분` | 프론트 입장 버튼 활성화 기준 시작 시각 |
+| `realtimeSchedule.liveEndAt` | `Party.startedAt + 10분` | 프론트 종료 상태 기준 시각 |
+| `realtimeSchedule.liveDurationMinutes` | 정책 상수 | 실시간 파티 진행 시간 |
 
 ---
 
-## 4. RealtimeStatus 설계
+## 4. Realtime Schedule 설계
 
-응답 DTO 전용 enum:
+응답 DTO 전용 schedule:
 
 ```kotlin
-enum class RealtimeStatus {
-    NOT_ENTERABLE,
-    ENTERABLE,
-    ENDED,
-}
+data class RealtimeSchedule(
+    val liveStartAt: LocalDateTime,
+    val enterableFrom: LocalDateTime,
+    val liveEndAt: LocalDateTime,
+    val liveDurationMinutes: Long,
+)
 ```
 
 계산 규칙:
 
-- `party.partyOption == PAPER_ONLY`이면 `realtimeStatus = null`
+- `party.partyOption == PAPER_ONLY`이면 `realtimeSchedule = null`
 - `REALTIME`일 때:
-  - `now < startedAt.minusMinutes(5)` -> `NOT_ENTERABLE`
-  - `startedAt.minusMinutes(5) <= now < startedAt.plusMinutes(10)` -> `ENTERABLE`
-  - `now >= startedAt.plusMinutes(10)` -> `ENDED`
+  - `liveStartAt = startedAt`
+  - `enterableFrom = startedAt.minusMinutes(5)`
+  - `liveEndAt = startedAt.plusMinutes(10)`
+  - `liveDurationMinutes = 10`
 
 설계 판단:
 
 - 현재 `develop`에는 `RealtimeParty` 하위 타입이 있고 `RealtimeParty.status()`는 도메인 상태를 유지한다.
-- 초대장 조회에서는 `party is RealtimeParty`일 때만 응답 전용 `RealtimeStatus`를 계산한다.
-- 5분 전 입장 가능 정책은 `RealtimeParty.status()`에 넣지 않고 조회 유스케이스의 응답 계산으로 둔다.
+- 초대장 조회에서는 조회 시점의 `RealtimeStatus`를 내려주지 않는다.
+- 프론트는 `enterableFrom`, `liveEndAt`과 현재 시각을 비교해 버튼 활성화/카운트다운/종료 표시를 계산한다.
+- 백엔드는 이후 실시간 파티 입장 API에서 같은 기준으로 최종 입장 가능 여부를 검증한다.
+- 5분 전 입장 가능 정책은 `RealtimeParty.status()`에 넣지 않고 초대장 조회 응답 schedule 계산에만 둔다.
 - `RealtimeParty.startedAt`은 non-null이므로 REALTIME 정상 데이터에서는 null 방어가 필요 없다.
 
 ---
@@ -150,14 +157,14 @@ enum class RealtimeStatus {
 결정:
 
 - 기존 `PartyInviteService.activateInviteLink(...)`는 유효한 초대 토큰 재사용을 위해 `PartyInvite.expiresAt`을 사용한다.
-- 신규 기획은 "실시간 파티 종료 여부와 관계없이 `liveStartAt`을 내려준다"고 되어 있고, `partyEnded`는 `createdAt + 7일` 기준이다.
+- 신규 기획은 "실시간 파티 종료 여부와 관계없이 `realtimeSchedule`을 내려준다"고 되어 있고, `partyEnded`는 `createdAt + 7일` 기준이다.
 - 초대장 조회 API는 `PartyInvite.expiresAt`이 지났어도 조회 가능하게 한다.
 
 구현 기준:
 
 - 조회 API는 `PartyInviteRepository.findByToken(...)`으로 token 존재 여부만 확인한다.
 - `PartyInvite.expiresAt`은 "초대 링크 발급/재사용 및 참여 가능성"에 쓰고, 초대장 요약 조회 자체를 막지는 않는다.
-- 만료된 토큰도 파티 요약을 보여줘야 프론트가 `realtimeStatus = ENDED` 또는 `partyEnded = true` 같은 상태 화면을 안정적으로 만들 수 있다.
+- 만료된 토큰도 파티 요약을 보여줘야 프론트가 `realtimeSchedule.liveEndAt` 또는 `partyEnded = true` 같은 기준으로 상태 화면을 안정적으로 만들 수 있다.
 - 없는 token은 기존 관례대로 `PARTY_NOT_FOUND`를 반환한다.
 
 기존 발급/재사용 정책과 분리하기 위해 조회 전용 `findByToken` 흐름을 둔다.
@@ -284,7 +291,7 @@ src/main/kotlin/com/team2/server/party/usecase/LookupPartyInviteUseCase.kt
 3. `party = invite.party`
 4. `partyEndAt = party.createdAt.plusDays(7)`
 5. `rollingPaperWritten` 계산
-6. `realtimeStatus` 계산
+6. `realtimeSchedule` 계산
 7. `PartyInviteLookupResponse` 반환
 
 의존성 제한:
@@ -328,12 +335,17 @@ Kotlin 타입:
 - `rollingPaperWritten: Boolean`
 - `partyStartDate: LocalDate`
 - `partyEndDate: LocalDate`
-- `realtimeStatus: RealtimeStatus?`
-- `liveStartAt: LocalDateTime?`
-- `liveDurationMinutes: Long?`
+- `realtimeSchedule: RealtimeSchedule?`
+
+`RealtimeSchedule` 타입:
+
+- `liveStartAt: LocalDateTime`
+- `enterableFrom: LocalDateTime`
+- `liveEndAt: LocalDateTime`
+- `liveDurationMinutes: Long`
 
 현재 엔티티 필드명도 `partyOption`이므로 DTO 필드명도 그대로 `partyOption`으로 둔다.
-`partyOption`과 `realtimeStatus`는 Swagger 필드 설명에 enum 값별 의미를 함께 적는다.
+`partyOption`은 Swagger 필드 설명에 enum 값별 의미를 함께 적는다.
 
 ### 7-5. SecurityConfig
 
@@ -363,11 +375,8 @@ src/test/kotlin/com/team2/server/party/controller/PartyInviteLookupControllerTes
 - 인증 없이 조회해도 participant count가 증가하지 않음
 - 인증 회원 participant가 있고 `hasWrittenPaper = true`이면 `rollingPaperWritten = true`
 - participant가 없으면 `rollingPaperWritten = false`
-- `PAPER_ONLY`는 `realtimeStatus`, `liveStartAt`, `liveDurationMinutes`가 null
-- `REALTIME`은 live 관련 필드가 내려감
-- `now < startedAt - 5분`이면 `NOT_ENTERABLE`
-- `startedAt - 5분 <= now < startedAt + 10분`이면 `ENTERABLE`
-- `now >= startedAt + 10분`이면 `ENDED`
+- `PAPER_ONLY`는 `realtimeSchedule`이 null
+- `REALTIME`은 `realtimeSchedule.liveStartAt`, `enterableFrom`, `liveEndAt`, `liveDurationMinutes`가 내려감
 - `createdAt + 7일` 이상이면 `partyEnded = true`
 - 없는 token이면 404 `PARTY_NOT_FOUND`
 
@@ -380,9 +389,9 @@ src/test/kotlin/com/team2/server/party/controller/PartyInviteLookupControllerTes
 - token 없음
 - token 존재 but no user
 - token 존재 and participant exists
-- date/status 경계값
+- date/schedule 경계값
 
-시간 경계 테스트는 `LocalDateTime.now()` 직접 호출 때문에 흔들릴 수 있다.
+`partyEnded` 경계 테스트는 `LocalDateTime.now()` 직접 호출 때문에 흔들릴 수 있다.
 
 구현 선택:
 
@@ -392,7 +401,7 @@ src/test/kotlin/com/team2/server/party/controller/PartyInviteLookupControllerTes
 구현 기준:
 
 - 이번 기능 범위에서는 새 시간 추상화는 만들지 않는다.
-- 경계 테스트는 `startedAt = now.plusMinutes(6)`, `now.plusMinutes(4)`, `now.minusMinutes(11)`처럼 여유를 둔다.
+- `realtimeSchedule` 테스트는 같은 `startedAt` 기준에서 `enterableFrom`, `liveEndAt` 기대값을 계산한다.
 
 ### 8-3. Security 테스트
 
@@ -416,7 +425,7 @@ src/test/kotlin/com/team2/server/party/controller/PartyInviteLookupControllerTes
 
 승인 후 진행 순서:
 
-1. `PartyInviteLookupResponse`, `RealtimeStatus` DTO 추가
+1. `PartyInviteLookupResponse`, `RealtimeSchedule` DTO 추가
 2. `ParticipantRepository.findByPartyIdAndUserId(...)` 추가
 3. `LookupPartyInviteUseCase` 추가
 4. `PartyInviteLookupApi`, `PartyInviteLookupController` 추가

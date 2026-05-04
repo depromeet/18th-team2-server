@@ -26,32 +26,20 @@ data class PartyInviteLookupResponse(
     @Schema(description = "파티 종료일", example = "2026-05-11")
     val partyEndDate: LocalDate,
     @Schema(
-        description =
-            "실시간 파티 입장 상태. " +
-                "NOT_ENTERABLE: 입장 가능 시간 전, ENTERABLE: 입장 가능, ENDED: 실시간 진행 종료. " +
-                "PAPER_ONLY면 null",
-        allowableValues = ["NOT_ENTERABLE", "ENTERABLE", "ENDED"],
-        example = "ENTERABLE",
+        description = "실시간 파티 일정 기준 시각. PAPER_ONLY면 null",
+        nullable = true,
     )
-    val realtimeStatus: RealtimeStatus?,
-    @Schema(description = "실시간 파티 시작 시각. PAPER_ONLY면 null", example = "2026-05-04T20:00:00")
-    val liveStartAt: LocalDateTime?,
-    @Schema(description = "실시간 파티 진행 시간. PAPER_ONLY면 null", example = "10")
-    val liveDurationMinutes: Long?,
+    val realtimeSchedule: RealtimeSchedule?,
 )
 
-@Schema(
-    description =
-        "초대장 조회 응답용 실시간 파티 입장 상태. " +
-            "NOT_ENTERABLE: 입장 가능 시간 전, ENTERABLE: 입장 가능, ENDED: 실시간 진행 종료",
+@Schema(description = "실시간 파티 일정 기준 시각")
+data class RealtimeSchedule(
+    @Schema(description = "실시간 파티 시작 시각", example = "2026-05-04T20:00:00")
+    val liveStartAt: LocalDateTime,
+    @Schema(description = "파티 입장 가능 시작 시각", example = "2026-05-04T19:55:00")
+    val enterableFrom: LocalDateTime,
+    @Schema(description = "실시간 파티 종료 시각", example = "2026-05-04T20:10:00")
+    val liveEndAt: LocalDateTime,
+    @Schema(description = "실시간 파티 진행 시간", example = "10")
+    val liveDurationMinutes: Long,
 )
-enum class RealtimeStatus {
-    @Schema(description = "입장 가능 시간 전")
-    NOT_ENTERABLE,
-
-    @Schema(description = "입장 가능")
-    ENTERABLE,
-
-    @Schema(description = "실시간 진행 종료")
-    ENDED,
-}
