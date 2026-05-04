@@ -53,18 +53,19 @@ class JwtAuthenticationFilter(
         token: String,
         request: HttpServletRequest,
     ): Boolean {
+        var authenticated = false
         try {
             val claims = jwtTokenProvider.parse(token)
             val userId = claims.subject.toLong()
             val user = userRepository.findById(userId).orElse(null)
             if (user == null) {
                 request.setAttribute(AUTH_ERROR_REQUEST_ATTRIBUTE, ErrorCode.AUTH_USER_NOT_FOUND)
-                return false
+            } else {
+                val principal = UserPrincipal.from(user)
+                SecurityContextHolder.getContext().authentication =
+                    UsernamePasswordAuthenticationToken(principal, null, principal.authorities)
+                authenticated = true
             }
-            val principal = UserPrincipal.from(user)
-            SecurityContextHolder.getContext().authentication =
-                UsernamePasswordAuthenticationToken(principal, null, principal.authorities)
-            return true
         } catch (e: ExpiredJwtException) {
             log.debug("Expired JWT", e)
             request.setAttribute(AUTH_ERROR_REQUEST_ATTRIBUTE, ErrorCode.AUTH_EXPIRED_TOKEN)
@@ -75,6 +76,6 @@ class JwtAuthenticationFilter(
             log.debug("Malformed JWT", e)
             request.setAttribute(AUTH_ERROR_REQUEST_ATTRIBUTE, ErrorCode.AUTH_INVALID_TOKEN)
         }
-        return false
+        return authenticated
     }
 }
