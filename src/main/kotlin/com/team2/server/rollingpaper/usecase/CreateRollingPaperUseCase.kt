@@ -2,6 +2,7 @@ package com.team2.server.rollingpaper.usecase
 
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
+import com.team2.server.common.exception.isConstraintViolation
 import com.team2.server.party.entity.Participant
 import com.team2.server.party.entity.Party
 import com.team2.server.party.repository.ParticipantRepository
@@ -125,16 +126,6 @@ class CreateRollingPaperUseCase(
                 BusinessException(ErrorCode.ROLLING_PAPER_ALREADY_WRITTEN)
             else -> throw this
         }
-
-    private fun DataIntegrityViolationException.isConstraintViolation(constraintName: String): Boolean {
-        val message =
-            listOfNotNull(
-                message,
-                rootCause?.message,
-                mostSpecificCause.message,
-            ).joinToString(" ")
-        return message.contains(constraintName, ignoreCase = true)
-    }
 
     companion object {
         private const val PARTICIPANT_PARTY_USER_UNIQUE_CONSTRAINT = "uk_participant_party_user"
