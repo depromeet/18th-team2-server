@@ -11,4 +11,6 @@ interface PartyInviteRepository : JpaRepository<PartyInvite, Long> {
         partyId: Long,
         now: LocalDateTime,
     ): PartyInvite?
+
+    fun deleteAllByPartyId(partyId: Long)
 }

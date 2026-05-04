@@ -6,4 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository
 
 interface RealtimeParticipantProfileRepository : JpaRepository<RealtimeParticipantProfile, Long> {
     fun findByParticipant(participant: Participant): RealtimeParticipantProfile?
+
+    fun deleteAllByParticipantIdIn(participantIds: List<Long>)
 }

@@ -20,4 +20,6 @@ interface ParticipantRepository : JpaRepository<Participant, Long> {
         partyId: Long,
         userId: Long,
     ): Boolean
+
+    fun findAllByPartyId(partyId: Long): List<Participant>
 }
