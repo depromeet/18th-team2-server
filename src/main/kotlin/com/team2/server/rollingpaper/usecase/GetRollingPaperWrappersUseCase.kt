@@ -21,7 +21,7 @@ class GetRollingPaperWrappersUseCase(
         }
         val imageUrlByTargetId =
             imageRepository
-                .findByTargetTypeAndTargetIdInOrderByTargetIdAscSortOrderAsc(
+                .findAllByTargetTypeAndTargetIdsOrderByTargetIdAndSortOrder(
                     ImageTargetType.ROLLING_PAPER_WRAPPER,
                     wrappers.map { it.id },
                 ).distinctBy { it.targetId }

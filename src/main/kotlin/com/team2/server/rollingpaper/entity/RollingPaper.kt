@@ -9,22 +9,9 @@ import jakarta.persistence.FetchType
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
-import jakarta.persistence.UniqueConstraint
 
 @Entity
-@Table(
-    name = "rolling_paper",
-    uniqueConstraints = [
-        UniqueConstraint(
-            name = "uk_rolling_paper_party_writer_nickname",
-            columnNames = ["party_id", "writer_nickname"],
-        ),
-        UniqueConstraint(
-            name = "uk_rolling_paper_writer_participant",
-            columnNames = ["writer_participant_id"],
-        ),
-    ],
-)
+@Table(name = "rolling_paper")
 class RollingPaper(
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "wrapper_id", nullable = false)
@@ -35,9 +22,9 @@ class RollingPaper(
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "party_id", nullable = false)
     var party: Party,
-    @Column(name = "writer_nickname", nullable = false, length = 10)
-    var writerNickname: String,
-    @Column(nullable = false, length = 100)
+    @Column(name = "writer_nickname", length = 20)
+    var writerNickname: String? = null,
+    @Column(nullable = false, length = 1000)
     var content: String,
     @Column(name = "is_read", nullable = false)
     var isRead: Boolean = false,

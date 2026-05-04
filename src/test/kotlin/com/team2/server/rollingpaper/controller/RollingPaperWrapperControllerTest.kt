@@ -5,7 +5,6 @@ import com.team2.server.common.entity.ImageTargetType
 import com.team2.server.common.repository.ImageRepository
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.rollingpaper.entity.RollingPaperWrapper
-import com.team2.server.rollingpaper.repository.RollingPaperRepository
 import com.team2.server.rollingpaper.repository.RollingPaperWrapperRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -22,13 +21,11 @@ class RollingPaperWrapperControllerTest
     constructor(
         private val mockMvc: MockMvc,
         private val rollingPaperWrapperRepository: RollingPaperWrapperRepository,
-        private val rollingPaperRepository: RollingPaperRepository,
         private val participantRepository: ParticipantRepository,
         private val imageRepository: ImageRepository,
     ) {
         @BeforeEach
         fun setUp() {
-            rollingPaperRepository.deleteAll()
             participantRepository.deleteAll()
             imageRepository.deleteAll()
             rollingPaperWrapperRepository.deleteAll()

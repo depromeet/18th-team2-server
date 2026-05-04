@@ -5,8 +5,9 @@ import com.team2.server.common.entity.ImageTargetType
 import com.team2.server.common.repository.ImageRepository
 import com.team2.server.rollingpaper.entity.RollingPaperWrapper
 import com.team2.server.rollingpaper.repository.RollingPaperWrapperRepository
-import org.springframework.boot.ApplicationArguments
-import org.springframework.boot.ApplicationRunner
+import org.slf4j.LoggerFactory
+import org.springframework.boot.context.event.ApplicationReadyEvent
+import org.springframework.context.event.EventListener
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -15,12 +16,16 @@ import org.springframework.transaction.annotation.Transactional
 class DefaultRollingPaperWrapperInitializer(
     private val rollingPaperWrapperRepository: RollingPaperWrapperRepository,
     private val imageRepository: ImageRepository,
-) : ApplicationRunner {
-    @Transactional
-    override fun run(args: ApplicationArguments) {
-        initialize()
+) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
+    @EventListener(ApplicationReadyEvent::class)
+    fun initializeOnReady() {
+        runCatching { initialize() }
+            .onFailure { log.warn("Failed to initialize default rolling paper wrappers", it) }
     }
 
+    @Transactional
     fun initialize() {
         DEFAULT_WRAPPERS.forEach { defaultWrapper ->
             val wrapper = findOrCreateWrapper(defaultWrapper)
