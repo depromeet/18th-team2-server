@@ -12,6 +12,7 @@ import com.team2.server.rollingpaper.dto.CreateRollingPaperRequest
 import com.team2.server.rollingpaper.dto.CreateRollingPaperResponse
 import com.team2.server.rollingpaper.entity.RollingPaper
 import com.team2.server.rollingpaper.entity.RollingPaperWrapper
+import com.team2.server.rollingpaper.entity.toWriterNicknameKey
 import com.team2.server.rollingpaper.repository.RollingPaperRepository
 import com.team2.server.rollingpaper.repository.RollingPaperWrapperRepository
 import com.team2.server.user.entity.User
@@ -124,7 +125,7 @@ class CreateRollingPaperUseCase(
         party: Party,
         writerNickname: String,
     ) {
-        if (rollingPaperRepository.existsByPartyAndWriterNicknameIgnoreCase(party, writerNickname)) {
+        if (rollingPaperRepository.existsByPartyAndWriterNicknameKey(party, writerNickname.toWriterNicknameKey())) {
             throw BusinessException(ErrorCode.ROLLING_PAPER_NICKNAME_DUPLICATED)
         }
     }

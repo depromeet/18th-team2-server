@@ -21,11 +21,13 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.post
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -169,6 +171,26 @@ class RollingPaperControllerTest
                     status { isConflict() }
                     jsonPath("$.error.code") { value("ROLLING_PAPER_NICKNAME_DUPLICATED") }
                 }
+        }
+
+        @Test
+        fun `대소문자만 다른 닉네임은 DB 제약으로도 중복 실패`() {
+            val party = saveParty()
+            val wrapper = saveWrapper()
+            saveRollingPaper(party, wrapper, "abc")
+            val participant = participantRepository.save(Participant(party = party))
+
+            assertFailsWith<DataIntegrityViolationException> {
+                rollingPaperRepository.saveAndFlush(
+                    RollingPaper(
+                        wrapper = wrapper,
+                        writer = participant,
+                        party = party,
+                        writerNickname = "ABC",
+                        content = "다른 내용",
+                    ),
+                )
+            }
         }
 
         @Test

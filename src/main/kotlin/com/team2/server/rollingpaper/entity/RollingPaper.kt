@@ -10,6 +10,7 @@ import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
+import java.util.Locale
 
 @Entity
 @Table(
@@ -17,7 +18,7 @@ import jakarta.persistence.UniqueConstraint
     uniqueConstraints = [
         UniqueConstraint(
             name = "uk_rolling_paper_party_writer_nickname",
-            columnNames = ["party_id", "writer_nickname"],
+            columnNames = ["party_id", "writer_nickname_key"],
         ),
         UniqueConstraint(
             name = "uk_rolling_paper_writer_participant",
@@ -37,8 +38,12 @@ class RollingPaper(
     var party: Party,
     @Column(name = "writer_nickname", nullable = false, length = 10)
     var writerNickname: String,
+    @Column(name = "writer_nickname_key", nullable = false, length = 32)
+    var writerNicknameKey: String = writerNickname.toWriterNicknameKey(),
     @Column(nullable = false, length = 100)
     var content: String,
     @Column(name = "is_read", nullable = false)
     var isRead: Boolean = false,
 ) : BaseEntity()
+
+fun String.toWriterNicknameKey(): String = trim().lowercase(Locale.ROOT)

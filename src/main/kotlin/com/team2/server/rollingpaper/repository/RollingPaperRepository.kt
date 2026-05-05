@@ -5,8 +5,8 @@ import com.team2.server.rollingpaper.entity.RollingPaper
 import org.springframework.data.jpa.repository.JpaRepository
 
 interface RollingPaperRepository : JpaRepository<RollingPaper, Long> {
-    fun existsByPartyAndWriterNicknameIgnoreCase(
+    fun existsByPartyAndWriterNicknameKey(
         party: Party,
-        writerNickname: String,
+        writerNicknameKey: String,
     ): Boolean
 }
