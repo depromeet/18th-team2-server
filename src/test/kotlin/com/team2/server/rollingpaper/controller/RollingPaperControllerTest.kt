@@ -154,6 +154,8 @@ class RollingPaperControllerTest
                     status { isConflict() }
                     jsonPath("$.error.code") { value("ROLLING_PAPER_NICKNAME_DUPLICATED") }
                 }
+
+            assertEquals(1, participantRepository.count())
         }
 
         @Test
