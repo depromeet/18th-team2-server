@@ -43,11 +43,11 @@ class RollingPaper(
     var isRead: Boolean = false,
 ) : BaseEntity() {
     @Column(name = "writer_nickname", nullable = false, length = 10)
-    var writerNickname: String = writerNickname
+    var writerNickname: String = writerNickname.trim()
         protected set
 
-    @Column(name = "writer_nickname_key", nullable = false, length = 32)
-    var writerNicknameKey: String = writerNickname.toWriterNicknameKey()
+    @Column(name = "writer_nickname_key", nullable = false, length = 10)
+    var writerNicknameKey: String = this.writerNickname.toWriterNicknameKey()
         protected set
 }
 

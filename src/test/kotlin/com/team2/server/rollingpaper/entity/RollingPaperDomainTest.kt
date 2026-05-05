@@ -67,7 +67,7 @@ class RollingPaperDomainTest {
     }
 
     @Test
-    fun `작성자 닉네임 정규화 키는 생성 시점 닉네임 기준으로 저장된다`() {
+    fun `작성자 닉네임은 trim 후 정규화 키와 함께 저장된다`() {
         val party = newParty()
         val rollingPaper =
             RollingPaper(
@@ -78,7 +78,7 @@ class RollingPaperDomainTest {
                 content = "축하해요",
             )
 
-        assertEquals(" ABC ", rollingPaper.writerNickname)
+        assertEquals("ABC", rollingPaper.writerNickname)
         assertEquals("abc", rollingPaper.writerNicknameKey)
     }
 

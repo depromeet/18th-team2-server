@@ -263,7 +263,7 @@ var wrapper: RollingPaperWrapper
 @Column(name = "writer_nickname", nullable = false, length = 10)
 var writerNickname: String
 
-@Column(name = "writer_nickname_key", nullable = false, length = 32)
+@Column(name = "writer_nickname_key", nullable = false, length = 10)
 var writerNicknameKey: String
 
 @Column(nullable = false, length = 100)
