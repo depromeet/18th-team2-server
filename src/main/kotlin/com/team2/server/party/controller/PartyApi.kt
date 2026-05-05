@@ -35,7 +35,7 @@ interface PartyApi {
         summary = "파티 삭제",
         security = [SecurityRequirement(name = "Bearer Authentication")],
     )
-    @SwaggerApiResponse(responseCode = "204", description = "파티 삭제 성공")
+    @SwaggerApiResponse(responseCode = "200", description = "파티 삭제 성공")
     @AuthErrorResponses
     @InternalServerErrorResponse
     fun deleteParty(

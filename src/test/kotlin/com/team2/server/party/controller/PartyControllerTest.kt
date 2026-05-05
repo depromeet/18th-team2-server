@@ -189,7 +189,7 @@ class PartyControllerTest
         }
 
         @Test
-        fun `파티 시작 전 주최자가 삭제 시 204`() {
+        fun `파티 시작 전 주최자가 삭제 시 200`() {
             val token = tokenProvider.issue(saveUser("kakao-del-success", "del-success@kakao.local"))
             val partyId = createParty(token, "2099-12-31", "14:30")
 
@@ -197,7 +197,7 @@ class PartyControllerTest
                 .delete("/api/v1/parties/$partyId") {
                     header("Authorization", "Bearer $token")
                 }.andExpect {
-                    status { isNoContent() }
+                    status { isOk() }
                 }
 
             assertEquals(false, partyRepository.existsById(partyId))

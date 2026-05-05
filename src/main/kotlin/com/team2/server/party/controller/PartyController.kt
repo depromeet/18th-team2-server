@@ -30,13 +30,12 @@ class PartyController(
     ): ApiResponse<CreatePartyResponse> =
         ApiResponse.success(HttpStatus.CREATED, partyService.createParty(principal.userId, request, partyOption))
 
-    @ResponseStatus(HttpStatus.NO_CONTENT)
     @DeleteMapping("/{partyId}")
     override fun deleteParty(
         @AuthenticationPrincipal principal: UserPrincipal,
         @PathVariable partyId: Long,
     ): ApiResponse<Unit> {
         partyService.deleteParty(partyId = partyId, userId = principal.userId)
-        return ApiResponse.success(HttpStatus.NO_CONTENT, Unit)
+        return ApiResponse.success(HttpStatus.OK, Unit)
     }
 }
