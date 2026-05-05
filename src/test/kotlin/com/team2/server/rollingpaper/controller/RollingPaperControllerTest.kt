@@ -155,7 +155,7 @@ class RollingPaperControllerTest
         }
 
         @Test
-        fun `대소문자만 다른 닉네임은 작성 성공`() {
+        fun `대소문자만 다른 닉네임도 중복 실패`() {
             val party = saveParty()
             val invite = saveInvite(party, "casewrite000001")
             val wrapper = saveWrapper()
@@ -166,7 +166,8 @@ class RollingPaperControllerTest
                     contentType = MediaType.APPLICATION_JSON
                     content = requestBody("ABC", "다른 내용", wrapper.id)
                 }.andExpect {
-                    status { isCreated() }
+                    status { isConflict() }
+                    jsonPath("$.error.code") { value("ROLLING_PAPER_NICKNAME_DUPLICATED") }
                 }
         }
 
