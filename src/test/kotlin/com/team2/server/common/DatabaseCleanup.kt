@@ -20,18 +20,21 @@ class DatabaseCleanup(
                 .filter { it.javaType.isAnnotationPresent(Table::class.java) }
                 .map { it.javaType.getAnnotation(Table::class.java).name }
                 .filter { it.isNotBlank() } +
-                entityManager.metamodel.entities
-                    .filter { !it.javaType.isAnnotationPresent(Table::class.java) }
-                    .map { it.name.replace(Regex("([a-z])([A-Z])"), "$1_$2").lowercase() }
+            entityManager.metamodel.entities
+                .filter { !it.javaType.isAnnotationPresent(Table::class.java) }
+                .map { it.name.replace(Regex("([a-z])([A-Z])"), "$1_$2").lowercase() }
     }
 
     @Transactional
     fun execute() {
         entityManager.flush()
         entityManager.createNativeQuery("SET FOREIGN_KEY_CHECKS = 0").executeUpdate()
-        for (tableName in tableNames) {
-            entityManager.createNativeQuery("TRUNCATE TABLE `$tableName`").executeUpdate()
+        try {
+            for (tableName in tableNames) {
+                entityManager.createNativeQuery("TRUNCATE TABLE `$tableName`").executeUpdate()
+            }
+        } finally {
+            entityManager.createNativeQuery("SET FOREIGN_KEY_CHECKS = 1").executeUpdate()
         }
-        entityManager.createNativeQuery("SET FOREIGN_KEY_CHECKS = 1").executeUpdate()
     }
 }

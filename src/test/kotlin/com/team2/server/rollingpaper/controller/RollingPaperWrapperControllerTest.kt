@@ -51,6 +51,7 @@ class RollingPaperWrapperControllerTest
             mockMvc.get("/api/v1/rolling-paper-wrappers").andExpect {
                 status { isOk() }
                 jsonPath("$.status") { value(200) }
+                jsonPath("$.data.length()") { value(2) }
                 jsonPath("$.data[0].wrapperId") { value(wrapper1.id) }
                 jsonPath("$.data[0].name") { value("Topping_Candle") }
                 jsonPath("$.data[0].wrapperImageUrl") {
