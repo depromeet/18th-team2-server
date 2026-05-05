@@ -17,6 +17,8 @@ class PaperOnlyParty(
 ) : Party(ownerId, name, celebrantNickname, startedAt, purpose) {
     override val partyOption: PartyOption get() = PartyOption.PAPER_ONLY
 
+    override fun hostViewableAt(): LocalDateTime = startedAt.toLocalDate().atTime(HOST_VIEWABLE_HOUR, 0)
+
     fun status(now: LocalDateTime = LocalDateTime.now()): PaperOnlyPartyStatus {
         val openTime = startedAt
         return when {
@@ -24,6 +26,10 @@ class PaperOnlyParty(
             now >= openTime -> PaperOnlyPartyStatus.OPEN
             else -> PaperOnlyPartyStatus.READY
         }
+    }
+
+    companion object {
+        const val HOST_VIEWABLE_HOUR: Int = 22
     }
 }
 
