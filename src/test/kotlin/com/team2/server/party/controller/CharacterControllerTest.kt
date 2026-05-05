@@ -1,11 +1,11 @@
 package com.team2.server.party.controller
 
+import com.team2.server.common.DatabaseCleanup
 import com.team2.server.common.entity.Image
 import com.team2.server.common.entity.ImageTargetType
 import com.team2.server.common.repository.ImageRepository
 import com.team2.server.party.entity.Character
 import com.team2.server.party.repository.CharacterRepository
-import com.team2.server.party.repository.ParticipantRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -22,13 +22,11 @@ class CharacterControllerTest
         private val mockMvc: MockMvc,
         private val characterRepository: CharacterRepository,
         private val imageRepository: ImageRepository,
-        private val participantRepository: ParticipantRepository,
+        private val databaseCleanup: DatabaseCleanup,
     ) {
         @BeforeEach
         fun setUp() {
-            participantRepository.deleteAll()
-            imageRepository.deleteAll()
-            characterRepository.deleteAll()
+            databaseCleanup.execute()
         }
 
         @Test

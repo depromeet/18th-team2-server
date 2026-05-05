@@ -1,9 +1,9 @@
 package com.team2.server.rollingpaper.service
 
+import com.team2.server.common.DatabaseCleanup
 import com.team2.server.common.entity.Image
 import com.team2.server.common.entity.ImageTargetType
 import com.team2.server.common.repository.ImageRepository
-import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.rollingpaper.entity.RollingPaperWrapper
 import com.team2.server.rollingpaper.repository.RollingPaperWrapperRepository
 import org.junit.jupiter.api.BeforeEach
@@ -30,14 +30,12 @@ class DefaultRollingPaperWrapperInitializerTest
     constructor(
         private val initializer: DefaultRollingPaperWrapperInitializer,
         private val rollingPaperWrapperRepository: RollingPaperWrapperRepository,
-        private val participantRepository: ParticipantRepository,
         private val imageRepository: ImageRepository,
+        private val databaseCleanup: DatabaseCleanup,
     ) {
         @BeforeEach
         fun setUp() {
-            participantRepository.deleteAll()
-            imageRepository.deleteAll()
-            rollingPaperWrapperRepository.deleteAll()
+            databaseCleanup.execute()
         }
 
         @Test

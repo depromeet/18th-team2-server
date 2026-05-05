@@ -2,10 +2,7 @@ package com.team2.server.party.controller
 
 import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
-import com.team2.server.party.repository.ParticipantRepository
-import com.team2.server.party.repository.PartyInviteRepository
-import com.team2.server.party.repository.PartyRepository
-import com.team2.server.party.repository.RealtimeParticipantProfileRepository
+import com.team2.server.common.DatabaseCleanup
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
 import com.team2.server.user.repository.UserRepository
@@ -24,22 +21,15 @@ class PartyControllerTest
     @Autowired
     constructor(
         private val mockMvc: MockMvc,
-        private val partyRepository: PartyRepository,
-        private val participantRepository: ParticipantRepository,
-        private val realtimeParticipantProfileRepository: RealtimeParticipantProfileRepository,
-        private val partyInviteRepository: PartyInviteRepository,
         private val userRepository: UserRepository,
+        private val databaseCleanup: DatabaseCleanup,
         private val jwtProperties: JwtProperties,
     ) {
         private val tokenProvider = JwtTokenProvider(jwtProperties)
 
         @BeforeEach
         fun setUp() {
-            realtimeParticipantProfileRepository.deleteAll()
-            participantRepository.deleteAll()
-            partyInviteRepository.deleteAll()
-            partyRepository.deleteAll()
-            userRepository.deleteAll()
+            databaseCleanup.execute()
         }
 
         @Test
