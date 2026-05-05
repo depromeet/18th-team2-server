@@ -97,9 +97,8 @@ class CreateRollingPaperUseCase(
         }
 
         val user =
-            userRepository
-                .findById(userId)
-                .orElseThrow { BusinessException(ErrorCode.AUTH_USER_NOT_FOUND) }
+            userRepository.findByIdOrNull(userId)
+                ?: throw BusinessException(ErrorCode.AUTH_USER_NOT_FOUND)
         return participantRepository.findByPartyAndUser(party, user) ?: createMemberParticipant(party, user)
     }
 
@@ -148,15 +147,12 @@ class CreateRollingPaperUseCase(
                 ),
             )
         } catch (e: DataIntegrityViolationException) {
-            throw e.toRollingPaperBusinessException()
-        }
-
-    private fun DataIntegrityViolationException.toRollingPaperBusinessException(): BusinessException =
-        when {
-            isConstraintViolation("uk_rolling_paper_party_writer_nickname") ->
-                BusinessException(ErrorCode.ROLLING_PAPER_NICKNAME_DUPLICATED)
-            isConstraintViolation("uk_rolling_paper_writer_participant") ->
-                BusinessException(ErrorCode.ROLLING_PAPER_ALREADY_WRITTEN)
-            else -> throw this
+            when {
+                e.isConstraintViolation("uk_rolling_paper_party_writer_nickname") ->
+                    throw BusinessException(ErrorCode.ROLLING_PAPER_NICKNAME_DUPLICATED)
+                e.isConstraintViolation("uk_rolling_paper_writer_participant") ->
+                    throw BusinessException(ErrorCode.ROLLING_PAPER_ALREADY_WRITTEN)
+                else -> throw e
+            }
         }
 }
