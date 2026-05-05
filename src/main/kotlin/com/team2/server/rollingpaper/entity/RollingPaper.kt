@@ -36,14 +36,19 @@ class RollingPaper(
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "party_id", nullable = false)
     var party: Party,
-    @Column(name = "writer_nickname", nullable = false, length = 10)
-    var writerNickname: String,
-    @Column(name = "writer_nickname_key", nullable = false, length = 32)
-    var writerNicknameKey: String = writerNickname.toWriterNicknameKey(),
+    writerNickname: String,
     @Column(nullable = false, length = 100)
     var content: String,
     @Column(name = "is_read", nullable = false)
     var isRead: Boolean = false,
-) : BaseEntity()
+) : BaseEntity() {
+    @Column(name = "writer_nickname", nullable = false, length = 10)
+    var writerNickname: String = writerNickname
+        protected set
+
+    @Column(name = "writer_nickname_key", nullable = false, length = 32)
+    var writerNicknameKey: String = writerNickname.toWriterNicknameKey()
+        protected set
+}
 
 fun String.toWriterNicknameKey(): String = trim().lowercase(Locale.ROOT)
