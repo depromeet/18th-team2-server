@@ -69,6 +69,15 @@ class PartyStatusTest {
         assertEquals(PaperOnlyPartyStatus.CLOSED, party.status(now))
     }
 
+    @Test
+    fun `PaperOnlyParty - 주최자 롤링페이퍼 열람 시각은 시작일 오후 10시`() {
+        val party = paperParty(startedAt = birthday.atStartOfDay())
+        val hostViewableAt = birthday.atTime(22, 0)
+        assertEquals(hostViewableAt, party.hostViewableAt())
+        assertEquals(false, party.canHostViewRollingPapers(hostViewableAt.minusNanos(1)))
+        assertEquals(true, party.canHostViewRollingPapers(hostViewableAt))
+    }
+
     // --- RealtimeParty ---
 
     @Test
@@ -103,5 +112,14 @@ class PartyStatusTest {
         val party = realtimeParty()
         val now = createdAt.plusDays(7)
         assertEquals(RealtimePartyStatus.ROLLING_PAPER_CLOSED, party.status(now))
+    }
+
+    @Test
+    fun `RealtimeParty - 주최자 롤링페이퍼 열람 시각은 라이브 종료 시각`() {
+        val party = realtimeParty()
+        val hostViewableAt = liveStart.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES)
+        assertEquals(hostViewableAt, party.hostViewableAt())
+        assertEquals(false, party.canHostViewRollingPapers(hostViewableAt.minusNanos(1)))
+        assertEquals(true, party.canHostViewRollingPapers(hostViewableAt))
     }
 }
