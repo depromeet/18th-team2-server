@@ -5,6 +5,7 @@ import com.team2.server.common.response.ApiResponse
 import com.team2.server.common.response.ErrorResponse
 import com.team2.server.common.swagger.AuthErrorResponses
 import com.team2.server.common.swagger.InternalServerErrorResponse
+import com.team2.server.common.swagger.OptionalAuth
 import com.team2.server.rollingpaper.dto.CreateRollingPaperRequest
 import com.team2.server.rollingpaper.dto.CreateRollingPaperResponse
 import io.swagger.v3.oas.annotations.Operation
@@ -25,9 +26,9 @@ interface RollingPaperApi {
                 "Authorization header를 보낼 경우 유효한 Bearer token이어야 한다.",
         security = [
             SecurityRequirement(name = "Bearer Authentication"),
-            SecurityRequirement(name = ""),
         ],
     )
+    @OptionalAuth
     @SwaggerApiResponse(
         responseCode = "201",
         description = "롤링페이퍼 작성 성공",
