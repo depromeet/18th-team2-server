@@ -14,8 +14,8 @@ import jakarta.persistence.Table
 @Table(name = "rolling_paper")
 class RollingPaper(
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "theme_id", nullable = false)
-    var theme: RollingPaperWrapper,
+    @JoinColumn(name = "wrapper_id", nullable = false)
+    var wrapper: RollingPaperWrapper,
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "writer_participant_id", nullable = false)
     var writer: Participant,

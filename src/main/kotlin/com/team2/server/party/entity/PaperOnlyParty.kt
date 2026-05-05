@@ -15,16 +15,11 @@ class PaperOnlyParty(
 ) : Party(ownerId, name, celebrantNickname, startedAt, purpose, PartyOption.PAPER_ONLY) {
     fun status(now: LocalDateTime = LocalDateTime.now()): PaperOnlyPartyStatus {
         val openTime = startedAt
-        val closeTime = createdAt.plusDays(CLOSED_AFTER_DAYS)
         return when {
-            now >= closeTime -> PaperOnlyPartyStatus.CLOSED
+            isEnded(now) -> PaperOnlyPartyStatus.CLOSED
             now >= openTime -> PaperOnlyPartyStatus.OPEN
             else -> PaperOnlyPartyStatus.READY
         }
-    }
-
-    companion object {
-        const val CLOSED_AFTER_DAYS: Long = 7
     }
 }
 

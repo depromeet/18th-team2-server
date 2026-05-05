@@ -28,7 +28,15 @@ abstract class Party(
     @Enumerated(EnumType.STRING)
     @Column(name = "party_option", nullable = false)
     val partyOption: PartyOption,
-) : BaseEntity()
+) : BaseEntity() {
+    fun endedAt(): LocalDateTime = createdAt.plusDays(ENDED_AFTER_DAYS)
+
+    fun isEnded(now: LocalDateTime = LocalDateTime.now()): Boolean = !endedAt().isAfter(now)
+
+    companion object {
+        const val ENDED_AFTER_DAYS: Long = 7
+    }
+}
 
 enum class PartyOption {
     REALTIME,

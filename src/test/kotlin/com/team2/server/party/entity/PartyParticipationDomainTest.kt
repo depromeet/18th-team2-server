@@ -56,7 +56,7 @@ class PartyParticipationDomainTest {
         val wrapper = RollingPaperWrapper(name = "기본테마")
         val rollingPaper =
             RollingPaper(
-                theme = wrapper,
+                wrapper = wrapper,
                 writer = writer,
                 party = party,
                 writerNickname = "작성당시닉네임",
@@ -65,7 +65,7 @@ class PartyParticipationDomainTest {
 
         rollingPaper.isRead = true
 
-        assertSame(wrapper, rollingPaper.theme)
+        assertSame(wrapper, rollingPaper.wrapper)
         assertSame(writer, rollingPaper.writer)
         assertSame(party, rollingPaper.party)
         assertEquals("작성당시닉네임", rollingPaper.writerNickname)
