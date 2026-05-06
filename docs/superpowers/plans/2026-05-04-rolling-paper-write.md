@@ -39,12 +39,10 @@
 | `src/main/kotlin/com/team2/server/rollingpaper/dto/RollingPaperWrapperResult.kt` | 래퍼 목록 UseCase 결과 DTO |
 | `src/main/kotlin/com/team2/server/rollingpaper/repository/RollingPaperRepository.kt` | 롤링페이퍼 저장/중복 조회 |
 | `src/main/kotlin/com/team2/server/rollingpaper/repository/RollingPaperWrapperRepository.kt` | 래퍼 조회 |
-| `src/main/kotlin/com/team2/server/rollingpaper/service/DefaultRollingPaperWrapperInitializer.kt` | 기본 래퍼와 이미지 row 보장 |
 | `src/main/kotlin/com/team2/server/rollingpaper/usecase/CreateRollingPaperUseCase.kt` | 작성 트랜잭션 |
 | `src/main/kotlin/com/team2/server/rollingpaper/usecase/GetRollingPaperWrappersUseCase.kt` | 래퍼 목록 조회 |
 | `src/test/kotlin/com/team2/server/rollingpaper/controller/RollingPaperControllerTest.kt` | 작성 API 통합 테스트 |
 | `src/test/kotlin/com/team2/server/rollingpaper/controller/RollingPaperWrapperControllerTest.kt` | 래퍼 조회 API 통합 테스트 |
-| `src/test/kotlin/com/team2/server/rollingpaper/service/DefaultRollingPaperWrapperInitializerTest.kt` | 기본 래퍼 초기화 테스트 |
 
 ### 수정
 
@@ -97,18 +95,18 @@ Run:
 ## Task 2: 기본 래퍼 초기화
 
 **Files:**
-- Create: `src/main/kotlin/com/team2/server/rollingpaper/service/DefaultRollingPaperWrapperInitializer.kt`
-- Test: `src/test/kotlin/com/team2/server/rollingpaper/service/DefaultRollingPaperWrapperInitializerTest.kt`
+- Create: `src/main/resources/db/migration/V2__seed_default_assets.sql`
+- Test: `src/test/kotlin/com/team2/server/db/FlywayMigrationTest.kt`
 
-- [ ] 캐릭터 초기화 로직과 같은 방식으로 기본 래퍼 row를 보장한다.
-- [ ] `Image(targetType = ROLLING_PAPER_WRAPPER, targetId = wrapper.id, sortOrder = 0)`를 보장한다.
+- [ ] Flyway seed migration에서 기본 래퍼 row를 보장한다.
+- [ ] `image(target_type = ROLLING_PAPER_WRAPPER, target_id = wrapper.id, sort_order = 0)`를 보장한다.
 - [ ] 이미지 URL은 `/images/rolling-paper-wrappers/...` 정적 경로를 사용한다.
-- [ ] 같은 래퍼/이미지가 이미 있으면 중복 생성하지 않는다.
+- [ ] 런타임 initializer 없이 clean DB migration으로 기본 데이터가 생성되는지 검증한다.
 
 Run:
 
 ```bash
-./gradlew test --tests com.team2.server.rollingpaper.service.DefaultRollingPaperWrapperInitializerTest
+./gradlew test --tests com.team2.server.db.FlywayMigrationTest
 ```
 
 ## Task 3: 래퍼 목록 조회 API
@@ -226,7 +224,7 @@ Run:
 - [ ] 관련 테스트를 실행한다.
 
 ```bash
-./gradlew test --tests com.team2.server.rollingpaper.controller.RollingPaperWrapperControllerTest --tests com.team2.server.rollingpaper.controller.RollingPaperControllerTest --tests com.team2.server.rollingpaper.service.DefaultRollingPaperWrapperInitializerTest --tests com.team2.server.party.service.PartyInviteServiceTest
+./gradlew test --tests com.team2.server.rollingpaper.controller.RollingPaperWrapperControllerTest --tests com.team2.server.rollingpaper.controller.RollingPaperControllerTest --tests com.team2.server.db.FlywayMigrationTest --tests com.team2.server.party.service.PartyInviteServiceTest
 ```
 
 - [ ] 전체 테스트를 실행한다.
