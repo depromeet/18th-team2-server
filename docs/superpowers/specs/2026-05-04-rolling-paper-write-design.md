@@ -50,7 +50,10 @@
 
 - 초대장 조회는 participant를 만들지 않는다.
 - 로그인 회원의 화면 진입 직후 참여 처리는 별도 회원 참여 API가 책임진다.
-- 롤링페이퍼 작성은 작성 시점에 participant가 없으면 생성/복원하고, `hasWrittenPaper = true` 갱신을 책임진다.
+- 프론트는 로그인 회원이면 롤링페이퍼 작성 전 `participants/me` 호출을 우선한다.
+- 롤링페이퍼 작성 API도 방어적으로 작성 시점에 participant가 없으면 생성/복원한다.
+- 따라서 `participants/me`는 권장 선행 호출이고, 작성 API는 fallback 생성/복원을 가진다.
+- 롤링페이퍼 작성 성공 시점에는 participant의 `hasWrittenPaper = true` 갱신을 작성 API가 책임진다.
 - 래퍼 조회는 공개 조회다.
 - 작성자 닉네임은 실시간 프로필 닉네임과 별개인 롤링페이퍼 작성 당시 스냅샷이다.
 - 비회원은 별도 브라우저 식별자를 두지 않으므로, 서버는 닉네임 중복만 막는다.
@@ -421,8 +424,32 @@ POST /api/v1/party-invites/{inviteToken}/participants/me
 ```
 
 - 로그인 회원 전용이다.
+- 요청 body는 없다.
+- 응답은 `ApiResponse` 래퍼 안에 `participantId`만 내려준다.
+- 이미 참여한 회원이 다시 호출하면 기존 participant를 반환하고 새 participant를 만들지 않는다.
+- 기존 participant를 반환하는 경우 `hasWrittenPaper`, `isCelebrant` 같은 상태 필드는 갱신하지 않는다.
 - 별도 `permitAll`을 추가하지 않고 `anyRequest().authenticated()`로 보호한다.
+- 토큰이 없으면 `PARTY_NOT_FOUND`, 404로 실패한다.
 - 만료된 초대 토큰 또는 종료된 파티에는 participant를 생성하지 않는다.
+- 만료된 초대 토큰은 `INVITE_LINK_EXPIRED`, 400으로 실패한다.
+- 종료된 파티는 `PARTY_ENDED`, 400으로 실패한다.
+
+응답:
+
+```json
+{
+  "status": 200,
+  "data": {
+    "participantId": 1
+  }
+}
+```
+
+롤링페이퍼 작성 API와의 관계:
+
+- 회원 작성 요청은 같은 `ParticipantService.joinMember(...)` 경로로 participant를 조회/생성한다.
+- 프론트가 `participants/me`를 먼저 호출하지 못했더라도 작성 API는 participant 생성/복원 fallback을 수행한다.
+- 작성 API에서 기존 participant를 찾았고 `hasWrittenPaper = true`이면 `ROLLING_PAPER_ALREADY_WRITTEN`으로 실패한다.
 
 주의:
 

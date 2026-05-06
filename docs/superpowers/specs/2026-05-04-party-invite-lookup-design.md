@@ -135,6 +135,7 @@ POST /api/v1/party-invites/{inviteToken}/participants/me
 - 로그인 회원 전용
 - Authorization header가 없으면 401
 - 잘못된 Bearer token은 기존 정책대로 401
+- 요청 body는 없다.
 
 응답:
 
@@ -152,6 +153,7 @@ POST /api/v1/party-invites/{inviteToken}/participants/me
 - `party.createdAt + 7일`이 지났으면 `PARTY_ENDED`.
 - 로그인 회원의 기존 participant가 있으면 그대로 반환한다.
 - 기존 participant가 없으면 `Participant(party, user)`를 생성한다.
+- 기존 participant를 반환할 때는 `hasWrittenPaper`, `isCelebrant` 등 기존 participant 필드를 변경하지 않는다.
 - 같은 회원이 동시에 호출해 `(party_id, user_id)` unique constraint가 발생하면 기존 participant를 다시 조회해 반환한다.
 - 신규 생성과 기존 조회 모두 200으로 응답한다. 이 API는 "참여 상태 보장" 성격의 idempotent POST로 본다.
 
@@ -394,6 +396,7 @@ src/main/kotlin/com/team2/server/party/usecase/JoinPartyInviteUseCase.kt
 - `joinMember(party, user)`는 기존 participant가 있으면 그대로 반환한다.
 - 없으면 `Participant(party = party, user = user)`를 `saveAndFlush`로 저장한다.
 - `uk_participant_party_user` 위반은 기존 participant 재조회로 복구한다.
+- 기존 participant를 반환하는 경우 `hasWrittenPaper`, `isCelebrant` 같은 상태 필드는 갱신하지 않는다.
 - 비회원 롤링페이퍼 작성 흐름을 위해 `joinAnonymous(party)`도 제공한다.
 
 ### 7-4. DTO
