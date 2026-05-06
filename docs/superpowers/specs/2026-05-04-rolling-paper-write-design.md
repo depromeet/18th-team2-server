@@ -39,16 +39,18 @@
 
 1. 사용자가 공유 링크로 진입한다.
 2. 프론트가 `GET /api/v1/party-invites/{inviteToken}`으로 초대장/파티 요약을 조회한다.
-3. 사용자가 `"롤페 작성하기"`를 누른다.
-4. 프론트가 `GET /api/v1/rolling-paper-wrappers`로 선택 가능한 래퍼 목록을 조회한다.
-5. 사용자가 닉네임, 내용, 래퍼를 모두 입력/선택한다.
-6. 프론트가 `POST /api/v1/party-invites/{inviteToken}/rolling-papers`로 작성한다.
-7. 작성 성공 후 프론트는 해당 파티의 받은 롤링페이퍼 리스트 화면으로 이동한다.
+3. 로그인 회원이면 프론트가 `POST /api/v1/party-invites/{inviteToken}/participants/me`로 회원 참여 상태를 보장한다.
+4. 사용자가 `"롤페 작성하기"`를 누른다.
+5. 프론트가 `GET /api/v1/rolling-paper-wrappers`로 선택 가능한 래퍼 목록을 조회한다.
+6. 사용자가 닉네임, 내용, 래퍼를 모두 입력/선택한다.
+7. 프론트가 `POST /api/v1/party-invites/{inviteToken}/rolling-papers`로 작성한다.
+8. 작성 성공 후 프론트는 해당 파티의 받은 롤링페이퍼 리스트 화면으로 이동한다.
 
 핵심 경계:
 
 - 초대장 조회는 participant를 만들지 않는다.
-- 롤링페이퍼 작성은 participant 생성/복원과 `hasWrittenPaper = true` 갱신을 책임진다.
+- 로그인 회원의 화면 진입 직후 참여 처리는 별도 회원 참여 API가 책임진다.
+- 롤링페이퍼 작성은 작성 시점에 participant가 없으면 생성/복원하고, `hasWrittenPaper = true` 갱신을 책임진다.
 - 래퍼 조회는 공개 조회다.
 - 작성자 닉네임은 실시간 프로필 닉네임과 별개인 롤링페이퍼 작성 당시 스냅샷이다.
 - 비회원은 별도 브라우저 식별자를 두지 않으므로, 서버는 닉네임 중복만 막는다.
@@ -160,7 +162,7 @@ POST /api/v1/party-invites/{inviteToken}/rolling-papers
 
 - `permitAll`
 - Authorization header가 없어도 작성 가능
-- Authorization header가 유효하면 회원 participant를 생성/복원해서 작성한다.
+- Authorization header가 유효하면 회원 participant를 조회하거나 생성해서 작성한다.
 - Authorization header가 없으면 비회원 participant를 생성해서 작성한다.
 - 잘못된 Bearer token은 기존 정책대로 401
 
@@ -210,7 +212,7 @@ UseCase 진입 이후:
 4. 파티 생성 시각 기준 7일이 지나 파티가 종료됐으면 `PARTY_ENDED`.
 5. `wrapperId`로 `RollingPaperWrapper`를 조회한다.
 6. 래퍼가 없으면 `ROLLING_PAPER_WRAPPER_NOT_FOUND`.
-7. 회원이면 파티 내 회원 participant를 조회하거나 생성한다.
+7. 회원이면 파티 내 회원 participant를 조회하고, 아직 없으면 생성한다.
 8. 비회원이면 새 participant를 생성한다.
 9. 회원 participant가 이미 `hasWrittenPaper = true`이면 `ROLLING_PAPER_ALREADY_WRITTEN`.
 10. `writerNickname`, `content`를 trim한다.
@@ -372,6 +374,7 @@ controller -> usecase -> repository/entity/dto
 - `uk_rolling_paper_party_writer_nickname` 위반은 `ROLLING_PAPER_NICKNAME_DUPLICATED`로 변환한다.
 - `uk_rolling_paper_writer_participant` 위반은 `ROLLING_PAPER_ALREADY_WRITTEN`으로 변환한다.
 - `uk_participant_party_user` 위반은 기존 participant 재조회로 복구하고, 복구할 수 없으면 원 예외를 다시 던진다.
+- 회원 participant 생성/복원 공통 로직은 `party/service/ParticipantService`를 사용한다.
 - 이미지 URL 해석은 기존 `GetCharactersUseCase`처럼 `ImageRepository`와 `ImageTargetType`을 사용한다.
 - 래퍼 목록 조회에서는 N+1을 피하기 위해 wrapper id 목록으로 image를 `IN` 조회한다.
 - 현재 `Image`는 `targetType`, `targetId` 기반 공통 이미지 테이블이라 `RollingPaperWrapper`와 직접 JPA 연관관계가 없다. 이 구조에서는 fetch join보다 `ImageRepository`의 bulk 조회 메서드를 추가하는 방식이 더 단순하다.
@@ -410,6 +413,16 @@ ROLLING_PAPER_ALREADY_WRITTEN(HttpStatus.CONFLICT, "이미 롤링페이퍼를 �
 auth.requestMatchers(HttpMethod.GET, "/api/v1/rolling-paper-wrappers").permitAll()
 auth.requestMatchers(HttpMethod.POST, "/api/v1/party-invites/*/rolling-papers").permitAll()
 ```
+
+회원 참여 API:
+
+```http
+POST /api/v1/party-invites/{inviteToken}/participants/me
+```
+
+- 로그인 회원 전용이다.
+- 별도 `permitAll`을 추가하지 않고 `anyRequest().authenticated()`로 보호한다.
+- 만료된 초대 토큰 또는 종료된 파티에는 participant를 생성하지 않는다.
 
 주의:
 
