@@ -166,4 +166,16 @@ class SendChatMessageUseCaseTest {
             }
         assertEquals(ErrorCode.UNAUTHORIZED, ex.errorCode)
     }
+
+    @Test
+    fun `participantToken + 프로필 없으면 CHARACTER_REQUIRED`() {
+        val party = RealtimeParty(ownerId = 1L, startedAt = LocalDateTime.now().minusMinutes(5))
+        whenever(partyRepository.findPartyById(1L)).thenReturn(party)
+        whenever(profileRepository.findByParticipantToken("tok")).thenReturn(null)
+
+        val ex = assertThrows<BusinessException> {
+            useCase.send(partyId = 1L, userId = null, participantToken = "tok", request)
+        }
+        assertEquals(ErrorCode.CHARACTER_REQUIRED, ex.errorCode)
+    }
 }
