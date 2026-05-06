@@ -3,6 +3,7 @@
 ## 개요
 
 `REALTIME` 타입 파티에서 주최자와 링크 참여자들이 실시간으로 채팅할 수 있는 기능을 구현한다.
+로그인 여부와 관계없이 파티 소속 참여자라면 채팅 가능하다.
 메시지 전송은 REST POST, 수신은 SSE(Server-Sent Events)로 처리한다.
 
 ## 채팅 활성화 조건
@@ -14,16 +15,55 @@
 | `LIVE_CLOSED` | 불가 | 불가 |
 | `ROLLING_PAPER_CLOSED` | 불가 | 불가 |
 
-- `PAPER_ONLY` 파티는 채팅 기능 자체가 없음
-- 참여자(Participant)로 등록된 사용자만 채팅 가능
+- `PAPER_ONLY` 파티는 채팅 기능 없음
+- `RealtimeParticipantProfile`이 있는 참여자만 채팅 가능
+
+## 인증 방식
+
+채팅 API는 두 가지 인증을 모두 지원한다.
+
+| 사용자 유형 | 인증 수단 |
+|------------|----------|
+| 로그인 사용자 | `Authorization: Bearer {jwt}` |
+| 비로그인 사용자 | `X-Participant-Token: {participantToken}` |
+
+두 헤더가 모두 없으면 `UNAUTHORIZED` 에러.
 
 ## API
 
-### 메시지 전송
+### 1. 라이브 입장 (닉네임 + 캐릭터 선택)
+
+```
+POST /api/v1/party-invites/{inviteToken}/realtime-participants
+Content-Type: application/json
+(인증 불필요)
+
+{
+  "nickname": "토끼왕",
+  "characterId": 3
+}
+```
+
+응답 (201 Created):
+```json
+{
+  "status": 201,
+  "data": {
+    "participantToken": "a1b2c3d4e5f6g7h8"
+  }
+}
+```
+
+- `RealtimeParticipantProfile`을 생성하고 UUID `participantToken`을 발급
+- 이미 프로필이 있으면 닉네임 + 캐릭터를 업데이트하고 기존 토큰 반환
+- 주최자도 이 API로 캐릭터를 선택할 수 있음
+- 비로그인 사용자는 익명 `Participant` 생성 후 프로필 생성
+
+### 2. 메시지 전송
 
 ```
 POST /api/v1/parties/{partyId}/chat-messages
-Authorization: Bearer {token}
+Authorization: Bearer {jwt}  또는  X-Participant-Token: {token}
 Content-Type: application/json
 
 {
@@ -45,20 +85,19 @@ Content-Type: application/json
 }
 ```
 
-> `senderCharacterId`는 nullable. 캐릭터를 선택하지 않은 주최자의 경우 null일 수 있음.
+> `senderCharacterId`는 nullable.
 
-### SSE 구독
+### 3. SSE 구독
 
 ```
 GET /api/v1/parties/{partyId}/chat-messages/stream
-Authorization: Bearer {token}
+Authorization: Bearer {jwt}  또는  X-Participant-Token: {token}
 Accept: text/event-stream
 ```
 
 접속 즉시 `history` 이벤트로 과거 메시지 전체를 전송한 뒤,
 이후 신규 메시지는 `message` 이벤트로 실시간 push된다.
 
-SSE 이벤트 형식:
 ```
 event: history
 data: [{"messageId":1,"content":"...","senderNickname":"...","senderCharacterId":3,"sentAt":"..."}]
@@ -72,22 +111,27 @@ data: {"messageId":2,"content":"...","senderNickname":"...","senderCharacterId":
 ```
 chat/
   controller/
-    ChatApi.kt                  Swagger 인터페이스
-    ChatController.kt           REST + SSE 엔드포인트
+    ChatApi.kt
+    ChatController.kt
   dto/
-    SendChatMessageRequest.kt   메시지 전송 요청
-    ChatMessageResponse.kt      메시지 응답 DTO
+    EnterRealtimePartyRequest.kt
+    EnterRealtimePartyResponse.kt
+    SendChatMessageRequest.kt
+    ChatMessageResponse.kt
   service/
-    SseEmitterRegistry.kt       emitter 등록/해제/브로드캐스트
+    SseEmitterRegistry.kt
   usecase/
-    SendChatMessageUseCase.kt   전송 검증 + 저장 + 브로드캐스트
-    SubscribeChatUseCase.kt     구독 검증 + 히스토리 전송 + emitter 등록
+    EnterRealtimePartyUseCase.kt
+    SendChatMessageUseCase.kt
+    SubscribeChatUseCase.kt
 ```
 
 기존 파일 수정:
+- `RealtimeParticipantProfile` — `participantToken: String` (UUID) 필드 추가
+- `RealtimeParticipantProfileRepository` — 토큰 조회 메서드 추가
 - `ChatMessageRepository` — `findAllByPartyIdOrderByCreatedAtAsc` 추가
-- `ErrorCode` — 채팅 에러코드 2개 추가
-- `PartyRepository` — `findPartyById` 재사용 (수정 없음)
+- `ErrorCode` — 채팅 에러코드 추가
+- `SecurityConfig` — 라이브 입장 엔드포인트 `permitAll` 추가
 
 ## SseEmitterRegistry
 
@@ -95,18 +139,44 @@ chat/
 ConcurrentHashMap<partyId: Long, CopyOnWriteArrayList<SseEmitter>>
 ```
 
-- `subscribe(partyId, emitter)`: emitter 등록. timeout/completion/error 콜백에서 자동 해제
-- `broadcast(partyId, event)`: partyId의 모든 emitter에 push. 전송 실패한 dead emitter는 즉시 제거
+- `subscribe(partyId, emitter)`: 등록. timeout/completion/error 콜백에서 자동 해제
+- `broadcast(partyId, event)`: 전체 emitter에 push. 실패한 emitter는 즉시 제거
 
 ## 검증 흐름
+
+### 라이브 입장
+
+1. inviteToken으로 Party 조회 → 없으면 `PARTY_NOT_FOUND`
+2. `REALTIME` 타입 확인 → 아니면 `CHAT_NOT_SUPPORTED`
+3. 초대링크 만료 확인 → 만료면 `INVITE_LINK_EXPIRED`
+4. userId 있으면 User로 Participant 조회/생성, 없으면 익명 Participant 생성
+5. Participant의 RealtimeParticipantProfile 조회
+   - 없으면: nickname + character로 새 Profile 생성 + UUID participantToken 발급
+   - 있으면: nickname + character 업데이트 + 기존 participantToken 반환
+6. `EnterRealtimePartyResponse(participantToken)` 반환
+
+### 참여자 식별 (채팅 공통)
+
+```kotlin
+fun resolveProfile(
+    userId: Long?,
+    participantToken: String?,
+    partyId: Long
+): RealtimeParticipantProfile
+```
+
+1. JWT 있으면 userId + partyId → Participant → Profile 조회
+2. participantToken 있으면 토큰으로 Profile 직접 조회
+3. 둘 다 없으면 `UNAUTHORIZED`
+4. Profile 없으면 `CHARACTER_REQUIRED`
 
 ### 메시지 전송
 
 1. Party 조회 → 없으면 `PARTY_NOT_FOUND`
 2. `REALTIME` 타입 확인 → 아니면 `CHAT_NOT_SUPPORTED`
 3. `RealtimeParty.status() == LIVE_OPEN` 확인 → 아니면 `CHAT_NOT_ACTIVE`
-4. `Participant` 존재 확인 (userId + partyId) → 없으면 `PARTY_FORBIDDEN`
-5. `RealtimeParticipantProfile` 존재 확인 → 없으면 `CHARACTER_REQUIRED`
+4. 참여자 식별 (위 공통 로직)
+5. Profile의 partyId가 요청 partyId와 일치하는지 확인 → 아니면 `PARTY_FORBIDDEN`
 6. `ChatMessage` 저장
 7. `SseEmitterRegistry.broadcast()`
 
@@ -114,34 +184,35 @@ ConcurrentHashMap<partyId: Long, CopyOnWriteArrayList<SseEmitter>>
 
 1. Party 조회 → 없으면 `PARTY_NOT_FOUND`
 2. `REALTIME` 타입 확인 → 아니면 `CHAT_NOT_SUPPORTED`
-3. `Participant` 존재 확인 → 없으면 `PARTY_FORBIDDEN`
-4. `RealtimeParticipantProfile` 존재 확인 → 없으면 `CHARACTER_REQUIRED`
+3. 참여자 식별 (위 공통 로직)
+4. Profile의 partyId가 요청 partyId와 일치하는지 확인 → 아니면 `PARTY_FORBIDDEN`
 5. `SseEmitter` 생성 (timeout: 15분)
 6. DB에서 과거 메시지 조회 → `history` 이벤트 전송
 7. Registry에 emitter 등록
-
-> 링크 참여자의 경우 `RealtimeParticipantProfile`은 별도의 "라이브 입장" 플로우에서 생성됨.
-> 해당 플로우 미구현 시 링크 참여자는 채팅 불가 (CHARACTER_REQUIRED 응답).
 
 ## 에러코드 추가
 
 | 코드 | HTTP 상태 | 메시지 |
 |------|----------|--------|
-| `CHAT_NOT_SUPPORTED` | 400 Bad Request | 채팅을 지원하지 않는 파티입니다 |
-| `CHAT_NOT_ACTIVE` | 400 Bad Request | 현재 채팅이 활성화된 시간이 아닙니다 |
+| `CHAT_NOT_SUPPORTED` | 400 | 채팅을 지원하지 않는 파티입니다 |
+| `CHAT_NOT_ACTIVE` | 400 | 현재 채팅이 활성화된 시간이 아닙니다 |
 
-기존 에러코드 재사용:
+기존 재사용:
 - `CHARACTER_REQUIRED` — 프로필 없는 참여자가 채팅 시도 시
+- `UNAUTHORIZED` — 인증 수단 없음
+- `PARTY_FORBIDDEN` — 다른 파티의 토큰 사용 시
 
 ## 테스트 범위
 
-- `SendChatMessageUseCase`: LIVE_OPEN 전송 성공, LIVE_OPEN 외 전송 실패, 비참여자 전송 실패, PAPER_ONLY 파티 전송 실패, 프로필 없는 참여자 전송 실패
-- `SubscribeChatUseCase`: 구독 성공 + 히스토리 포함 확인, 비참여자 구독 실패, PAPER_ONLY 파티 구독 실패, 프로필 없는 참여자 구독 실패
+- `EnterRealtimePartyUseCase`: 비로그인 입장 성공, 로그인 입장 성공, 재입장 시 토큰 재사용, PAPER_ONLY 파티 실패, 만료 초대링크 실패
+- `SendChatMessageUseCase`: JWT로 전송 성공, participantToken으로 전송 성공, LIVE_OPEN 외 실패, 비참여자 실패, PAPER_ONLY 실패
+- `SubscribeChatUseCase`: 구독 성공 + 히스토리 포함, JWT/token 양방향 확인, 비참여자 실패
 - `SseEmitterRegistry`: 브로드캐스트, dead emitter 자동 제거
 
 ## 비고
 
-- SSE 연결 timeout은 15분 (LIVE_OPEN 10분 + 여유 5분)
-- Java 25 가상 스레드 환경이므로 SSE 연결 유지 시 스레드 비용 낮음
-- 단일 서버 환경 가정 (멀티 인스턴스 대응 불필요)
-- `SseEmitter.DEFAULT_TIMEOUT`을 사용하지 않고 명시적으로 `15 * 60 * 1000L` 지정
+- SSE timeout: 15분 (`15 * 60 * 1000L`)
+- Java 25 가상 스레드 환경으로 SSE 연결 비용 낮음
+- 단일 서버 환경 가정
+- `participantToken`은 UUID v4, `RealtimeParticipantProfile`에 저장
+- 익명 Participant는 `user = null`로 생성 (기존 패턴과 동일)
