@@ -6,8 +6,8 @@ import com.team2.server.common.exception.isConstraintViolation
 import com.team2.server.party.entity.Participant
 import com.team2.server.party.entity.Party
 import com.team2.server.party.entity.PartyInvite
-import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyInviteRepository
+import com.team2.server.party.service.ParticipantService
 import com.team2.server.rollingpaper.dto.CreateRollingPaperRequest
 import com.team2.server.rollingpaper.dto.CreateRollingPaperResponse
 import com.team2.server.rollingpaper.entity.RollingPaper
@@ -15,7 +15,6 @@ import com.team2.server.rollingpaper.entity.RollingPaperWrapper
 import com.team2.server.rollingpaper.entity.toWriterNicknameKey
 import com.team2.server.rollingpaper.repository.RollingPaperRepository
 import com.team2.server.rollingpaper.repository.RollingPaperWrapperRepository
-import com.team2.server.user.entity.User
 import com.team2.server.user.repository.UserRepository
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.repository.findByIdOrNull
@@ -27,9 +26,9 @@ import java.time.LocalDateTime
 class CreateRollingPaperUseCase(
     private val partyInviteRepository: PartyInviteRepository,
     private val rollingPaperWrapperRepository: RollingPaperWrapperRepository,
-    private val participantRepository: ParticipantRepository,
     private val rollingPaperRepository: RollingPaperRepository,
     private val userRepository: UserRepository,
+    private val participantService: ParticipantService,
 ) {
     @Transactional
     fun create(
@@ -93,32 +92,14 @@ class CreateRollingPaperUseCase(
         userId: Long?,
     ): Participant {
         if (userId == null) {
-            return participantRepository.save(Participant(party = party))
+            return participantService.joinAnonymous(party)
         }
 
         val user =
             userRepository.findByIdOrNull(userId)
                 ?: throw BusinessException(ErrorCode.AUTH_USER_NOT_FOUND)
-        return participantRepository.findByPartyAndUser(party, user) ?: createMemberParticipant(party, user)
+        return participantService.joinMember(party, user)
     }
-
-    private fun createMemberParticipant(
-        party: Party,
-        user: User,
-    ): Participant =
-        try {
-            participantRepository.saveAndFlush(
-                Participant(
-                    party = party,
-                    user = user,
-                ),
-            )
-        } catch (e: DataIntegrityViolationException) {
-            if (!e.isConstraintViolation("uk_participant_party_user")) {
-                throw e
-            }
-            participantRepository.findByPartyAndUser(party, user) ?: throw e
-        }
 
     private fun validateWriterNicknameAvailable(
         party: Party,
