@@ -262,7 +262,8 @@ fun canHostViewRollingPapers(now: LocalDateTime): Boolean =
 RealtimeParty.hostViewableAt() = startedAt + RealtimeParty.LIVE_DURATION_MINUTES
 ```
 
-롤링페이퍼 전용 파티 공개 시각은 `startedAt.toLocalDate().atTime(22, 0)`으로 계산한다.
+롤링페이퍼 전용 파티 공개 시각은 기본적으로 `startedAt` 날짜의 22:00으로 계산한다.
+단, `startedAt`이 해당 날짜 22:00 이상이면 이미 공개 기준 시각을 지난 상태이므로 다음날 22:00으로 계산한다.
 
 현재 코드:
 
@@ -279,12 +280,15 @@ RealtimeParty.hostViewableAt() = startedAt + RealtimeParty.LIVE_DURATION_MINUTES
 
 - `startedAt`은 기존 생성 계약대로 00:00을 유지한다.
 - `PaperOnlyParty.status()`의 `OPEN`은 파티 open 상태이므로 주최자 롤링페이퍼 열람 가능 여부로 재사용하지 않는다.
-- `PaperOnlyParty.hostViewableAt()`은 `startedAt.toLocalDate().atTime(22, 0)`을 반환한다.
+- `PaperOnlyParty.hostViewableAt()`은 `startedAt` 날짜의 22:00을 반환한다.
+- `startedAt`이 해당 날짜 22:00 이상이면 다음날 22:00을 반환한다.
 - 주최자 목록 API는 `Party.canHostViewRollingPapers(now)`만 사용해 열람 가능 여부를 검증한다.
 
 ```kotlin
 override fun hostViewableAt(): LocalDateTime =
-    startedAt.toLocalDate().atTime(22, 0)
+    startedAt.toLocalDate().atTime(22, 0).let { targetTime ->
+        if (startedAt.isBefore(targetTime)) targetTime else targetTime.plusDays(1)
+    }
 ```
 
 향후 파티 open 상태와 롤링페이퍼 열람 상태가 더 많은 화면에서 함께 필요해지면, 파티 상태와 롤링페이퍼 열람 상태를 별도 도메인 개념으로 분리한다.

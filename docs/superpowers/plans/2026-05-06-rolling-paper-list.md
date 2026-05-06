@@ -79,7 +79,8 @@ Response data:
    - `Party.hostViewableAt()`을 하위 타입별로 구현한다.
    - `Party.canHostViewRollingPapers(now)`는 `now == hostViewableAt()`을 열람 가능으로 본다.
    - `RealtimeParty.hostViewableAt()`은 `startedAt + LIVE_DURATION_MINUTES`다.
-   - `PaperOnlyParty.hostViewableAt()`은 `startedAt.toLocalDate().atTime(22, 0)`이다.
+   - `PaperOnlyParty.hostViewableAt()`은 `startedAt` 날짜의 22:00이다.
+   - 단, `startedAt`이 해당 날짜 22:00 이상이면 다음날 22:00으로 계산한다.
 
 2. 시간 계산 정책을 적용한다.
    - 프로젝트 기존 스타일에 맞춰 별도 `Clock` bean은 추가하지 않는다.
