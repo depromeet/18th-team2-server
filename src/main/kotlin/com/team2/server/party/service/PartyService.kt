@@ -91,11 +91,13 @@ class PartyService(
         }
 
         val participants = participantRepository.findAllByPartyId(partyId)
-        val participantIds = participants.map { it.id }
 
         chatMessageRepository.deleteAllByPartyId(partyId)
         rollingPaperRepository.deleteAllByPartyId(partyId)
-        realtimeParticipantProfileRepository.deleteAllByParticipantIdIn(participantIds)
+        if (party is RealtimeParty) {
+            val participantIds = participants.map { it.id }
+            realtimeParticipantProfileRepository.deleteAllByParticipantIdIn(participantIds)
+        }
         participantRepository.deleteAll(participants)
         partyInviteRepository.deleteAllByPartyId(partyId)
         partyRepository.deleteById(partyId)

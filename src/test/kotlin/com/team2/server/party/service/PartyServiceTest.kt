@@ -337,4 +337,22 @@ class PartyServiceTest {
         order.verify(partyInviteRepository).deleteAllByPartyId(10L)
         order.verify(partyRepository).deleteById(10L)
     }
+
+    @Test
+    fun `deleteParty PAPER_ONLY 파티 삭제 시 realtimeParticipantProfile을 삭제하지 않는다`() {
+        val party =
+            PaperOnlyParty(
+                ownerId = 1L,
+                celebrantNickname = "홍길동",
+                startedAt = LocalDateTime.now().plusDays(1),
+            )
+        setId(party, 20L)
+
+        whenever(partyRepository.findById(20L)).thenReturn(Optional.of(party))
+        whenever(participantRepository.findAllByPartyId(20L)).thenReturn(emptyList())
+
+        partyService.deleteParty(partyId = 20L, userId = 1L)
+
+        verify(realtimeParticipantProfileRepository, never()).deleteAllByParticipantIdIn(any())
+    }
 }
