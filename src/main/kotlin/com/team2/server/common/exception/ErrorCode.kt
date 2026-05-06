@@ -26,4 +26,7 @@ enum class ErrorCode(
     CHARACTER_NOT_FOUND(HttpStatus.NOT_FOUND, "캐릭터를 찾을 수 없습니다"),
     CHARACTER_REQUIRED(HttpStatus.BAD_REQUEST, "채팅 허용 파티는 캐릭터 선택이 필수입니다"),
     CHARACTER_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "채팅 비허용 파티는 캐릭터를 선택할 수 없습니다"),
+    ROLLING_PAPER_WRAPPER_NOT_FOUND(HttpStatus.NOT_FOUND, "롤링페이퍼 래퍼를 찾을 수 없습니다"),
+    ROLLING_PAPER_NICKNAME_DUPLICATED(HttpStatus.CONFLICT, "이미 사용 중인 롤링페이퍼 닉네임입니다"),
+    ROLLING_PAPER_ALREADY_WRITTEN(HttpStatus.CONFLICT, "이미 롤링페이퍼를 작성했습니다"),
 }

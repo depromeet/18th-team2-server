@@ -66,17 +66,18 @@
 - 한국어, 영어, 숫자, 특수문자를 모두 허용한다.
 - 정규식으로 문자 종류를 제한하지 않는다.
 - 파티 기준으로 롤링페이퍼 작성자 닉네임은 중복 불가
-- 중복 기준은 `rolling_paper.party_id + rolling_paper.writer_nickname`
+- 중복 기준은 `rolling_paper.party_id + rolling_paper.writer_nickname_key`
 
 저장 정책:
 
 - 요청 DTO는 `@NotBlank`, `@Size(max = 10)` 기준으로 검증한다.
 - 서버는 앞뒤 공백을 제거한 닉네임을 `writer_nickname`에 저장한다.
+- `writer_nickname_key`는 파티 식별자를 포함하지 않는 닉네임 정규화 값이며, `writer_nickname.trim().lowercase(Locale.ROOT)`로 생성한다.
 - 내부 공백은 유지한다.
 - 작성 후 실시간 프로필 닉네임이 바뀌어도 롤링페이퍼 리스트에는 `writer_nickname` 스냅샷을 사용한다.
-- 중복 검증과 DB unique constraint는 trim된 저장값 기준으로 동작한다.
+- 중복 검증과 DB unique constraint는 `party_id`와 `writer_nickname_key` 조합 기준으로 동작한다.
 - trim 이후 길이가 10자 이하여도, trim 전 요청 문자열이 10자를 초과하면 `@Size(max = 10)` 검증 실패로 처리한다.
-- 닉네임 대소문자는 서로 다른 값으로 취급한다. 예를 들어 `abc`와 `ABC`는 중복이 아니다.
+- 닉네임 대소문자는 `writer_nickname_key` 생성 시 소문자로 정규화하므로 같은 값으로 취급한다. 예를 들어 같은 파티의 `abc`와 `ABC`는 중복이다.
 
 ### 3-2. 내용
 
@@ -213,7 +214,7 @@ UseCase 진입 이후:
 8. 비회원이면 새 participant를 생성한다.
 9. 회원 participant가 이미 `hasWrittenPaper = true`이면 `ROLLING_PAPER_ALREADY_WRITTEN`.
 10. `writerNickname`, `content`를 trim한다.
-11. 같은 파티에 같은 `writerNickname` 롤링페이퍼가 있으면 `ROLLING_PAPER_NICKNAME_DUPLICATED`.
+11. 같은 파티에 같은 `writer_nickname_key` 롤링페이퍼가 있으면 `ROLLING_PAPER_NICKNAME_DUPLICATED`.
 12. `RollingPaper`를 저장한다.
 13. participant의 `hasWrittenPaper`를 `true`로 갱신한다.
 14. 생성된 롤링페이퍼 ID를 반환한다.
@@ -227,7 +228,7 @@ UseCase 진입 이후:
 동시성:
 
 - 애플리케이션 레벨 중복 체크만으로는 동시에 같은 닉네임을 제출하는 요청을 완전히 막을 수 없다.
-- DB에 `(party_id, writer_nickname)` unique constraint를 둔다.
+- DB에 대소문자 무시 정규화 값인 `writer_nickname_key`를 저장하고 `(party_id, writer_nickname_key)` unique constraint를 둔다.
 - unique constraint 위반은 `ROLLING_PAPER_NICKNAME_DUPLICATED`로 변환한다.
 - 회원의 동시 이중 제출도 애플리케이션 레벨의 `hasWrittenPaper` 확인만으로는 완전히 막을 수 없다.
 - DB에 `writer_participant_id` unique constraint를 둬서 같은 participant가 두 장 이상 작성하지 못하게 한다.
@@ -262,6 +263,9 @@ var wrapper: RollingPaperWrapper
 @Column(name = "writer_nickname", nullable = false, length = 10)
 var writerNickname: String
 
+@Column(name = "writer_nickname_key", nullable = false, length = 10)
+var writerNicknameKey: String
+
 @Column(nullable = false, length = 100)
 var content: String
 ```
@@ -271,7 +275,7 @@ var content: String
 `rolling_paper` 테이블 제약 추가:
 
 ```text
-uk_rolling_paper_party_writer_nickname (party_id, writer_nickname)
+uk_rolling_paper_party_writer_nickname (party_id, writer_nickname_key)
 uk_rolling_paper_writer_participant (writer_participant_id)
 ```
 
@@ -289,8 +293,8 @@ DB 기준:
 
 - 현재 애플리케이션 기본 Hibernate dialect는 `MySQLDialect`이고, 테스트는 H2를 사용한다.
 - 닉네임 중복 정책은 DB collation의 trailing-space 비교 방식에 기대지 않는다.
-- 애플리케이션에서 trim한 값을 저장하고, 중복 사전 검증과 unique constraint 모두 저장값 기준으로 처리한다.
-- 대소문자 구분 중복 정책은 DB collation에 기대지 않는다. 저장 전 중복 사전 검증은 대소문자를 구분해서 수행한다.
+- 애플리케이션에서 trim한 값을 `writer_nickname`에 저장하고, 중복 사전 검증과 unique constraint는 `writer_nickname_key` 기준으로 처리한다.
+- 대소문자 무시 중복 정책은 DB collation에만 기대지 않는다. 저장 전 중복 사전 검증도 `writer_nickname_key`로 수행한다.
 
 `RollingPaperWrapper`는 현재 `name`만 가진다. 이미지는 공통 `image` 테이블에서 조회한다.
 
@@ -445,7 +449,7 @@ auth.requestMatchers(HttpMethod.POST, "/api/v1/party-invites/*/rolling-papers").
 - 없는 `wrapperId` 실패
 - 같은 파티 내 같은 닉네임 중복 실패
 - trim 전후 동일한 닉네임 중복 실패
-- 대소문자만 다른 닉네임은 중복으로 보지 않음
+- 대소문자만 다른 닉네임도 중복으로 처리
 - 다른 파티에서는 같은 닉네임 작성 가능
 - 회원 participant가 이미 작성했으면 실패
 - 같은 회원이 동시에 두 번 작성하면 한 건만 성공
@@ -456,7 +460,7 @@ auth.requestMatchers(HttpMethod.POST, "/api/v1/party-invites/*/rolling-papers").
 
 동시성/DB 제약:
 
-- 같은 파티에 같은 `writerNickname`이 동시에 저장되면 unique constraint로 막힌다.
+- 같은 파티에 같은 `writer_nickname_key`가 동시에 저장되면 unique constraint로 막힌다.
 - constraint 위반은 `ROLLING_PAPER_NICKNAME_DUPLICATED`로 응답한다.
 - 같은 `writer_participant_id`가 동시에 저장되면 unique constraint로 막힌다.
 - constraint 위반은 `ROLLING_PAPER_ALREADY_WRITTEN`으로 응답한다.

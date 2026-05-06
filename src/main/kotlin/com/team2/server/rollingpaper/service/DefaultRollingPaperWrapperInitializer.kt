@@ -2,6 +2,7 @@ package com.team2.server.rollingpaper.service
 
 import com.team2.server.common.entity.Image
 import com.team2.server.common.entity.ImageTargetType
+import com.team2.server.common.exception.isConstraintViolation
 import com.team2.server.common.repository.ImageRepository
 import com.team2.server.rollingpaper.entity.RollingPaperWrapper
 import com.team2.server.rollingpaper.repository.RollingPaperWrapperRepository
@@ -77,16 +78,6 @@ class DefaultRollingPaperWrapperInitializer(
                 }
             }
         }
-    }
-
-    private fun DataIntegrityViolationException.isConstraintViolation(constraintName: String): Boolean {
-        val message =
-            listOfNotNull(
-                message,
-                rootCause?.message,
-                mostSpecificCause.message,
-            ).joinToString(" ")
-        return message.contains(constraintName, ignoreCase = true)
     }
 
     private data class DefaultWrapper(

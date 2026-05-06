@@ -4,6 +4,7 @@ import com.team2.server.auth.principal.UserPrincipal
 import com.team2.server.common.response.ApiResponse
 import com.team2.server.common.response.ErrorResponse
 import com.team2.server.common.swagger.InternalServerErrorResponse
+import com.team2.server.common.swagger.OptionalAuth
 import com.team2.server.party.dto.PartyInviteLookupResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
@@ -23,9 +24,9 @@ interface PartyInviteLookupApi {
                 "조회 시 participant는 생성하지 않으며, 만료된 초대 토큰도 조회할 수 있다.",
         security = [
             SecurityRequirement(name = "Bearer Authentication"),
-            SecurityRequirement(name = ""),
         ],
     )
+    @OptionalAuth
     @SwaggerApiResponse(
         responseCode = "200",
         description = "초대장 조회 성공",
