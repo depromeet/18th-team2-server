@@ -255,7 +255,7 @@ class PartyServiceTest {
             }
 
         assertEquals(ErrorCode.PARTY_NOT_FOUND, ex.errorCode)
-        verify(partyRepository, never()).deleteById(any())
+        verify(partyRepository, never()).delete(any<Party>())
     }
 
     @Test
@@ -275,7 +275,7 @@ class PartyServiceTest {
             }
 
         assertEquals(ErrorCode.PARTY_FORBIDDEN, ex.errorCode)
-        verify(partyRepository, never()).deleteById(any())
+        verify(partyRepository, never()).delete(any<Party>())
     }
 
     @Test
@@ -295,7 +295,7 @@ class PartyServiceTest {
             }
 
         assertEquals(ErrorCode.PARTY_ALREADY_STARTED, ex.errorCode)
-        verify(partyRepository, never()).deleteById(any())
+        verify(partyRepository, never()).delete(any<Party>())
     }
 
     @Test
@@ -335,7 +335,7 @@ class PartyServiceTest {
             .deleteAllByParticipantIdIn(listOf(100L, 101L))
         order.verify(participantRepository).deleteAll(listOf(participant1, participant2))
         order.verify(partyInviteRepository).deleteAllByPartyId(10L)
-        order.verify(partyRepository).deleteById(10L)
+        order.verify(partyRepository).delete(party)
     }
 
     @Test

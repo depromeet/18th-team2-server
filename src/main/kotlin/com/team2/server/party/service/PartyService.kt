@@ -100,7 +100,7 @@ class PartyService(
         }
         participantRepository.deleteAll(participants)
         partyInviteRepository.deleteAllByPartyId(partyId)
-        partyRepository.deleteById(partyId)
+        partyRepository.delete(party)
     }
 
     private fun findUser(userId: Long) =
