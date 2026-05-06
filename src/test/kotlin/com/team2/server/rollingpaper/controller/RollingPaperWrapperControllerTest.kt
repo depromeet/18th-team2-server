@@ -1,11 +1,10 @@
 package com.team2.server.rollingpaper.controller
 
+import com.team2.server.common.DatabaseCleanup
 import com.team2.server.common.entity.Image
 import com.team2.server.common.entity.ImageTargetType
 import com.team2.server.common.repository.ImageRepository
-import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.rollingpaper.entity.RollingPaperWrapper
-import com.team2.server.rollingpaper.repository.RollingPaperRepository
 import com.team2.server.rollingpaper.repository.RollingPaperWrapperRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -22,16 +21,12 @@ class RollingPaperWrapperControllerTest
     constructor(
         private val mockMvc: MockMvc,
         private val rollingPaperWrapperRepository: RollingPaperWrapperRepository,
-        private val rollingPaperRepository: RollingPaperRepository,
-        private val participantRepository: ParticipantRepository,
         private val imageRepository: ImageRepository,
+        private val databaseCleanup: DatabaseCleanup,
     ) {
         @BeforeEach
         fun setUp() {
-            rollingPaperRepository.deleteAll()
-            participantRepository.deleteAll()
-            imageRepository.deleteAll()
-            rollingPaperWrapperRepository.deleteAll()
+            databaseCleanup.execute()
         }
 
         @Test
@@ -56,6 +51,7 @@ class RollingPaperWrapperControllerTest
             mockMvc.get("/api/v1/rolling-paper-wrappers").andExpect {
                 status { isOk() }
                 jsonPath("$.status") { value(200) }
+                jsonPath("$.data.length()") { value(2) }
                 jsonPath("$.data[0].wrapperId") { value(wrapper1.id) }
                 jsonPath("$.data[0].name") { value("Topping_Candle") }
                 jsonPath("$.data[0].wrapperImageUrl") {

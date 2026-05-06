@@ -34,9 +34,8 @@ class FlywayMigrationTest {
 
     private companion object {
         private val COUNTABLE_TABLES = setOf("avatar", "rolling_paper_wrapper", "image")
-        private const val DATABASE_URL =
-            "jdbc:h2:mem:flyway-migration-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE"
-        private const val USERNAME = "sa"
-        private const val PASSWORD = ""
+        private const val DATABASE_URL = "jdbc:tc:mysql:8.0:///flyway_migration_test"
+        private const val USERNAME = "test"
+        private const val PASSWORD = "test"
     }
 }

@@ -2,6 +2,7 @@ package com.team2.server.party.controller
 
 import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
+import com.team2.server.common.DatabaseCleanup
 import com.team2.server.party.entity.PaperOnlyParty
 import com.team2.server.party.entity.Participant
 import com.team2.server.party.entity.Party
@@ -36,16 +37,14 @@ class PartyInviteLookupControllerTest
         private val partyInviteRepository: PartyInviteRepository,
         private val participantRepository: ParticipantRepository,
         private val userRepository: UserRepository,
+        private val databaseCleanup: DatabaseCleanup,
         private val jwtProperties: JwtProperties,
     ) {
         private val tokenProvider = JwtTokenProvider(jwtProperties)
 
         @BeforeEach
         fun setUp() {
-            partyInviteRepository.deleteAll()
-            participantRepository.deleteAll()
-            partyRepository.deleteAll()
-            userRepository.deleteAll()
+            databaseCleanup.execute()
         }
 
         @Test
