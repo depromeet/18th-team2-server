@@ -106,3 +106,16 @@ flyway_schema_history = V1, V2 success
 - `spring.jpa.hibernate.ddl-auto=validate`
 - 테스트 profile은 기존 테스트 격리를 위해 Flyway를 비활성화하고 H2 `create-drop`을 유지한다.
 - 별도 `FlywayMigrationTest`에서 H2 MySQL mode로 `db/migration` SQL을 실행해 schema/seed 적용을 검증한다.
+
+---
+
+## 6. Migration 추가 규칙
+
+- migration 파일은 `src/main/resources/db/migration/`에 추가한다.
+- 파일명은 `V{version}__{description}.sql` 형식을 따른다.
+  - 예: `V3__add_party_status_column.sql`
+  - 예: `V4__update_wrapper_image_urls.sql`
+- `V`는 대문자로 쓰고, version과 description 사이에는 underscore 두 개(`__`)를 사용한다.
+- 이미 배포되어 `flyway_schema_history`에 기록된 migration 파일은 수정하지 않는다.
+- schema 변경, 기준 seed 변경, 정적 이미지 URL 변경은 항상 다음 버전 migration으로 추가한다.
+- migration 적용 이력은 `flyway_schema_history`에서 확인한다.
