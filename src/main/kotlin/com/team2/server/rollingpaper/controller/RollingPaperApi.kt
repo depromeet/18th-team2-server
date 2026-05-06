@@ -27,9 +27,9 @@ interface RollingPaperApi {
                 "Authorization header를 보낼 경우 유효한 Bearer token이어야 한다.",
         security = [
             SecurityRequirement(name = "Bearer Authentication"),
-            SecurityRequirement(name = ""),
         ],
     )
+    @OptionalAuth
     @SwaggerApiResponse(
         responseCode = "200",
         description = "참가자용 롤링페이퍼 목록 조회 성공",
