@@ -98,4 +98,32 @@ class SubscribeChatUseCaseTest {
         assertNotNull(emitter)
         verify(sseEmitterRegistry).subscribe(any(), any())
     }
+
+    @Test
+    fun `participantToken이 다른 파티 소속이면 PARTY_FORBIDDEN`() {
+        val targetParty = RealtimeParty(ownerId = 1L, startedAt = LocalDateTime.now().minusMinutes(5))
+        val otherParty = RealtimeParty(ownerId = 2L, startedAt = LocalDateTime.now().minusMinutes(5))
+        val otherParticipant = Participant(party = otherParty)
+        val profile = RealtimeParticipantProfile(participant = otherParticipant, nickname = "침입자")
+
+        whenever(partyRepository.findPartyById(1L)).thenReturn(targetParty)
+        whenever(profileRepository.findByParticipantToken("foreign-tok")).thenReturn(profile)
+
+        val ex = assertThrows<BusinessException> {
+            useCase.subscribe(partyId = 1L, userId = null, participantToken = "foreign-tok")
+        }
+        assertEquals(ErrorCode.PARTY_FORBIDDEN, ex.errorCode)
+    }
+
+    @Test
+    fun `participantToken으로 프로필 없으면 CHARACTER_REQUIRED`() {
+        val party = RealtimeParty(ownerId = 1L, startedAt = LocalDateTime.now().minusMinutes(5))
+        whenever(partyRepository.findPartyById(1L)).thenReturn(party)
+        whenever(profileRepository.findByParticipantToken("unknown-tok")).thenReturn(null)
+
+        val ex = assertThrows<BusinessException> {
+            useCase.subscribe(partyId = 1L, userId = null, participantToken = "unknown-tok")
+        }
+        assertEquals(ErrorCode.CHARACTER_REQUIRED, ex.errorCode)
+    }
 }

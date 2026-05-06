@@ -11,6 +11,7 @@ import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyRepository
 import com.team2.server.party.repository.RealtimeParticipantProfileRepository
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 
 @Service
@@ -21,6 +22,7 @@ class SubscribeChatUseCase(
     private val chatMessageRepository: ChatMessageRepository,
     private val sseEmitterRegistry: SseEmitterRegistry,
 ) {
+    @Transactional(readOnly = true)
     fun subscribe(
         partyId: Long,
         userId: Long?,
@@ -35,14 +37,14 @@ class SubscribeChatUseCase(
 
         resolveProfile(userId, participantToken, partyId)
 
-        val emitter = SseEmitter(15 * 60 * 1000L)
+        val emitter = SseEmitter(EMITTER_TIMEOUT_MS)
 
         val history = chatMessageRepository.findAllByPartyIdOrderByCreatedAtAsc(partyId)
             .map { ChatMessageResponse.from(it) }
 
         try {
             emitter.send(SseEmitter.event().name("history").data(history).build())
-        } catch (e: Exception) {
+        } catch (e: IllegalStateException) {
             emitter.completeWithError(e)
             return emitter
         }
@@ -57,21 +59,31 @@ class SubscribeChatUseCase(
         partyId: Long,
     ): RealtimeParticipantProfile {
         if (userId != null) {
-            val participant = participantRepository.findByPartyIdAndUserId(partyId, userId)
-                ?: throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
-            return profileRepository.findByParticipant(participant)
-                ?: throw BusinessException(ErrorCode.CHARACTER_REQUIRED)
+            return resolveProfileByUserId(partyId, userId)
         }
-
         if (participantToken != null) {
-            val profile = profileRepository.findByParticipantToken(participantToken)
-                ?: throw BusinessException(ErrorCode.CHARACTER_REQUIRED)
-            if (profile.participant.party.id != partyId) {
-                throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
-            }
-            return profile
+            return resolveProfileByToken(participantToken, partyId)
         }
-
         throw BusinessException(ErrorCode.UNAUTHORIZED)
+    }
+
+    private fun resolveProfileByUserId(partyId: Long, userId: Long): RealtimeParticipantProfile {
+        val participant = participantRepository.findByPartyIdAndUserId(partyId, userId)
+            ?: throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
+        return profileRepository.findByParticipant(participant)
+            ?: throw BusinessException(ErrorCode.CHARACTER_REQUIRED)
+    }
+
+    private fun resolveProfileByToken(participantToken: String, partyId: Long): RealtimeParticipantProfile {
+        val profile = profileRepository.findByParticipantToken(participantToken)
+            ?: throw BusinessException(ErrorCode.CHARACTER_REQUIRED)
+        if (profile.participant.party.id != partyId) {
+            throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
+        }
+        return profile
+    }
+
+    companion object {
+        private const val EMITTER_TIMEOUT_MS = 15 * 60 * 1000L
     }
 }
