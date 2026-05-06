@@ -50,6 +50,8 @@ class SecurityConfig(
                 auth.requestMatchers(HttpMethod.GET, "/api/v1/characters").permitAll()
                 auth.requestMatchers(HttpMethod.GET, "/api/v1/rolling-paper-wrappers").permitAll()
                 auth.requestMatchers(HttpMethod.GET, "/api/v1/party-invites/*").permitAll()
+                auth.requestMatchers(HttpMethod.GET, "/api/v1/party-invites/*/rolling-papers").permitAll()
+                auth.requestMatchers(HttpMethod.POST, "/api/v1/party-invites/*/rolling-papers").permitAll()
                 auth.requestMatchers(HttpMethod.GET, "/images/**").permitAll()
                 auth.anyRequest().authenticated()
             }.oauth2Login { oauth ->

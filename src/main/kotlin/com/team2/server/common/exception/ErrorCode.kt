@@ -21,8 +21,13 @@ enum class ErrorCode(
     AUTH_USER_NOT_FOUND(HttpStatus.UNAUTHORIZED, "사용자를 찾을 수 없습니다"),
 
     PARTY_ENDED(HttpStatus.BAD_REQUEST, "이미 종료된 파티입니다"),
+    PARTY_ALREADY_STARTED(HttpStatus.CONFLICT, "이미 시작된 파티는 삭제할 수 없습니다"),
     ALREADY_JOINED(HttpStatus.CONFLICT, "이미 참여한 파티입니다"),
     CHARACTER_NOT_FOUND(HttpStatus.NOT_FOUND, "캐릭터를 찾을 수 없습니다"),
     CHARACTER_REQUIRED(HttpStatus.BAD_REQUEST, "채팅 허용 파티는 캐릭터 선택이 필수입니다"),
     CHARACTER_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "채팅 비허용 파티는 캐릭터를 선택할 수 없습니다"),
+    ROLLING_PAPER_WRAPPER_NOT_FOUND(HttpStatus.NOT_FOUND, "롤링페이퍼 래퍼를 찾을 수 없습니다"),
+    ROLLING_PAPER_NICKNAME_DUPLICATED(HttpStatus.CONFLICT, "이미 사용 중인 롤링페이퍼 닉네임입니다"),
+    ROLLING_PAPER_ALREADY_WRITTEN(HttpStatus.CONFLICT, "이미 롤링페이퍼를 작성했습니다"),
+    ROLLING_PAPER_NOT_VIEWABLE(HttpStatus.FORBIDDEN, "아직 롤링페이퍼를 확인할 수 없습니다"),
 }

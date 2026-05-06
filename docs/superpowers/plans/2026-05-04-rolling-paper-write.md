@@ -19,7 +19,7 @@
 - `RollingPaper.theme` / `theme_id`는 `wrapper` / `wrapper_id`로 변경한다.
 - 주최자/주인공 participant도 롤링페이퍼를 작성할 수 있다.
 - 요청 DTO는 `@NotBlank`, `@Size` 기준으로 검증하고, 저장 전 `writerNickname`, `content`를 trim한다.
-- 닉네임 대소문자는 서로 다른 값으로 취급한다.
+- 닉네임 대소문자는 같은 값으로 취급한다.
 
 ---
 
@@ -39,12 +39,10 @@
 | `src/main/kotlin/com/team2/server/rollingpaper/dto/RollingPaperWrapperResult.kt` | 래퍼 목록 UseCase 결과 DTO |
 | `src/main/kotlin/com/team2/server/rollingpaper/repository/RollingPaperRepository.kt` | 롤링페이퍼 저장/중복 조회 |
 | `src/main/kotlin/com/team2/server/rollingpaper/repository/RollingPaperWrapperRepository.kt` | 래퍼 조회 |
-| `src/main/kotlin/com/team2/server/rollingpaper/service/DefaultRollingPaperWrapperInitializer.kt` | 기본 래퍼와 이미지 row 보장 |
 | `src/main/kotlin/com/team2/server/rollingpaper/usecase/CreateRollingPaperUseCase.kt` | 작성 트랜잭션 |
 | `src/main/kotlin/com/team2/server/rollingpaper/usecase/GetRollingPaperWrappersUseCase.kt` | 래퍼 목록 조회 |
 | `src/test/kotlin/com/team2/server/rollingpaper/controller/RollingPaperControllerTest.kt` | 작성 API 통합 테스트 |
 | `src/test/kotlin/com/team2/server/rollingpaper/controller/RollingPaperWrapperControllerTest.kt` | 래퍼 조회 API 통합 테스트 |
-| `src/test/kotlin/com/team2/server/rollingpaper/service/DefaultRollingPaperWrapperInitializerTest.kt` | 기본 래퍼 초기화 테스트 |
 
 ### 수정
 
@@ -80,9 +78,10 @@
 
 - [ ] `RollingPaper.theme`을 `wrapper`로, `theme_id`를 `wrapper_id`로 변경한다.
 - [ ] `writerNickname`을 nullable false, length 10으로 변경한다.
+- [ ] 대소문자 무시 중복 제약용 `writerNicknameKey`를 추가한다.
 - [ ] `content` length를 100으로 변경한다.
-- [ ] `rolling_paper`에 `uk_rolling_paper_party_writer_nickname`, `uk_rolling_paper_writer_participant` unique constraint를 추가한다.
-- [ ] `RollingPaperRepository`에 `existsByPartyAndWriterNickname(...)`와 `saveAndFlush(...)` 사용 경로를 준비한다.
+- [ ] `rolling_paper`에 `(party_id, writer_nickname_key)`, `writer_participant_id` unique constraint를 추가한다.
+- [ ] `RollingPaperRepository`에 `existsByPartyAndWriterNicknameKey(...)`와 `saveAndFlush(...)` 사용 경로를 준비한다.
 - [ ] `RollingPaperWrapperRepository`를 추가한다.
 - [ ] `ImageRepository`에 `findByTargetTypeAndTargetIdInOrderByTargetIdAscSortOrderAsc(...)` 형태의 bulk 조회 메서드를 추가한다.
 - [ ] 기존 테스트의 `RollingPaper(theme = ...)` 생성자를 `wrapper = ...`로 갱신한다.
@@ -96,18 +95,18 @@ Run:
 ## Task 2: 기본 래퍼 초기화
 
 **Files:**
-- Create: `src/main/kotlin/com/team2/server/rollingpaper/service/DefaultRollingPaperWrapperInitializer.kt`
-- Test: `src/test/kotlin/com/team2/server/rollingpaper/service/DefaultRollingPaperWrapperInitializerTest.kt`
+- Create: `src/main/resources/db/migration/V2__seed_default_assets.sql`
+- Test: `src/test/kotlin/com/team2/server/db/FlywayMigrationTest.kt`
 
-- [ ] 캐릭터 초기화 로직과 같은 방식으로 기본 래퍼 row를 보장한다.
-- [ ] `Image(targetType = ROLLING_PAPER_WRAPPER, targetId = wrapper.id, sortOrder = 0)`를 보장한다.
+- [ ] Flyway seed migration에서 기본 래퍼 row를 보장한다.
+- [ ] `image(target_type = ROLLING_PAPER_WRAPPER, target_id = wrapper.id, sort_order = 0)`를 보장한다.
 - [ ] 이미지 URL은 `/images/rolling-paper-wrappers/...` 정적 경로를 사용한다.
-- [ ] 같은 래퍼/이미지가 이미 있으면 중복 생성하지 않는다.
+- [ ] 런타임 initializer 없이 clean DB migration으로 기본 데이터가 생성되는지 검증한다.
 
 Run:
 
 ```bash
-./gradlew test --tests com.team2.server.rollingpaper.service.DefaultRollingPaperWrapperInitializerTest
+./gradlew test --tests com.team2.server.db.FlywayMigrationTest
 ```
 
 ## Task 3: 래퍼 목록 조회 API
@@ -169,7 +168,7 @@ Run:
 - [ ] 비회원이면 새 participant를 생성한다.
 - [ ] `isCelebrant = true` participant도 작성 가능하게 둔다.
 - [ ] `writerNickname`, `content`는 저장 전 trim한다.
-- [ ] 같은 파티의 같은 닉네임은 대소문자 구분 사전 검증으로 막는다.
+- [ ] 같은 파티의 같은 닉네임은 대소문자 무시 사전 검증과 DB 정규화 키 unique constraint로 막는다.
 - [ ] `RollingPaper`는 `saveAndFlush`로 저장해서 unique constraint 위반을 UseCase 안에서 변환한다.
 - [ ] 작성 성공 시 participant의 `hasWrittenPaper`를 `true`로 갱신한다.
 - [ ] `uk_participant_party_user` 충돌은 기존 participant 재조회로 복구한다.
@@ -206,7 +205,7 @@ Test cases:
 - [ ] `wrapperId` 누락/없는 값 실패
 - [ ] 같은 파티 내 같은 닉네임 실패
 - [ ] trim 전후 같은 닉네임 실패
-- [ ] 대소문자만 다른 닉네임 작성 성공
+- [ ] 대소문자만 다른 닉네임 중복 실패
 - [ ] 다른 파티에서는 같은 닉네임 작성 성공
 - [ ] 회원 participant가 이미 작성했으면 실패
 - [ ] 작성 성공 시 participant `hasWrittenPaper = true`
@@ -225,7 +224,7 @@ Run:
 - [ ] 관련 테스트를 실행한다.
 
 ```bash
-./gradlew test --tests com.team2.server.rollingpaper.controller.RollingPaperWrapperControllerTest --tests com.team2.server.rollingpaper.controller.RollingPaperControllerTest --tests com.team2.server.rollingpaper.service.DefaultRollingPaperWrapperInitializerTest --tests com.team2.server.party.service.PartyInviteServiceTest
+./gradlew test --tests com.team2.server.rollingpaper.controller.RollingPaperWrapperControllerTest --tests com.team2.server.rollingpaper.controller.RollingPaperControllerTest --tests com.team2.server.db.FlywayMigrationTest --tests com.team2.server.party.service.PartyInviteServiceTest
 ```
 
 - [ ] 전체 테스트를 실행한다.
