@@ -8,6 +8,7 @@ import com.team2.server.common.swagger.InternalServerErrorResponse
 import com.team2.server.common.swagger.OptionalAuth
 import com.team2.server.rollingpaper.dto.CreateRollingPaperRequest
 import com.team2.server.rollingpaper.dto.CreateRollingPaperResponse
+import com.team2.server.rollingpaper.dto.ParticipantRollingPaperListResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Content
@@ -19,6 +20,51 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse as SwaggerApiResponse
 
 @Tag(name = "Rolling Paper", description = "롤링페이퍼 API")
 interface RollingPaperApi {
+    @Operation(
+        summary = "참가자용 롤링페이퍼 목록 조회",
+        description =
+            "초대 토큰으로 롤링페이퍼 목록을 조회한다. 인증 없이도 조회 가능하다. " +
+                "Authorization header를 보낼 경우 유효한 Bearer token이어야 한다.",
+        security = [
+            SecurityRequirement(name = "Bearer Authentication"),
+        ],
+    )
+    @OptionalAuth
+    @SwaggerApiResponse(
+        responseCode = "200",
+        description = "참가자용 롤링페이퍼 목록 조회 성공",
+    )
+    @AuthErrorResponses
+    @SwaggerApiResponse(
+        responseCode = "404",
+        description = "파티 없음",
+        content = [
+            Content(
+                mediaType = "application/json",
+                schema = Schema(implementation = ErrorResponse::class),
+                examples = [
+                    ExampleObject(
+                        name = "파티 없음",
+                        value = """
+                            {
+                              "status": 404,
+                              "error": {
+                                "code": "PARTY_NOT_FOUND",
+                                "message": "파티를 찾을 수 없습니다"
+                              }
+                            }
+                        """,
+                    ),
+                ],
+            ),
+        ],
+    )
+    @InternalServerErrorResponse
+    fun getParticipantRollingPapers(
+        @Parameter(description = "초대 토큰", example = "exampletoken0000") inviteToken: String,
+        @Parameter(description = "페이지 번호. 1보다 작으면 1로 보정합니다.", example = "1") page: Int,
+    ): ApiResponse<ParticipantRollingPaperListResponse>
+
     @Operation(
         summary = "롤링페이퍼 작성",
         description =

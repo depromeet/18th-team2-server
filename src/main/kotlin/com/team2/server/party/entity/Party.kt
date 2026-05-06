@@ -37,6 +37,10 @@ abstract class Party(
     @get:Transient
     abstract val partyOption: PartyOption
 
+    abstract fun hostViewableAt(): LocalDateTime
+
+    fun canHostViewRollingPapers(now: LocalDateTime): Boolean = !hostViewableAt().isAfter(now)
+
     fun endedAt(): LocalDateTime = createdAt.plusDays(ENDED_AFTER_DAYS)
 
     fun isEnded(now: LocalDateTime = LocalDateTime.now()): Boolean = !endedAt().isAfter(now)

@@ -1,7 +1,7 @@
 package com.team2.server.rollingpaper.usecase
 
 import com.team2.server.common.entity.ImageTargetType
-import com.team2.server.common.repository.ImageRepository
+import com.team2.server.common.service.ImageQueryService
 import com.team2.server.rollingpaper.dto.RollingPaperWrapperResult
 import com.team2.server.rollingpaper.repository.RollingPaperWrapperRepository
 import org.springframework.data.domain.Sort
@@ -11,7 +11,7 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class GetRollingPaperWrappersUseCase(
     private val rollingPaperWrapperRepository: RollingPaperWrapperRepository,
-    private val imageRepository: ImageRepository,
+    private val imageQueryService: ImageQueryService,
 ) {
     @Transactional(readOnly = true)
     fun getWrappers(): List<RollingPaperWrapperResult> {
@@ -20,12 +20,10 @@ class GetRollingPaperWrappersUseCase(
             return emptyList()
         }
         val imageUrlByTargetId =
-            imageRepository
-                .findAllByTargetTypeAndTargetIdsOrderByTargetIdAndSortOrder(
-                    ImageTargetType.ROLLING_PAPER_WRAPPER,
-                    wrappers.map { it.id },
-                ).distinctBy { it.targetId }
-                .associate { it.targetId to it.imageUrl }
+            imageQueryService.findFirstImageUrlByTargetIds(
+                ImageTargetType.ROLLING_PAPER_WRAPPER,
+                wrappers.map { it.id },
+            )
 
         return wrappers.map { wrapper ->
             RollingPaperWrapperResult(

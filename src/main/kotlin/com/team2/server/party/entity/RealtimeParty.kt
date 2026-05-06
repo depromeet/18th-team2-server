@@ -17,6 +17,8 @@ class RealtimeParty(
 ) : Party(ownerId, name, celebrantNickname, startedAt, purpose) {
     override val partyOption: PartyOption get() = PartyOption.REALTIME
 
+    override fun hostViewableAt(): LocalDateTime = startedAt.plusMinutes(LIVE_DURATION_MINUTES)
+
     fun status(now: LocalDateTime = LocalDateTime.now()): RealtimePartyStatus {
         val liveStart = startedAt
         val liveEnd = liveStart.plusMinutes(LIVE_DURATION_MINUTES)
