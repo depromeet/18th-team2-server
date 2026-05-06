@@ -67,8 +67,9 @@ class PartyInviteLookupControllerTest
             mockMvc.get("/api/v1/party-invites/paperlookup0001").andExpect {
                 status { isOk() }
                 jsonPath("$.status") { value(200) }
-                jsonPath("$.data.partyId") { doesNotExist() }
+                jsonPath("$.data.partyId") { value(party.id) }
                 jsonPath("$.data.celebrantNickname") { value("홍길동") }
+                jsonPath("$.data.isHost") { value(false) }
                 jsonPath("$.data.partyOption") { value("PAPER_ONLY") }
                 jsonPath("$.data.partyEnded") { value(false) }
                 jsonPath("$.data.rollingPaperWritten") { value(false) }
@@ -122,7 +123,7 @@ class PartyInviteLookupControllerTest
 
             mockMvc.get("/api/v1/party-invites/expiredlookup1").andExpect {
                 status { isOk() }
-                jsonPath("$.data.partyId") { doesNotExist() }
+                jsonPath("$.data.partyId") { value(party.id) }
             }
         }
 
@@ -153,7 +154,34 @@ class PartyInviteLookupControllerTest
                     header("Authorization", "Bearer $accessToken")
                 }.andExpect {
                     status { isOk() }
+                    jsonPath("$.data.partyId") { value(party.id) }
+                    jsonPath("$.data.isHost") { value(true) }
                     jsonPath("$.data.rollingPaperWritten") { value(true) }
+                }
+        }
+
+        @Test
+        fun `인증 회원이 주최자가 아니면 isHost false`() {
+            val user = saveUser("kakao-lookup-guest", "lookup-guest@kakao.local")
+            val party =
+                saveParty(
+                    PaperOnlyParty(
+                        ownerId = 999L,
+                        celebrantNickname = "홍길동",
+                        startedAt = LocalDateTime.now().toLocalDate().atStartOfDay(),
+                    ),
+                    LocalDateTime.now().minusDays(1),
+                )
+            saveInvite(party, "hostlookup0001")
+            val accessToken = tokenProvider.issue(user)
+
+            mockMvc
+                .get("/api/v1/party-invites/hostlookup0001") {
+                    header("Authorization", "Bearer $accessToken")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.partyId") { value(party.id) }
+                    jsonPath("$.data.isHost") { value(false) }
                 }
         }
 

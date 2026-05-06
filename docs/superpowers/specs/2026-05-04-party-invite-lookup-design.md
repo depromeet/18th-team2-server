@@ -79,7 +79,9 @@ GET /api/v1/party-invites/{inviteToken}
 
 ```json
 {
+  "partyId": 1,
   "celebrantNickname": "홍길동",
+  "isHost": true,
   "partyOption": "REALTIME",
   "partyEnded": false,
   "rollingPaperWritten": false,
@@ -98,7 +100,9 @@ GET /api/v1/party-invites/{inviteToken}
 
 ```json
 {
+  "partyId": 1,
   "celebrantNickname": "홍길동",
+  "isHost": false,
   "partyOption": "PAPER_ONLY",
   "partyEnded": false,
   "rollingPaperWritten": false,
@@ -112,7 +116,9 @@ GET /api/v1/party-invites/{inviteToken}
 
 | 응답 필드 | source | 계산 |
 |---|---|---|
+| `partyId` | `Party.id` | 이후 주최자용 API, 화면 이동 등에 사용할 파티 식별자 |
 | `celebrantNickname` | `Party.celebrantNickname` | 컬럼명과 동일 의미 유지 |
+| `isHost` | `Party.ownerId` | 인증 회원이고 `party.ownerId == userId`이면 true, 비회원이면 false |
 | `partyOption` | 현재 코드의 `Party.partyOption` | 그대로 |
 | `partyEnded` | `Party.createdAt` | `now >= createdAt.plusDays(7)` |
 | `rollingPaperWritten` | `Participant.hasWrittenPaper` | 식별 가능한 회원 participant가 있으면 해당 값, 없으면 false |
@@ -341,13 +347,15 @@ src/main/kotlin/com/team2/server/party/usecase/LookupPartyInviteUseCase.kt
 2. 없으면 `BusinessException(ErrorCode.PARTY_NOT_FOUND)`
 3. `party = invite.party`
 4. `partyEndAt = party.createdAt.plusDays(7)`
-5. `rollingPaperWritten` 계산
-6. `realtimeSchedule` 계산
-7. `PartyInviteLookupResponse` 반환
+5. `isHost` 계산
+6. `rollingPaperWritten` 계산
+7. `realtimeSchedule` 계산
+8. `PartyInviteLookupResponse` 반환
 
 의존성 제한:
 
 - `LookupPartyInviteUseCase`는 `PartyInviteRepository`, `ParticipantRepository`만 주입하는 것을 우선한다.
+- `isHost`는 `Party.ownerId`와 `userId`만 비교하므로 별도 Repository가 필요 없다.
 - `rollingPaperWritten`은 `userId`만 있으면 `ParticipantRepository.findByPartyIdAndUserId(...)`로 계산 가능하므로 `UserRepository`를 주입하지 않는다.
 - 이렇게 하면 조회 흐름이 user aggregate를 직접 조회하지 않아도 되고, 의존성이 더 작아진다.
 - 단, 유효한 JWT인데 DB에서 user가 삭제된 케이스는 JWT 필터 단계에서 이미 `AUTH_USER_NOT_FOUND`로 처리되는 현재 구조를 따른다.
@@ -411,7 +419,9 @@ src/main/kotlin/com/team2/server/party/dto/PartyInviteLookupResponse.kt
 
 Kotlin 타입:
 
+- `partyId: Long`
 - `celebrantNickname: String?`
+- `isHost: Boolean`
 - `partyOption: PartyOption`
 - `partyEnded: Boolean`
 - `rollingPaperWritten: Boolean`
