@@ -257,6 +257,130 @@ class RollingPaperListControllerTest
         }
 
         @Test
+        fun `주최자용 상세는 내용과 최신순 기준 순번을 조회한다`() {
+            val owner = saveUser("owner-detail")
+            val party =
+                savePaperOnlyParty(
+                    ownerId = owner.id,
+                    startedAt = ALWAYS_VIEWABLE_STARTED_AT,
+                )
+            val wrapper = saveWrapperWithImages()
+            saveRollingPaper(party, wrapper, "첫번째", DEFAULT_NOW.plusMinutes(1), content = "첫 번째 축하")
+            val target =
+                saveRollingPaper(party, wrapper, "두번째", DEFAULT_NOW.plusMinutes(2), content = "두 번째 축하")
+            saveRollingPaper(party, wrapper, "세번째", DEFAULT_NOW.plusMinutes(3), content = "세 번째 축하")
+
+            mockMvc
+                .get("/api/v1/parties/${party.id}/rolling-papers/${target.id}") {
+                    header("Authorization", "Bearer ${tokenProvider.issue(owner)}")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.rollingPaperId") { value(target.id) }
+                    jsonPath("$.data.content") { value("두 번째 축하") }
+                    jsonPath("$.data.writerNickname") { value("두번째") }
+                    jsonPath("$.data.position") { value(2) }
+                    jsonPath("$.data.totalCount") { value(3) }
+                }
+        }
+
+        @Test
+        fun `주최자용 상세는 같은 생성 시각이면 id 내림차순 기준 순번을 계산한다`() {
+            val owner = saveUser("owner-detail-same-time")
+            val party =
+                savePaperOnlyParty(
+                    ownerId = owner.id,
+                    startedAt = ALWAYS_VIEWABLE_STARTED_AT,
+                )
+            val wrapper = saveWrapperWithImages()
+            val old = saveRollingPaper(party, wrapper, "먼저작성", DEFAULT_NOW, content = "먼저")
+            val latest = saveRollingPaper(party, wrapper, "나중작성", DEFAULT_NOW, content = "나중")
+
+            mockMvc
+                .get("/api/v1/parties/${party.id}/rolling-papers/${old.id}") {
+                    header("Authorization", "Bearer ${tokenProvider.issue(owner)}")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.position") { value(2) }
+                    jsonPath("$.data.totalCount") { value(2) }
+                }
+
+            mockMvc
+                .get("/api/v1/parties/${party.id}/rolling-papers/${latest.id}") {
+                    header("Authorization", "Bearer ${tokenProvider.issue(owner)}")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.position") { value(1) }
+                    jsonPath("$.data.totalCount") { value(2) }
+                }
+        }
+
+        @Test
+        fun `주최자용 상세는 해당 파티의 롤링페이퍼가 아니면 404`() {
+            val owner = saveUser("owner-detail-missing")
+            val party =
+                savePaperOnlyParty(
+                    ownerId = owner.id,
+                    startedAt = ALWAYS_VIEWABLE_STARTED_AT,
+                )
+            val otherParty =
+                savePaperOnlyParty(
+                    ownerId = owner.id,
+                    startedAt = ALWAYS_VIEWABLE_STARTED_AT,
+                )
+            val wrapper = saveWrapperWithImages()
+            val otherRollingPaper = saveRollingPaper(otherParty, wrapper, "다른파티", DEFAULT_NOW)
+
+            mockMvc
+                .get("/api/v1/parties/${party.id}/rolling-papers/${otherRollingPaper.id}") {
+                    header("Authorization", "Bearer ${tokenProvider.issue(owner)}")
+                }.andExpect {
+                    status { isNotFound() }
+                    jsonPath("$.error.code") { value("ROLLING_PAPER_NOT_FOUND") }
+                }
+        }
+
+        @Test
+        fun `주최자용 상세는 소유자가 아니면 403`() {
+            val owner = saveUser("owner-detail-forbidden")
+            val other = saveUser("other-detail-forbidden")
+            val party =
+                savePaperOnlyParty(
+                    ownerId = owner.id,
+                    startedAt = ALWAYS_VIEWABLE_STARTED_AT,
+                )
+            val wrapper = saveWrapperWithImages()
+            val rollingPaper = saveRollingPaper(party, wrapper, "작성자", DEFAULT_NOW)
+
+            mockMvc
+                .get("/api/v1/parties/${party.id}/rolling-papers/${rollingPaper.id}") {
+                    header("Authorization", "Bearer ${tokenProvider.issue(other)}")
+                }.andExpect {
+                    status { isForbidden() }
+                    jsonPath("$.error.code") { value("PARTY_FORBIDDEN") }
+                }
+        }
+
+        @Test
+        fun `주최자용 상세는 열람 가능 전이면 403`() {
+            val owner = saveUser("owner-detail-before-open")
+            val party =
+                saveRealtimeParty(
+                    ownerId = owner.id,
+                    startedAt = NOT_VIEWABLE_REALTIME_STARTED_AT,
+                )
+            val wrapper = saveWrapperWithImages()
+            val rollingPaper = saveRollingPaper(party, wrapper, "작성자", DEFAULT_NOW)
+
+            mockMvc
+                .get("/api/v1/parties/${party.id}/rolling-papers/${rollingPaper.id}") {
+                    header("Authorization", "Bearer ${tokenProvider.issue(owner)}")
+                }.andExpect {
+                    status { isForbidden() }
+                    jsonPath("$.error.code") { value("ROLLING_PAPER_NOT_VIEWABLE") }
+                }
+        }
+
+        @Test
         fun `공통 목록은 초과 페이지 요청값을 유지하고 빈 items를 반환한다`() {
             val party = savePaperOnlyParty()
             val invite = saveInvite(party, "overpagelist001")
@@ -366,6 +490,7 @@ class RollingPaperListControllerTest
             wrapper: RollingPaperWrapper,
             writerNickname: String,
             createdAt: LocalDateTime,
+            content: String = "축하해요",
         ): RollingPaper {
             val participant = participantRepository.saveAndFlush(Participant(party = party, hasWrittenPaper = true))
             val saved =
@@ -375,7 +500,7 @@ class RollingPaperListControllerTest
                         writer = participant,
                         party = party,
                         writerNickname = writerNickname,
-                        content = "축하해요",
+                        content = content,
                     ),
                 )
             saved.createdAt = createdAt
