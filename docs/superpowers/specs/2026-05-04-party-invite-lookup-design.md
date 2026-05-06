@@ -34,6 +34,9 @@
 - 현재 공개 허용:
   - `GET /api/v1/characters`
   - `GET /images/**`
+- 현재 캐릭터 조회 응답은 `characterId`, `name`, `characterImageUrl`, `characterThumbnailImageUrl`을 내려준다.
+  - `characterImageUrl`: 파티 입장 후 표시용 기본 이미지
+  - `characterThumbnailImageUrl`: 캐릭터 선택 화면 등 작은 UI 표시용 썸네일 이미지
 - 현재 `Party`는 abstract base entity이고 `RealtimeParty`, `PaperOnlyParty`가 joined inheritance로 분리되어 있다.
 - 현재 `Party`에는 `partyOption: PartyOption`, `startedAt`, `createdAt`가 있고 `endedAt` 전용 컬럼은 없다.
 - 현재 `party/usecase`에는 `GetCharactersUseCase`가 있으며, 조회 흐름을 컨트롤러에서 직접 조립하지 않고 유스케이스로 분리한 선례가 있다.

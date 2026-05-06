@@ -14,6 +14,12 @@ interface ImageRepository : JpaRepository<Image, Long> {
         targetId: Long,
     ): Image?
 
+    fun findByTargetTypeAndTargetIdAndSortOrder(
+        targetType: ImageTargetType,
+        targetId: Long,
+        sortOrder: Int,
+    ): Image?
+
     @Query(
         """
         select i

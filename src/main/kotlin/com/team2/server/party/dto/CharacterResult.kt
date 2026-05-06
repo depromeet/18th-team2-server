@@ -4,4 +4,5 @@ data class CharacterResult(
     val characterId: Long,
     val name: String,
     val characterImageUrl: String?,
+    val characterThumbnailImageUrl: String?,
 )
