@@ -81,10 +81,25 @@ class DefaultCharacterInitializer(
                 ),
             )
         } catch (e: DataIntegrityViolationException) {
-            if (!e.isConstraintViolation(IMAGE_TARGET_SORT_UNIQUE_CONSTRAINT)) {
-                throw e
-            }
-            updateCharacterImage(character, imageUrl, sortOrder)
+            recoverCharacterImageAfterUniqueConstraintViolation(e, character, imageUrl, sortOrder)
+        }
+    }
+
+    private fun recoverCharacterImageAfterUniqueConstraintViolation(
+        exception: DataIntegrityViolationException,
+        character: Character,
+        imageUrl: String,
+        sortOrder: Int,
+    ) {
+        if (!exception.isConstraintViolation(IMAGE_TARGET_SORT_UNIQUE_CONSTRAINT)) {
+            throw exception
+        }
+        if (!updateCharacterImage(character, imageUrl, sortOrder)) {
+            throw IllegalStateException(
+                "Failed to sync character image after unique constraint violation. " +
+                    "characterId=${character.id}, imageUrl=$imageUrl, sortOrder=$sortOrder",
+                exception,
+            )
         }
     }
 
