@@ -86,8 +86,7 @@ Response data:
    - 목록 UseCase는 열람 검증 시점에 `LocalDateTime.now()`를 사용한다.
 
 3. 목록 조회 기반을 추가한다.
-   - `RollingPaperRepository.countByParty(...)`를 추가한다.
-   - `RollingPaperRepository.findAllByParty(..., Pageable)`을 추가한다.
+   - `RollingPaperRepository.findAllByParty(..., Pageable): Page<RollingPaper>`를 추가한다.
    - 정렬은 `createdAt DESC, id DESC`, 페이지 크기는 7로 고정한다.
    - `page < 1`은 1로 보정한다.
    - `totalCount = 0`이면 `totalPages = 0`, `items = []`, `hasNext = false`다.

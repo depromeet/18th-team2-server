@@ -3,7 +3,7 @@ package com.team2.server.rollingpaper.usecase
 import com.team2.server.common.entity.ImageTargetType
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
-import com.team2.server.common.repository.ImageRepository
+import com.team2.server.common.service.ImageQueryService
 import com.team2.server.party.entity.Party
 import com.team2.server.party.entity.PartyOption
 import com.team2.server.party.repository.PartyInviteRepository
@@ -25,7 +25,7 @@ class GetRollingPaperListUseCase(
     private val partyInviteRepository: PartyInviteRepository,
     private val partyRepository: PartyRepository,
     private val rollingPaperRepository: RollingPaperRepository,
-    private val imageRepository: ImageRepository,
+    private val imageQueryService: ImageQueryService,
 ) {
     @Transactional(readOnly = true)
     fun getParticipantList(
@@ -93,19 +93,7 @@ class GetRollingPaperListUseCase(
         requestedPage: Int,
     ): RollingPaperPageResult {
         val page = requestedPage.coerceAtLeast(MIN_PAGE)
-        val totalCount = rollingPaperRepository.countByParty(party)
-        val totalPages = calculateTotalPages(totalCount)
-        if (totalCount == 0L || page > totalPages) {
-            return RollingPaperPageResult(
-                page = page,
-                totalCount = totalCount,
-                totalPages = totalPages,
-                hasNext = false,
-                items = emptyList(),
-            )
-        }
-
-        val rollingPapers =
+        val rollingPaperPage =
             rollingPaperRepository.findAllByParty(
                 party,
                 PageRequest.of(
@@ -117,43 +105,29 @@ class GetRollingPaperListUseCase(
                     ),
                 ),
             )
+        val rollingPapers = rollingPaperPage.content
         val imageUrlByWrapperId = findImageUrlByWrapperId(rollingPapers)
         return RollingPaperPageResult(
             page = page,
-            totalCount = totalCount,
-            totalPages = totalPages,
-            hasNext = page < totalPages,
+            totalCount = rollingPaperPage.totalElements,
+            totalPages = rollingPaperPage.totalPages,
+            hasNext = rollingPaperPage.hasNext(),
             items =
                 rollingPapers.map { rollingPaper ->
                     RollingPaperListItemResponse(
                         rollingPaperId = rollingPaper.id,
-                        writerNickname = rollingPaper.writerNickname.orEmpty(),
+                        writerNickname = rollingPaper.writerNickname,
                         wrapperImageUrl = imageUrlByWrapperId[rollingPaper.wrapper.id],
                     )
                 },
         )
     }
 
-    private fun calculateTotalPages(totalCount: Long): Int =
-        if (totalCount == 0L) {
-            0
-        } else {
-            ((totalCount + PAGE_SIZE - 1) / PAGE_SIZE).toInt()
-        }
-
-    private fun findImageUrlByWrapperId(rollingPapers: List<RollingPaper>): Map<Long, String> {
-        val wrapperIds = rollingPapers.map { it.wrapper.id }.distinct()
-        if (wrapperIds.isEmpty()) {
-            return emptyMap()
-        }
-
-        return imageRepository
-            .findAllByTargetTypeAndTargetIdsOrderByTargetIdAndSortOrder(
-                ImageTargetType.ROLLING_PAPER_WRAPPER,
-                wrapperIds,
-            ).distinctBy { it.targetId }
-            .associate { it.targetId to it.imageUrl }
-    }
+    private fun findImageUrlByWrapperId(rollingPapers: List<RollingPaper>): Map<Long, String> =
+        imageQueryService.findFirstImageUrlByTargetIds(
+            ImageTargetType.ROLLING_PAPER_WRAPPER,
+            rollingPapers.map { it.wrapper.id },
+        )
 
     private data class RollingPaperPageResult(
         val page: Int,
