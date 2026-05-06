@@ -309,7 +309,7 @@ image.target_id = rolling_paper_wrapper.id
 기본 래퍼 데이터:
 
 - 캐릭터 기본 이미지와 같은 방식으로 `src/main/resources/static/images/rolling-paper-wrappers/` 아래 정적 이미지를 둔다.
-- 기본 래퍼는 애플리케이션 초기화 로직에서 `rolling_paper_wrapper`와 `image(target_type = ROLLING_PAPER_WRAPPER)`를 보장한다.
+- 기본 래퍼는 Flyway seed migration에서 `rolling_paper_wrapper`와 `image(target_type = ROLLING_PAPER_WRAPPER)`를 보장한다.
 - 이미지 파일은 프론트/디자인 확정 후 추가하며, 서버 코드는 해당 정적 경로를 기준으로 seed한다.
 
 초대 토큰 만료 정책:
@@ -342,7 +342,7 @@ rollingpaper/
 │   ├── RollingPaperRepository.kt
 │   └── RollingPaperWrapperRepository.kt
 ├── service/
-│   └── DefaultRollingPaperWrapperInitializer.kt
+│   └── (기본 래퍼 seed는 Flyway migration에서 관리)
 └── usecase/
     ├── CreateRollingPaperUseCase.kt
     └── GetRollingPaperWrappersUseCase.kt
