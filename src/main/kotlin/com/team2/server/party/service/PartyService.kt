@@ -79,10 +79,7 @@ class PartyService(
         partyId: Long,
         userId: Long,
     ) {
-        val party =
-            partyRepository
-                .findPartyById(partyId)
-                .orElseThrow { BusinessException(ErrorCode.PARTY_NOT_FOUND) }
+        val party = findParty(partyId)
 
         if (party.ownerId != userId) throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
 
@@ -102,6 +99,10 @@ class PartyService(
         partyInviteRepository.deleteAllByPartyId(partyId)
         partyRepository.delete(party)
     }
+
+    private fun findParty(partyId: Long) =
+        partyRepository.findPartyById(partyId)
+            ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
 
     private fun findUser(userId: Long) =
         userRepository
