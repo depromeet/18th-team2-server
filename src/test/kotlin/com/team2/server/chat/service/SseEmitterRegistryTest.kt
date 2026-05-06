@@ -6,7 +6,6 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 import kotlin.test.assertEquals
 
 class SseEmitterRegistryTest {
-
     private lateinit var registry: SseEmitterRegistry
 
     @BeforeEach
@@ -16,7 +15,14 @@ class SseEmitterRegistryTest {
 
     @Test
     fun `등록된 emitter가 없으면 broadcast 시 아무 일도 없음`() {
-        registry.broadcast(1L, SseEmitter.event().name("message").data("hello").build())
+        registry.broadcast(
+            1L,
+            SseEmitter
+                .event()
+                .name("message")
+                .data("hello")
+                .build(),
+        )
     }
 
     @Test

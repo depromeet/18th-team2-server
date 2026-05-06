@@ -1,12 +1,17 @@
 package com.team2.server.chat.usecase
 
 import com.team2.server.chat.dto.ChatMessageResponse
+import com.team2.server.chat.dto.SendChatMessageRequest
+import com.team2.server.chat.entity.ChatMessage
 import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.chat.service.SseEmitterRegistry
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
+import com.team2.server.party.entity.Party
 import com.team2.server.party.entity.PartyOption
 import com.team2.server.party.entity.RealtimeParticipantProfile
+import com.team2.server.party.entity.RealtimeParty
+import com.team2.server.party.entity.RealtimePartyStatus
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyRepository
 import com.team2.server.party.repository.RealtimeParticipantProfileRepository
@@ -15,63 +20,69 @@ import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 
 @Service
-class SubscribeChatUseCase(
+class SendChatMessageUseCase(
     private val partyRepository: PartyRepository,
     private val participantRepository: ParticipantRepository,
     private val profileRepository: RealtimeParticipantProfileRepository,
     private val chatMessageRepository: ChatMessageRepository,
     private val sseEmitterRegistry: SseEmitterRegistry,
 ) {
-    @Transactional(readOnly = true)
-    fun subscribe(
+    @Transactional
+    fun send(
         partyId: Long,
         userId: Long?,
         participantToken: String?,
-    ): SseEmitter {
+        request: SendChatMessageRequest,
+    ): ChatMessageResponse {
+        val party = resolveActiveRealtimeParty(partyId)
+        val profile = resolveProfile(userId, participantToken, party, partyId)
+
+        val message =
+            chatMessageRepository.save(
+                ChatMessage(content = request.content, party = party, profile = profile),
+            )
+
+        val response = ChatMessageResponse.from(message)
+        sseEmitterRegistry.broadcast(
+            partyId,
+            SseEmitter
+                .event()
+                .name("message")
+                .data(response)
+                .build(),
+        )
+        return response
+    }
+
+    private fun resolveActiveRealtimeParty(partyId: Long): RealtimeParty {
         val party =
             partyRepository.findPartyById(partyId)
                 ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
+        return toActiveLiveParty(party)
+    }
 
+    private fun toActiveLiveParty(party: Party): RealtimeParty {
         if (party.partyOption != PartyOption.REALTIME) {
             throw BusinessException(ErrorCode.CHAT_NOT_SUPPORTED)
         }
-
-        resolveProfile(userId, participantToken, partyId)
-
-        val emitter = SseEmitter(EMITTER_TIMEOUT_MS)
-
-        val history =
-            chatMessageRepository
-                .findAllByPartyIdOrderByCreatedAtAsc(partyId)
-                .map { ChatMessageResponse.from(it) }
-
-        try {
-            emitter.send(
-                SseEmitter
-                    .event()
-                    .name("history")
-                    .data(history)
-                    .build(),
-            )
-        } catch (e: IllegalStateException) {
-            emitter.completeWithError(e)
-            return emitter
+        val realtimeParty = party as RealtimeParty
+        if (realtimeParty.status() != RealtimePartyStatus.LIVE_OPEN) {
+            throw BusinessException(ErrorCode.CHAT_NOT_ACTIVE)
         }
-
-        sseEmitterRegistry.subscribe(partyId, emitter)
-        return emitter
+        return realtimeParty
     }
 
     private fun resolveProfile(
         userId: Long?,
         participantToken: String?,
+        party: RealtimeParty,
         partyId: Long,
     ): RealtimeParticipantProfile {
         if (userId != null) {
             return resolveProfileByUserId(partyId, userId)
         }
         if (participantToken != null) {
-            return resolveProfileByToken(participantToken, partyId)
+            return resolveProfileByToken(participantToken, party, partyId)
         }
         throw BusinessException(ErrorCode.UNAUTHORIZED)
     }
@@ -89,18 +100,16 @@ class SubscribeChatUseCase(
 
     private fun resolveProfileByToken(
         participantToken: String,
+        party: RealtimeParty,
         partyId: Long,
     ): RealtimeParticipantProfile {
         val profile =
             profileRepository.findByParticipantToken(participantToken)
                 ?: throw BusinessException(ErrorCode.CHARACTER_REQUIRED)
-        if (profile.participant.party.id != partyId) {
+        val profileParty = profile.participant.party
+        if (profileParty !== party && profileParty.id != partyId) {
             throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
         }
         return profile
-    }
-
-    companion object {
-        private const val EMITTER_TIMEOUT_MS = 15 * 60 * 1000L
     }
 }

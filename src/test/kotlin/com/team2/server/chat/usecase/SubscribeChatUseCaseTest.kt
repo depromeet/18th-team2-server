@@ -5,8 +5,8 @@ import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.chat.service.SseEmitterRegistry
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
-import com.team2.server.party.entity.Participant
 import com.team2.server.party.entity.PaperOnlyParty
+import com.team2.server.party.entity.Participant
 import com.team2.server.party.entity.RealtimeParticipantProfile
 import com.team2.server.party.entity.RealtimeParty
 import com.team2.server.party.repository.ParticipantRepository
@@ -27,11 +27,14 @@ import kotlin.test.assertNotNull
 
 @ExtendWith(MockitoExtension::class)
 class SubscribeChatUseCaseTest {
-
     @Mock lateinit var partyRepository: PartyRepository
+
     @Mock lateinit var participantRepository: ParticipantRepository
+
     @Mock lateinit var profileRepository: RealtimeParticipantProfileRepository
+
     @Mock lateinit var chatMessageRepository: ChatMessageRepository
+
     @Mock lateinit var sseEmitterRegistry: SseEmitterRegistry
 
     @InjectMocks
@@ -41,9 +44,10 @@ class SubscribeChatUseCaseTest {
     fun `파티 없으면 PARTY_NOT_FOUND`() {
         whenever(partyRepository.findPartyById(1L)).thenReturn(null)
 
-        val ex = assertThrows<BusinessException> {
-            useCase.subscribe(partyId = 1L, userId = null, participantToken = "tok")
-        }
+        val ex =
+            assertThrows<BusinessException> {
+                useCase.subscribe(partyId = 1L, userId = null, participantToken = "tok")
+            }
         assertEquals(ErrorCode.PARTY_NOT_FOUND, ex.errorCode)
     }
 
@@ -52,9 +56,10 @@ class SubscribeChatUseCaseTest {
         val party = PaperOnlyParty(ownerId = 1L, startedAt = LocalDateTime.now())
         whenever(partyRepository.findPartyById(1L)).thenReturn(party)
 
-        val ex = assertThrows<BusinessException> {
-            useCase.subscribe(partyId = 1L, userId = null, participantToken = "tok")
-        }
+        val ex =
+            assertThrows<BusinessException> {
+                useCase.subscribe(partyId = 1L, userId = null, participantToken = "tok")
+            }
         assertEquals(ErrorCode.CHAT_NOT_SUPPORTED, ex.errorCode)
     }
 
@@ -64,9 +69,10 @@ class SubscribeChatUseCaseTest {
         whenever(partyRepository.findPartyById(1L)).thenReturn(party)
         whenever(participantRepository.findByPartyIdAndUserId(1L, 99L)).thenReturn(null)
 
-        val ex = assertThrows<BusinessException> {
-            useCase.subscribe(partyId = 1L, userId = 99L, participantToken = null)
-        }
+        val ex =
+            assertThrows<BusinessException> {
+                useCase.subscribe(partyId = 1L, userId = 99L, participantToken = null)
+            }
         assertEquals(ErrorCode.PARTY_FORBIDDEN, ex.errorCode)
     }
 
@@ -75,9 +81,10 @@ class SubscribeChatUseCaseTest {
         val party = RealtimeParty(ownerId = 1L, startedAt = LocalDateTime.now().minusMinutes(5))
         whenever(partyRepository.findPartyById(1L)).thenReturn(party)
 
-        val ex = assertThrows<BusinessException> {
-            useCase.subscribe(partyId = 1L, userId = null, participantToken = null)
-        }
+        val ex =
+            assertThrows<BusinessException> {
+                useCase.subscribe(partyId = 1L, userId = null, participantToken = null)
+            }
         assertEquals(ErrorCode.UNAUTHORIZED, ex.errorCode)
     }
 
@@ -109,9 +116,10 @@ class SubscribeChatUseCaseTest {
         whenever(partyRepository.findPartyById(1L)).thenReturn(targetParty)
         whenever(profileRepository.findByParticipantToken("foreign-tok")).thenReturn(profile)
 
-        val ex = assertThrows<BusinessException> {
-            useCase.subscribe(partyId = 1L, userId = null, participantToken = "foreign-tok")
-        }
+        val ex =
+            assertThrows<BusinessException> {
+                useCase.subscribe(partyId = 1L, userId = null, participantToken = "foreign-tok")
+            }
         assertEquals(ErrorCode.PARTY_FORBIDDEN, ex.errorCode)
     }
 
@@ -121,9 +129,10 @@ class SubscribeChatUseCaseTest {
         whenever(partyRepository.findPartyById(1L)).thenReturn(party)
         whenever(profileRepository.findByParticipantToken("unknown-tok")).thenReturn(null)
 
-        val ex = assertThrows<BusinessException> {
-            useCase.subscribe(partyId = 1L, userId = null, participantToken = "unknown-tok")
-        }
+        val ex =
+            assertThrows<BusinessException> {
+                useCase.subscribe(partyId = 1L, userId = null, participantToken = "unknown-tok")
+            }
         assertEquals(ErrorCode.CHARACTER_REQUIRED, ex.errorCode)
     }
 }
