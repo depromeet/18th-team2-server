@@ -449,6 +449,7 @@ POST /api/v1/party-invites/{inviteToken}/participants/me
 
 - 회원 작성 요청은 같은 `ParticipantService.joinMember(...)` 경로로 participant를 조회/생성한다.
 - 프론트가 `participants/me`를 먼저 호출하지 못했더라도 작성 API는 participant 생성/복원 fallback을 수행한다.
+- 회원 작성 fallback은 blind insert가 아니라 `ParticipantService.joinMember(...)`의 "기존 participant 조회 -> 없으면 생성 -> `uk_participant_party_user` 위반 시 재조회" 경로를 그대로 사용한다.
 - 작성 API에서 기존 participant를 찾았고 `hasWrittenPaper = true`이면 `ROLLING_PAPER_ALREADY_WRITTEN`으로 실패한다.
 
 주의:
