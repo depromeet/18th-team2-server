@@ -9,6 +9,7 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.OneToOne
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
+import java.util.UUID
 
 @Entity
 @Table(
@@ -17,6 +18,10 @@ import jakarta.persistence.UniqueConstraint
         UniqueConstraint(
             name = "uk_realtime_participant_profile_participant",
             columnNames = ["participant_id"],
+        ),
+        UniqueConstraint(
+            name = "uk_realtime_participant_profile_token",
+            columnNames = ["participant_token"],
         ),
     ],
 )
@@ -29,4 +34,6 @@ class RealtimeParticipantProfile(
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "character_id")
     var character: Character? = null,
+    @Column(name = "participant_token", nullable = false, length = 36)
+    val participantToken: String = UUID.randomUUID().toString(),
 ) : BaseEntity()

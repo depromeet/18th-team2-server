@@ -9,4 +9,6 @@ interface ChatMessageRepository : JpaRepository<ChatMessage, Long> {
     @Modifying
     @Transactional
     fun deleteAllByPartyId(partyId: Long)
+
+    fun findAllByPartyIdOrderByCreatedAtAsc(partyId: Long): List<ChatMessage>
 }

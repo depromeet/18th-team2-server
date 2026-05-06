@@ -9,6 +9,8 @@ import org.springframework.transaction.annotation.Transactional
 interface RealtimeParticipantProfileRepository : JpaRepository<RealtimeParticipantProfile, Long> {
     fun findByParticipant(participant: Participant): RealtimeParticipantProfile?
 
+    fun findByParticipantToken(participantToken: String): RealtimeParticipantProfile?
+
     @Modifying
     @Transactional
     fun deleteAllByParticipantIdIn(participantIds: List<Long>)
