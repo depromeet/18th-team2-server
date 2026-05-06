@@ -180,12 +180,7 @@ class RollingPaperListControllerTest
                 savePaperOnlyParty(
                     ownerId = owner.id,
                     createdAt = LocalDateTime.of(2026, 5, 5, 14, 30),
-                    startedAt =
-                        LocalDateTime
-                            .now()
-                            .minusDays(1)
-                            .toLocalDate()
-                            .atStartOfDay(),
+                    startedAt = ALWAYS_VIEWABLE_STARTED_AT,
                 )
             val wrapper = saveWrapperWithImages()
             saveRollingPaper(party, wrapper, "축하요정", DEFAULT_NOW)
@@ -212,12 +207,7 @@ class RollingPaperListControllerTest
             val party =
                 savePaperOnlyParty(
                     ownerId = owner.id,
-                    startedAt =
-                        LocalDateTime
-                            .now()
-                            .minusDays(1)
-                            .toLocalDate()
-                            .atStartOfDay(),
+                    startedAt = ALWAYS_VIEWABLE_STARTED_AT,
                 )
 
             mockMvc
@@ -235,7 +225,7 @@ class RollingPaperListControllerTest
             val party =
                 saveRealtimeParty(
                     ownerId = owner.id,
-                    startedAt = LocalDateTime.now().plusMinutes(1),
+                    startedAt = NOT_VIEWABLE_REALTIME_STARTED_AT,
                 )
 
             mockMvc
@@ -253,7 +243,7 @@ class RollingPaperListControllerTest
             val party =
                 saveRealtimeParty(
                     ownerId = owner.id,
-                    startedAt = LocalDateTime.now().minusMinutes(RealtimeParty.LIVE_DURATION_MINUTES).minusSeconds(1),
+                    startedAt = ALWAYS_VIEWABLE_REALTIME_STARTED_AT,
                 )
 
             mockMvc
@@ -415,5 +405,8 @@ class RollingPaperListControllerTest
 
         companion object {
             private val DEFAULT_NOW: LocalDateTime = LocalDateTime.of(2026, 5, 6, 12, 0)
+            private val ALWAYS_VIEWABLE_STARTED_AT: LocalDateTime = LocalDateTime.of(2020, 1, 1, 0, 0)
+            private val ALWAYS_VIEWABLE_REALTIME_STARTED_AT: LocalDateTime = LocalDateTime.of(2020, 1, 1, 0, 0)
+            private val NOT_VIEWABLE_REALTIME_STARTED_AT: LocalDateTime = LocalDateTime.of(2099, 1, 1, 0, 0)
         }
     }

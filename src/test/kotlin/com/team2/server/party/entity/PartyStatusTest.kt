@@ -78,6 +78,15 @@ class PartyStatusTest {
         assertEquals(true, party.canHostViewRollingPapers(hostViewableAt))
     }
 
+    @Test
+    fun `PaperOnlyParty - 시작 시각이 오후 10시 이후이면 다음날 오후 10시에 주최자 열람 가능`() {
+        val party = paperParty(startedAt = birthday.atTime(23, 30))
+        val hostViewableAt = birthday.plusDays(1).atTime(22, 0)
+        assertEquals(hostViewableAt, party.hostViewableAt())
+        assertEquals(false, party.canHostViewRollingPapers(hostViewableAt.minusNanos(1)))
+        assertEquals(true, party.canHostViewRollingPapers(hostViewableAt))
+    }
+
     // --- RealtimeParty ---
 
     @Test
