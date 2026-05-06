@@ -310,7 +310,16 @@ image.target_id = rolling_paper_wrapper.id
 
 - 캐릭터 기본 이미지와 같은 방식으로 `src/main/resources/static/images/rolling-paper-wrappers/` 아래 정적 이미지를 둔다.
 - 기본 래퍼는 Flyway seed migration에서 `rolling_paper_wrapper`와 `image(target_type = ROLLING_PAPER_WRAPPER)`를 보장한다.
-- 이미지 파일은 프론트/디자인 확정 후 추가하며, 서버 코드는 해당 정적 경로를 기준으로 seed한다.
+- 기본 래퍼 이미지 파일과 seed migration은 같은 배포 단위에 포함한다.
+- 후속 래퍼 이미지 변경은 정적 파일 추가/교체 후 새 Flyway migration으로 `image` row를 추가하거나 갱신한다.
+- 초기 migration은 빈 DB에서 한 번 실행되는 기준이므로 멱등 SQL을 사용하지 않는다. 재실행이 필요한 환경은 DB를 drop/recreate한 뒤 다시 migration을 적용한다.
+
+후속 래퍼 이미지 추가 절차:
+
+1. `src/main/resources/static/images/rolling-paper-wrappers/` 아래 이미지 파일을 추가한다.
+2. 새 Flyway migration에서 `rolling_paper_wrapper` 또는 `image(target_type = ROLLING_PAPER_WRAPPER)` row를 추가/갱신한다.
+3. 정적 이미지 URL 접근과 `GET /api/v1/rolling-paper-wrappers` 응답을 검증한다.
+4. 실패 시 배포를 중단하고, 적용된 migration 상태에 맞춰 DB restore 또는 후속 보정 migration을 사용한다.
 
 초대 토큰 만료 정책:
 

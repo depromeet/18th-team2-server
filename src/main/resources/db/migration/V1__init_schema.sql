@@ -51,7 +51,8 @@ create table party (
     celebrant_nickname varchar(255),
     started_at datetime(6) not null,
     purpose varchar(255),
-    primary key (id)
+    primary key (id),
+    constraint fk_party_owner foreign key (owner_id) references users (id)
 );
 
 create table paper_only_party (

@@ -22,15 +22,18 @@ class FlywayMigrationTest {
         }
     }
 
-    private fun java.sql.Connection.countRows(table: String): Int =
-        createStatement().use { statement ->
+    private fun java.sql.Connection.countRows(table: String): Int {
+        require(table in COUNTABLE_TABLES) { "Unsupported table name: $table" }
+        return createStatement().use { statement ->
             statement.executeQuery("select count(*) from $table").use { resultSet ->
                 resultSet.next()
                 resultSet.getInt(1)
             }
         }
+    }
 
     private companion object {
+        private val COUNTABLE_TABLES = setOf("avatar", "rolling_paper_wrapper", "image")
         private const val DATABASE_URL =
             "jdbc:h2:mem:flyway-migration-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE"
         private const val USERNAME = "sa"

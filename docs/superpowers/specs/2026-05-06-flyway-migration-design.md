@@ -38,8 +38,15 @@
 
 ## 3. DB 초기화 절차
 
-이번 전환에서는 dev/prod 데이터를 모두 버릴 수 있다는 전제다.
-따라서 기존 DB에 baseline을 찍지 않고, DB를 비운 뒤 Flyway가 처음부터 migration을 적용한다.
+이번 전환은 **초기 마이그레이션 전환 작업**에만 적용한다.
+기존 DB에 baseline을 찍지 않고, DB를 비운 뒤 Flyway가 처음부터 migration을 적용한다.
+
+주의:
+
+- dev/local은 데이터 폐기가 허용된 환경에서만 drop/recreate를 실행한다.
+- prod는 테스트 클러스터나 명시적으로 폐기 가능한 운영 데이터에 한해서만 drop/recreate를 허용한다.
+- prod 실행 전에는 반드시 DB 스냅샷 또는 dump를 생성하고, 복구 명령/담당자/검증 절차를 확정한다.
+- 실제 사용자 데이터가 보존되어야 하는 prod에서는 이 절차를 사용하지 않고 별도 증분 migration/backfill 계획을 작성한다.
 
 권장 절차:
 
@@ -53,7 +60,48 @@ CREATE DATABASE <database_name> CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
 
 ---
 
-## 4. 검증 기준
+## 4. 로컬 적용 절차
+
+로컬도 기존 `ddl-auto=update`가 만든 테이블이 남아 있으면 `V1__init_schema.sql`의 `CREATE TABLE`이 실패한다.
+따라서 이 브랜치 적용 후에는 로컬 DB도 한 번 drop/recreate한 뒤 앱을 실행한다.
+
+로컬 Docker DB 기준:
+
+```bash
+docker exec team2-local-db mysql -uroot -proot -e "DROP DATABASE IF EXISTS \`team2-local-db\`; CREATE DATABASE \`team2-local-db\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+```
+
+앱 실행:
+
+```bash
+./gradlew bootRun
+```
+
+Flyway 적용 확인:
+
+```bash
+docker exec team2-local-db mysql -uroot -proot team2-local-db -e "SHOW TABLES;"
+docker exec team2-local-db mysql -uroot -proot team2-local-db -e "SELECT installed_rank, version, description, success FROM flyway_schema_history ORDER BY installed_rank;"
+```
+
+기본 seed 데이터 확인:
+
+```bash
+docker exec team2-local-db mysql -uroot -proot team2-local-db -e "SELECT COUNT(*) AS avatars FROM avatar; SELECT COUNT(*) AS wrappers FROM rolling_paper_wrapper; SELECT COUNT(*) AS images FROM image;"
+```
+
+기대값:
+
+```text
+avatar = 5
+rolling_paper_wrapper = 3
+image = 13
+flyway_schema_history = V1, V2 success
+```
+
+---
+
+## 5. 검증 기준
 
 - `spring.jpa.hibernate.ddl-auto=validate`
 - 테스트 profile은 기존 테스트 격리를 위해 Flyway를 비활성화하고 H2 `create-drop`을 유지한다.
