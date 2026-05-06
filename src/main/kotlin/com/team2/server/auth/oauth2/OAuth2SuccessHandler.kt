@@ -39,12 +39,16 @@ class OAuth2SuccessHandler(
                 .build()
                 .toUriString()
 
+        OAuth2RedirectUriCookies.clear(response, oAuth2Properties.cookieSecure)
         clearAuthenticationAttributes(request)
         redirectStrategy.sendRedirect(request, response, redirectUrl)
     }
 
     private fun resolveRedirectUri(request: HttpServletRequest): String? {
-        val candidate = request.getParameter("redirect_uri") ?: return null
+        val candidate =
+            OAuth2RedirectUriCookies.read(request)
+                ?: request.getParameter("redirect_uri")
+                ?: return null
         return if (oAuth2Properties.authorizedRedirectUris.contains(candidate)) candidate else null
     }
 }
