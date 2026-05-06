@@ -265,10 +265,12 @@ class RollingPaperListControllerTest
                     startedAt = ALWAYS_VIEWABLE_STARTED_AT,
                 )
             val wrapper = saveWrapperWithImages()
-            saveRollingPaper(party, wrapper, "첫번째", DEFAULT_NOW.plusMinutes(1), content = "첫 번째 축하")
+            val first =
+                saveRollingPaper(party, wrapper, "첫번째", DEFAULT_NOW.plusMinutes(1), content = "첫 번째 축하")
             val target =
                 saveRollingPaper(party, wrapper, "두번째", DEFAULT_NOW.plusMinutes(2), content = "두 번째 축하")
-            saveRollingPaper(party, wrapper, "세번째", DEFAULT_NOW.plusMinutes(3), content = "세 번째 축하")
+            val latest =
+                saveRollingPaper(party, wrapper, "세번째", DEFAULT_NOW.plusMinutes(3), content = "세 번째 축하")
 
             mockMvc
                 .get("/api/v1/parties/${party.id}/rolling-papers/${target.id}") {
@@ -280,6 +282,8 @@ class RollingPaperListControllerTest
                     jsonPath("$.data.writerNickname") { value("두번째") }
                     jsonPath("$.data.position") { value(2) }
                     jsonPath("$.data.totalCount") { value(3) }
+                    jsonPath("$.data.previousRollingPaperId") { value(latest.id) }
+                    jsonPath("$.data.nextRollingPaperId") { value(first.id) }
                 }
         }
 
@@ -302,6 +306,8 @@ class RollingPaperListControllerTest
                     status { isOk() }
                     jsonPath("$.data.position") { value(2) }
                     jsonPath("$.data.totalCount") { value(2) }
+                    jsonPath("$.data.previousRollingPaperId") { value(latest.id) }
+                    jsonPath("$.data.nextRollingPaperId") { value(nullValue()) }
                 }
 
             mockMvc
@@ -311,6 +317,8 @@ class RollingPaperListControllerTest
                     status { isOk() }
                     jsonPath("$.data.position") { value(1) }
                     jsonPath("$.data.totalCount") { value(2) }
+                    jsonPath("$.data.previousRollingPaperId") { value(nullValue()) }
+                    jsonPath("$.data.nextRollingPaperId") { value(old.id) }
                 }
         }
 
