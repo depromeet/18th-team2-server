@@ -36,6 +36,10 @@ class SwaggerConfigTest
                 apiDocs,
                 "$.paths['/api/v1/party-invites/{inviteToken}/rolling-papers'].post.security",
             )
+            assertOptionalAuthSecurity(
+                apiDocs,
+                "$.paths['/api/v1/party-invites/{inviteToken}/rolling-papers'].get.security",
+            )
         }
 
         private fun assertOptionalAuthSecurity(
