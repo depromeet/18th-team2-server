@@ -81,7 +81,7 @@ class PartyService(
     ) {
         val party =
             partyRepository
-                .findById(partyId)
+                .findPartyById(partyId)
                 .orElseThrow { BusinessException(ErrorCode.PARTY_NOT_FOUND) }
 
         if (party.ownerId != userId) throw BusinessException(ErrorCode.PARTY_FORBIDDEN)

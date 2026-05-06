@@ -247,7 +247,7 @@ class PartyServiceTest {
 
     @Test
     fun `deleteParty 파티가 없으면 PARTY_NOT_FOUND`() {
-        whenever(partyRepository.findById(99L)).thenReturn(Optional.empty())
+        whenever(partyRepository.findPartyById(99L)).thenReturn(Optional.empty())
 
         val ex =
             assertThrows<BusinessException> {
@@ -267,7 +267,7 @@ class PartyServiceTest {
                 startedAt = LocalDateTime.now().plusDays(1),
             )
         setId(party, 10L)
-        whenever(partyRepository.findById(10L)).thenReturn(Optional.of(party))
+        whenever(partyRepository.findPartyById(10L)).thenReturn(Optional.of(party))
 
         val ex =
             assertThrows<BusinessException> {
@@ -287,7 +287,7 @@ class PartyServiceTest {
                 startedAt = LocalDateTime.now().minusMinutes(1),
             )
         setId(party, 10L)
-        whenever(partyRepository.findById(10L)).thenReturn(Optional.of(party))
+        whenever(partyRepository.findPartyById(10L)).thenReturn(Optional.of(party))
 
         val ex =
             assertThrows<BusinessException> {
@@ -313,7 +313,7 @@ class PartyServiceTest {
         val participant2 = Participant(party = party, user = null, isCelebrant = false)
         setId(participant2, 101L)
 
-        whenever(partyRepository.findById(10L)).thenReturn(Optional.of(party))
+        whenever(partyRepository.findPartyById(10L)).thenReturn(Optional.of(party))
         whenever(participantRepository.findAllByPartyId(10L))
             .thenReturn(listOf(participant1, participant2))
 
@@ -348,7 +348,7 @@ class PartyServiceTest {
             )
         setId(party, 20L)
 
-        whenever(partyRepository.findById(20L)).thenReturn(Optional.of(party))
+        whenever(partyRepository.findPartyById(20L)).thenReturn(Optional.of(party))
         whenever(participantRepository.findAllByPartyId(20L)).thenReturn(emptyList())
 
         partyService.deleteParty(partyId = 20L, userId = 1L)
