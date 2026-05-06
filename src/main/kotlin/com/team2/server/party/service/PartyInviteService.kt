@@ -42,6 +42,21 @@ class PartyInviteService(
         return ActivateInviteLinkResponse(token = invite.token)
     }
 
+    fun findUsableInvite(
+        inviteToken: String,
+        now: LocalDateTime,
+    ): PartyInvite {
+        val invite =
+            partyInviteRepository.findByToken(inviteToken)
+                ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
+
+        if (!invite.expiresAt.isAfter(now)) {
+            throw BusinessException(ErrorCode.INVITE_LINK_EXPIRED)
+        }
+
+        return invite
+    }
+
     private fun canActivateInviteLink(
         party: Party,
         userId: Long,

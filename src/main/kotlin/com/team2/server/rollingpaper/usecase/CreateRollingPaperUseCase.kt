@@ -5,9 +5,8 @@ import com.team2.server.common.exception.ErrorCode
 import com.team2.server.common.exception.isConstraintViolation
 import com.team2.server.party.entity.Participant
 import com.team2.server.party.entity.Party
-import com.team2.server.party.entity.PartyInvite
-import com.team2.server.party.repository.PartyInviteRepository
 import com.team2.server.party.service.ParticipantService
+import com.team2.server.party.service.PartyInviteService
 import com.team2.server.rollingpaper.dto.CreateRollingPaperRequest
 import com.team2.server.rollingpaper.dto.CreateRollingPaperResponse
 import com.team2.server.rollingpaper.entity.RollingPaper
@@ -24,11 +23,11 @@ import java.time.LocalDateTime
 
 @Service
 class CreateRollingPaperUseCase(
-    private val partyInviteRepository: PartyInviteRepository,
     private val rollingPaperWrapperRepository: RollingPaperWrapperRepository,
     private val rollingPaperRepository: RollingPaperRepository,
     private val userRepository: UserRepository,
     private val participantService: ParticipantService,
+    private val partyInviteService: PartyInviteService,
 ) {
     @Transactional
     fun create(
@@ -36,9 +35,8 @@ class CreateRollingPaperUseCase(
         userId: Long?,
         request: CreateRollingPaperRequest,
     ): CreateRollingPaperResponse {
-        val invite = findInvite(inviteToken)
         val now = LocalDateTime.now()
-        validateInvite(invite, now)
+        val invite = partyInviteService.findUsableInvite(inviteToken, now)
         val party = invite.party
         validatePartyWritable(party, now)
 
@@ -53,19 +51,6 @@ class CreateRollingPaperUseCase(
         val rollingPaper = saveRollingPaper(wrapper, participant, party, writerNickname, content)
         participant.hasWrittenPaper = true
         return CreateRollingPaperResponse(rollingPaperId = rollingPaper.id)
-    }
-
-    private fun findInvite(inviteToken: String): PartyInvite =
-        partyInviteRepository.findByToken(inviteToken)
-            ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
-
-    private fun validateInvite(
-        invite: PartyInvite,
-        now: LocalDateTime,
-    ) {
-        if (!invite.expiresAt.isAfter(now)) {
-            throw BusinessException(ErrorCode.INVITE_LINK_EXPIRED)
-        }
     }
 
     private fun validatePartyWritable(
