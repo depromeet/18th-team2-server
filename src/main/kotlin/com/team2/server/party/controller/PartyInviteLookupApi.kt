@@ -3,9 +3,11 @@ package com.team2.server.party.controller
 import com.team2.server.auth.principal.UserPrincipal
 import com.team2.server.common.response.ApiResponse
 import com.team2.server.common.response.ErrorResponse
+import com.team2.server.common.swagger.AuthErrorResponses
 import com.team2.server.common.swagger.InternalServerErrorResponse
 import com.team2.server.common.swagger.OptionalAuth
 import com.team2.server.party.dto.PartyInviteLookupResponse
+import com.team2.server.party.dto.PartyInviteParticipationResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Content
@@ -59,4 +61,83 @@ interface PartyInviteLookupApi {
         @Parameter(hidden = true) principal: UserPrincipal?,
         @Parameter(description = "초대 토큰", example = "exampletoken0000") inviteToken: String,
     ): ApiResponse<PartyInviteLookupResponse>
+
+    @Operation(
+        summary = "회원 초대장 참여",
+        description =
+            "로그인 회원을 초대 토큰의 파티 참여자로 생성하거나 기존 참여자를 반환한다. " +
+                "만료된 초대 토큰 또는 종료된 파티에는 참여자를 생성하지 않는다.",
+        security = [
+            SecurityRequirement(name = "Bearer Authentication"),
+        ],
+    )
+    @SwaggerApiResponse(
+        responseCode = "200",
+        description = "회원 참여자 생성 또는 조회 성공",
+    )
+    @AuthErrorResponses
+    @SwaggerApiResponse(
+        responseCode = "400",
+        description = "만료된 초대 토큰 또는 종료된 파티",
+        content = [
+            Content(
+                mediaType = "application/json",
+                schema = Schema(implementation = ErrorResponse::class),
+                examples = [
+                    ExampleObject(
+                        name = "만료된 초대 토큰",
+                        value = """
+                            {
+                              "status": 400,
+                              "error": {
+                                "code": "INVITE_LINK_EXPIRED",
+                                "message": "만료된 초대링크입니다"
+                              }
+                            }
+                        """,
+                    ),
+                    ExampleObject(
+                        name = "종료된 파티",
+                        value = """
+                            {
+                              "status": 400,
+                              "error": {
+                                "code": "PARTY_ENDED",
+                                "message": "이미 종료된 파티입니다"
+                              }
+                            }
+                        """,
+                    ),
+                ],
+            ),
+        ],
+    )
+    @SwaggerApiResponse(
+        responseCode = "404",
+        description = "존재하지 않는 초대 토큰",
+        content = [
+            Content(
+                mediaType = "application/json",
+                schema = Schema(implementation = ErrorResponse::class),
+                examples = [
+                    ExampleObject(
+                        value = """
+                            {
+                              "status": 404,
+                              "error": {
+                                "code": "PARTY_NOT_FOUND",
+                                "message": "파티를 찾을 수 없습니다"
+                              }
+                            }
+                        """,
+                    ),
+                ],
+            ),
+        ],
+    )
+    @InternalServerErrorResponse
+    fun joinPartyInvite(
+        @Parameter(hidden = true) principal: UserPrincipal,
+        @Parameter(description = "초대 토큰", example = "exampletoken0000") inviteToken: String,
+    ): ApiResponse<PartyInviteParticipationResponse>
 }

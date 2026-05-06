@@ -21,10 +21,12 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
+import org.springframework.test.web.servlet.post
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -153,6 +155,133 @@ class PartyInviteLookupControllerTest
                     status { isOk() }
                     jsonPath("$.data.rollingPaperWritten") { value(true) }
                 }
+        }
+
+        @Test
+        fun `인증 회원은 초대장 참여 API로 participant를 생성한다`() {
+            val user = saveUser("kakao-join", "join@kakao.local")
+            val party =
+                saveParty(
+                    PaperOnlyParty(
+                        ownerId = 1L,
+                        celebrantNickname = "홍길동",
+                        startedAt = LocalDateTime.now().toLocalDate().atStartOfDay(),
+                    ),
+                    LocalDateTime.now().minusDays(1),
+                )
+            saveInvite(party, "memberjoin0001")
+            val accessToken = tokenProvider.issue(user)
+
+            mockMvc
+                .post("/api/v1/party-invites/memberjoin0001/participants/me") {
+                    header("Authorization", "Bearer $accessToken")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.status") { value(200) }
+                    jsonPath("$.data.participantId") { exists() }
+                }
+
+            val participant = assertNotNull(participantRepository.findByPartyAndUser(party, user))
+            assertEquals(false, participant.hasWrittenPaper)
+        }
+
+        @Test
+        fun `이미 참여한 회원이 초대장 참여 API를 다시 호출하면 기존 participant를 반환한다`() {
+            val user = saveUser("kakao-join-existing", "join-existing@kakao.local")
+            val party =
+                saveParty(
+                    PaperOnlyParty(
+                        ownerId = 1L,
+                        celebrantNickname = "홍길동",
+                        startedAt = LocalDateTime.now().toLocalDate().atStartOfDay(),
+                    ),
+                    LocalDateTime.now().minusDays(1),
+                )
+            val existingParticipant = participantRepository.saveAndFlush(Participant(party = party, user = user))
+            saveInvite(party, "memberjoin0002")
+            val accessToken = tokenProvider.issue(user)
+
+            mockMvc
+                .post("/api/v1/party-invites/memberjoin0002/participants/me") {
+                    header("Authorization", "Bearer $accessToken")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.participantId") { value(existingParticipant.id) }
+                }
+
+            assertEquals(1, participantRepository.findAllByPartyId(party.id).size)
+        }
+
+        @Test
+        fun `인증 없이 초대장 참여 API를 호출하면 401`() {
+            mockMvc.post("/api/v1/party-invites/memberjoin0003/participants/me").andExpect {
+                status { isUnauthorized() }
+                jsonPath("$.error.code") { value("AUTH_UNAUTHORIZED") }
+            }
+        }
+
+        @Test
+        fun `잘못된 Bearer 토큰으로 초대장 참여 API를 호출하면 401`() {
+            mockMvc
+                .post("/api/v1/party-invites/memberjoin0004/participants/me") {
+                    header("Authorization", "Bearer not-a-jwt")
+                }.andExpect {
+                    status { isUnauthorized() }
+                    jsonPath("$.error.code") { value("AUTH_INVALID_TOKEN") }
+                }
+        }
+
+        @Test
+        fun `만료된 초대 토큰으로 참여하면 participant를 생성하지 않고 실패한다`() {
+            val user = saveUser("kakao-expired-join", "expired-join@kakao.local")
+            val party =
+                saveParty(
+                    PaperOnlyParty(
+                        ownerId = 1L,
+                        celebrantNickname = "홍길동",
+                        startedAt = LocalDateTime.now().toLocalDate().atStartOfDay(),
+                    ),
+                    LocalDateTime.now().minusDays(1),
+                )
+            saveInvite(party, "expiredjoin001", LocalDateTime.now().minusHours(1))
+            val accessToken = tokenProvider.issue(user)
+
+            mockMvc
+                .post("/api/v1/party-invites/expiredjoin001/participants/me") {
+                    header("Authorization", "Bearer $accessToken")
+                }.andExpect {
+                    status { isBadRequest() }
+                    jsonPath("$.error.code") { value("INVITE_LINK_EXPIRED") }
+                }
+
+            assertEquals(0, participantRepository.count())
+        }
+
+        @Test
+        fun `종료된 파티에 참여하면 participant를 생성하지 않고 실패한다`() {
+            val user = saveUser("kakao-ended-join", "ended-join@kakao.local")
+            val createdAt = LocalDateTime.now().minusDays(8).truncatedTo(ChronoUnit.SECONDS)
+            val party =
+                saveParty(
+                    PaperOnlyParty(
+                        ownerId = 1L,
+                        celebrantNickname = "홍길동",
+                        startedAt = createdAt.toLocalDate().atStartOfDay(),
+                    ),
+                    createdAt,
+                )
+            saveInvite(party, "endedjoin00001", LocalDateTime.now().plusHours(1))
+            val accessToken = tokenProvider.issue(user)
+
+            mockMvc
+                .post("/api/v1/party-invites/endedjoin00001/participants/me") {
+                    header("Authorization", "Bearer $accessToken")
+                }.andExpect {
+                    status { isBadRequest() }
+                    jsonPath("$.error.code") { value("PARTY_ENDED") }
+                }
+
+            assertEquals(0, participantRepository.count())
         }
 
         @Test
