@@ -10,6 +10,7 @@
 
 운영에 필요한 schema와 기본 선택지 데이터는 Flyway migration으로 관리한다.
 
+- Spring Boot 4에서는 Flyway 자동 실행을 위해 `spring-boot-starter-flyway`를 사용한다.
 - `V1__init_schema.sql`: 현재 엔티티 기준 전체 schema 생성
 - `V2__seed_default_assets.sql`: 기본 캐릭터, 캐릭터 이미지, 캐릭터 썸네일, 롤링페이퍼 래퍼, 래퍼 이미지 seed
 
