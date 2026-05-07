@@ -210,13 +210,8 @@ reload_nginx() {
     docker exec team2-nginx nginx -s reload
 }
 
-verify_nginx_route() {
+verify_nginx_route_once() {
     local app_env="$1"
-
-    if ! command -v curl &>/dev/null; then
-        echo "ERROR: curl is required on the deployment host for nginx route verification."
-        return 1
-    fi
 
     if [ "$app_env" = "dev" ]; then
         curl -fsS --connect-timeout 3 --max-time 10 http://127.0.0.1:8081/actuator/health >/dev/null ||
@@ -224,6 +219,33 @@ verify_nginx_route() {
     else
         curl -kfsS --connect-timeout 3 --max-time 10 --resolve api.hapalin.com:443:127.0.0.1 https://api.hapalin.com/actuator/health >/dev/null
     fi
+}
+
+verify_nginx_route() {
+    local app_env="$1"
+    local max_attempts=10
+    local interval=2
+
+    if ! command -v curl &>/dev/null; then
+        echo "ERROR: curl is required on the deployment host for nginx route verification."
+        return 1
+    fi
+
+    for i in $(seq 1 "$max_attempts"); do
+        if verify_nginx_route_once "$app_env"; then
+            return 0
+        fi
+
+        if [ "$i" -lt "$max_attempts" ]; then
+            echo "  [$i/$max_attempts] nginx route for $app_env is not ready; retrying in ${interval}s..."
+            sleep "$interval"
+        fi
+    done
+
+    echo "ERROR: nginx route verification failed after $max_attempts attempts for $app_env."
+    echo "==> Active upstream file for $app_env:"
+    cat "$(active_upstreams_file "$app_env")" || true
+    return 1
 }
 
 switch_nginx_to_slot() {
