@@ -282,6 +282,16 @@ verify_nginx_route_once() {
     fi
 }
 
+validate_positive_integer() {
+    local name="$1"
+    local value="$2"
+
+    if [[ ! "$value" =~ ^[1-9][0-9]*$ ]]; then
+        echo "ERROR: $name must be a positive integer greater than 0."
+        return 1
+    fi
+}
+
 verify_nginx_route() {
     local app_env="$1"
     local max_attempts="${NGINX_ROUTE_VERIFY_MAX_ATTEMPTS:-10}"
@@ -291,6 +301,9 @@ verify_nginx_route() {
         echo "ERROR: curl is required on the deployment host for nginx route verification."
         return 1
     fi
+
+    validate_positive_integer "NGINX_ROUTE_VERIFY_MAX_ATTEMPTS" "$max_attempts" || return 1
+    validate_positive_integer "NGINX_ROUTE_VERIFY_INTERVAL" "$interval" || return 1
 
     for i in $(seq 1 "$max_attempts"); do
         if [ "$i" -lt "$max_attempts" ]; then
