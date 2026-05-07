@@ -2,7 +2,7 @@
 
 ## 개요
 
-실시간 파티(`REALTIME`) 참여자가 닉네임과 캐릭터를 선택해 입장하고, SSE 스트림을 통해 실시간으로 채팅하는 기능이다. 중간 입장자도 기존 채팅 내역을 즉시 확인할 수 있다.
+실시간 파티(`REALTIME`) 참여자가 닉네임과 캐릭터를 선택해 입장하고, SSE 스트림을 통해 실시간으로 채팅하는 기능이다. 입장과 SSE 구독은 단일 엔드포인트에서 처리된다. 중간 입장자도 기존 채팅 내역을 즉시 확인할 수 있다.
 
 ---
 
@@ -12,27 +12,20 @@
 참여자                           서버
   │                               │
   │── POST /invites/{token}/      │
-  │   realtime-participants ──────►│  1. 초대 토큰 검증
+  │   realtime-participants/stream─►│  1. 초대 토큰 검증
   │                               │  2. Participant 생성 또는 재사용
   │                               │  3. Profile upsert (닉네임·캐릭터)
-  │                               │  4. 기존 채팅 내역 조회
-  │◄── { participantToken,        │
-  │      messages: [...] } ───────│
-  │                               │
-  │── GET /parties/{id}/          │
-  │   chat-messages/stream ───────►│  5. 인증 검증 (JWT 또는 participantToken)
-  │                               │  6. SseEmitter 등록
-  │                               │  7. history 이벤트 전송 (전체 내역)
-  │◄── event: history [...] ──────│
-  │                               │
-  │ (다른 참여자가 메시지 전송)     │
+  │                               │  4. SseEmitter 등록
+  │                               │  5. 기존 채팅 내역 조회
+  │◄── event: entered {           │
+  │     participantToken,         │
+  │     messages: [...] } ────────│
   │                               │
   │── POST /parties/{id}/         │
-  │   chat-messages ──────────────►│  8. 파티 상태 검증 (LIVE_OPEN 만)
-  │                               │  9. ChatMessage DB 저장 (트랜잭션)
-  │                               │  10. 트랜잭션 커밋
-  │◄── { messageId, content, ... }│  11. AFTER_COMMIT → SSE 브로드캐스트
-  │                               │
+  │   chat-messages ──────────────►│  6. 파티 상태 검증 (LIVE_OPEN 만)
+  │                               │  7. ChatMessage DB 저장 (트랜잭션)
+  │◄── { messageId, content, ... }│  8. 트랜잭션 커밋
+  │                               │  9. AFTER_COMMIT → SSE 브로드캐스트
   │◄── event: message { ... } ────│  (SSE 구독 중인 모든 참여자 수신)
 ```
 
@@ -40,9 +33,11 @@
 
 ## API 명세
 
-### 1. 실시간 파티 입장
+### 1. 실시간 파티 입장 + SSE 구독
 
-**`POST /api/v1/party-invites/{inviteToken}/realtime-participants`**
+**`POST /api/v1/party-invites/{inviteToken}/realtime-participants/stream`**
+
+인증 불필요. 응답 Content-Type: `text/event-stream`.
 
 #### 요청
 
@@ -52,8 +47,6 @@
   "characterId": 1
 }
 ```
-
-인증: 로그인 사용자(JWT Bearer)와 비로그인 사용자 모두 허용.
 
 #### 검증 순서
 
@@ -73,25 +66,21 @@
 - `Participant`에 연결된 `RealtimeParticipantProfile`이 이미 있으면 닉네임·캐릭터를 덮어쓰고 기존 `participantToken` 유지 (재입장 시 토큰 재사용)
 - 없으면 새로 생성, `participantToken`은 8자리 랜덤 영숫자 생성
 
-#### 채팅 내역 조회
+#### SSE 이벤트
 
-Profile 처리 완료 후 해당 파티의 전체 채팅 내역을 `createdAt ASC`으로 조회한다. `profile`과 `character`는 JOIN FETCH로 한 번에 로딩해 N+1을 방지한다.
+SseEmitter 등록 후 첫 이벤트로 `entered`를 전송하고, 연결은 **15분** 후 자동 종료.
 
-#### 응답
+| 이벤트 이름 | 발생 시점 | 데이터 |
+|---|---|---|
+| `entered` | 입장 직후 1회 | `{ participantToken, messages: [...] }` |
+| `message` | 누군가 메시지 전송 시 | 단건 메시지 객체 |
 
-```json
-{
-  "participantToken": "abc12345",
-  "messages": [
-    {
-      "messageId": 1,
-      "content": "먼저 입장한 사람의 메시지",
-      "senderNickname": "토끼",
-      "senderCharacterId": 2,
-      "sentAt": "2026-05-07T10:00:00"
-    }
-  ]
-}
+```
+event: entered
+data: {"participantToken":"abc12345","messages":[{"messageId":1,"content":"먼저 입장한 사람의 메시지","senderNickname":"토끼","senderCharacterId":2,"sentAt":"..."}]}
+
+event: message
+data: {"messageId":2,"content":"반가워요","senderNickname":"곰","senderCharacterId":1,"sentAt":"..."}
 ```
 
 - `messages`가 없으면 빈 배열 `[]`
@@ -99,43 +88,19 @@ Profile 처리 완료 후 해당 파티의 전체 채팅 내역을 `createdAt AS
 
 ---
 
-### 2. SSE 채팅 구독
-
-**`GET /api/v1/parties/{partyId}/chat-messages/stream`**
-
-인증: `Authorization: Bearer {token}` 또는 `X-Participant-Token: {participantToken}` 헤더 중 하나 필수.
-
-#### 흐름
-
-1. 파티 존재·`REALTIME` 여부 검증
-2. 인증 검증 — JWT면 userId로, `X-Participant-Token`이면 토큰으로 `RealtimeParticipantProfile` 조회. 두 수단 모두 없으면 `UNAUTHORIZED (401)`. 파티 소속이 아니면 `PARTY_FORBIDDEN (403)`
-3. `SseEmitter` 생성 후 레지스트리에 **먼저 등록** (등록 전에 브로드캐스트가 발생해도 누락 없도록)
-4. 전체 채팅 내역을 `history` 이벤트로 전송
-5. 이후 다른 참여자의 메시지를 `message` 이벤트로 실시간 수신
-6. 연결은 **15분** 후 자동 종료
-
-#### SSE 이벤트 구조
-
-| 이벤트 이름 | 발생 시점 | 데이터 |
-|---|---|---|
-| `history` | 구독 직후 1회 | 전체 메시지 배열 |
-| `message` | 누군가 메시지 전송 시 | 단건 메시지 객체 |
-
-```
-event: history
-data: [{"messageId":1,"content":"안녕","senderNickname":"토끼","senderCharacterId":2,"sentAt":"..."}]
-
-event: message
-data: {"messageId":2,"content":"반가워요","senderNickname":"곰","senderCharacterId":1,"sentAt":"..."}
-```
-
----
-
-### 3. 채팅 메시지 전송
+### 2. 채팅 메시지 전송
 
 **`POST /api/v1/parties/{partyId}/chat-messages`**
 
-인증: SSE 구독과 동일 (JWT 또는 `X-Participant-Token`).
+인증: `Authorization: Bearer {token}` 또는 `X-Participant-Token: {participantToken}` 헤더 중 하나 필수.
+
+#### 요청
+
+```json
+{
+  "content": "안녕하세요!"
+}
+```
 
 #### 검증
 
@@ -162,10 +127,8 @@ data: {"messageId":2,"content":"반가워요","senderNickname":"곰","senderChar
 | id | BIGINT PK | |
 | content | VARCHAR(1000) | 메시지 내용 |
 | party_id | BIGINT FK | 파티 |
-| profile_id | BIGINT FK | 발신자 프로필 (V3 마이그레이션에서 participant_id → profile_id로 변경) |
+| profile_id | BIGINT FK | 발신자 프로필 |
 | created_at | DATETIME | 전송 시각 |
-
-> V3 마이그레이션: `chat_message.participant_id`를 `profile_id`로 교체. 닉네임·캐릭터 정보가 Profile에 있으므로 메시지 렌더링 시 추가 조인 없이 처리 가능.
 
 ### realtime_participant_profile
 
@@ -182,15 +145,10 @@ data: {"messageId":2,"content":"반가워요","senderNickname":"곰","senderChar
 ## 클라이언트 권장 시퀀스
 
 ```
-1. POST /invites/{token}/realtime-participants
-   → participantToken 저장, messages로 화면 초기 렌더링
-
-2. GET /parties/{id}/chat-messages/stream 연결
-   → history 이벤트 수신 시 화면 갱신 (재연결 시 동기화 보장)
+1. POST /invites/{token}/realtime-participants/stream (SSE 연결)
+   → entered 이벤트: participantToken 저장, messages로 화면 초기 렌더링
    → 이후 message 이벤트를 실시간으로 화면에 추가
 
-3. 채팅 입력 시 POST /parties/{id}/chat-messages
+2. 채팅 입력 시 POST /parties/{id}/chat-messages
    → SSE로 message 이벤트 수신
 ```
-
-입장 응답의 `messages`와 SSE의 `history` 이벤트가 중복되므로, 클라이언트는 `history` 이벤트 수신 시 기존 목록을 덮어쓰는 방식으로 처리하면 된다.
