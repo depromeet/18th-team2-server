@@ -4,6 +4,7 @@ import com.team2.server.auth.jwt.JwtAuthenticationEntryPoint
 import com.team2.server.auth.jwt.JwtAuthenticationFilter
 import com.team2.server.auth.oauth2.CustomOAuth2UserService
 import com.team2.server.auth.oauth2.OAuth2FailureHandler
+import com.team2.server.auth.oauth2.OAuth2RedirectUriCaptureFilter
 import com.team2.server.auth.oauth2.OAuth2SuccessHandler
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -11,6 +12,7 @@ import org.springframework.http.HttpMethod
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestRedirectFilter
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 import org.springframework.web.cors.CorsConfiguration
@@ -59,7 +61,10 @@ class SecurityConfig(
                 oauth.successHandler(oAuth2SuccessHandler)
                 oauth.failureHandler(oAuth2FailureHandler)
             }.exceptionHandling { it.authenticationEntryPoint(jwtAuthenticationEntryPoint) }
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
+            .addFilterBefore(
+                OAuth2RedirectUriCaptureFilter(oAuth2Properties),
+                OAuth2AuthorizationRequestRedirectFilter::class.java,
+            ).addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
         return http.build()
     }
 
