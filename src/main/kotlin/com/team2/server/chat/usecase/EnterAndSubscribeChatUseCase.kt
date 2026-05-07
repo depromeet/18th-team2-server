@@ -5,6 +5,7 @@ import com.team2.server.chat.dto.EnterRealtimePartyRequest
 import com.team2.server.chat.dto.EnterRealtimePartyResponse
 import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.chat.service.SseEmitterRegistry
+import com.team2.server.party.entity.RealtimeParty
 import org.springframework.stereotype.Service
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 
@@ -21,13 +22,13 @@ class EnterAndSubscribeChatUseCase(
     ): SseEmitter {
         val enterResult = enterRealtimePartyUseCase.enter(inviteToken, userId, request)
 
-        val emitter = SseEmitter(EMITTER_TIMEOUT_MS)
-        sseEmitterRegistry.subscribe(enterResult.partyId, emitter)
-
         val messages =
             chatMessageRepository
                 .findAllByPartyIdWithProfileOrderByCreatedAtAsc(enterResult.partyId)
                 .map { ChatMessageResponse.from(it) }
+
+        val emitter = SseEmitter(EMITTER_TIMEOUT_MS)
+        sseEmitterRegistry.subscribe(enterResult.partyId, emitter)
 
         try {
             emitter.send(
@@ -51,6 +52,7 @@ class EnterAndSubscribeChatUseCase(
     }
 
     companion object {
-        private const val EMITTER_TIMEOUT_MS = 15 * 60 * 1000L
+        private const val EMITTER_TIMEOUT_MS =
+            (RealtimeParty.ENTERABLE_BEFORE_MINUTES + RealtimeParty.LIVE_DURATION_MINUTES) * 60 * 1000L
     }
 }

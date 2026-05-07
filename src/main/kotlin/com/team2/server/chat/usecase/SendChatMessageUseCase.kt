@@ -106,7 +106,7 @@ class SendChatMessageUseCase(
             profileRepository.findByParticipantToken(participantToken)
                 ?: throw BusinessException(ErrorCode.CHARACTER_REQUIRED)
         val profileParty = profile.participant.party
-        if (profileParty !== party && profileParty.id != partyId) {
+        if (profileParty.id != partyId) {
             throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
         }
         return profile

@@ -1,13 +1,13 @@
 -- realtime_participant_profile에 participant_token 추가
 ALTER TABLE realtime_participant_profile
-    ADD COLUMN participant_token VARCHAR(8) NOT NULL DEFAULT '',
-    ADD CONSTRAINT uk_realtime_participant_profile_token UNIQUE (participant_token);
+    ADD COLUMN participant_token VARCHAR(8) NOT NULL DEFAULT '';
 
 UPDATE realtime_participant_profile
-    SET participant_token = LPAD(CONV(id, 10, 36), 8, '0');
+    SET participant_token = LPAD(LOWER(CONV(id, 10, 36)), 8, '0');
 
 ALTER TABLE realtime_participant_profile
-    MODIFY COLUMN participant_token VARCHAR(8) NOT NULL;
+    MODIFY COLUMN participant_token VARCHAR(8) NOT NULL,
+    ADD CONSTRAINT uk_realtime_participant_profile_token UNIQUE (participant_token);
 
 -- chat_message: participant_id 제거 후 profile_id 추가
 TRUNCATE TABLE chat_message;

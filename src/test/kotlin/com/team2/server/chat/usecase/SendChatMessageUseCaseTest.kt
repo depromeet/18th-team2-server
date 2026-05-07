@@ -146,11 +146,11 @@ class SendChatMessageUseCaseTest {
         val participant = Participant(party = party)
         val profile = RealtimeParticipantProfile(participant = participant, nickname = "손님", participantToken = "tok")
         val savedMessage = ChatMessage(content = "안녕하세요!", party = party, profile = profile)
-        whenever(partyRepository.findPartyById(1L)).thenReturn(party)
+        whenever(partyRepository.findPartyById(party.id)).thenReturn(party)
         whenever(profileRepository.findByParticipantToken("tok")).thenReturn(profile)
         whenever(chatMessageRepository.save(any())).thenReturn(savedMessage)
 
-        val response = useCase.send(partyId = 1L, userId = null, participantToken = "tok", request)
+        val response = useCase.send(partyId = party.id, userId = null, participantToken = "tok", request)
 
         assertEquals("손님", response.senderNickname)
         verify(applicationEventPublisher).publishEvent(any<ChatMessageBroadcastEvent>())

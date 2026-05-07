@@ -47,6 +47,10 @@ class EnterRealtimePartyUseCase(
             characterRepository.findByIdOrNull(request.characterId)
                 ?: throw BusinessException(ErrorCode.CHARACTER_NOT_FOUND)
 
+        if (userId == null && request.participantToken != null) {
+            return reenterAsGuest(invite.party, request.participantToken, request.nickname, character)
+        }
+
         val participant = findOrCreateParticipant(invite.party.id, userId, invite.party)
         val participantToken = upsertProfile(participant, request.nickname, character)
 
@@ -67,10 +71,30 @@ class EnterRealtimePartyUseCase(
     }
 
     private fun validateEnterable(party: Party) {
-        val enterableFrom = party.startedAt.minusMinutes(RealtimeParty.ENTERABLE_BEFORE_MINUTES)
-        if (LocalDateTime.now().isBefore(enterableFrom)) {
+        val realtimeParty = party as RealtimeParty
+        val now = LocalDateTime.now()
+        val enterableFrom = realtimeParty.startedAt.minusMinutes(RealtimeParty.ENTERABLE_BEFORE_MINUTES)
+        val enterableTo = realtimeParty.startedAt.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES)
+        if (now.isBefore(enterableFrom) || !now.isBefore(enterableTo)) {
             throw BusinessException(ErrorCode.CHAT_NOT_ACTIVE)
         }
+    }
+
+    private fun reenterAsGuest(
+        party: Party,
+        participantToken: String,
+        nickname: String,
+        character: Character,
+    ): EnterResult {
+        val profile =
+            realtimeParticipantProfileRepository.findByParticipantToken(participantToken)
+                ?: throw BusinessException(ErrorCode.UNAUTHORIZED)
+        if (profile.participant.party.id != party.id) {
+            throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
+        }
+        profile.nickname = nickname
+        profile.character = character
+        return EnterResult(participantToken = profile.participantToken, partyId = party.id)
     }
 
     private fun upsertProfile(
