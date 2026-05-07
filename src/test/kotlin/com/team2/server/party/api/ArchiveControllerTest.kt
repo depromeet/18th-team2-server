@@ -374,6 +374,46 @@ class ArchiveControllerTest
                 }
         }
 
+        @Test
+        fun `size가 0이면 400 INVALID_INPUT을 반환한다`() {
+            mockMvc.get("/api/v1/archive?size=0").andExpect {
+                status { isBadRequest() }
+                jsonPath("$.error.code") { value("INVALID_INPUT") }
+            }
+        }
+
+        @Test
+        fun `size가 51이면 400 INVALID_INPUT을 반환한다`() {
+            mockMvc.get("/api/v1/archive?size=51").andExpect {
+                status { isBadRequest() }
+                jsonPath("$.error.code") { value("INVALID_INPUT") }
+            }
+        }
+
+        @Test
+        fun `cursor가 0이면 400 INVALID_INPUT을 반환한다`() {
+            mockMvc.get("/api/v1/archive?cursor=0").andExpect {
+                status { isBadRequest() }
+                jsonPath("$.error.code") { value("INVALID_INPUT") }
+            }
+        }
+
+        @Test
+        fun `cursor가 음수면 400 INVALID_INPUT을 반환한다`() {
+            mockMvc.get("/api/v1/archive?cursor=-1").andExpect {
+                status { isBadRequest() }
+                jsonPath("$.error.code") { value("INVALID_INPUT") }
+            }
+        }
+
+        @Test
+        fun `cursor가 숫자가 아니면 400 INVALID_INPUT을 반환한다`() {
+            mockMvc.get("/api/v1/archive?cursor=abc").andExpect {
+                status { isBadRequest() }
+                jsonPath("$.error.code") { value("INVALID_INPUT") }
+            }
+        }
+
         private fun saveParty(
             party: Party,
             createdAt: LocalDateTime,
