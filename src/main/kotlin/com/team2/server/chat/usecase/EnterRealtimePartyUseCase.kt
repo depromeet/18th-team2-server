@@ -1,7 +1,9 @@
 package com.team2.server.chat.usecase
 
+import com.team2.server.chat.dto.ChatMessageResponse
 import com.team2.server.chat.dto.EnterRealtimePartyRequest
 import com.team2.server.chat.dto.EnterRealtimePartyResponse
+import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.entity.Character
@@ -9,6 +11,7 @@ import com.team2.server.party.entity.Participant
 import com.team2.server.party.entity.Party
 import com.team2.server.party.entity.PartyOption
 import com.team2.server.party.entity.RealtimeParticipantProfile
+import com.team2.server.party.entity.RealtimeParty
 import com.team2.server.party.repository.CharacterRepository
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyInviteRepository
@@ -26,6 +29,7 @@ class EnterRealtimePartyUseCase(
     private val realtimeParticipantProfileRepository: RealtimeParticipantProfileRepository,
     private val characterRepository: CharacterRepository,
     private val userRepository: UserRepository,
+    private val chatMessageRepository: ChatMessageRepository,
 ) {
     @Transactional
     fun enter(
@@ -36,25 +40,40 @@ class EnterRealtimePartyUseCase(
         val invite =
             partyInviteRepository.findByToken(inviteToken)
                 ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
-        validateInvite(invite.party.partyOption, invite.expiresAt)
+        validateInvite(invite.party, invite.expiresAt)
 
         val character =
             characterRepository.findByIdOrNull(request.characterId)
                 ?: throw BusinessException(ErrorCode.CHARACTER_NOT_FOUND)
 
         val participant = findOrCreateParticipant(invite.party.id, userId, invite.party)
-        return upsertProfile(participant, request.nickname, character)
+        val participantToken = upsertProfile(participant, request.nickname, character)
+
+        val messages =
+            chatMessageRepository
+                .findAllByPartyIdWithProfileOrderByCreatedAtAsc(invite.party.id)
+                .map { ChatMessageResponse.from(it) }
+
+        return EnterRealtimePartyResponse(participantToken = participantToken, messages = messages)
     }
 
     private fun validateInvite(
-        partyOption: PartyOption,
+        party: Party,
         expiresAt: LocalDateTime,
     ) {
-        if (partyOption != PartyOption.REALTIME) {
+        if (party.partyOption != PartyOption.REALTIME) {
             throw BusinessException(ErrorCode.CHAT_NOT_SUPPORTED)
         }
         if (!expiresAt.isAfter(LocalDateTime.now())) {
             throw BusinessException(ErrorCode.INVITE_LINK_EXPIRED)
+        }
+        validateEnterable(party)
+    }
+
+    private fun validateEnterable(party: Party) {
+        val enterableFrom = party.startedAt.minusMinutes(RealtimeParty.ENTERABLE_BEFORE_MINUTES)
+        if (LocalDateTime.now().isBefore(enterableFrom)) {
+            throw BusinessException(ErrorCode.CHAT_NOT_ACTIVE)
         }
     }
 
@@ -62,18 +81,18 @@ class EnterRealtimePartyUseCase(
         participant: Participant,
         nickname: String,
         character: Character,
-    ): EnterRealtimePartyResponse {
+    ): String {
         val profile = realtimeParticipantProfileRepository.findByParticipant(participant)
         if (profile != null) {
             profile.nickname = nickname
             profile.character = character
-            return EnterRealtimePartyResponse(participantToken = profile.participantToken)
+            return profile.participantToken
         }
         val newProfile =
             realtimeParticipantProfileRepository.save(
                 RealtimeParticipantProfile(participant = participant, nickname = nickname, character = character),
             )
-        return EnterRealtimePartyResponse(participantToken = newProfile.participantToken)
+        return newProfile.participantToken
     }
 
     private fun findOrCreateParticipant(

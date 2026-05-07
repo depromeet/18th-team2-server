@@ -9,7 +9,7 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.OneToOne
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
-import java.util.UUID
+import java.security.SecureRandom
 
 @Entity
 @Table(
@@ -34,6 +34,17 @@ class RealtimeParticipantProfile(
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "character_id")
     var character: Character? = null,
-    @Column(name = "participant_token", nullable = false, length = 36)
-    val participantToken: String = UUID.randomUUID().toString(),
-) : BaseEntity()
+    @Column(name = "participant_token", nullable = false, length = 8)
+    val participantToken: String = generateToken(),
+) : BaseEntity() {
+    companion object {
+        private const val TOKEN_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789"
+        private val random = SecureRandom()
+
+        private const val TOKEN_LENGTH = 8
+
+        private fun generateToken() = (1..TOKEN_LENGTH)
+            .map { TOKEN_CHARS[random.nextInt(TOKEN_CHARS.length)] }
+            .joinToString("")
+    }
+}
