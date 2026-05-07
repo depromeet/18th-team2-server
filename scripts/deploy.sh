@@ -109,10 +109,12 @@ nginx_has_mount_destination() {
     local destination="$1"
 
     docker inspect -f '{{range .Mounts}}{{println .Destination}}{{end}}' team2-nginx 2>/dev/null |
-        grep -qx "$destination"
+        grep -Fxq "$destination"
 }
 
 ensure_nginx_blue_green_ready() {
+    local nginx_dump
+
     if ! docker ps --filter 'name=^/team2-nginx$' --format '{{.Names}}' | grep -qx 'team2-nginx'; then
         echo "ERROR: team2-nginx is not running. Run ./scripts/deploy-nginx.sh before app deployment."
         return 1
@@ -134,15 +136,23 @@ ensure_nginx_blue_green_ready() {
     fi
 
     # These sentinels confirm team2-nginx is using the blue/green nginx configuration.
-    if ! docker exec team2-nginx sh -c "nginx -T 2>/dev/null | grep -q 'dev_api_upstream'" ||
-        ! docker exec team2-nginx sh -c "nginx -T 2>/dev/null | grep -q 'prod_api_upstream'"; then
+    if ! nginx_dump="$(docker exec team2-nginx nginx -T 2>/dev/null)"; then
+        echo "ERROR: failed to dump team2-nginx configuration."
+        echo "Run ./scripts/deploy-nginx.sh before app deployment."
+        return 1
+    fi
+
+    if ! grep -q 'dev_api_upstream' <<< "$nginx_dump" ||
+        ! grep -q 'prod_api_upstream' <<< "$nginx_dump"; then
         echo "ERROR: team2-nginx is not using the current blue/green nginx configuration."
         echo "Run ./scripts/deploy-nginx.sh before app deployment."
         return 1
     fi
+
+    echo "==> nginx blue/green preflight: OK"
 }
 
-ensure_nginx_blue_green_ready
+ensure_nginx_blue_green_ready || exit 1
 
 profiles_for_env() {
     local app_env="$1"
@@ -251,19 +261,31 @@ reload_nginx() {
 
 verify_nginx_route_once() {
     local app_env="$1"
+    local output_mode="${2:-show}"
 
     if [ "$app_env" = "dev" ]; then
-        curl -fsS --connect-timeout 3 --max-time 10 http://127.0.0.1:8081/actuator/health >/dev/null ||
+        if curl -fsS --connect-timeout 3 --max-time 10 http://127.0.0.1:8081/actuator/health >/dev/null 2>&1; then
+            return 0
+        fi
+
+        if [ "$output_mode" = "quiet" ]; then
+            curl -kfsS --connect-timeout 3 --max-time 10 --resolve dev-api.hapalin.com:443:127.0.0.1 https://dev-api.hapalin.com/actuator/health >/dev/null 2>&1
+        else
             curl -kfsS --connect-timeout 3 --max-time 10 --resolve dev-api.hapalin.com:443:127.0.0.1 https://dev-api.hapalin.com/actuator/health >/dev/null
+        fi
     else
-        curl -kfsS --connect-timeout 3 --max-time 10 --resolve api.hapalin.com:443:127.0.0.1 https://api.hapalin.com/actuator/health >/dev/null
+        if [ "$output_mode" = "quiet" ]; then
+            curl -kfsS --connect-timeout 3 --max-time 10 --resolve api.hapalin.com:443:127.0.0.1 https://api.hapalin.com/actuator/health >/dev/null 2>&1
+        else
+            curl -kfsS --connect-timeout 3 --max-time 10 --resolve api.hapalin.com:443:127.0.0.1 https://api.hapalin.com/actuator/health >/dev/null
+        fi
     fi
 }
 
 verify_nginx_route() {
     local app_env="$1"
-    local max_attempts=10
-    local interval=2
+    local max_attempts="${NGINX_ROUTE_VERIFY_MAX_ATTEMPTS:-10}"
+    local interval="${NGINX_ROUTE_VERIFY_INTERVAL:-2}"
 
     if ! command -v curl &>/dev/null; then
         echo "ERROR: curl is required on the deployment host for nginx route verification."
@@ -271,13 +293,17 @@ verify_nginx_route() {
     fi
 
     for i in $(seq 1 "$max_attempts"); do
-        if verify_nginx_route_once "$app_env"; then
-            return 0
-        fi
-
         if [ "$i" -lt "$max_attempts" ]; then
+            if verify_nginx_route_once "$app_env" quiet; then
+                return 0
+            fi
+
             echo "  [$i/$max_attempts] nginx route for $app_env is not ready; retrying in ${interval}s..."
             sleep "$interval"
+        elif verify_nginx_route_once "$app_env"; then
+            return 0
+        else
+            echo "  [$i/$max_attempts] nginx route for $app_env is not ready."
         fi
     done
 
