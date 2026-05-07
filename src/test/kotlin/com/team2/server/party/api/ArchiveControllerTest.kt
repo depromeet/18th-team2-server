@@ -247,6 +247,133 @@ class ArchiveControllerTest
                 }
         }
 
+        @Test
+        fun `size보다 항목이 많으면 nextCursor가 마지막 항목 id로 설정된다`() {
+            val user = saveUser("kakao-archive-page1", "archive-page1@kakao.local")
+            val token = tokenProvider.issue(user)
+            val now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS)
+
+            val participants =
+                (1..3).map { idx ->
+                    val party =
+                        saveParty(
+                            RealtimeParty(
+                                ownerId = user.id,
+                                name = "파티 $idx",
+                                celebrantNickname = "주인공 $idx",
+                                startedAt = now.plusHours(idx.toLong()),
+                            ),
+                            now.minusHours(idx.toLong()),
+                        )
+                    saveParticipant(party, user, now.minusMinutes(idx * 10L))
+                }
+
+            mockMvc
+                .get("/api/v1/archive?size=2") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.items.length()") { value(2) }
+                    jsonPath("$.data.items[0].id") { value(participants[2].id.toString()) }
+                    jsonPath("$.data.items[1].id") { value(participants[1].id.toString()) }
+                    jsonPath("$.data.nextCursor") { value(participants[1].id.toString()) }
+                    jsonPath("$.data.totalCount") { value(3) }
+                }
+        }
+
+        @Test
+        fun `cursor로 다음 페이지를 받으면 남은 항목과 nextCursor null을 응답한다`() {
+            val user = saveUser("kakao-archive-page2", "archive-page2@kakao.local")
+            val token = tokenProvider.issue(user)
+            val now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS)
+
+            val participants =
+                (1..3).map { idx ->
+                    val party =
+                        saveParty(
+                            RealtimeParty(
+                                ownerId = user.id,
+                                name = "파티 $idx",
+                                celebrantNickname = "주인공 $idx",
+                                startedAt = now.plusHours(idx.toLong()),
+                            ),
+                            now.minusHours(idx.toLong()),
+                        )
+                    saveParticipant(party, user, now.minusMinutes(idx * 10L))
+                }
+
+            // participants[1].id 이전 항목만 남음 → participants[0]
+            mockMvc
+                .get("/api/v1/archive?size=2&cursor=${participants[1].id}") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.items.length()") { value(1) }
+                    jsonPath("$.data.items[0].id") { value(participants[0].id.toString()) }
+                    jsonPath("$.data.nextCursor") { value(nullValue()) }
+                    jsonPath("$.data.totalCount") { value(3) }
+                }
+        }
+
+        @Test
+        fun `항목 수가 정확히 size와 같으면 nextCursor는 null이다`() {
+            val user = saveUser("kakao-archive-exact", "archive-exact@kakao.local")
+            val token = tokenProvider.issue(user)
+            val now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS)
+
+            (1..2).forEach { idx ->
+                val party =
+                    saveParty(
+                        RealtimeParty(
+                            ownerId = user.id,
+                            name = "파티 $idx",
+                            celebrantNickname = "주인공 $idx",
+                            startedAt = now.plusHours(idx.toLong()),
+                        ),
+                        now.minusHours(idx.toLong()),
+                    )
+                saveParticipant(party, user, now.minusMinutes(idx * 10L))
+            }
+
+            mockMvc
+                .get("/api/v1/archive?size=2") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.items.length()") { value(2) }
+                    jsonPath("$.data.nextCursor") { value(nullValue()) }
+                }
+        }
+
+        @Test
+        fun `존재하지 않는 cursor를 보내면 빈 items와 nextCursor null을 응답한다`() {
+            val user = saveUser("kakao-archive-largecur", "archive-largecur@kakao.local")
+            val token = tokenProvider.issue(user)
+            val now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS)
+            val party =
+                saveParty(
+                    RealtimeParty(
+                        ownerId = user.id,
+                        name = "유일",
+                        celebrantNickname = "주인공",
+                        startedAt = now.plusHours(2),
+                    ),
+                    now.minusHours(1),
+                )
+            saveParticipant(party, user, now.minusHours(1))
+
+            // cursor < participant.id 인 항목이 없는 매우 작은 cursor (1)
+            mockMvc
+                .get("/api/v1/archive?cursor=1") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.items.length()") { value(0) }
+                    jsonPath("$.data.nextCursor") { value(nullValue()) }
+                    jsonPath("$.data.totalCount") { value(1) }
+                }
+        }
+
         private fun saveParty(
             party: Party,
             createdAt: LocalDateTime,
