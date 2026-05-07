@@ -95,12 +95,12 @@ wait_container_healthy() {
 
     echo "==> Waiting for $container to become healthy..."
     for i in $(seq 1 "$max_attempts"); do
-        status="$(container_health "$container")"
+        status="$(container_state "$container")"
 
-        if [ "$status" = "healthy" ]; then
+        if [ "$status" = "true:healthy" ]; then
             echo "==> $container is healthy!"
             return 0
-        elif [ "$status" = "unhealthy" ]; then
+        elif [ "$status" = "true:unhealthy" ]; then
             echo "ERROR: $container is unhealthy. Dumping logs:"
             docker logs --tail=80 "$container"
             return 1
