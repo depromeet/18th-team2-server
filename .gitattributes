@@ -1,3 +1,14 @@
 /gradlew text eol=lf
+.gitattributes text eol=lf
+.gitignore text eol=lf
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+Dockerfile text eol=lf
+**/Dockerfile text eol=lf
+nginx/*.conf text eol=lf
+nginx/**/*.conf text eol=lf
+scripts/lib-deploy.sh text eol=lf
 *.bat text eol=crlf
 *.jar binary

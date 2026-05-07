@@ -1,0 +1,5 @@
+networks:
+  dev-network:
+    external: true
+  prod-network:
+    external: true

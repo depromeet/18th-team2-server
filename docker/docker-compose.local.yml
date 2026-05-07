@@ -1,0 +1,22 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: team2-local-db
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_DATABASE=team2-local-db
+      - MYSQL_USER=team2
+      - MYSQL_PASSWORD=team2
+      - MYSQL_ROOT_PASSWORD=root
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  db-data:

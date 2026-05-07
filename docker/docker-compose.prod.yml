@@ -1,0 +1,30 @@
+services:
+  db-prod:
+    container_name: team2-db-prod
+    image: mysql:8.0
+    environment:
+      - MYSQL_DATABASE=team2_prod
+      - MYSQL_USER=${PROD_DB_USERNAME}
+      - MYSQL_PASSWORD=${PROD_DB_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${PROD_DB_ROOT_PASSWORD}
+    volumes:
+      - db-prod-data:/var/lib/mysql
+      - /etc/localtime:/etc/localtime:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    mem_limit: 1g
+    cpus: 0.5
+    restart: unless-stopped
+    networks:
+      - prod-network
+
+volumes:
+  db-prod-data:
+
+networks:
+  prod-network:
+    external: true

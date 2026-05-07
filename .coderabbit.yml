@@ -39,7 +39,9 @@ reviews:
         - URI는 리소스 중심 RESTful 설계(/api/v1/users)를 따름
         - 복잡한 동작은 동사를 URI에 포함 (/orders/{orderId}/cancel)
         - HTTP 메서드는 의미에 맞게 사용 (GET, POST, PUT, DELETE)
-        - 응답은 ResponseEntity로 래핑하여 상태코드 명시
+        - 성공 응답은 기본적으로 ApiResponse<T>를 직접 반환
+        - 201 Created 등 기본 200 OK와 다른 성공 상태가 필요하면 @ResponseStatus 또는 프로젝트 공통 응답 방식으로 상태코드 명시
+        - ResponseEntity는 헤더 제어, 파일 다운로드, 리다이렉트, 동적 상태코드 분기 등 HTTP 응답 자체를 직접 제어해야 하는 경우에만 사용
     - path: "**/*Service*.kt"
       instructions: >
         Service 계층 리뷰 기준입니다:

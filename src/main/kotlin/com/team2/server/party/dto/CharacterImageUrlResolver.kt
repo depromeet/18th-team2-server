@@ -1,0 +1,16 @@
+package com.team2.server.party.dto
+
+import com.team2.server.common.entity.ImageTargetType
+import com.team2.server.common.repository.ImageRepository
+import com.team2.server.party.entity.Character
+import org.springframework.stereotype.Component
+
+@Component
+class CharacterImageUrlResolver(
+    private val imageRepository: ImageRepository,
+) {
+    fun resolve(character: Character): String? =
+        imageRepository
+            .findFirstByTargetTypeAndTargetIdOrderBySortOrderAsc(ImageTargetType.CHARACTER, character.id)
+            ?.imageUrl
+}
