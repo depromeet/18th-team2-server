@@ -50,6 +50,7 @@
 - 신규 회원 참여 API 경로는 `POST /api/v1/party-invites/{inviteToken}/participants/me`이다.
 - 응답은 초대장 조회 전용 응답이다.
 - `partyEnded`, `partyStartDate`, `partyEndDate`는 `endedAt` 전용 컬럼이 아니라 `Party.endedAt()` 기준으로 계산한다.
+  - 현재 `Party.endedAt()`는 파티 종류와 관계없이 `startedAt + 7일`이다.
 - `REALTIME` 파티는 조회 시점 상태값 대신 프론트가 버튼/카운트다운 상태를 계산할 기준 시각을 내려준다.
 
 ---
@@ -120,10 +121,10 @@ GET /api/v1/party-invites/{inviteToken}
 | `celebrantNickname` | `Party.celebrantNickname` | 컬럼명과 동일 의미 유지 |
 | `isHost` | `Party.ownerId` | 인증 회원이고 `party.ownerId == userId`이면 true, 비회원이면 false |
 | `partyOption` | 현재 코드의 `Party.partyOption` | 그대로 |
-| `partyEnded` | `Party.endedAt()` | `now >= Party.endedAt()` |
+| `partyEnded` | `Party.endedAt()` | `now >= Party.endedAt()` (`Party.endedAt()` = `startedAt + 7일`) |
 | `rollingPaperWritten` | `Participant.hasWrittenPaper` | 식별 가능한 회원 participant가 있으면 해당 값, 없으면 false |
 | `partyStartDate` | `Party.startedAt` | `startedAt.toLocalDate()` |
-| `partyEndDate` | `Party.endedAt()` | `Party.endedAt().toLocalDate()` |
+| `partyEndDate` | `Party.endedAt()` | `Party.endedAt().toLocalDate()` (`startedAt + 7일`) |
 | `realtimeSchedule` | 실시간 파티 일정 기준 시각 | `REALTIME`이면 내려주고, `PAPER_ONLY`이면 null |
 | `realtimeSchedule.liveStartAt` | `Party.startedAt` | 실시간 파티 시작 시각 |
 | `realtimeSchedule.enterableFrom` | `Party.startedAt - 5분` | 프론트 입장 버튼 활성화 기준 시작 시각 |
