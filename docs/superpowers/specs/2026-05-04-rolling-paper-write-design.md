@@ -212,7 +212,7 @@ UseCase 진입 이후:
 1. `inviteToken`으로 `PartyInvite`를 조회한다.
 2. 토큰이 없으면 `PARTY_NOT_FOUND`.
 3. 초대 토큰이 만료됐으면 `INVITE_LINK_EXPIRED`.
-4. 파티 생성 시각 기준 7일이 지나 파티가 종료됐으면 `PARTY_ENDED`.
+4. 파티 시작 시각 기준 7일이 지나 파티가 종료됐으면 `PARTY_ENDED`.
 5. `wrapperId`로 `RollingPaperWrapper`를 조회한다.
 6. 래퍼가 없으면 `ROLLING_PAPER_WRAPPER_NOT_FOUND`.
 7. 회원이면 파티 내 회원 participant를 조회하고, 아직 없으면 생성한다.
@@ -328,7 +328,7 @@ image.target_id = rolling_paper_wrapper.id
 
 초대 토큰 만료 정책:
 
-- `PartyInvite.expiresAt`은 파티 생성 시각 `party.createdAt + Party.ENDED_AFTER_DAYS`로 계산한다.
+- `PartyInvite.expiresAt`은 `Party.endedAt()`으로 계산한다.
 - `PAPER_ONLY`, `REALTIME` 모두 같은 파티 기간 7일 기준을 사용한다.
 - 실시간 파티 입장 가능 시간은 `RealtimeParty.status()`와 별도 흐름에서 판단하고, 초대 토큰 자체의 만료 기준으로 사용하지 않는다.
 - 초대장 조회 API는 기존 정책대로 만료된 토큰도 조회할 수 있다.

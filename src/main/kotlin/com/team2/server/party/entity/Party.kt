@@ -41,7 +41,7 @@ abstract class Party(
 
     fun canHostViewRollingPapers(now: LocalDateTime): Boolean = !hostViewableAt().isAfter(now)
 
-    fun endedAt(): LocalDateTime = createdAt.plusDays(ENDED_AFTER_DAYS)
+    fun endedAt(): LocalDateTime = startedAt.plusDays(ENDED_AFTER_DAYS)
 
     fun isEnded(now: LocalDateTime = LocalDateTime.now()): Boolean = !endedAt().isAfter(now)
 

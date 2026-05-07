@@ -341,7 +341,7 @@ override fun hostViewableAt(): LocalDateTime =
 파티 자체 종료 시각은 `Party.endedAt()`을 사용한다.
 
 ```text
-Party.endedAt() = Party.createdAt + Party.ENDED_AFTER_DAYS
+Party.endedAt() = Party.startedAt + Party.ENDED_AFTER_DAYS
 ```
 
 `Party.ENDED_AFTER_DAYS`의 현재 값은 7일이다.

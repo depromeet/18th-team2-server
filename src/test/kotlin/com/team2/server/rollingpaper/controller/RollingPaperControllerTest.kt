@@ -262,7 +262,7 @@ class RollingPaperControllerTest
         }
 
         @Test
-        fun `생성 후 7일 지난 파티면 실패`() {
+        fun `시작 후 7일 지난 파티면 실패`() {
             val party = saveParty(createdAt = LocalDateTime.now().minusDays(8))
             val invite = saveInvite(party, "endedwrite00001")
             val wrapper = saveWrapper()

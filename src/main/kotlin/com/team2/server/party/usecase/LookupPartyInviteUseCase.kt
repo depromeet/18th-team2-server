@@ -28,7 +28,7 @@ class LookupPartyInviteUseCase(
                 ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
 
         val now = LocalDateTime.now()
-        val partyEndAt = party.createdAt.plusDays(Party.ENDED_AFTER_DAYS)
+        val partyEndAt = party.endedAt()
         val isRealtime = party.partyOption == PartyOption.REALTIME
 
         return PartyInviteLookupResponse(

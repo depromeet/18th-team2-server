@@ -47,13 +47,14 @@ class PartyDomainTest {
     }
 
     @Test
-    fun `Party는 생성 후 7일을 종료 시각으로 가진다`() {
+    fun `Party는 시작 시각 후 7일을 종료 시각으로 가진다`() {
         val createdAt = LocalDateTime.of(2026, 5, 1, 12, 0)
-        val party = RealtimeParty(ownerId = 1L, startedAt = defaultStartedAt)
+        val startedAt = LocalDateTime.of(2026, 6, 1, 14, 0)
+        val party = RealtimeParty(ownerId = 1L, startedAt = startedAt)
         party.createdAt = createdAt
 
-        assertEquals(createdAt.plusDays(Party.ENDED_AFTER_DAYS), party.endedAt())
-        assertFalse(party.isEnded(createdAt.plusDays(Party.ENDED_AFTER_DAYS).minusNanos(1)))
-        assertTrue(party.isEnded(createdAt.plusDays(Party.ENDED_AFTER_DAYS)))
+        assertEquals(startedAt.plusDays(Party.ENDED_AFTER_DAYS), party.endedAt())
+        assertFalse(party.isEnded(startedAt.plusDays(Party.ENDED_AFTER_DAYS).minusNanos(1)))
+        assertTrue(party.isEnded(startedAt.plusDays(Party.ENDED_AFTER_DAYS)))
     }
 }

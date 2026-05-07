@@ -12,8 +12,8 @@
 
 ## Decisions
 
-- 롤링페이퍼 작성 가능 시간은 `초대 토큰 유효 && party.createdAt + Party.ENDED_AFTER_DAYS 전`이다.
-- `PartyInvite.expiresAt`은 `party.createdAt + Party.ENDED_AFTER_DAYS`로 계산한다.
+- 롤링페이퍼 작성 가능 시간은 `초대 토큰 유효 && Party.endedAt() 전`이다.
+- `PartyInvite.expiresAt`은 `Party.endedAt()`으로 계산한다.
 - 성공 응답은 기존 `ApiResponse` 래퍼를 유지한다.
 - 기본 래퍼 이미지는 `src/main/resources/static/images/rolling-paper-wrappers/` 아래 정적 파일을 사용한다.
 - `RollingPaper.theme` / `theme_id`는 `wrapper` / `wrapper_id`로 변경한다.
@@ -53,7 +53,7 @@
 | `src/main/kotlin/com/team2/server/common/repository/ImageRepository.kt` | wrapper id 목록 기준 bulk image 조회 메서드 추가 |
 | `src/main/kotlin/com/team2/server/common/exception/ErrorCode.kt` | 롤링페이퍼 래퍼 없음, 닉네임 중복, 이미 작성 에러 추가 |
 | `src/main/kotlin/com/team2/server/auth/config/SecurityConfig.kt` | 래퍼 조회/롤링페이퍼 작성 공개 경로 추가 |
-| `src/main/kotlin/com/team2/server/party/service/PartyInviteService.kt` | 초대 토큰 만료를 파티 생성 후 7일 기준으로 변경 |
+| `src/main/kotlin/com/team2/server/party/service/PartyInviteService.kt` | 초대 토큰 만료를 파티 종료 시각 기준으로 변경 |
 | `src/test/kotlin/com/team2/server/party/service/PartyInviteServiceTest.kt` | 초대 토큰 만료 정책 테스트 갱신 |
 | `src/test/kotlin/com/team2/server/party/repository/ParticipantRepositoryTest.kt` | `RollingPaper` 생성자 변경 반영 |
 | `src/test/kotlin/com/team2/server/party/entity/PartyParticipationDomainTest.kt` | `RollingPaper` 생성자 변경 반영 |
@@ -140,7 +140,7 @@ Run:
 - Modify: `src/main/kotlin/com/team2/server/party/service/PartyInviteService.kt`
 - Test: `src/test/kotlin/com/team2/server/party/service/PartyInviteServiceTest.kt`
 
-- [ ] 새 초대 토큰의 `expiresAt`을 `party.createdAt.plusDays(Party.ENDED_AFTER_DAYS)`로 계산한다.
+- [ ] 새 초대 토큰의 `expiresAt`을 `party.endedAt()`으로 계산한다.
 - [ ] `PAPER_ONLY`, `REALTIME` 모두 같은 7일 기준을 사용한다.
 - [ ] 기존 유효 토큰 재사용 정책은 유지한다.
 - [ ] 실시간 라이브 종료 시각은 초대 토큰 만료 기준으로 사용하지 않는다.
@@ -163,7 +163,7 @@ Run:
 - [ ] 요청 DTO에 `@NotBlank`, `@Size(max = 10)`, `@Size(max = 100)`, `@field:Positive`를 적용한다.
 - [ ] 초대 토큰 없음은 `PARTY_NOT_FOUND`로 처리한다.
 - [ ] 초대 토큰 만료는 `INVITE_LINK_EXPIRED`로 처리한다.
-- [ ] `party.createdAt.plusDays(Party.ENDED_AFTER_DAYS)` 이후 작성은 `PARTY_ENDED`로 처리한다.
+- [ ] `party.endedAt()` 이후 작성은 `PARTY_ENDED`로 처리한다.
 - [ ] 회원이면 기존 participant를 조회하고, 없으면 생성한다.
 - [ ] 비회원이면 새 participant를 생성한다.
 - [ ] `isCelebrant = true` participant도 작성 가능하게 둔다.
@@ -210,7 +210,7 @@ Test cases:
 - [ ] 회원 participant가 이미 작성했으면 실패
 - [ ] 작성 성공 시 participant `hasWrittenPaper = true`
 - [ ] 만료된 초대 토큰 작성 실패
-- [ ] 생성 후 7일 지난 파티 작성 실패
+- [ ] 시작 후 7일 지난 파티 작성 실패
 - [ ] invalid Bearer token 401
 
 Run:
