@@ -10,6 +10,7 @@ import com.team2.server.party.entity.Participant
 import com.team2.server.party.entity.PartyOption
 import com.team2.server.party.entity.RealtimeParticipantProfile
 import com.team2.server.party.entity.RealtimeParty
+import com.team2.server.party.repository.CharacterRepository
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyInviteRepository
 import com.team2.server.party.repository.PartyRepository
@@ -25,6 +26,7 @@ class PartyService(
     private val partyRepository: PartyRepository,
     private val participantRepository: ParticipantRepository,
     private val realtimeParticipantProfileRepository: RealtimeParticipantProfileRepository,
+    private val characterRepository: CharacterRepository,
     private val partyInviteRepository: PartyInviteRepository,
     private val chatMessageRepository: ChatMessageRepository,
     private val rollingPaperRepository: RollingPaperRepository,
@@ -65,12 +67,21 @@ class PartyService(
                     isCelebrant = true,
                 ),
             )
-        realtimeParticipantProfileRepository.save(
-            RealtimeParticipantProfile(
-                participant = participant,
-                nickname = request.celebrantNickname,
-            ),
-        )
+        if (partyOption == PartyOption.REALTIME) {
+            val characterId =
+                requireNotNull(request.characterId) { "REALTIME 파티에는 characterId가 필요합니다." }
+            val character =
+                characterRepository
+                    .findById(characterId)
+                    .orElseThrow { BusinessException(ErrorCode.CHARACTER_NOT_FOUND) }
+            realtimeParticipantProfileRepository.save(
+                RealtimeParticipantProfile(
+                    participant = participant,
+                    nickname = request.celebrantNickname,
+                    character = character,
+                ),
+            )
+        }
         return CreatePartyResponse(partyId = saved.id)
     }
 

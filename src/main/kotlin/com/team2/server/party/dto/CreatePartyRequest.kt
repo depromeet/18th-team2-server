@@ -14,4 +14,6 @@ data class CreatePartyRequest(
     @Schema(description = "파티 시작 시간 (HH:mm). 미전송 시 00:00으로 설정됩니다.", example = "14:30")
     @JsonFormat(pattern = "HH:mm")
     val startTime: LocalTime? = null,
+    @Schema(description = "캐릭터 ID (REALTIME 파티 필수)", example = "1")
+    val characterId: Long? = null,
 )
