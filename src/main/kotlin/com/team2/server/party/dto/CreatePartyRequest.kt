@@ -1,6 +1,8 @@
 package com.team2.server.party.dto
 
 import com.fasterxml.jackson.annotation.JsonFormat
+import com.team2.server.common.exception.BusinessException
+import com.team2.server.common.exception.ErrorCode
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDate
 import java.time.LocalTime
@@ -16,4 +18,6 @@ data class CreatePartyRequest(
     val startTime: LocalTime? = null,
     @Schema(description = "캐릭터 ID (REALTIME 파티 필수)", example = "1")
     val characterId: Long? = null,
-)
+) {
+    fun requireCharacterId(): Long = characterId ?: throw BusinessException(ErrorCode.CHARACTER_REQUIRED)
+}

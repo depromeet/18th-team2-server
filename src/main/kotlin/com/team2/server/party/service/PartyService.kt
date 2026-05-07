@@ -68,8 +68,7 @@ class PartyService(
                 ),
             )
         if (partyOption == PartyOption.REALTIME) {
-            val characterId =
-                requireNotNull(request.characterId) { "REALTIME 파티에는 characterId가 필요합니다." }
+            val characterId = request.requireCharacterId()
             val character =
                 characterRepository
                     .findById(characterId)
