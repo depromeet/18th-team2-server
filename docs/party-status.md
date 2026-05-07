@@ -16,7 +16,7 @@
 
 ### 상태 전이 조건
 
-```
+```text
 READY  : now < startedAt
 OPEN   : startedAt ≤ now < startedAt + 7일
 CLOSED : now ≥ startedAt + 7일
@@ -43,7 +43,7 @@ CLOSED : now ≥ startedAt + 7일
 
 ### 상태 전이 조건
 
-```
+```text
 ROLLING_PAPER_OPEN   : now < startedAt
 LIVE_OPEN            : startedAt ≤ now < startedAt + 10분
 LIVE_CLOSED          : startedAt + 10분 ≤ now < startedAt + 7일
