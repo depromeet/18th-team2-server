@@ -1,6 +1,8 @@
 package com.team2.server.party.controller
 
 import com.team2.server.auth.principal.UserPrincipal
+import com.team2.server.common.exception.BusinessException
+import com.team2.server.common.exception.ErrorCode
 import com.team2.server.common.response.ApiResponse
 import com.team2.server.party.dto.CreatePaperOnlyPartyRequest
 import com.team2.server.party.dto.CreatePartyResponse
@@ -36,6 +38,9 @@ class PartyController(
         @RequestBody request: CreatePaperOnlyPartyRequest,
     ): ApiResponse<CreatePartyResponse> =
         ApiResponse.success(HttpStatus.CREATED, partyService.createPaperOnlyParty(principal.userId, request))
+
+    @PostMapping("/{partyType}")
+    fun createPartyUnknownType(): Nothing = throw BusinessException(ErrorCode.RESOURCE_NOT_FOUND)
 
     @DeleteMapping("/{partyId}")
     override fun deleteParty(

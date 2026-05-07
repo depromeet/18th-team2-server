@@ -122,12 +122,23 @@ class PartyServiceTest {
         return user
     }
 
+    private fun newPaperOnlyParty(id: Long = 1L): PaperOnlyParty {
+        val party =
+            PaperOnlyParty(
+                ownerId = 1L,
+                celebrantNickname = "홍길동",
+                startedAt = LocalDateTime.now(),
+            )
+        setId(party, id)
+        return party
+    }
+
     // --- 파티 생성 ---
 
     @Test
     fun `createPaperOnlyParty startedDate를 당일 00시로 저장한다`() {
         val user = newUser(id = 1L)
-        val savedParty = newParty(id = 9L)
+        val savedParty = newPaperOnlyParty(id = 9L)
         val request =
             CreatePaperOnlyPartyRequest(
                 celebrantNickname = "홍길동",
@@ -174,7 +185,7 @@ class PartyServiceTest {
     @Test
     fun `createPaperOnlyParty PAPER_ONLY가 저장됨`() {
         val user = newUser(id = 1L)
-        val savedParty = newParty(id = 7L)
+        val savedParty = newPaperOnlyParty(id = 7L)
         val request =
             CreatePaperOnlyPartyRequest(
                 celebrantNickname = "홍길동",
