@@ -1,22 +1,22 @@
 services:
   app:
-    container_name: team2-app-${APP_ENV}-${APP_SLOT}
+    container_name: team2-app-${APP_ENV:?APP_ENV must be set}-${APP_SLOT:?APP_SLOT must be set}
     build:
       context: ..
       dockerfile: docker/Dockerfile
     environment:
-      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:?SPRING_PROFILES_ACTIVE must be set}
       - SERVER_FORWARD_HEADERS_STRATEGY=framework
-      - DB_HOST=db-${APP_ENV}
+      - DB_HOST=db-${APP_ENV:?APP_ENV must be set}
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f --max-time 5 http://localhost:8080/actuator/health || exit 1"]
       interval: 10s
-      timeout: 10s
+      timeout: 5s
       retries: 12
       start_period: 60s
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - ../logs/${APP_ENV}/${APP_SLOT}:/app/logs
+      - ../logs/${APP_ENV:?APP_ENV must be set}/${APP_SLOT:?APP_SLOT must be set}:/app/logs
     mem_limit: 1g
     cpus: 0.7
     restart: unless-stopped
@@ -25,5 +25,5 @@ services:
 
 networks:
   app-network:
-    name: ${APP_ENV}-network
+    name: ${APP_ENV:?APP_ENV must be set}-network
     external: true
