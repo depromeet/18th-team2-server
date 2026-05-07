@@ -14,6 +14,7 @@ import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyInviteRepository
 import com.team2.server.party.repository.RealtimeParticipantProfileRepository
 import com.team2.server.user.repository.UserRepository
+import org.hibernate.Hibernate
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -71,7 +72,7 @@ class EnterRealtimePartyUseCase(
     }
 
     private fun validateEnterable(party: Party) {
-        val realtimeParty = party as RealtimeParty
+        val realtimeParty = Hibernate.unproxy(party) as RealtimeParty
         val now = LocalDateTime.now()
         val enterableFrom = realtimeParty.startedAt.minusMinutes(RealtimeParty.ENTERABLE_BEFORE_MINUTES)
         val enterableTo = realtimeParty.startedAt.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES)

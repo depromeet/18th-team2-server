@@ -23,6 +23,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.MvcResult
 import org.springframework.test.web.servlet.post
 import java.time.LocalDateTime
 import java.util.UUID
@@ -72,14 +73,7 @@ class ChatControllerTest
             val character = characterRepository.save(Character(name = "cat"))
             val (_, invite) = savePartyWithInvite(LocalDateTime.now().minusMinutes(5))
 
-            mockMvc
-                .post("/api/v1/party-invites/${invite.token}/realtime-participants/stream") {
-                    contentType = MediaType.APPLICATION_JSON
-                    content = """{"nickname": "홍길동", "characterId": ${character.id}}"""
-                }.andExpect {
-                    status { isOk() }
-                    header { string("Content-Type", org.hamcrest.Matchers.containsString("text/event-stream")) }
-                }
+            enterAndSubscribe(invite.token, """{"nickname": "홍길동", "characterId": ${character.id}}""")
         }
 
         @Test
@@ -134,12 +128,11 @@ class ChatControllerTest
             val character = characterRepository.save(Character(name = "rabbit"))
             val (party, invite) = savePartyWithInvite(LocalDateTime.now().minusMinutes(5))
 
-            mockMvc
-                .post("/api/v1/party-invites/${invite.token}/realtime-participants/stream") {
-                    contentType = MediaType.APPLICATION_JSON
-                    content = """{"nickname": "테스터", "characterId": ${character.id}}"""
-                    header("Authorization", "Bearer $token")
-                }.andExpect { status { isOk() } }
+            enterAndSubscribe(
+                invite.token,
+                """{"nickname": "테스터", "characterId": ${character.id}}""",
+                token,
+            )
 
             mockMvc
                 .post("/api/v1/parties/${party.id}/chat-messages") {
@@ -159,12 +152,7 @@ class ChatControllerTest
             val (party, invite) = savePartyWithInvite(LocalDateTime.now().minusMinutes(5))
 
             val enterResult =
-                mockMvc
-                    .post("/api/v1/party-invites/${invite.token}/realtime-participants/stream") {
-                        contentType = MediaType.APPLICATION_JSON
-                        content = """{"nickname": "손님", "characterId": ${character.id}}"""
-                    }.andExpect { status { isOk() } }
-                    .andReturn()
+                enterAndSubscribe(invite.token, """{"nickname": "손님", "characterId": ${character.id}}""")
 
             val participantToken = parseSseEnteredToken(enterResult.response.contentAsString)
 
@@ -186,12 +174,7 @@ class ChatControllerTest
             val (party, invite) = savePartyWithInvite(LocalDateTime.now().plusMinutes(3))
 
             val enterResult =
-                mockMvc
-                    .post("/api/v1/party-invites/${invite.token}/realtime-participants/stream") {
-                        contentType = MediaType.APPLICATION_JSON
-                        content = """{"nickname": "손님2", "characterId": ${character.id}}"""
-                    }.andExpect { status { isOk() } }
-                    .andReturn()
+                enterAndSubscribe(invite.token, """{"nickname": "손님2", "characterId": ${character.id}}""")
 
             val participantToken = parseSseEnteredToken(enterResult.response.contentAsString)
 
@@ -224,12 +207,7 @@ class ChatControllerTest
             val (party, invite) = savePartyWithInvite(LocalDateTime.now().minusMinutes(5))
 
             val firstEnterResult =
-                mockMvc
-                    .post("/api/v1/party-invites/${invite.token}/realtime-participants/stream") {
-                        contentType = MediaType.APPLICATION_JSON
-                        content = """{"nickname": "먼저온사람", "characterId": ${character.id}}"""
-                    }.andExpect { status { isOk() } }
-                    .andReturn()
+                enterAndSubscribe(invite.token, """{"nickname": "먼저온사람", "characterId": ${character.id}}""")
 
             val firstToken = parseSseEnteredToken(firstEnterResult.response.contentAsString)
             val profile = profileRepository.findByParticipantToken(firstToken)!!
@@ -244,12 +222,7 @@ class ChatControllerTest
 
             val character2 = characterRepository.save(Character(name = "dog2"))
             val secondEnterResult =
-                mockMvc
-                    .post("/api/v1/party-invites/${invite.token}/realtime-participants/stream") {
-                        contentType = MediaType.APPLICATION_JSON
-                        content = """{"nickname": "나중에온사람", "characterId": ${character2.id}}"""
-                    }.andExpect { status { isOk() } }
-                    .andReturn()
+                enterAndSubscribe(invite.token, """{"nickname": "나중에온사람", "characterId": ${character2.id}}""")
 
             val body = secondEnterResult.response.getContentAsString(Charsets.UTF_8)
             val enteredJson = parseSseEventData(body, "entered")
@@ -259,6 +232,23 @@ class ChatControllerTest
         }
 
         // ── Helpers ──
+
+        private fun enterAndSubscribe(
+            inviteToken: String,
+            requestBody: String,
+            jwtToken: String? = null,
+        ): MvcResult =
+            mockMvc
+                .post("/api/v1/party-invites/$inviteToken/realtime-participants/stream") {
+                    contentType = MediaType.APPLICATION_JSON
+                    accept = MediaType.TEXT_EVENT_STREAM
+                    content = requestBody
+                    jwtToken?.let { header("Authorization", "Bearer $it") }
+                }.andExpect {
+                    status { isOk() }
+                    request { asyncStarted() }
+                    header { string("Content-Type", org.hamcrest.Matchers.containsString("text/event-stream")) }
+                }.andReturn()
 
         private fun parseSseEventData(
             sseBody: String,

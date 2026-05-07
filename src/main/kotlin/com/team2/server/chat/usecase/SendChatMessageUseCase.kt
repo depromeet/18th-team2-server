@@ -15,6 +15,7 @@ import com.team2.server.party.entity.RealtimePartyStatus
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyRepository
 import com.team2.server.party.repository.RealtimeParticipantProfileRepository
+import org.hibernate.Hibernate
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -68,7 +69,7 @@ class SendChatMessageUseCase(
         if (party.partyOption != PartyOption.REALTIME) {
             throw BusinessException(ErrorCode.CHAT_NOT_SUPPORTED)
         }
-        val realtimeParty = party as RealtimeParty
+        val realtimeParty = Hibernate.unproxy(party) as RealtimeParty
         if (realtimeParty.status() != RealtimePartyStatus.LIVE_OPEN) {
             throw BusinessException(ErrorCode.CHAT_NOT_ACTIVE)
         }
