@@ -20,9 +20,9 @@ class GetUpcomingPartiesUseCase(
     fun getUpcomingParties(userId: Long): List<UpcomingPartyResponse> {
         val now = LocalDateTime.now()
         val participants =
-            participantRepository.findUpcomingByUserId(
+            participantRepository.findNotEndedByUserId(
                 userId = userId,
-                endedAfter = now.minusDays(Party.ENDED_AFTER_DAYS),
+                createdAfter = now.minusDays(Party.ENDED_AFTER_DAYS),
             )
         val inviteTokenByPartyId = findInviteTokenByPartyId(participants.map { it.party }, now)
 
@@ -48,7 +48,7 @@ class GetUpcomingPartiesUseCase(
         parties: List<Party>,
         now: LocalDateTime,
     ): Map<Long, String> {
-        val partyIds = parties.map { it.id }
+        val partyIds = parties.map { it.id }.distinct()
         if (partyIds.isEmpty()) {
             return emptyMap()
         }

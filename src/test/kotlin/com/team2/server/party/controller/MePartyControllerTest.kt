@@ -99,10 +99,10 @@ class MePartyControllerTest
                     now.minusHours(1),
                 )
 
-            participantRepository.save(Participant(party = realtimeParty, user = user, hasWrittenPaper = true))
-            participantRepository.save(Participant(party = paperOnlyParty, user = user))
-            participantRepository.save(Participant(party = endedParty, user = user))
-            participantRepository.save(Participant(party = otherParty, user = other))
+            saveParticipant(realtimeParty, user, hasWrittenPaper = true, createdAt = now.minusMinutes(20))
+            saveParticipant(paperOnlyParty, user, createdAt = now.minusMinutes(5))
+            saveParticipant(endedParty, user, createdAt = now.minusMinutes(1))
+            saveParticipant(otherParty, other, createdAt = now)
             saveInvite(realtimeParty, "upcominglive001")
             saveInvite(paperOnlyParty, "upcomingpaper01")
 
@@ -112,8 +112,8 @@ class MePartyControllerTest
                 }.andExpect {
                     status { isOk() }
                     jsonPath("$.data.length()") { value(2) }
-                    expectRealtimeParty(realtimeParty, liveStartAt)
-                    expectPaperOnlyParty(paperOnlyParty)
+                    expectPaperOnlyParty(paperOnlyParty, index = 0)
+                    expectRealtimeParty(realtimeParty, liveStartAt, index = 1)
                 }
         }
 
@@ -131,7 +131,7 @@ class MePartyControllerTest
                     ),
                     now.minusHours(1),
                 )
-            participantRepository.save(Participant(party = party, user = user))
+            saveParticipant(party, user, createdAt = now)
             saveInvite(party, "expiredupcoming", now.minusMinutes(1))
 
             mockMvc
@@ -166,34 +166,53 @@ class MePartyControllerTest
                 ),
             )
 
+        private fun saveParticipant(
+            party: Party,
+            user: User,
+            hasWrittenPaper: Boolean = false,
+            createdAt: LocalDateTime,
+        ): Participant {
+            val saved =
+                participantRepository.saveAndFlush(
+                    Participant(
+                        party = party,
+                        user = user,
+                        hasWrittenPaper = hasWrittenPaper,
+                    ),
+                )
+            saved.createdAt = createdAt.truncatedTo(ChronoUnit.SECONDS)
+            return participantRepository.saveAndFlush(saved)
+        }
+
         private fun MockMvcResultMatchersDsl.expectRealtimeParty(
             party: Party,
             liveStartAt: LocalDateTime,
+            index: Int,
         ) {
-            jsonPath("$.data[0].partyId") { value(party.id) }
-            jsonPath("$.data[0].inviteToken") { value("upcominglive001") }
-            jsonPath("$.data[0].partyOption") { value("REALTIME") }
-            jsonPath("$.data[0].celebrantNickname") { value("실시간주인공") }
-            jsonPath("$.data[0].partyStartedAt") {
+            jsonPath("$.data[$index].partyId") { value(party.id) }
+            jsonPath("$.data[$index].inviteToken") { value("upcominglive001") }
+            jsonPath("$.data[$index].partyOption") { value("REALTIME") }
+            jsonPath("$.data[$index].celebrantNickname") { value("실시간주인공") }
+            jsonPath("$.data[$index].partyStartedAt") {
                 value(liveStartAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
             }
-            jsonPath("$.data[0].partyEndedAt") {
+            jsonPath("$.data[$index].partyEndedAt") {
                 value(party.endedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
             }
-            jsonPath("$.data[0].isHost") { value(false) }
-            jsonPath("$.data[0].rollingPaperWritten") { value(true) }
-            jsonPath("$.data[0].hostRollingPaperOpenAt") { value(nullValue()) }
-            jsonPath("$.data[0].realtimeSchedule.enterableFrom") {
+            jsonPath("$.data[$index].isHost") { value(false) }
+            jsonPath("$.data[$index].rollingPaperWritten") { value(true) }
+            jsonPath("$.data[$index].hostRollingPaperOpenAt") { value(nullValue()) }
+            jsonPath("$.data[$index].realtimeSchedule.enterableFrom") {
                 value(
                     liveStartAt
                         .minusMinutes(RealtimeParty.ENTERABLE_BEFORE_MINUTES)
                         .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
                 )
             }
-            jsonPath("$.data[0].realtimeSchedule.liveStartAt") {
+            jsonPath("$.data[$index].realtimeSchedule.liveStartAt") {
                 value(liveStartAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
             }
-            jsonPath("$.data[0].realtimeSchedule.liveEndAt") {
+            jsonPath("$.data[$index].realtimeSchedule.liveEndAt") {
                 value(
                     liveStartAt
                         .plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES)
@@ -202,16 +221,19 @@ class MePartyControllerTest
             }
         }
 
-        private fun MockMvcResultMatchersDsl.expectPaperOnlyParty(party: Party) {
-            jsonPath("$.data[1].partyId") { value(party.id) }
-            jsonPath("$.data[1].inviteToken") { value("upcomingpaper01") }
-            jsonPath("$.data[1].partyOption") { value("PAPER_ONLY") }
-            jsonPath("$.data[1].isHost") { value(true) }
-            jsonPath("$.data[1].rollingPaperWritten") { value(false) }
-            jsonPath("$.data[1].hostRollingPaperOpenAt") {
+        private fun MockMvcResultMatchersDsl.expectPaperOnlyParty(
+            party: Party,
+            index: Int,
+        ) {
+            jsonPath("$.data[$index].partyId") { value(party.id) }
+            jsonPath("$.data[$index].inviteToken") { value("upcomingpaper01") }
+            jsonPath("$.data[$index].partyOption") { value("PAPER_ONLY") }
+            jsonPath("$.data[$index].isHost") { value(true) }
+            jsonPath("$.data[$index].rollingPaperWritten") { value(false) }
+            jsonPath("$.data[$index].hostRollingPaperOpenAt") {
                 value(party.hostViewableAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
             }
-            jsonPath("$.data[1].realtimeSchedule") { value(nullValue()) }
+            jsonPath("$.data[$index].realtimeSchedule") { value(nullValue()) }
         }
 
         private fun saveUser(

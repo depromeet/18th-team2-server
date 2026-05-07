@@ -22,7 +22,7 @@ interface PartyInviteRepository : JpaRepository<PartyInvite, Long> {
         JOIN FETCH invite.party party
         WHERE party.id IN :partyIds
           AND invite.expiresAt > :now
-        ORDER BY invite.createdAt DESC, invite.id DESC
+        ORDER BY invite.expiresAt DESC, invite.createdAt DESC, invite.id DESC
         """,
     )
     fun findAllByPartyIdInAndExpiresAtAfter(

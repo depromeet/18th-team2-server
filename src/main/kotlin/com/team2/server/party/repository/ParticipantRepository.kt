@@ -36,12 +36,12 @@ interface ParticipantRepository : JpaRepository<Participant, Long> {
         FROM Participant participant
         JOIN FETCH participant.party party
         WHERE participant.user.id = :userId
-          AND party.createdAt > :endedAfter
-        ORDER BY party.startedAt ASC, party.id ASC
+          AND party.createdAt > :createdAfter
+        ORDER BY participant.createdAt DESC, participant.id DESC
         """,
     )
-    fun findUpcomingByUserId(
+    fun findNotEndedByUserId(
         userId: Long,
-        endedAfter: LocalDateTime,
+        createdAfter: LocalDateTime,
     ): List<Participant>
 }

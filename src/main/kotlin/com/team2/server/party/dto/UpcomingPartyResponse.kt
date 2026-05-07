@@ -5,6 +5,7 @@ import com.team2.server.party.entity.PartyOption
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 
+@JsonInclude(JsonInclude.Include.ALWAYS)
 @Schema(description = "홈 다가오는 파티 응답")
 data class UpcomingPartyResponse(
     @Schema(description = "파티 ID", example = "1")
