@@ -81,23 +81,10 @@ app_compose() {
     shift 2
 
     local profiles
-    local app_uid
-    local app_gid
     profiles="$(profiles_for_env "$app_env")"
-    app_uid="${APP_UID:-$(id -u)}"
-    app_gid="${APP_GID:-$(id -g)}"
 
-    APP_ENV="$app_env" APP_SLOT="$slot" APP_UID="$app_uid" APP_GID="$app_gid" SPRING_PROFILES_ACTIVE="$profiles" \
+    APP_ENV="$app_env" APP_SLOT="$slot" SPRING_PROFILES_ACTIVE="$profiles" \
         docker compose --env-file .env -f docker/docker-compose.app.yml -p "team2-app-$app_env-$slot" "$@"
-}
-
-prepare_log_dir() {
-    local app_env="$1"
-    local slot="$2"
-    local log_dir="$PROJECT_ROOT/logs/$app_env/$slot"
-
-    mkdir -p "$log_dir"
-    chmod 0775 "$log_dir"
 }
 
 wait_container_healthy() {
@@ -278,7 +265,6 @@ deploy_environment() {
 
     echo "==> Current $app_env target: $previous_target"
     echo "==> Building and starting new $app_env app slot: $new_slot"
-    prepare_log_dir "$app_env" "$new_slot"
     app_compose "$app_env" "$new_slot" up -d --build --force-recreate app
     wait_container_healthy "$new_container"
 

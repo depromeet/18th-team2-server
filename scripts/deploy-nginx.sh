@@ -24,6 +24,43 @@ restore_active_upstreams() {
     fi
 }
 
+team2_nginx_owns_port() {
+    local port="$1"
+    docker port team2-nginx "$port/tcp" >/dev/null 2>&1
+}
+
+assert_port_available() {
+    local port="$1"
+    local conflicts
+
+    if team2_nginx_owns_port "$port"; then
+        return 0
+    fi
+
+    conflicts="$(docker ps --format '{{.Names}}\t{{.Ports}}' | awk -v port=":$port->" '$1 != "team2-nginx" && index($0, port) > 0')"
+    if [ -n "$conflicts" ]; then
+        echo "ERROR: port $port is already published by another container:"
+        echo "$conflicts"
+        return 1
+    fi
+
+    if command -v ss &>/dev/null && ss -ltnH | awk '{print $4}' | grep -Eq "(^|[:.])${port}$"; then
+        echo "ERROR: port $port is already in use by a host process."
+        return 1
+    fi
+
+    if command -v lsof &>/dev/null && lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
+        echo "ERROR: port $port is already in use by a host process."
+        return 1
+    fi
+}
+
+check_nginx_ports() {
+    for port in 80 443 8081; do
+        assert_port_available "$port"
+    done
+}
+
 for network in dev-network prod-network; do
     if ! docker network inspect "$network" &>/dev/null; then
         echo "==> Creating network: $network"
@@ -43,9 +80,11 @@ fi
 
 NGINX_FILES="-f docker/docker-compose.nginx.yml"
 
-echo "==> Rendering active nginx upstreams..."
+echo "==> Checking nginx ports..."
+check_nginx_ports
+
+echo "==> Preparing active nginx upstreams..."
 backup_active_upstreams
-render_all_detected_upstreams
 
 if docker ps --filter 'name=^/team2-nginx$' --format '{{.Names}}' | grep -qx 'team2-nginx'; then
     if ! install_nginx_upstreams_for_running_container || ! docker exec team2-nginx nginx -t; then

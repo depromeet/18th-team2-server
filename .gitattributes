@@ -5,9 +5,10 @@
 *.yml text eol=lf
 *.yaml text eol=lf
 *.md text eol=lf
+Dockerfile text eol=lf
+**/Dockerfile text eol=lf
 nginx/*.conf text eol=lf
 nginx/**/*.conf text eol=lf
-nginx/conf.d/.gitkeep text eol=lf
 scripts/lib-deploy.sh text eol=lf
 *.bat text eol=crlf
 *.jar binary

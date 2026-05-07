@@ -24,11 +24,11 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
 # non-root 유저 생성
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+RUN groupadd -g 10001 appuser && useradd -u 10001 -g appuser -M appuser
 
 # 빌드된 JAR 복사
 COPY --from=builder /app/build/libs/app.jar app.jar
-RUN chown appuser:appuser app.jar
+RUN mkdir -p /app/logs && chown -R appuser:appuser app.jar /app/logs
 
 USER appuser
 

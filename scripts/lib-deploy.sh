@@ -6,7 +6,7 @@ if [ -z "${PROJECT_ROOT:-}" ]; then
 fi
 
 STATE_DIR="$PROJECT_ROOT/.deploy-state"
-NGINX_CONF_DIR="$PROJECT_ROOT/nginx/conf.d"
+NGINX_CONF_DIR="$STATE_DIR/nginx-conf"
 
 is_valid_slot() {
     [[ "${1:-}" =~ ^(blue|green)$ ]]
@@ -101,7 +101,7 @@ upstream_map_value() {
     if [ "$target" = "legacy" ]; then
         echo "http://app-$app_env:8080"
     elif is_valid_slot "$target"; then
-        echo "http://app-$app_env-$target:8080"
+        echo "http://team2-app-$app_env-$target:8080"
     else
         echo '""'
     fi
@@ -196,14 +196,14 @@ install_nginx_upstream_file_for_running_container() {
         local cp_error
         cp_error="$(mktemp)"
 
-        if docker cp "$file" "team2-nginx:$destination" 2>"$cp_error"; then
-            rm -f "$cp_error"
-            return 0
-        fi
-
         if docker exec team2-nginx cat "$destination" 2>/dev/null | cmp -s "$file" -; then
             rm -f "$cp_error"
             echo "==> team2-nginx already sees $file through a bind mount."
+            return 0
+        fi
+
+        if docker cp "$file" "team2-nginx:$destination" 2>"$cp_error"; then
+            rm -f "$cp_error"
             return 0
         fi
 
