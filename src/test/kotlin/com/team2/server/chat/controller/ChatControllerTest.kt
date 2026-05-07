@@ -23,7 +23,6 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
-import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import java.time.LocalDateTime
 import java.util.UUID
@@ -66,21 +65,20 @@ class ChatControllerTest
             characterRepository.deleteAll()
         }
 
-        // ── POST /api/v1/party-invites/{inviteToken}/realtime-participants ──
+        // ── POST /api/v1/party-invites/{inviteToken}/realtime-participants/stream ──
 
         @Test
-        fun `비로그인 사용자 라이브 입장 성공`() {
+        fun `비로그인 사용자 입장 + 구독 성공`() {
             val character = characterRepository.save(Character(name = "cat"))
-            val (party, invite) = savePartyWithInvite(LocalDateTime.now().minusMinutes(5))
+            val (_, invite) = savePartyWithInvite(LocalDateTime.now().minusMinutes(5))
 
             mockMvc
-                .post("/api/v1/party-invites/${invite.token}/realtime-participants") {
+                .post("/api/v1/party-invites/${invite.token}/realtime-participants/stream") {
                     contentType = MediaType.APPLICATION_JSON
                     content = """{"nickname": "홍길동", "characterId": ${character.id}}"""
                 }.andExpect {
-                    status { isCreated() }
-                    jsonPath("$.data.participantToken") { isString() }
-                    jsonPath("$.data.messages") { isArray() }
+                    status { isOk() }
+                    header { string("Content-Type", org.hamcrest.Matchers.containsString("text/event-stream")) }
                 }
         }
 
@@ -89,7 +87,7 @@ class ChatControllerTest
             val character = characterRepository.save(Character(name = "dog"))
 
             mockMvc
-                .post("/api/v1/party-invites/nonexistent0001/realtime-participants") {
+                .post("/api/v1/party-invites/nonexistent0001/realtime-participants/stream") {
                     contentType = MediaType.APPLICATION_JSON
                     content = """{"nickname": "홍길동", "characterId": ${character.id}}"""
                 }.andExpect {
@@ -99,11 +97,12 @@ class ChatControllerTest
 
         @Test
         fun `PAPER_ONLY 파티 입장 시 400`() {
+            val owner = saveUser("paper-owner-${System.nanoTime()}", "paper-${System.nanoTime()}@test.local")
             val character = characterRepository.save(Character(name = "bird"))
             val party =
                 partyRepository.save(
                     com.team2.server.party.entity.PaperOnlyParty(
-                        ownerId = 1L,
+                        ownerId = owner.id,
                         celebrantNickname = "홍길동",
                         startedAt = LocalDateTime.now().plusHours(1),
                     ),
@@ -118,7 +117,7 @@ class ChatControllerTest
                 )
 
             mockMvc
-                .post("/api/v1/party-invites/${invite.token}/realtime-participants") {
+                .post("/api/v1/party-invites/${invite.token}/realtime-participants/stream") {
                     contentType = MediaType.APPLICATION_JSON
                     content = """{"nickname": "홍길동", "characterId": ${character.id}}"""
                 }.andExpect {
@@ -135,15 +134,12 @@ class ChatControllerTest
             val character = characterRepository.save(Character(name = "rabbit"))
             val (party, invite) = savePartyWithInvite(LocalDateTime.now().minusMinutes(5))
 
-            // enter first to create profile
             mockMvc
-                .post("/api/v1/party-invites/${invite.token}/realtime-participants") {
+                .post("/api/v1/party-invites/${invite.token}/realtime-participants/stream") {
                     contentType = MediaType.APPLICATION_JSON
                     content = """{"nickname": "테스터", "characterId": ${character.id}}"""
                     header("Authorization", "Bearer $token")
-                }.andExpect {
-                    status { isCreated() }
-                }
+                }.andExpect { status { isOk() } }
 
             mockMvc
                 .post("/api/v1/parties/${party.id}/chat-messages") {
@@ -164,17 +160,13 @@ class ChatControllerTest
 
             val enterResult =
                 mockMvc
-                    .post("/api/v1/party-invites/${invite.token}/realtime-participants") {
+                    .post("/api/v1/party-invites/${invite.token}/realtime-participants/stream") {
                         contentType = MediaType.APPLICATION_JSON
                         content = """{"nickname": "손님", "characterId": ${character.id}}"""
-                    }.andExpect {
-                        status { isCreated() }
-                    }.andReturn()
+                    }.andExpect { status { isOk() } }
+                    .andReturn()
 
-            val participantToken =
-                objectMapper
-                    .readTree(enterResult.response.contentAsString)["data"]["participantToken"]
-                    .asText()
+            val participantToken = parseSseEnteredToken(enterResult.response.contentAsString)
 
             mockMvc
                 .post("/api/v1/parties/${party.id}/chat-messages") {
@@ -191,23 +183,17 @@ class ChatControllerTest
         @Test
         fun `LIVE_OPEN이 아닌 파티에 메시지 전송 시 400`() {
             val character = characterRepository.save(Character(name = "lion"))
-            // ROLLING_PAPER_OPEN 상태: startedAt이 3분 후 (입장 가능 범위 내이지만 아직 LIVE_OPEN 아님)
             val (party, invite) = savePartyWithInvite(LocalDateTime.now().plusMinutes(3))
 
-            // ENTERABLE_BEFORE_MINUTES(5분) 이내이므로 입장 가능, 단 LIVE_OPEN이 아니어서 메시지 전송 불가
             val enterResult =
                 mockMvc
-                    .post("/api/v1/party-invites/${invite.token}/realtime-participants") {
+                    .post("/api/v1/party-invites/${invite.token}/realtime-participants/stream") {
                         contentType = MediaType.APPLICATION_JSON
                         content = """{"nickname": "손님2", "characterId": ${character.id}}"""
-                    }.andExpect {
-                        status { isCreated() }
-                    }.andReturn()
+                    }.andExpect { status { isOk() } }
+                    .andReturn()
 
-            val participantToken =
-                objectMapper
-                    .readTree(enterResult.response.contentAsString)["data"]["participantToken"]
-                    .asText()
+            val participantToken = parseSseEnteredToken(enterResult.response.contentAsString)
 
             mockMvc
                 .post("/api/v1/parties/${party.id}/chat-messages") {
@@ -232,82 +218,22 @@ class ChatControllerTest
                 }
         }
 
-        // ── GET /api/v1/parties/{partyId}/chat-messages/stream ──
-
         @Test
-        fun `JWT로 SSE 구독 성공`() {
-            val user = saveUser("kakao-sse-1", "sse1@kakao.local")
-            val token = tokenProvider.issue(user)
-            val character = characterRepository.save(Character(name = "panda"))
-            val (party, invite) = savePartyWithInvite(LocalDateTime.now().minusMinutes(5))
-
-            mockMvc
-                .post("/api/v1/party-invites/${invite.token}/realtime-participants") {
-                    contentType = MediaType.APPLICATION_JSON
-                    content = """{"nickname": "SSE테스터", "characterId": ${character.id}}"""
-                    header("Authorization", "Bearer $token")
-                }.andExpect {
-                    status { isCreated() }
-                }
-
-            mockMvc
-                .get("/api/v1/parties/${party.id}/chat-messages/stream") {
-                    header("Authorization", "Bearer $token")
-                }.andExpect {
-                    status { isOk() }
-                    header { string("Content-Type", org.hamcrest.Matchers.containsString("text/event-stream")) }
-                }
-        }
-
-        @Test
-        fun `participantToken으로 SSE 구독 성공`() {
-            val character = characterRepository.save(Character(name = "tiger"))
-            val (party, invite) = savePartyWithInvite(LocalDateTime.now().minusMinutes(5))
-
-            val enterResult =
-                mockMvc
-                    .post("/api/v1/party-invites/${invite.token}/realtime-participants") {
-                        contentType = MediaType.APPLICATION_JSON
-                        content = """{"nickname": "SSE손님", "characterId": ${character.id}}"""
-                    }.andExpect {
-                        status { isCreated() }
-                    }.andReturn()
-
-            val participantToken =
-                objectMapper
-                    .readTree(enterResult.response.contentAsString)["data"]["participantToken"]
-                    .asText()
-
-            mockMvc
-                .get("/api/v1/parties/${party.id}/chat-messages/stream") {
-                    header("X-Participant-Token", participantToken)
-                }.andExpect {
-                    status { isOk() }
-                    header { string("Content-Type", org.hamcrest.Matchers.containsString("text/event-stream")) }
-                }
-        }
-
-        @Test
-        fun `이전 메시지가 있는 파티에 입장하면 messages에 포함`() {
+        fun `입장 시 이전 메시지가 entered 이벤트에 포함`() {
             val character = characterRepository.save(Character(name = "cat2"))
             val (party, invite) = savePartyWithInvite(LocalDateTime.now().minusMinutes(5))
 
-            // 1st enter — profile 생성
-            val firstEnter =
+            val firstEnterResult =
                 mockMvc
-                    .post("/api/v1/party-invites/${invite.token}/realtime-participants") {
+                    .post("/api/v1/party-invites/${invite.token}/realtime-participants/stream") {
                         contentType = MediaType.APPLICATION_JSON
                         content = """{"nickname": "먼저온사람", "characterId": ${character.id}}"""
-                    }.andExpect { status { isCreated() } }
+                    }.andExpect { status { isOk() } }
                     .andReturn()
 
-            val firstToken =
-                objectMapper
-                    .readTree(firstEnter.response.contentAsString)["data"]["participantToken"]
-                    .asText()
+            val firstToken = parseSseEnteredToken(firstEnterResult.response.contentAsString)
             val profile = profileRepository.findByParticipantToken(firstToken)!!
 
-            // 메시지 직접 저장
             chatMessageRepository.save(
                 com.team2.server.chat.entity.ChatMessage(
                     content = "먼저 보낸 메시지",
@@ -316,21 +242,42 @@ class ChatControllerTest
                 ),
             )
 
-            // 2nd enter (다른 참여자)
             val character2 = characterRepository.save(Character(name = "dog2"))
-            mockMvc
-                .post("/api/v1/party-invites/${invite.token}/realtime-participants") {
-                    contentType = MediaType.APPLICATION_JSON
-                    content = """{"nickname": "나중에온사람", "characterId": ${character2.id}}"""
-                }.andExpect {
-                    status { isCreated() }
-                    jsonPath("$.data.messages") { isArray() }
-                    jsonPath("$.data.messages[0].content") { value("먼저 보낸 메시지") }
-                    jsonPath("$.data.messages[0].senderNickname") { value("먼저온사람") }
-                }
+            val secondEnterResult =
+                mockMvc
+                    .post("/api/v1/party-invites/${invite.token}/realtime-participants/stream") {
+                        contentType = MediaType.APPLICATION_JSON
+                        content = """{"nickname": "나중에온사람", "characterId": ${character2.id}}"""
+                    }.andExpect { status { isOk() } }
+                    .andReturn()
+
+            val body = secondEnterResult.response.getContentAsString(Charsets.UTF_8)
+            val enteredJson = parseSseEventData(body, "entered")
+            val messages = objectMapper.readTree(enteredJson)["messages"]
+            assert(messages.isArray && messages.size() == 1)
+            assert(messages[0]["content"].asText() == "먼저 보낸 메시지")
         }
 
         // ── Helpers ──
+
+        private fun parseSseEventData(
+            sseBody: String,
+            eventName: String,
+        ): String {
+            val lines = sseBody.lines()
+            var foundEvent = false
+            for (line in lines) {
+                if (line == "event:$eventName") {
+                    foundEvent = true
+                    continue
+                }
+                if (foundEvent && line.startsWith("data:")) return line.removePrefix("data:")
+            }
+            throw IllegalStateException("SSE event '$eventName' not found in: $sseBody")
+        }
+
+        private fun parseSseEnteredToken(sseBody: String): String =
+            objectMapper.readTree(parseSseEventData(sseBody, "entered"))["participantToken"].asText()
 
         private fun saveUser(
             providerId: String,
@@ -347,10 +294,11 @@ class ChatControllerTest
             )
 
         private fun savePartyWithInvite(startedAt: LocalDateTime): Pair<RealtimeParty, PartyInvite> {
+            val owner = saveUser("party-owner-${System.nanoTime()}", "owner-${System.nanoTime()}@test.local")
             val party =
                 partyRepository.save(
                     RealtimeParty(
-                        ownerId = 1L,
+                        ownerId = owner.id,
                         celebrantNickname = "홍길동",
                         startedAt = startedAt,
                     ),

@@ -1,9 +1,6 @@
 package com.team2.server.chat.usecase
 
-import com.team2.server.chat.dto.ChatMessageResponse
 import com.team2.server.chat.dto.EnterRealtimePartyRequest
-import com.team2.server.chat.dto.EnterRealtimePartyResponse
-import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.entity.Character
@@ -29,14 +26,18 @@ class EnterRealtimePartyUseCase(
     private val realtimeParticipantProfileRepository: RealtimeParticipantProfileRepository,
     private val characterRepository: CharacterRepository,
     private val userRepository: UserRepository,
-    private val chatMessageRepository: ChatMessageRepository,
 ) {
+    data class EnterResult(
+        val participantToken: String,
+        val partyId: Long,
+    )
+
     @Transactional
     fun enter(
         inviteToken: String,
         userId: Long?,
         request: EnterRealtimePartyRequest,
-    ): EnterRealtimePartyResponse {
+    ): EnterResult {
         val invite =
             partyInviteRepository.findByToken(inviteToken)
                 ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
@@ -49,12 +50,7 @@ class EnterRealtimePartyUseCase(
         val participant = findOrCreateParticipant(invite.party.id, userId, invite.party)
         val participantToken = upsertProfile(participant, request.nickname, character)
 
-        val messages =
-            chatMessageRepository
-                .findAllByPartyIdWithProfileOrderByCreatedAtAsc(invite.party.id)
-                .map { ChatMessageResponse.from(it) }
-
-        return EnterRealtimePartyResponse(participantToken = participantToken, messages = messages)
+        return EnterResult(participantToken = participantToken, partyId = invite.party.id)
     }
 
     private fun validateInvite(

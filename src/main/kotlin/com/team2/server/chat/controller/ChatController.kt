@@ -3,17 +3,14 @@ package com.team2.server.chat.controller
 import com.team2.server.auth.principal.UserPrincipal
 import com.team2.server.chat.dto.ChatMessageResponse
 import com.team2.server.chat.dto.EnterRealtimePartyRequest
-import com.team2.server.chat.dto.EnterRealtimePartyResponse
 import com.team2.server.chat.dto.SendChatMessageRequest
-import com.team2.server.chat.usecase.EnterRealtimePartyUseCase
+import com.team2.server.chat.usecase.EnterAndSubscribeChatUseCase
 import com.team2.server.chat.usecase.SendChatMessageUseCase
-import com.team2.server.chat.usecase.SubscribeChatUseCase
 import com.team2.server.common.response.ApiResponse
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.security.core.annotation.AuthenticationPrincipal
-import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -24,21 +21,18 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 
 @RestController
 class ChatController(
-    private val enterRealtimePartyUseCase: EnterRealtimePartyUseCase,
+    private val enterAndSubscribeChatUseCase: EnterAndSubscribeChatUseCase,
     private val sendChatMessageUseCase: SendChatMessageUseCase,
-    private val subscribeChatUseCase: SubscribeChatUseCase,
 ) : ChatApi {
-    @ResponseStatus(HttpStatus.CREATED)
-    @PostMapping("/api/v1/party-invites/{inviteToken}/realtime-participants")
-    override fun enterRealtimeParty(
+    @PostMapping(
+        "/api/v1/party-invites/{inviteToken}/realtime-participants/stream",
+        produces = [MediaType.TEXT_EVENT_STREAM_VALUE],
+    )
+    override fun enterAndSubscribe(
         @PathVariable inviteToken: String,
         @AuthenticationPrincipal principal: UserPrincipal?,
         @RequestBody @Valid request: EnterRealtimePartyRequest,
-    ): ApiResponse<EnterRealtimePartyResponse> =
-        ApiResponse.success(
-            HttpStatus.CREATED,
-            enterRealtimePartyUseCase.enter(inviteToken, principal?.userId, request),
-        )
+    ): SseEmitter = enterAndSubscribeChatUseCase.enterAndSubscribe(inviteToken, principal?.userId, request)
 
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping("/api/v1/parties/{partyId}/chat-messages")
@@ -52,11 +46,4 @@ class ChatController(
             HttpStatus.CREATED,
             sendChatMessageUseCase.send(partyId, principal?.userId, participantToken, request),
         )
-
-    @GetMapping("/api/v1/parties/{partyId}/chat-messages/stream", produces = [MediaType.TEXT_EVENT_STREAM_VALUE])
-    override fun subscribe(
-        @PathVariable partyId: Long,
-        @AuthenticationPrincipal principal: UserPrincipal?,
-        @RequestHeader(value = "X-Participant-Token", required = false) participantToken: String?,
-    ): SseEmitter = subscribeChatUseCase.subscribe(partyId, principal?.userId, participantToken)
 }

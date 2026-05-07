@@ -81,12 +81,8 @@ class SendChatMessageUseCase(
         party: RealtimeParty,
         partyId: Long,
     ): RealtimeParticipantProfile {
-        if (userId != null) {
-            return resolveProfileByUserId(partyId, userId)
-        }
-        if (participantToken != null) {
-            return resolveProfileByToken(participantToken, party, partyId)
-        }
+        if (userId != null) return resolveProfileByUserId(partyId, userId)
+        if (participantToken != null) return resolveProfileByToken(participantToken, party, partyId)
         throw BusinessException(ErrorCode.UNAUTHORIZED)
     }
 

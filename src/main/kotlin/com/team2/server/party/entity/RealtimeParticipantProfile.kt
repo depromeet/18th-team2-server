@@ -43,8 +43,9 @@ class RealtimeParticipantProfile(
 
         private const val TOKEN_LENGTH = 8
 
-        private fun generateToken() = (1..TOKEN_LENGTH)
-            .map { TOKEN_CHARS[random.nextInt(TOKEN_CHARS.length)] }
-            .joinToString("")
+        private fun generateToken() =
+            (1..TOKEN_LENGTH)
+                .map { TOKEN_CHARS[random.nextInt(TOKEN_CHARS.length)] }
+                .joinToString("")
     }
 }

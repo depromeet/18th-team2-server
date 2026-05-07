@@ -1,8 +1,6 @@
 package com.team2.server.chat.usecase
 
 import com.team2.server.chat.dto.EnterRealtimePartyRequest
-import com.team2.server.chat.entity.ChatMessage
-import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.entity.Character
@@ -31,11 +29,14 @@ import kotlin.test.assertNotNull
 @ExtendWith(MockitoExtension::class)
 class EnterRealtimePartyUseCaseTest {
     @Mock lateinit var partyInviteRepository: PartyInviteRepository
+
     @Mock lateinit var participantRepository: ParticipantRepository
+
     @Mock lateinit var realtimeParticipantProfileRepository: RealtimeParticipantProfileRepository
+
     @Mock lateinit var characterRepository: CharacterRepository
+
     @Mock lateinit var userRepository: UserRepository
-    @Mock lateinit var chatMessageRepository: ChatMessageRepository
 
     @InjectMocks
     lateinit var useCase: EnterRealtimePartyUseCase
@@ -104,12 +105,10 @@ class EnterRealtimePartyUseCaseTest {
         whenever(participantRepository.save(any())).thenReturn(participant)
         whenever(realtimeParticipantProfileRepository.findByParticipant(participant)).thenReturn(null)
         whenever(realtimeParticipantProfileRepository.save(any())).thenReturn(profile)
-        whenever(chatMessageRepository.findAllByPartyIdWithProfileOrderByCreatedAtAsc(any())).thenReturn(emptyList())
 
-        val response = useCase.enter("tok", userId = null, request)
+        val result = useCase.enter("tok", userId = null, request)
 
-        assertNotNull(response.participantToken)
-        assertEquals(emptyList(), response.messages)
+        assertNotNull(result.participantToken)
     }
 
     @Test
@@ -118,65 +117,21 @@ class EnterRealtimePartyUseCaseTest {
         val invite = PartyInvite(party = party, token = "tok", expiresAt = LocalDateTime.now().plusDays(7))
         val character = Character(name = "토끼")
         val participant = Participant(party = party)
-        val existingProfile = RealtimeParticipantProfile(
-            participant = participant,
-            nickname = "기존닉네임",
-            character = null,
-            participantToken = "existing-uuid",
-        )
+        val existingProfile =
+            RealtimeParticipantProfile(
+                participant = participant,
+                nickname = "기존닉네임",
+                character = null,
+                participantToken = "existing-uuid",
+            )
 
         whenever(partyInviteRepository.findByToken("tok")).thenReturn(invite)
         whenever(characterRepository.findById(1L)).thenReturn(java.util.Optional.of(character))
         whenever(participantRepository.save(any())).thenReturn(participant)
         whenever(realtimeParticipantProfileRepository.findByParticipant(participant)).thenReturn(existingProfile)
-        whenever(chatMessageRepository.findAllByPartyIdWithProfileOrderByCreatedAtAsc(any())).thenReturn(emptyList())
 
-        val response = useCase.enter("tok", userId = null, request)
+        val result = useCase.enter("tok", userId = null, request)
 
-        assertEquals("existing-uuid", response.participantToken)
-    }
-
-    @Test
-    fun `입장 시 이전 메시지가 있으면 messages에 포함`() {
-        val party = RealtimeParty(ownerId = 1L, startedAt = LocalDateTime.now().plusMinutes(3))
-        val invite = PartyInvite(party = party, token = "tok", expiresAt = LocalDateTime.now().plusDays(7))
-        val character = Character(name = "토끼")
-        val participant = Participant(party = party)
-        val profile = RealtimeParticipantProfile(participant = participant, nickname = "토끼왕", character = character)
-        val chatMessage = ChatMessage(content = "먼저 보낸 메시지", party = party, profile = profile)
-
-        whenever(partyInviteRepository.findByToken("tok")).thenReturn(invite)
-        whenever(characterRepository.findById(1L)).thenReturn(java.util.Optional.of(character))
-        whenever(participantRepository.save(any())).thenReturn(participant)
-        whenever(realtimeParticipantProfileRepository.findByParticipant(participant)).thenReturn(null)
-        whenever(realtimeParticipantProfileRepository.save(any())).thenReturn(profile)
-        whenever(chatMessageRepository.findAllByPartyIdWithProfileOrderByCreatedAtAsc(any()))
-            .thenReturn(listOf(chatMessage))
-
-        val response = useCase.enter("tok", userId = null, request)
-
-        assertEquals(1, response.messages.size)
-        assertEquals("먼저 보낸 메시지", response.messages[0].content)
-        assertEquals("토끼왕", response.messages[0].senderNickname)
-    }
-
-    @Test
-    fun `입장 시 메시지가 없으면 messages 빈 배열`() {
-        val party = RealtimeParty(ownerId = 1L, startedAt = LocalDateTime.now().plusMinutes(3))
-        val invite = PartyInvite(party = party, token = "tok", expiresAt = LocalDateTime.now().plusDays(7))
-        val character = Character(name = "토끼")
-        val participant = Participant(party = party)
-        val profile = RealtimeParticipantProfile(participant = participant, nickname = "토끼왕", character = character)
-
-        whenever(partyInviteRepository.findByToken("tok")).thenReturn(invite)
-        whenever(characterRepository.findById(1L)).thenReturn(java.util.Optional.of(character))
-        whenever(participantRepository.save(any())).thenReturn(participant)
-        whenever(realtimeParticipantProfileRepository.findByParticipant(participant)).thenReturn(null)
-        whenever(realtimeParticipantProfileRepository.save(any())).thenReturn(profile)
-        whenever(chatMessageRepository.findAllByPartyIdWithProfileOrderByCreatedAtAsc(any())).thenReturn(emptyList())
-
-        val response = useCase.enter("tok", userId = null, request)
-
-        assertEquals(emptyList(), response.messages)
+        assertEquals("existing-uuid", result.participantToken)
     }
 }
