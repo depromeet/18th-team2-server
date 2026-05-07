@@ -3,11 +3,11 @@ package com.team2.server.party.service
 import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
-import com.team2.server.party.dto.CreatePartyRequest
+import com.team2.server.party.dto.CreatePaperOnlyPartyRequest
 import com.team2.server.party.dto.CreatePartyResponse
+import com.team2.server.party.dto.CreateRealtimePartyRequest
 import com.team2.server.party.entity.PaperOnlyParty
 import com.team2.server.party.entity.Participant
-import com.team2.server.party.entity.PartyOption
 import com.team2.server.party.entity.RealtimeParticipantProfile
 import com.team2.server.party.entity.RealtimeParty
 import com.team2.server.party.repository.CharacterRepository
@@ -33,31 +33,17 @@ class PartyService(
     private val userRepository: UserRepository,
 ) {
     @Transactional
-    fun createParty(
+    fun createRealtimeParty(
         userId: Long,
-        request: CreatePartyRequest,
-        partyOption: PartyOption,
+        request: CreateRealtimePartyRequest,
     ): CreatePartyResponse {
         val user = findUser(userId)
         val party =
-            when (partyOption) {
-                PartyOption.REALTIME ->
-                    RealtimeParty(
-                        ownerId = userId,
-                        celebrantNickname = request.celebrantNickname,
-                        startedAt =
-                            LocalDateTime.of(
-                                request.startedDate,
-                                requireNotNull(request.startTime) { "REALTIME 파티에는 startTime이 필요합니다." },
-                            ),
-                    )
-                PartyOption.PAPER_ONLY ->
-                    PaperOnlyParty(
-                        ownerId = userId,
-                        celebrantNickname = request.celebrantNickname,
-                        startedAt = request.startedDate.atStartOfDay(),
-                    )
-            }
+            RealtimeParty(
+                ownerId = userId,
+                celebrantNickname = request.celebrantNickname,
+                startedAt = LocalDateTime.of(request.startedDate, request.startTime),
+            )
         val saved = partyRepository.save(party)
         val participant =
             participantRepository.save(
@@ -67,20 +53,40 @@ class PartyService(
                     isCelebrant = true,
                 ),
             )
-        if (partyOption == PartyOption.REALTIME) {
-            val characterId = request.requireCharacterId()
-            val character =
-                characterRepository
-                    .findById(characterId)
-                    .orElseThrow { BusinessException(ErrorCode.CHARACTER_NOT_FOUND) }
-            realtimeParticipantProfileRepository.save(
-                RealtimeParticipantProfile(
-                    participant = participant,
-                    nickname = request.celebrantNickname,
-                    character = character,
-                ),
+        val character =
+            characterRepository
+                .findById(request.characterId)
+                .orElseThrow { BusinessException(ErrorCode.CHARACTER_NOT_FOUND) }
+        realtimeParticipantProfileRepository.save(
+            RealtimeParticipantProfile(
+                participant = participant,
+                nickname = request.celebrantNickname,
+                character = character,
+            ),
+        )
+        return CreatePartyResponse(partyId = saved.id)
+    }
+
+    @Transactional
+    fun createPaperOnlyParty(
+        userId: Long,
+        request: CreatePaperOnlyPartyRequest,
+    ): CreatePartyResponse {
+        val user = findUser(userId)
+        val party =
+            PaperOnlyParty(
+                ownerId = userId,
+                celebrantNickname = request.celebrantNickname,
+                startedAt = request.startedDate.atStartOfDay(),
             )
-        }
+        val saved = partyRepository.save(party)
+        participantRepository.save(
+            Participant(
+                party = saved,
+                user = user,
+                isCelebrant = true,
+            ),
+        )
         return CreatePartyResponse(partyId = saved.id)
     }
 

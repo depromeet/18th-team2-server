@@ -48,7 +48,7 @@ class PartyControllerTest
         @Test
         fun `인증 없이 실시간 파티 생성 시 401`() {
             mockMvc
-                .post("/api/v1/parties/REALTIME") {
+                .post("/api/v1/parties/realtime") {
                     contentType = MediaType.APPLICATION_JSON
                     content =
                         """
@@ -67,7 +67,7 @@ class PartyControllerTest
         @Test
         fun `인증 없이 롤링페이퍼 파티 생성 시 401`() {
             mockMvc
-                .post("/api/v1/parties/PAPER_ONLY") {
+                .post("/api/v1/parties/paper-only") {
                     contentType = MediaType.APPLICATION_JSON
                     content =
                         """
@@ -87,7 +87,7 @@ class PartyControllerTest
             val token = tokenProvider.issue(saveUser("kakao-create-1", "create@kakao.local"))
 
             mockMvc
-                .post("/api/v1/parties/REALTIME") {
+                .post("/api/v1/parties/realtime") {
                     contentType = MediaType.APPLICATION_JSON
                     content =
                         """
@@ -110,7 +110,7 @@ class PartyControllerTest
             val token = tokenProvider.issue(saveUser("kakao-create-2", "create2@kakao.local"))
 
             mockMvc
-                .post("/api/v1/parties/PAPER_ONLY") {
+                .post("/api/v1/parties/paper-only") {
                     contentType = MediaType.APPLICATION_JSON
                     content =
                         """
@@ -127,7 +127,7 @@ class PartyControllerTest
         }
 
         @Test
-        fun `잘못된 파티 유형으로 생성 시 400`() {
+        fun `존재하지 않는 파티 유형으로 생성 시 404`() {
             val token = tokenProvider.issue(saveUser("kakao-invalid-1", "invalid@kakao.local"))
 
             mockMvc
@@ -138,7 +138,7 @@ class PartyControllerTest
                         """"startTime": "14:30", "characterId": $defaultCharacterId}"""
                     header("Authorization", "Bearer $token")
                 }.andExpect {
-                    status { isBadRequest() }
+                    status { isNotFound() }
                 }
         }
 
@@ -228,7 +228,7 @@ class PartyControllerTest
         ): Long {
             val result =
                 mockMvc
-                    .post("/api/v1/parties/REALTIME") {
+                    .post("/api/v1/parties/realtime") {
                         contentType = MediaType.APPLICATION_JSON
                         content =
                             """{"celebrantNickname": "홍길동", "startedDate": "$date", """ +
