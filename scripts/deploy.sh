@@ -125,6 +125,7 @@ ensure_nginx_blue_green_ready() {
         return 1
     fi
 
+    # nginx.conf references both dev/prod maps even for a single-environment deploy.
     if ! docker exec team2-nginx test -f /etc/nginx/conf.d/team2-active-upstreams-dev.conf ||
         ! docker exec team2-nginx test -f /etc/nginx/conf.d/team2-active-upstreams-prod.conf; then
         echo "ERROR: team2-nginx cannot see active upstream files."
@@ -132,7 +133,9 @@ ensure_nginx_blue_green_ready() {
         return 1
     fi
 
-    if ! docker exec team2-nginx sh -c "nginx -T 2>/dev/null | grep -q 'prod_api_upstream'"; then
+    # These sentinels confirm team2-nginx is using the blue/green nginx configuration.
+    if ! docker exec team2-nginx sh -c "nginx -T 2>/dev/null | grep -q 'dev_api_upstream'" ||
+        ! docker exec team2-nginx sh -c "nginx -T 2>/dev/null | grep -q 'prod_api_upstream'"; then
         echo "ERROR: team2-nginx is not using the current blue/green nginx configuration."
         echo "Run ./scripts/deploy-nginx.sh before app deployment."
         return 1
