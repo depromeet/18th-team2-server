@@ -85,10 +85,12 @@ class ExampleController(
     summary = "파티 정보 조회",
     security = [
         SecurityRequirement(name = "Bearer Authentication"),
-        SecurityRequirement(name = ""),  // 토큰 없이도 호출 가능
     ],
 )
+@OptionalAuth
 ```
+
+`@OptionalAuth`를 붙이면 OpenAPI security에 `Bearer Authentication`과 빈 security requirement가 함께 등록되어, 토큰이 없어도 호출 가능한 API로 표시된다.
 
 ### 4. 도메인 특화 에러 응답
 

@@ -32,7 +32,9 @@ class LookupPartyInviteUseCase(
         val isRealtime = party.partyOption == PartyOption.REALTIME
 
         return PartyInviteLookupResponse(
+            partyId = party.id,
             celebrantNickname = party.celebrantNickname,
+            isHost = isHost(party, userId),
             partyOption = party.partyOption,
             partyEnded = !now.isBefore(partyEndAt),
             rollingPaperWritten = hasWrittenPaper(party, userId),
@@ -41,6 +43,11 @@ class LookupPartyInviteUseCase(
             realtimeSchedule = if (isRealtime) createRealtimeSchedule(party) else null,
         )
     }
+
+    private fun isHost(
+        party: Party,
+        userId: Long?,
+    ): Boolean = userId != null && party.ownerId == userId
 
     private fun hasWrittenPaper(
         party: Party,
