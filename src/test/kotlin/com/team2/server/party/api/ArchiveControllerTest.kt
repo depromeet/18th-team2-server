@@ -160,6 +160,93 @@ class ArchiveControllerTest
                 }
         }
 
+        @Test
+        fun `host로 만든 파티와 참여한 파티가 함께 조회되고 participant id DESC로 정렬된다`() {
+            val user = saveUser("kakao-archive-multi", "archive-multi@kakao.local")
+            val other = saveUser("kakao-archive-other", "archive-other@kakao.local")
+            val token = tokenProvider.issue(user)
+            val now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS)
+
+            val hostParty =
+                saveParty(
+                    RealtimeParty(
+                        ownerId = user.id,
+                        name = "내 파티",
+                        celebrantNickname = "본인",
+                        startedAt = now.plusHours(2),
+                    ),
+                    now.minusHours(3),
+                )
+            val joinedPaperParty =
+                saveParty(
+                    PaperOnlyParty(
+                        ownerId = other.id,
+                        name = "친구 파티",
+                        celebrantNickname = "친구",
+                        startedAt = now.toLocalDate().plusDays(1).atStartOfDay(),
+                    ),
+                    now.minusHours(2),
+                )
+            val joinedRealtimeParty =
+                saveParty(
+                    RealtimeParty(
+                        ownerId = other.id,
+                        name = "친구 라이브",
+                        celebrantNickname = "친구2",
+                        startedAt = now.plusHours(4),
+                    ),
+                    now.minusHours(1),
+                )
+
+            // 가입 순서: hostParty 먼저, 그다음 joinedPaperParty, 마지막 joinedRealtimeParty
+            // 정렬: participant.id DESC → joinedRealtimeParty, joinedPaperParty, hostParty
+            saveParticipant(hostParty, user, now.minusHours(3))
+            saveParticipant(joinedPaperParty, user, now.minusHours(2))
+            saveParticipant(joinedRealtimeParty, user, now.minusHours(1))
+
+            mockMvc
+                .get("/api/v1/archive") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.items.length()") { value(3) }
+                    jsonPath("$.data.items[0].title") { value("친구 라이브") }
+                    jsonPath("$.data.items[1].title") { value("친구 파티") }
+                    jsonPath("$.data.items[2].title") { value("내 파티") }
+                    jsonPath("$.data.totalCount") { value(3) }
+                    jsonPath("$.data.nextCursor") { value(nullValue()) }
+                }
+        }
+
+        @Test
+        fun `다른 사용자가 가입한 파티는 보관함에 포함되지 않는다`() {
+            val user = saveUser("kakao-archive-isolation", "archive-isolation@kakao.local")
+            val other = saveUser("kakao-archive-other2", "archive-other2@kakao.local")
+            val token = tokenProvider.issue(user)
+            val now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS)
+
+            val otherParty =
+                saveParty(
+                    RealtimeParty(
+                        ownerId = other.id,
+                        name = "남의 파티",
+                        celebrantNickname = "타인",
+                        startedAt = now.plusHours(2),
+                    ),
+                    now.minusHours(1),
+                )
+            saveParticipant(otherParty, other, now.minusHours(1))
+
+            mockMvc
+                .get("/api/v1/archive") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.items.length()") { value(0) }
+                    jsonPath("$.data.totalCount") { value(0) }
+                }
+        }
+
         private fun saveParty(
             party: Party,
             createdAt: LocalDateTime,
