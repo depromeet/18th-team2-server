@@ -104,9 +104,13 @@ app_compose() {
     shift 2
 
     local profiles
+    local app_uid
+    local app_gid
     profiles="$(profiles_for_env "$app_env")"
+    app_uid="${APP_UID:-$(id -u)}"
+    app_gid="${APP_GID:-$(id -g)}"
 
-    APP_ENV="$app_env" APP_SLOT="$slot" SPRING_PROFILES_ACTIVE="$profiles" \
+    APP_ENV="$app_env" APP_SLOT="$slot" APP_UID="$app_uid" APP_GID="$app_gid" SPRING_PROFILES_ACTIVE="$profiles" \
         docker compose --env-file .env -f docker/docker-compose.app.yml -p "team2-app-$app_env-$slot" "$@"
 }
 
@@ -116,7 +120,7 @@ prepare_log_dir() {
     local log_dir="$PROJECT_ROOT/logs/$app_env/$slot"
 
     mkdir -p "$log_dir"
-    chmod 0777 "$log_dir"
+    chmod 0775 "$log_dir"
 }
 
 container_running() {

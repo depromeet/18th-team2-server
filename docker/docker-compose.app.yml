@@ -8,6 +8,7 @@ services:
       - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:?SPRING_PROFILES_ACTIVE must be set}
       - SERVER_FORWARD_HEADERS_STRATEGY=framework
       - DB_HOST=db-${APP_ENV:?APP_ENV must be set}
+    user: "${APP_UID:?APP_UID must be set}:${APP_GID:?APP_GID must be set}"
     healthcheck:
       test: ["CMD-SHELL", "curl -f --max-time 5 http://localhost:8080/actuator/health || exit 1"]
       interval: 10s
