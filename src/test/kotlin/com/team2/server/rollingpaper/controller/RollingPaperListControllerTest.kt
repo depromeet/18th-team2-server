@@ -191,7 +191,7 @@ class RollingPaperListControllerTest
                 }.andExpect {
                     status { isOk() }
                     jsonPath("$.data.celebrantNickname") { value("홍길동") }
-                    jsonPath("$.data.partyEndAt") { value("2026-05-12T14:30:00") }
+                    jsonPath("$.data.partyEndAt") { value("2020-01-08T00:00:00") }
                     jsonPath("$.data.page") { value(1) }
                     jsonPath("$.data.totalCount") { value(1) }
                     jsonPath("$.data.totalPages") { value(1) }

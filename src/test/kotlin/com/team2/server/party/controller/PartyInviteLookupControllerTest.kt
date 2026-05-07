@@ -72,11 +72,11 @@ class PartyInviteLookupControllerTest
                 jsonPath("$.data.partyOption") { value("PAPER_ONLY") }
                 jsonPath("$.data.partyEnded") { value(false) }
                 jsonPath("$.data.rollingPaperWritten") { value(false) }
-                jsonPath("$.data.partyStartDate") { value(createdAt.toLocalDate().toString()) }
+                jsonPath("$.data.partyStartDate") { value(party.startedAt.toLocalDate().toString()) }
                 jsonPath("$.data.partyEndDate") {
                     value(
-                        createdAt
-                            .plusDays(Party.ENDED_AFTER_DAYS)
+                        party
+                            .endedAt()
                             .toLocalDate()
                             .toString(),
                     )
@@ -88,7 +88,7 @@ class PartyInviteLookupControllerTest
         }
 
         @Test
-        fun `생성 후 7일이 지난 파티는 partyEnded true`() {
+        fun `시작 후 7일이 지난 파티는 partyEnded true`() {
             val createdAt = LocalDateTime.now().minusDays(8).truncatedTo(ChronoUnit.SECONDS)
             val party =
                 saveParty(

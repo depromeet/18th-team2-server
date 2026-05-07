@@ -49,7 +49,8 @@
 - 신규 조회 API 경로는 `GET /api/v1/party-invites/{inviteToken}`이다.
 - 신규 회원 참여 API 경로는 `POST /api/v1/party-invites/{inviteToken}/participants/me`이다.
 - 응답은 초대장 조회 전용 응답이다.
-- `partyEnded`, `partyStartDate`, `partyEndDate`는 `endedAt` 전용 컬럼이 아니라 `createdAt + 7일` 기준으로 계산한다.
+- `partyEnded`, `partyStartDate`, `partyEndDate`는 `endedAt` 전용 컬럼이 아니라 `Party.endedAt()` 기준으로 계산한다.
+  - 현재 `Party.endedAt()`는 파티 종류와 관계없이 `startedAt + 7일`이다.
 - `REALTIME` 파티는 조회 시점 상태값 대신 프론트가 버튼/카운트다운 상태를 계산할 기준 시각을 내려준다.
 
 ---
@@ -120,10 +121,10 @@ GET /api/v1/party-invites/{inviteToken}
 | `celebrantNickname` | `Party.celebrantNickname` | 컬럼명과 동일 의미 유지 |
 | `isHost` | `Party.ownerId` | 인증 회원이고 `party.ownerId == userId`이면 true, 비회원이면 false |
 | `partyOption` | 현재 코드의 `Party.partyOption` | 그대로 |
-| `partyEnded` | `Party.createdAt` | `now >= createdAt.plusDays(7)` |
+| `partyEnded` | `Party.endedAt()` | `now >= Party.endedAt()` (`Party.endedAt()` = `startedAt + 7일`) |
 | `rollingPaperWritten` | `Participant.hasWrittenPaper` | 식별 가능한 회원 participant가 있으면 해당 값, 없으면 false |
-| `partyStartDate` | `Party.createdAt` | `createdAt.toLocalDate()` |
-| `partyEndDate` | `Party.createdAt` | `createdAt.plusDays(7).toLocalDate()` |
+| `partyStartDate` | `Party.startedAt` | `startedAt.toLocalDate()` |
+| `partyEndDate` | `Party.endedAt()` | `Party.endedAt().toLocalDate()` (`startedAt + 7일`) |
 | `realtimeSchedule` | 실시간 파티 일정 기준 시각 | `REALTIME`이면 내려주고, `PAPER_ONLY`이면 null |
 | `realtimeSchedule.liveStartAt` | `Party.startedAt` | 실시간 파티 시작 시각 |
 | `realtimeSchedule.enterableFrom` | `Party.startedAt - 5분` | 프론트 입장 버튼 활성화 기준 시작 시각 |
@@ -156,7 +157,7 @@ POST /api/v1/party-invites/{inviteToken}/participants/me
 - `inviteToken`으로 `PartyInvite`를 조회한다.
 - 토큰이 없으면 `PARTY_NOT_FOUND`.
 - `PartyInvite.expiresAt`이 지났으면 `INVITE_LINK_EXPIRED`.
-- `party.createdAt + 7일`이 지났으면 `PARTY_ENDED`.
+- `Party.endedAt()`(`startedAt + 7일`)이 지났으면 `PARTY_ENDED`.
 - 로그인 회원의 기존 participant가 있으면 그대로 반환한다.
 - 기존 participant가 없으면 `Participant(party, user)`를 생성한다.
 - 기존 participant를 반환할 때는 `hasWrittenPaper`, `isCelebrant` 등 기존 participant 필드를 변경하지 않는다.
@@ -204,7 +205,7 @@ data class RealtimeSchedule(
 결정:
 
 - 기존 `PartyInviteService.activateInviteLink(...)`는 유효한 초대 토큰 재사용을 위해 `PartyInvite.expiresAt`을 사용한다.
-- 신규 기획은 "실시간 파티 종료 여부와 관계없이 `realtimeSchedule`을 내려준다"고 되어 있고, `partyEnded`는 `createdAt + 7일` 기준이다.
+- 신규 기획은 "실시간 파티 종료 여부와 관계없이 `realtimeSchedule`을 내려준다"고 되어 있고, `partyEnded`는 `Party.endedAt()` 기준이다.
 - 초대장 조회 API는 `PartyInvite.expiresAt`이 지났어도 조회 가능하게 한다.
 
 구현 기준:
@@ -346,7 +347,7 @@ src/main/kotlin/com/team2/server/party/usecase/LookupPartyInviteUseCase.kt
 1. `partyInviteRepository.findByToken(inviteToken)`
 2. 없으면 `BusinessException(ErrorCode.PARTY_NOT_FOUND)`
 3. `party = invite.party`
-4. `partyEndAt = party.createdAt.plusDays(7)`
+4. `partyEndAt = party.endedAt()`
 5. `isHost` 계산
 6. `rollingPaperWritten` 계산
 7. `realtimeSchedule` 계산
@@ -479,7 +480,7 @@ src/test/kotlin/com/team2/server/party/controller/PartyInviteLookupControllerTes
 - 종료된 파티로 회원 참여 API를 호출하면 participant 미생성 및 `PARTY_ENDED`
 - `PAPER_ONLY`는 `realtimeSchedule`이 null
 - `REALTIME`은 `realtimeSchedule.liveStartAt`, `enterableFrom`, `liveEndAt`, `liveDurationMinutes`가 내려감
-- `createdAt + 7일` 이상이면 `partyEnded = true`
+- `Party.endedAt()` 이상이면 `partyEnded = true`
 - 없는 token이면 404 `PARTY_NOT_FOUND`
 
 ### 8-2. UseCase 단위 테스트

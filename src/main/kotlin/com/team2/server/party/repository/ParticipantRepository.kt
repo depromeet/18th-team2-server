@@ -4,6 +4,8 @@ import com.team2.server.party.entity.Participant
 import com.team2.server.party.entity.Party
 import com.team2.server.user.entity.User
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Query
+import java.time.LocalDateTime
 
 interface ParticipantRepository : JpaRepository<Participant, Long> {
     fun findByPartyAndUser(
@@ -27,4 +29,19 @@ interface ParticipantRepository : JpaRepository<Participant, Long> {
         partyId: Long,
         userId: Long,
     ): Participant?
+
+    @Query(
+        """
+        SELECT participant
+        FROM Participant participant
+        JOIN FETCH participant.party party
+        WHERE participant.user.id = :userId
+          AND party.startedAt > :startedAfter
+        ORDER BY participant.createdAt DESC, participant.id DESC
+        """,
+    )
+    fun findNotEndedByUserId(
+        userId: Long,
+        startedAfter: LocalDateTime,
+    ): List<Participant>
 }
