@@ -157,7 +157,7 @@ POST /api/v1/party-invites/{inviteToken}/participants/me
 - `inviteToken`으로 `PartyInvite`를 조회한다.
 - 토큰이 없으면 `PARTY_NOT_FOUND`.
 - `PartyInvite.expiresAt`이 지났으면 `INVITE_LINK_EXPIRED`.
-- `party.createdAt + 7일`이 지났으면 `PARTY_ENDED`.
+- `Party.endedAt()`(`startedAt + 7일`)이 지났으면 `PARTY_ENDED`.
 - 로그인 회원의 기존 participant가 있으면 그대로 반환한다.
 - 기존 participant가 없으면 `Participant(party, user)`를 생성한다.
 - 기존 participant를 반환할 때는 `hasWrittenPaper`, `isCelebrant` 등 기존 participant 필드를 변경하지 않는다.

@@ -228,6 +228,13 @@ class MePartyControllerTest
             jsonPath("$.data[$index].partyId") { value(party.id) }
             jsonPath("$.data[$index].inviteToken") { value("upcomingpaper01") }
             jsonPath("$.data[$index].partyOption") { value("PAPER_ONLY") }
+            jsonPath("$.data[$index].celebrantNickname") { value(party.celebrantNickname) }
+            jsonPath("$.data[$index].partyStartedAt") {
+                value(party.startedAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+            }
+            jsonPath("$.data[$index].partyEndedAt") {
+                value(party.endedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+            }
             jsonPath("$.data[$index].isHost") { value(true) }
             jsonPath("$.data[$index].rollingPaperWritten") { value(false) }
             jsonPath("$.data[$index].hostRollingPaperOpenAt") {

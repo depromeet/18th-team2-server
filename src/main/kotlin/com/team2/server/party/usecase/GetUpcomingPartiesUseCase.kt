@@ -39,7 +39,12 @@ class GetUpcomingPartiesUseCase(
                 isHost = isHost,
                 rollingPaperWritten = participant.hasWrittenPaper,
                 hostRollingPaperOpenAt = if (isHost) party.hostViewableAt() else null,
-                realtimeSchedule = if (party.partyOption == PartyOption.REALTIME) party.toRealtimeSchedule() else null,
+                realtimeSchedule =
+                    if (party.partyOption == PartyOption.REALTIME) {
+                        (party as RealtimeParty).toRealtimeSchedule()
+                    } else {
+                        null
+                    },
             )
         }
     }
@@ -60,7 +65,7 @@ class GetUpcomingPartiesUseCase(
         return tokenByPartyId
     }
 
-    private fun Party.toRealtimeSchedule(): UpcomingRealtimeScheduleResponse =
+    private fun RealtimeParty.toRealtimeSchedule(): UpcomingRealtimeScheduleResponse =
         UpcomingRealtimeScheduleResponse(
             enterableFrom = startedAt.minusMinutes(RealtimeParty.ENTERABLE_BEFORE_MINUTES),
             liveStartAt = startedAt,
