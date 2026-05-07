@@ -304,16 +304,23 @@ EOF
 
 install_nginx_upstreams_for_running_container() {
     if docker ps --filter 'name=^/team2-nginx$' --format '{{.Names}}' | grep -qx 'team2-nginx'; then
-        if docker cp "$ACTIVE_UPSTREAMS_FILE" team2-nginx:/etc/nginx/conf.d/team2-active-upstreams.conf 2>/dev/null; then
+        local cp_error
+        cp_error="$(mktemp)"
+
+        if docker cp "$ACTIVE_UPSTREAMS_FILE" team2-nginx:/etc/nginx/conf.d/team2-active-upstreams.conf 2>"$cp_error"; then
+            rm -f "$cp_error"
             return 0
         fi
 
-        if docker exec team2-nginx test -s /etc/nginx/conf.d/team2-active-upstreams.conf; then
+        if docker exec team2-nginx cat /etc/nginx/conf.d/team2-active-upstreams.conf 2>/dev/null | cmp -s "$ACTIVE_UPSTREAMS_FILE" -; then
+            rm -f "$cp_error"
             echo "==> team2-nginx already sees $ACTIVE_UPSTREAMS_FILE through a bind mount."
             return 0
         fi
 
         echo "ERROR: failed to install $ACTIVE_UPSTREAMS_FILE into team2-nginx"
+        cat "$cp_error"
+        rm -f "$cp_error"
         return 1
     fi
 }
