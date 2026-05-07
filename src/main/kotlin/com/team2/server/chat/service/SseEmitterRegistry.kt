@@ -1,6 +1,8 @@
 package com.team2.server.chat.service
 
 import org.springframework.stereotype.Component
+import org.springframework.transaction.event.TransactionPhase
+import org.springframework.transaction.event.TransactionalEventListener
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 import java.util.concurrent.ConcurrentHashMap
@@ -17,14 +19,14 @@ class SseEmitterRegistry {
         } catch (_: IllegalStateException) {
             true
         } catch (_: java.io.IOException) {
-            false
+            true
         }
 
     fun subscribe(
         partyId: Long,
         emitter: SseEmitter,
     ) {
-        emitters.getOrPut(partyId) { CopyOnWriteArrayList() }.add(emitter)
+        emitters.computeIfAbsent(partyId) { CopyOnWriteArrayList() }.add(emitter)
 
         val remove = Runnable { remove(partyId, emitter) }
         emitter.onCompletion(remove)
@@ -59,6 +61,11 @@ class SseEmitterRegistry {
         val dead = list.filter { isCompleted(it) }
         list.removeAll(dead)
         return list.size
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    fun onBroadcast(event: ChatMessageBroadcastEvent) {
+        broadcast(event.partyId, event.event)
     }
 
     private fun remove(

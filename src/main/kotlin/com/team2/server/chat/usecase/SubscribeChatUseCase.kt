@@ -39,10 +39,11 @@ class SubscribeChatUseCase(
         resolveProfile(userId, participantToken, partyId)
 
         val emitter = SseEmitter(EMITTER_TIMEOUT_MS)
+        sseEmitterRegistry.subscribe(partyId, emitter)
 
         val history =
             chatMessageRepository
-                .findAllByPartyIdOrderByCreatedAtAsc(partyId)
+                .findAllByPartyIdWithProfileOrderByCreatedAtAsc(partyId)
                 .map { ChatMessageResponse.from(it) }
 
         try {
@@ -55,10 +56,10 @@ class SubscribeChatUseCase(
             )
         } catch (e: IllegalStateException) {
             emitter.completeWithError(e)
-            return emitter
+        } catch (e: java.io.IOException) {
+            emitter.completeWithError(e)
         }
 
-        sseEmitterRegistry.subscribe(partyId, emitter)
         return emitter
     }
 

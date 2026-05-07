@@ -35,7 +35,10 @@ class ChatController(
         @AuthenticationPrincipal principal: UserPrincipal?,
         @RequestBody @Valid request: EnterRealtimePartyRequest,
     ): ApiResponse<EnterRealtimePartyResponse> =
-        ApiResponse.success(HttpStatus.CREATED, enterRealtimePartyUseCase.enter(inviteToken, principal?.userId, request))
+        ApiResponse.success(
+            HttpStatus.CREATED,
+            enterRealtimePartyUseCase.enter(inviteToken, principal?.userId, request),
+        )
 
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping("/api/v1/parties/{partyId}/chat-messages")
@@ -45,7 +48,10 @@ class ChatController(
         @RequestHeader(value = "X-Participant-Token", required = false) participantToken: String?,
         @RequestBody @Valid request: SendChatMessageRequest,
     ): ApiResponse<ChatMessageResponse> =
-        ApiResponse.success(HttpStatus.CREATED, sendChatMessageUseCase.send(partyId, principal?.userId, participantToken, request))
+        ApiResponse.success(
+            HttpStatus.CREATED,
+            sendChatMessageUseCase.send(partyId, principal?.userId, participantToken, request),
+        )
 
     @GetMapping("/api/v1/parties/{partyId}/chat-messages/stream", produces = [MediaType.TEXT_EVENT_STREAM_VALUE])
     override fun subscribe(
