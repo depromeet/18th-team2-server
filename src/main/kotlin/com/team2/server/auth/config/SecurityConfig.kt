@@ -55,6 +55,7 @@ class SecurityConfig(
                 auth.requestMatchers(HttpMethod.GET, "/api/v1/party-invites/*/rolling-papers").permitAll()
                 auth.requestMatchers(HttpMethod.POST, "/api/v1/party-invites/*/rolling-papers").permitAll()
                 auth.requestMatchers(HttpMethod.GET, "/images/**").permitAll()
+                auth.requestMatchers(HttpMethod.GET, "/api/v1/archive").permitAll()
                 auth.anyRequest().authenticated()
             }.oauth2Login { oauth ->
                 oauth.userInfoEndpoint { it.userService(customOAuth2UserService) }
