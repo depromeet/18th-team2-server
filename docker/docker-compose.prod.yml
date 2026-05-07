@@ -1,31 +1,4 @@
 services:
-  app-prod:
-    container_name: team2-app-prod
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-    environment:
-      - SPRING_PROFILES_ACTIVE=prod,secret-prod
-      - SERVER_FORWARD_HEADERS_STRATEGY=framework
-      - DB_HOST=db-prod
-    depends_on:
-      db-prod:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - ../logs/prod:/app/logs
-    mem_limit: 1g
-    cpus: 0.7
-    restart: unless-stopped
-    networks:
-      - prod-network
-
   db-prod:
     container_name: team2-db-prod
     image: mysql:8.0
