@@ -48,11 +48,12 @@ DB healthcheck는 기존 DB container를 유지하는 구조라 배포마다 DB�
 
 - dev/prod DB는 각각 단일 컨테이너로 유지한다. 무중단 전환 대상은 app container뿐이다.
 - 배포 중에는 대상 환경 app container가 일시적으로 2개 떠 있으므로 환경당 최대 `+1GB`, `+0.7 CPU`의 여유가 필요하다.
-- dev와 prod를 동시에 배포하면 app 기준 최대 `+2GB`, `+1.4 CPU`까지 추가될 수 있으므로 서버 여유가 작으면 순차 배포한다.
+- `scripts/deploy.sh`는 `.deploy-state/deploy.lock` 전역 락을 잡아 동시에 한 번만 실행된다. 다른 배포가 실행 중이면 최대 30초 대기한 뒤 실패한다.
+- dev와 prod를 함께 배포하면 app 기준 최대 `+2GB`, `+1.4 CPU`까지 추가될 수 있으므로 서버 여유가 작으면 순차 배포한다.
 - app container는 Dockerfile의 고정 non-root user(`10001:10001`)로 실행된다. host log bind mount는 사용하지 않으며, 로그 확인은 Docker 로그를 기준으로 한다.
 - `team2-nginx` 설정 자체를 바꾼 경우에는 `scripts/deploy-nginx.sh`를 별도로 실행한다. 이 스크립트는 현재 active upstream 파일을 보존하고, 기존 active upstream 파일을 백업한 뒤 compose 설정을 적용한다.
 - `scripts/deploy-nginx.sh`는 nginx 기동 전에 80, 443, 8081 포트를 검사한다. 해당 포트를 `team2-nginx`가 이미 사용 중인 경우는 허용하고, 다른 컨테이너나 host process가 사용 중이면 중단한다.
-- `.deploy-state/`는 서버 runtime state라 git에 커밋하지 않는다. `.deploy-state/nginx-conf`의 active upstream 파일도 runtime state이며, 파일이 없으면 배포 스크립트가 503 fallback으로 생성한다.
+- `.deploy-state/`는 서버 runtime state라 git에 커밋하지 않는다. `.deploy-state/nginx-conf`의 active upstream 파일도 runtime state이며, 파일이 없으면 배포 스크립트가 503 fallback으로 생성한다. `docker compose -f docker/docker-compose.nginx.yml up`을 직접 실행하기 전에도 `scripts/deploy-nginx.sh` 또는 app 배포 스크립트로 이 디렉터리의 `team2-active-upstreams-dev.conf`, `team2-active-upstreams-prod.conf`를 먼저 생성해야 한다.
 - 배포 호스트에는 `curl`이 필요하다. `scripts/deploy.sh`는 nginx 경유 health verification을 통과하지 못하면 배포를 실패 처리한다.
 - schema 변경은 old/new app이 동시에 동작할 수 있게 `expand -> deploy -> contract` 순서로 나눈다. 호환되지 않는 컬럼 삭제, rename, 제약 변경은 app 무중단 배포만으로 보호되지 않는다.
 

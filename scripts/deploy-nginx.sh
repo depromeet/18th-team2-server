@@ -57,11 +57,6 @@ assert_port_available() {
         return 1
     fi
 
-    if command -v ss &>/dev/null && ss -ltnH | awk '{print $5}' | grep -Eq "(^|[:.])${port}$"; then
-        echo "ERROR: port $port is already in use by a host process."
-        return 1
-    fi
-
     if command -v lsof &>/dev/null && lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
         echo "ERROR: port $port is already in use by a host process."
         return 1
@@ -91,7 +86,7 @@ if [ -n "$EXISTING_CONTAINER_ID" ]; then
     fi
 fi
 
-NGINX_FILES="-f docker/docker-compose.nginx.yml"
+NGINX_FILES=(-f docker/docker-compose.nginx.yml)
 
 echo "==> Checking nginx ports..."
 check_nginx_ports
@@ -112,31 +107,31 @@ if docker ps --filter 'name=^/team2-nginx$' --format '{{.Names}}' | grep -qx 'te
 fi
 
 echo "==> Applying nginx compose configuration..."
-if ! docker compose $NGINX_FILES up -d --remove-orphans; then
+if ! docker compose "${NGINX_FILES[@]}" up -d --remove-orphans; then
     echo "ERROR: failed to apply nginx compose configuration. Restoring previous upstream files."
     restore_active_upstreams
-    docker compose $NGINX_FILES up -d || true
-    docker compose $NGINX_FILES logs --tail=50 nginx
+    docker compose "${NGINX_FILES[@]}" up -d || true
+    docker compose "${NGINX_FILES[@]}" logs --tail=50 nginx
     exit 1
 fi
 
-if ! docker compose $NGINX_FILES ps --status running --services | grep -qx nginx; then
+if ! docker compose "${NGINX_FILES[@]}" ps --status running --services | grep -qx nginx; then
     echo "ERROR: nginx is not running. Restoring previous upstream files."
     restore_active_upstreams
-    docker compose $NGINX_FILES up -d || true
-    docker compose $NGINX_FILES logs --tail=50 nginx
+    docker compose "${NGINX_FILES[@]}" up -d || true
+    docker compose "${NGINX_FILES[@]}" logs --tail=50 nginx
     exit 1
 fi
 
-if ! docker compose $NGINX_FILES exec -T nginx nginx -t; then
+if ! docker compose "${NGINX_FILES[@]}" exec -T nginx nginx -t; then
     echo "ERROR: nginx config test failed. Restoring previous upstream files."
     restore_active_upstreams
-    docker compose $NGINX_FILES up -d || true
-    docker compose $NGINX_FILES logs --tail=50 nginx
+    docker compose "${NGINX_FILES[@]}" up -d || true
+    docker compose "${NGINX_FILES[@]}" logs --tail=50 nginx
     exit 1
 fi
 
-docker compose $NGINX_FILES exec -T nginx nginx -s reload
+docker compose "${NGINX_FILES[@]}" exec -T nginx nginx -s reload
 rm -rf "$NGINX_BACKUP_DIR"
 
 echo "==> Done!"

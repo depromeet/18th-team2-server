@@ -1,6 +1,8 @@
 name: team2-nginx
 
 services:
+  # Run scripts/deploy-nginx.sh before direct compose up; nginx.conf requires
+  # pre-populated active upstream files under ../.deploy-state/nginx-conf.
   nginx:
     container_name: team2-nginx
     image: nginx:alpine

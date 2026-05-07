@@ -4,13 +4,57 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 ENV="${1:-}"
+DEPLOY_LOCK_DIR="$PROJECT_ROOT/.deploy-state/deploy.lock"
+DEPLOY_LOCK_TIMEOUT_SECONDS="${DEPLOY_LOCK_TIMEOUT_SECONDS:-30}"
 
 if [ -z "$ENV" ] || [[ ! "$ENV" =~ ^(dev|prod|all)$ ]]; then
     echo "Usage: ./scripts/deploy.sh [dev|prod|all]"
     exit 1
 fi
 
+release_deploy_lock() {
+    if [ -n "${DEPLOY_LOCK_ACQUIRED:-}" ]; then
+        rm -rf "$DEPLOY_LOCK_DIR"
+    fi
+}
+
+handle_deploy_signal() {
+    local signal="$1"
+
+    echo "ERROR: deployment interrupted by $signal."
+    release_deploy_lock
+    trap - EXIT
+    if [ "$signal" = "TERM" ]; then
+        exit 143
+    fi
+    exit 130
+}
+
+acquire_deploy_lock() {
+    local waited=0
+
+    mkdir -p "$(dirname "$DEPLOY_LOCK_DIR")"
+    while ! mkdir "$DEPLOY_LOCK_DIR" 2>/dev/null; do
+        if [ "$waited" -ge "$DEPLOY_LOCK_TIMEOUT_SECONDS" ]; then
+            echo "ERROR: another deployment is running; failed to acquire lock: $DEPLOY_LOCK_DIR"
+            return 1
+        fi
+        if [ "$waited" -eq 0 ]; then
+            echo "==> Another deployment is running; waiting for lock..."
+        fi
+        sleep 1
+        waited=$((waited + 1))
+    done
+
+    DEPLOY_LOCK_ACQUIRED=1
+    printf 'pid=%s\nstarted_at=%s\n' "$$" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$DEPLOY_LOCK_DIR/owner"
+    trap release_deploy_lock EXIT
+    trap 'handle_deploy_signal INT' INT
+    trap 'handle_deploy_signal TERM' TERM
+}
+
 cd "$PROJECT_ROOT"
+acquire_deploy_lock
 source "$PROJECT_ROOT/scripts/lib-deploy.sh"
 ensure_fallback_upstreams
 
