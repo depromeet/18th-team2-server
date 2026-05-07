@@ -105,6 +105,42 @@ for network in dev-network prod-network; do
     fi
 done
 
+nginx_has_mount_destination() {
+    local destination="$1"
+
+    docker inspect -f '{{range .Mounts}}{{println .Destination}}{{end}}' team2-nginx 2>/dev/null |
+        grep -qx "$destination"
+}
+
+ensure_nginx_blue_green_ready() {
+    if ! docker ps --filter 'name=^/team2-nginx$' --format '{{.Names}}' | grep -qx 'team2-nginx'; then
+        echo "ERROR: team2-nginx is not running. Run ./scripts/deploy-nginx.sh before app deployment."
+        return 1
+    fi
+
+    if ! nginx_has_mount_destination /etc/nginx/nginx.conf ||
+        ! nginx_has_mount_destination /etc/nginx/conf.d; then
+        echo "ERROR: team2-nginx is not using the blue/green nginx mounts."
+        echo "Run ./scripts/deploy-nginx.sh before app deployment."
+        return 1
+    fi
+
+    if ! docker exec team2-nginx test -f /etc/nginx/conf.d/team2-active-upstreams-dev.conf ||
+        ! docker exec team2-nginx test -f /etc/nginx/conf.d/team2-active-upstreams-prod.conf; then
+        echo "ERROR: team2-nginx cannot see active upstream files."
+        echo "Run ./scripts/deploy-nginx.sh before app deployment."
+        return 1
+    fi
+
+    if ! docker exec team2-nginx sh -c "nginx -T 2>/dev/null | grep -q 'prod_api_upstream'"; then
+        echo "ERROR: team2-nginx is not using the current blue/green nginx configuration."
+        echo "Run ./scripts/deploy-nginx.sh before app deployment."
+        return 1
+    fi
+}
+
+ensure_nginx_blue_green_ready
+
 profiles_for_env() {
     local app_env="$1"
     echo "$app_env,secret-$app_env"
