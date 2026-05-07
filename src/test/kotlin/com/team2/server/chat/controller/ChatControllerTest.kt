@@ -80,6 +80,7 @@ class ChatControllerTest
                 }.andExpect {
                     status { isCreated() }
                     jsonPath("$.data.participantToken") { isString() }
+                    jsonPath("$.data.messages") { isArray() }
                 }
         }
 
@@ -190,10 +191,10 @@ class ChatControllerTest
         @Test
         fun `LIVE_OPEN이 아닌 파티에 메시지 전송 시 400`() {
             val character = characterRepository.save(Character(name = "lion"))
-            // ROLLING_PAPER_OPEN 상태 (startedAt이 미래)
-            val (party, invite) = savePartyWithInvite(LocalDateTime.now().plusHours(1))
+            // ROLLING_PAPER_OPEN 상태: startedAt이 3분 후 (입장 가능 범위 내이지만 아직 LIVE_OPEN 아님)
+            val (party, invite) = savePartyWithInvite(LocalDateTime.now().plusMinutes(3))
 
-            // EnterRealtimePartyUseCase는 LIVE_OPEN 여부를 검증하지 않으므로 입장 가능
+            // ENTERABLE_BEFORE_MINUTES(5분) 이내이므로 입장 가능, 단 LIVE_OPEN이 아니어서 메시지 전송 불가
             val enterResult =
                 mockMvc
                     .post("/api/v1/party-invites/${invite.token}/realtime-participants") {
@@ -286,6 +287,49 @@ class ChatControllerTest
                 }
         }
 
+        @Test
+        fun `이전 메시지가 있는 파티에 입장하면 messages에 포함`() {
+            val character = characterRepository.save(Character(name = "cat2"))
+            val (party, invite) = savePartyWithInvite(LocalDateTime.now().minusMinutes(5))
+
+            // 1st enter — profile 생성
+            val firstEnter =
+                mockMvc
+                    .post("/api/v1/party-invites/${invite.token}/realtime-participants") {
+                        contentType = MediaType.APPLICATION_JSON
+                        content = """{"nickname": "먼저온사람", "characterId": ${character.id}}"""
+                    }.andExpect { status { isCreated() } }
+                    .andReturn()
+
+            val firstToken =
+                objectMapper
+                    .readTree(firstEnter.response.contentAsString)["data"]["participantToken"]
+                    .asText()
+            val profile = profileRepository.findByParticipantToken(firstToken)!!
+
+            // 메시지 직접 저장
+            chatMessageRepository.save(
+                com.team2.server.chat.entity.ChatMessage(
+                    content = "먼저 보낸 메시지",
+                    party = party,
+                    profile = profile,
+                ),
+            )
+
+            // 2nd enter (다른 참여자)
+            val character2 = characterRepository.save(Character(name = "dog2"))
+            mockMvc
+                .post("/api/v1/party-invites/${invite.token}/realtime-participants") {
+                    contentType = MediaType.APPLICATION_JSON
+                    content = """{"nickname": "나중에온사람", "characterId": ${character2.id}}"""
+                }.andExpect {
+                    status { isCreated() }
+                    jsonPath("$.data.messages") { isArray() }
+                    jsonPath("$.data.messages[0].content") { value("먼저 보낸 메시지") }
+                    jsonPath("$.data.messages[0].senderNickname") { value("먼저온사람") }
+                }
+        }
+
         // ── Helpers ──
 
         private fun saveUser(
@@ -315,7 +359,12 @@ class ChatControllerTest
                 partyInviteRepository.save(
                     PartyInvite(
                         party = party,
-                        token = UUID.randomUUID().toString().replace("-", "").take(16),
+                        token =
+                            UUID
+                                .randomUUID()
+                                .toString()
+                                .replace("-", "")
+                                .take(16),
                         expiresAt = LocalDateTime.now().plusDays(1),
                     ),
                 )

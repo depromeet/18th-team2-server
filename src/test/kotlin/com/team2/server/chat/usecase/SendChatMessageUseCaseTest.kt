@@ -3,7 +3,7 @@ package com.team2.server.chat.usecase
 import com.team2.server.chat.dto.SendChatMessageRequest
 import com.team2.server.chat.entity.ChatMessage
 import com.team2.server.chat.repository.ChatMessageRepository
-import com.team2.server.chat.service.SseEmitterRegistry
+import com.team2.server.chat.service.ChatMessageBroadcastEvent
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.entity.PaperOnlyParty
@@ -22,6 +22,7 @@ import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.springframework.context.ApplicationEventPublisher
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
 
@@ -35,7 +36,7 @@ class SendChatMessageUseCaseTest {
 
     @Mock lateinit var chatMessageRepository: ChatMessageRepository
 
-    @Mock lateinit var sseEmitterRegistry: SseEmitterRegistry
+    @Mock lateinit var applicationEventPublisher: ApplicationEventPublisher
 
     @InjectMocks
     lateinit var useCase: SendChatMessageUseCase
@@ -136,7 +137,7 @@ class SendChatMessageUseCaseTest {
 
         assertEquals("안녕하세요!", response.content)
         assertEquals("토끼왕", response.senderNickname)
-        verify(sseEmitterRegistry).broadcast(any(), any())
+        verify(applicationEventPublisher).publishEvent(any<ChatMessageBroadcastEvent>())
     }
 
     @Test
@@ -152,7 +153,7 @@ class SendChatMessageUseCaseTest {
         val response = useCase.send(partyId = 1L, userId = null, participantToken = "tok", request)
 
         assertEquals("손님", response.senderNickname)
-        verify(sseEmitterRegistry).broadcast(any(), any())
+        verify(applicationEventPublisher).publishEvent(any<ChatMessageBroadcastEvent>())
     }
 
     @Test
@@ -173,9 +174,10 @@ class SendChatMessageUseCaseTest {
         whenever(partyRepository.findPartyById(1L)).thenReturn(party)
         whenever(profileRepository.findByParticipantToken("tok")).thenReturn(null)
 
-        val ex = assertThrows<BusinessException> {
-            useCase.send(partyId = 1L, userId = null, participantToken = "tok", request)
-        }
+        val ex =
+            assertThrows<BusinessException> {
+                useCase.send(partyId = 1L, userId = null, participantToken = "tok", request)
+            }
         assertEquals(ErrorCode.CHARACTER_REQUIRED, ex.errorCode)
     }
 }

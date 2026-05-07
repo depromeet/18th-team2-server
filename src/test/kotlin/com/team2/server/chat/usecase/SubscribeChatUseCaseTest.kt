@@ -98,7 +98,7 @@ class SubscribeChatUseCaseTest {
         whenever(partyRepository.findPartyById(1L)).thenReturn(party)
         whenever(participantRepository.findByPartyIdAndUserId(1L, 10L)).thenReturn(participant)
         whenever(profileRepository.findByParticipant(participant)).thenReturn(profile)
-        whenever(chatMessageRepository.findAllByPartyIdOrderByCreatedAtAsc(1L)).thenReturn(listOf(msg))
+        whenever(chatMessageRepository.findAllByPartyIdWithProfileOrderByCreatedAtAsc(1L)).thenReturn(listOf(msg))
 
         val emitter = useCase.subscribe(partyId = 1L, userId = 10L, participantToken = null)
 
