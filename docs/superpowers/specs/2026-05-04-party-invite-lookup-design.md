@@ -122,7 +122,7 @@ GET /api/v1/party-invites/{inviteToken}
 | `partyOption` | 현재 코드의 `Party.partyOption` | 그대로 |
 | `partyEnded` | `Party.endedAt()` | `now >= Party.endedAt()` |
 | `rollingPaperWritten` | `Participant.hasWrittenPaper` | 식별 가능한 회원 participant가 있으면 해당 값, 없으면 false |
-| `partyStartDate` | `Party.createdAt` | `createdAt.toLocalDate()` |
+| `partyStartDate` | `Party.startedAt` | `startedAt.toLocalDate()` |
 | `partyEndDate` | `Party.endedAt()` | `Party.endedAt().toLocalDate()` |
 | `realtimeSchedule` | 실시간 파티 일정 기준 시각 | `REALTIME`이면 내려주고, `PAPER_ONLY`이면 null |
 | `realtimeSchedule.liveStartAt` | `Party.startedAt` | 실시간 파티 시작 시각 |

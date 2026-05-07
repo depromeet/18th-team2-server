@@ -38,7 +38,7 @@ class LookupPartyInviteUseCase(
             partyOption = party.partyOption,
             partyEnded = !now.isBefore(partyEndAt),
             rollingPaperWritten = hasWrittenPaper(party, userId),
-            partyStartDate = party.createdAt.toLocalDate(),
+            partyStartDate = party.startedAt.toLocalDate(),
             partyEndDate = partyEndAt.toLocalDate(),
             realtimeSchedule = if (isRealtime) createRealtimeSchedule(party) else null,
         )
