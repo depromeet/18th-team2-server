@@ -2,7 +2,6 @@
 .env
 .env.*
 .deploy-state/
-nginx/conf.d/team2-active-upstreams.conf
 nginx/conf.d/team2-active-upstreams.conf.bak
 application-secret*.yml
 application-secret*.yaml

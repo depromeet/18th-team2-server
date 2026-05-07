@@ -51,7 +51,8 @@ DB healthcheck는 기존 DB container를 유지하는 구조라 배포마다 DB�
 - dev와 prod를 동시에 배포하면 app 기준 최대 `+2GB`, `+1.4 CPU`까지 추가될 수 있으므로 서버 여유가 작으면 순차 배포한다.
 - app log bind mount는 slot별로 `logs/{env}/{slot}`을 사용한다. `scripts/deploy.sh`가 디렉터리를 만들고, app container를 배포 호스트의 UID/GID(`APP_UID`, `APP_GID`, 기본값 `id -u`, `id -g`)로 실행해 `0775` 권한으로 쓰게 한다.
 - `team2-nginx` 설정 자체를 바꾼 경우에는 `scripts/deploy-nginx.sh`를 별도로 실행한다. 이 스크립트도 `.deploy-state`와 실행 중인 컨테이너를 읽어 현재 active slot을 유지하고, 기존 active upstream 파일을 백업한 뒤 compose 설정을 적용한다.
-- `nginx/conf.d/team2-active-upstreams.conf`와 `.deploy-state/`는 서버 runtime state라 git에 커밋하지 않는다. `nginx/conf.d/.gitkeep`은 bind mount 디렉터리를 보장하기 위한 placeholder다.
+- `nginx/conf.d/team2-active-upstreams.conf`는 nginx 직접 기동을 위한 503 fallback 파일이다. 배포 중에는 `scripts/deploy.sh` 또는 `scripts/deploy-nginx.sh`가 실행 중인 slot 기준으로 이 파일을 다시 렌더링한다.
+- `.deploy-state/`는 서버 runtime state라 git에 커밋하지 않는다. `nginx/conf.d/.gitkeep`은 bind mount 디렉터리를 보장하기 위한 placeholder다.
 - 배포 호스트에는 `curl`이 필요하다. `scripts/deploy.sh`는 nginx 경유 health verification을 통과하지 못하면 배포를 실패 처리한다.
 - schema 변경은 old/new app이 동시에 동작할 수 있게 `expand -> deploy -> contract` 순서로 나눈다. 호환되지 않는 컬럼 삭제, rename, 제약 변경은 app 무중단 배포만으로 보호되지 않는다.
 
