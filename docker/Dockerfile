@@ -24,7 +24,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
 # non-root 유저 생성
-RUN groupadd -g 10001 appuser && useradd -u 10001 -g appuser -M appuser
+RUN groupadd -g 10001 appuser && useradd -u 10001 -g appuser -M -s /usr/sbin/nologin appuser
 
 # 빌드된 JAR 복사
 COPY --from=builder /app/build/libs/app.jar app.jar

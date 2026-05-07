@@ -2,7 +2,7 @@
 
 if [ -z "${PROJECT_ROOT:-}" ]; then
     echo "ERROR: PROJECT_ROOT must be set before sourcing scripts/lib-deploy.sh" >&2
-    exit 1
+    return 1
 fi
 
 STATE_DIR="$PROJECT_ROOT/.deploy-state"
@@ -15,8 +15,11 @@ is_valid_slot() {
 other_slot() {
     if [ "$1" = "blue" ]; then
         echo "green"
-    else
+    elif [ "$1" = "green" ]; then
         echo "blue"
+    else
+        echo "ERROR: invalid slot: $1" >&2
+        return 1
     fi
 }
 
@@ -38,32 +41,23 @@ active_upstreams_file() {
     echo "$NGINX_CONF_DIR/team2-active-upstreams-$1.conf"
 }
 
-container_running() {
+container_state() {
     local container="$1"
-    [ "$(docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null || true)" = "true" ]
-}
-
-container_health() {
-    local container="$1"
-    docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container" 2>/dev/null || true
+    docker inspect -f '{{.State.Running}}:{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container" 2>/dev/null || true
 }
 
 container_healthy() {
     local container="$1"
 
-    container_running "$container" && [ "$(container_health "$container")" = "healthy" ]
+    [ "$(container_state "$container")" = "true:healthy" ]
 }
 
 legacy_container_ready() {
     local container="$1"
-    local health
+    local state
 
-    if ! container_running "$container"; then
-        return 1
-    fi
-
-    health="$(container_health "$container")"
-    [ "$health" = "healthy" ] || [ "$health" = "none" ]
+    state="$(container_state "$container")"
+    [ "$state" = "true:healthy" ] || [ "$state" = "true:none" ]
 }
 
 detect_active_target() {
@@ -123,6 +117,7 @@ render_env_upstream() {
     local upstream
     local available
 
+    mkdir -p "$NGINX_CONF_DIR"
     upstream="$(upstream_map_value "$app_env" "$target")"
     available="$(upstream_available "$target")"
 
@@ -192,26 +187,29 @@ install_nginx_upstream_file_for_running_container() {
     local file="$1"
     local destination="/etc/nginx/conf.d/$(basename "$file")"
 
-    if docker ps --filter 'name=^/team2-nginx$' --format '{{.Names}}' | grep -qx 'team2-nginx'; then
-        local cp_error
-        cp_error="$(mktemp)"
-
-        if docker exec team2-nginx cat "$destination" 2>/dev/null | cmp -s "$file" -; then
-            rm -f "$cp_error"
-            echo "==> team2-nginx already sees $file through a bind mount."
-            return 0
-        fi
-
-        if docker cp "$file" "team2-nginx:$destination" 2>"$cp_error"; then
-            rm -f "$cp_error"
-            return 0
-        fi
-
-        echo "ERROR: failed to install $file into team2-nginx:$destination"
-        cat "$cp_error"
-        rm -f "$cp_error"
+    if ! docker ps --filter 'name=^/team2-nginx$' --format '{{.Names}}' | grep -qx 'team2-nginx'; then
+        echo "ERROR: team2-nginx container is not running; cannot install $file" >&2
         return 1
     fi
+
+    local cp_error
+    cp_error="$(mktemp)"
+
+    if docker exec team2-nginx cat "$destination" 2>/dev/null | cmp -s "$file" -; then
+        rm -f "$cp_error"
+        echo "==> team2-nginx already sees $file through a bind mount."
+        return 0
+    fi
+
+    if docker cp "$file" "team2-nginx:$destination" 2>"$cp_error"; then
+        rm -f "$cp_error"
+        return 0
+    fi
+
+    echo "ERROR: failed to install $file into team2-nginx:$destination"
+    cat "$cp_error"
+    rm -f "$cp_error"
+    return 1
 }
 
 install_nginx_upstreams_for_running_container() {

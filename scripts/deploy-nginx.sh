@@ -10,9 +10,17 @@ source "$PROJECT_ROOT/scripts/lib-deploy.sh"
 ensure_fallback_upstreams
 
 backup_active_upstreams() {
+    local files
+
     rm -rf "$NGINX_BACKUP_DIR"
     mkdir -p "$NGINX_BACKUP_DIR"
-    cp "$NGINX_CONF_DIR"/team2-active-upstreams-*.conf "$NGINX_BACKUP_DIR"/
+    files=("$NGINX_CONF_DIR"/team2-active-upstreams-*.conf)
+    if [ ! -e "${files[0]}" ]; then
+        echo "WARN: no active upstream conf files to back up."
+        return 0
+    fi
+
+    cp "${files[@]}" "$NGINX_BACKUP_DIR"/
 }
 
 restore_active_upstreams() {
@@ -45,6 +53,11 @@ assert_port_available() {
     fi
 
     if command -v ss &>/dev/null && ss -ltnH | awk '{print $4}' | grep -Eq "(^|[:.])${port}$"; then
+        echo "ERROR: port $port is already in use by a host process."
+        return 1
+    fi
+
+    if command -v ss &>/dev/null && ss -ltnH | awk '{print $5}' | grep -Eq "(^|[:.])${port}$"; then
         echo "ERROR: port $port is already in use by a host process."
         return 1
     fi
