@@ -36,12 +36,7 @@ class EnterRealtimePartyUseCase(
             ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
 
         val party = invite.party
-        if (party.partyOption != PartyOption.REALTIME) {
-            throw BusinessException(ErrorCode.CHAT_NOT_SUPPORTED)
-        }
-        if (!invite.expiresAt.isAfter(LocalDateTime.now())) {
-            throw BusinessException(ErrorCode.INVITE_LINK_EXPIRED)
-        }
+        validateInvite(party, invite.expiresAt)
 
         val character = characterRepository.findByIdOrNull(request.characterId)
             ?: throw BusinessException(ErrorCode.CHARACTER_NOT_FOUND)
@@ -65,17 +60,27 @@ class EnterRealtimePartyUseCase(
         return EnterRealtimePartyResponse(participantToken = newProfile.participantToken)
     }
 
+    private fun validateInvite(party: Party, expiresAt: LocalDateTime) {
+        if (party.partyOption != PartyOption.REALTIME) {
+            throw BusinessException(ErrorCode.CHAT_NOT_SUPPORTED)
+        }
+        if (!expiresAt.isAfter(LocalDateTime.now())) {
+            throw BusinessException(ErrorCode.INVITE_LINK_EXPIRED)
+        }
+    }
+
     private fun findOrCreateParticipant(
         partyId: Long,
         userId: Long?,
         party: Party,
     ): Participant {
         if (userId != null) {
-            val existing = participantRepository.findByPartyIdAndUserId(partyId, userId)
-            if (existing != null) return existing
-            val user = userRepository.findByIdOrNull(userId)
-                ?: throw BusinessException(ErrorCode.AUTH_USER_NOT_FOUND)
-            return participantRepository.save(Participant(party = party, user = user))
+            return participantRepository.findByPartyIdAndUserId(partyId, userId)
+                ?: run {
+                    val user = userRepository.findByIdOrNull(userId)
+                        ?: throw BusinessException(ErrorCode.AUTH_USER_NOT_FOUND)
+                    participantRepository.save(Participant(party = party, user = user))
+                }
         }
         return participantRepository.save(Participant(party = party))
     }
