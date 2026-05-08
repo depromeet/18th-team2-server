@@ -4,11 +4,11 @@ import com.team2.server.chat.dto.EnterRealtimePartyRequest
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.entity.Character
+import com.team2.server.party.entity.PaperOnlyParty
 import com.team2.server.party.entity.Participant
 import com.team2.server.party.entity.PartyInvite
 import com.team2.server.party.entity.RealtimeParticipantProfile
 import com.team2.server.party.entity.RealtimeParty
-import com.team2.server.party.entity.PaperOnlyParty
 import com.team2.server.party.repository.CharacterRepository
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyInviteRepository
@@ -28,11 +28,14 @@ import kotlin.test.assertNotNull
 
 @ExtendWith(MockitoExtension::class)
 class EnterRealtimePartyUseCaseTest {
-
     @Mock lateinit var partyInviteRepository: PartyInviteRepository
+
     @Mock lateinit var participantRepository: ParticipantRepository
+
     @Mock lateinit var realtimeParticipantProfileRepository: RealtimeParticipantProfileRepository
+
     @Mock lateinit var characterRepository: CharacterRepository
+
     @Mock lateinit var userRepository: UserRepository
 
     @InjectMocks
@@ -104,12 +107,13 @@ class EnterRealtimePartyUseCaseTest {
         val invite = PartyInvite(party = party, token = "tok", expiresAt = LocalDateTime.now().plusDays(7))
         val character = Character(name = "토끼")
         val participant = Participant(party = party)
-        val existingProfile = RealtimeParticipantProfile(
-            participant = participant,
-            nickname = "기존닉네임",
-            character = null,
-            participantToken = "existing-uuid",
-        )
+        val existingProfile =
+            RealtimeParticipantProfile(
+                participant = participant,
+                nickname = "기존닉네임",
+                character = null,
+                participantToken = "existing-uuid",
+            )
 
         whenever(partyInviteRepository.findByToken("tok")).thenReturn(invite)
         whenever(characterRepository.findById(1L)).thenReturn(java.util.Optional.of(character))

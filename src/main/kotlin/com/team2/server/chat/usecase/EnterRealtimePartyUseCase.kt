@@ -32,14 +32,16 @@ class EnterRealtimePartyUseCase(
         userId: Long?,
         request: EnterRealtimePartyRequest,
     ): EnterRealtimePartyResponse {
-        val invite = partyInviteRepository.findByToken(inviteToken)
-            ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
+        val invite =
+            partyInviteRepository.findByToken(inviteToken)
+                ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
 
         val party = invite.party
         validateInvite(party, invite.expiresAt)
 
-        val character = characterRepository.findByIdOrNull(request.characterId)
-            ?: throw BusinessException(ErrorCode.CHARACTER_NOT_FOUND)
+        val character =
+            characterRepository.findByIdOrNull(request.characterId)
+                ?: throw BusinessException(ErrorCode.CHARACTER_NOT_FOUND)
 
         val participant = findOrCreateParticipant(party.id, userId, party)
         val profile = realtimeParticipantProfileRepository.findByParticipant(participant)
@@ -50,17 +52,21 @@ class EnterRealtimePartyUseCase(
             return EnterRealtimePartyResponse(participantToken = profile.participantToken)
         }
 
-        val newProfile = realtimeParticipantProfileRepository.save(
-            RealtimeParticipantProfile(
-                participant = participant,
-                nickname = request.nickname,
-                character = character,
-            ),
-        )
+        val newProfile =
+            realtimeParticipantProfileRepository.save(
+                RealtimeParticipantProfile(
+                    participant = participant,
+                    nickname = request.nickname,
+                    character = character,
+                ),
+            )
         return EnterRealtimePartyResponse(participantToken = newProfile.participantToken)
     }
 
-    private fun validateInvite(party: Party, expiresAt: LocalDateTime) {
+    private fun validateInvite(
+        party: Party,
+        expiresAt: LocalDateTime,
+    ) {
         if (party.partyOption != PartyOption.REALTIME) {
             throw BusinessException(ErrorCode.CHAT_NOT_SUPPORTED)
         }
@@ -77,8 +83,9 @@ class EnterRealtimePartyUseCase(
         if (userId != null) {
             return participantRepository.findByPartyIdAndUserId(partyId, userId)
                 ?: run {
-                    val user = userRepository.findByIdOrNull(userId)
-                        ?: throw BusinessException(ErrorCode.AUTH_USER_NOT_FOUND)
+                    val user =
+                        userRepository.findByIdOrNull(userId)
+                            ?: throw BusinessException(ErrorCode.AUTH_USER_NOT_FOUND)
                     participantRepository.save(Participant(party = party, user = user))
                 }
         }
