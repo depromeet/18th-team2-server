@@ -1,8 +1,8 @@
 package com.team2.server.chat.entity
 
 import com.team2.server.common.entity.BaseEntity
-import com.team2.server.party.entity.Participant
 import com.team2.server.party.entity.Party
+import com.team2.server.party.entity.RealtimeParticipantProfile
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.FetchType
@@ -19,6 +19,6 @@ class ChatMessage(
     @JoinColumn(name = "party_id", nullable = false)
     var party: Party,
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "participant_id", nullable = false)
-    var participant: Participant,
+    @JoinColumn(name = "profile_id", nullable = false)
+    var profile: RealtimeParticipantProfile,
 ) : BaseEntity()
