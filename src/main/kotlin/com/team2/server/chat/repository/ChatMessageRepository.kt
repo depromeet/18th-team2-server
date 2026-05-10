@@ -3,6 +3,8 @@ package com.team2.server.chat.repository
 import com.team2.server.chat.entity.ChatMessage
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
+import org.springframework.data.jpa.repository.Query
+import org.springframework.data.repository.query.Param
 import org.springframework.transaction.annotation.Transactional
 
 interface ChatMessageRepository : JpaRepository<ChatMessage, Long> {
@@ -11,4 +13,15 @@ interface ChatMessageRepository : JpaRepository<ChatMessage, Long> {
     fun deleteAllByPartyId(partyId: Long)
 
     fun findAllByPartyIdOrderByCreatedAtAsc(partyId: Long): List<ChatMessage>
+
+    @Query(
+        "SELECT m FROM ChatMessage m " +
+            "JOIN FETCH m.profile p " +
+            "LEFT JOIN FETCH p.character " +
+            "WHERE m.party.id = :partyId " +
+            "ORDER BY m.createdAt ASC",
+    )
+    fun findAllByPartyIdWithProfileOrderByCreatedAtAsc(
+        @Param("partyId") partyId: Long,
+    ): List<ChatMessage>
 }

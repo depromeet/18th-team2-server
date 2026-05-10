@@ -8,4 +8,5 @@ data class EnterRealtimePartyRequest(
     @field:Size(max = 20)
     val nickname: String,
     val characterId: Long,
+    val participantToken: String? = null,
 )
