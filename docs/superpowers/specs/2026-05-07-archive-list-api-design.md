@@ -15,6 +15,7 @@
 | 정렬 키 | `participant.id DESC` — 사용자 관점에서 보관함에 닿은 순서(만든 시점 또는 참여한 시점이 가장 최근인 항목이 위) |
 | 상태 필터 | 없음 — 시작 전/진행 중/종료 모두 포함 |
 | `title` 매핑 | `party.name`, null이면 빈 문자열 `""` |
+| `celebrantName` 매핑 | `party.celebrantNickname` 그대로 노출, null 허용. FE가 `{celebrantName} 생일 파티` 형태로 표시 |
 | 인증 | `UserPrincipal?` nullable. 비로그인 시 200 빈 응답 |
 | cursor 형식 | 마지막 항목의 `participant.id` 문자열 |
 | `id` 직렬화 | `Long → string` (Jackson `@JsonFormat(shape = STRING)`) |
@@ -52,6 +53,7 @@ Authorization: Bearer <jwt>          # 선택. 없으면 빈 응답
         "id": "1024",
         "type": "PARTY",
         "title": "김루카 생일 파티",
+        "celebrantName": "김루카",
         "date": "2026-05-12T22:10:00+09:00"
       }
     ],
@@ -67,6 +69,7 @@ Authorization: Bearer <jwt>          # 선택. 없으면 빈 응답
 | `items[].id` | string | `participant.id` 문자열 — cursor와 동일 키 |
 | `items[].type` | `"PARTY"` \| `"PAPER"` | `partyOption` 매핑 |
 | `items[].title` | string (non-null) | `party.name` 또는 `""` |
+| `items[].celebrantName` | string \| null | `party.celebrantNickname` 그대로. FE가 `{celebrantName} 생일 파티` 형태로 표시 |
 | `items[].date` | string | `party.endedAt()` ISO 8601 + KST 오프셋 |
 | `nextCursor` | string \| null | 다음 페이지 cursor. 없으면 null |
 | `totalCount` | number | 사용자 보관함 전체 개수. 헤더 "보관함 N개" 표시용. 매 페이지 동일 |
