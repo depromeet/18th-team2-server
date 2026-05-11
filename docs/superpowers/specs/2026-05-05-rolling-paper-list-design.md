@@ -35,8 +35,17 @@
 정렬과 페이지네이션도 두 API가 같은 규칙을 사용한다.
 
 - 최신순
-- 한 페이지 기준 7개
+- 한 페이지 기준 `PAGE_SIZE = 7`
 - 표준 페이지네이션을 사용한다.
+
+문서에서 `PAGE_SIZE`는 7을 의미한다.
+구현도 같은 상수명으로 관리해 위치 계산과 page 조회 크기가 어긋나지 않게 한다.
+
+`content`는 작성 API의 기존 제한을 따른다.
+
+- 필수, blank 불가
+- 최대 100자
+- 서버는 앞뒤 공백을 제거한 내용을 저장한다.
 
 ---
 
@@ -157,14 +166,14 @@ GET /api/v1/party-invites/{inviteToken}/rolling-papers?page=1
 | `items[].rollingPaperId` | 롤링페이퍼 식별자. |
 | `items[].position` | 최신순 기준 현재 롤링페이퍼 순번. 1부터 시작한다. |
 | `items[].writerNickname` | 롤링페이퍼 작성 당시 닉네임 스냅샷. |
-| `items[].content` | 롤링페이퍼 상세 오버레이에 표시할 본문. |
+| `items[].content` | 롤링페이퍼 상세 오버레이에 표시할 본문. 작성 API 기준 최대 100자. |
 | `items[].wrapperImageUrl` | 카드 렌더링용 래퍼 이미지 URL. 이미지가 없으면 `null`. |
 
 응답에서 제외하는 필드:
 
 | 제외 필드 | 제외 이유 |
 |---|---|
-| `pageSize` | 한 페이지 기준은 7개로 고정이므로 응답에 반복해서 내려주지 않는다. |
+| `pageSize` | 한 페이지 기준은 `PAGE_SIZE = 7`로 고정이므로 응답에 반복해서 내려주지 않는다. |
 | `partyEndAt` | 참가자용 목록 화면에서는 파티 자체 종료 시각을 표시하지 않는다. |
 
 참가자용은 실시간 파티 종료 여부 boolean 대신 `liveEndAt`을 내려준다.
@@ -174,6 +183,14 @@ GET /api/v1/party-invites/{inviteToken}/rolling-papers?page=1
 - `liveEndAt`은 서버 응답 시점의 boolean보다 캐시와 시간 경과에 덜 취약하다.
 - 프론트는 화면 진입 시 한 번 현재 시각과 `liveEndAt`을 비교해 필요한 분기를 계산할 수 있다.
 - 기존 초대장 조회 API도 실시간 파티 종료 판단 기준으로 `realtimeSchedule.liveEndAt`을 내려준다.
+
+참가자용 상세 단건 조회 API는 이번 계약에 추가하지 않는다.
+
+이유:
+
+- 참가자 화면은 초대 링크로 목록에 진입한 뒤 목록 item 데이터로 상세 오버레이를 여는 흐름이다.
+- 현재 요구사항에는 참가자에게 특정 롤링페이퍼 ID로 바로 진입하는 딥링크나 푸시 알림 복구 시나리오가 없다.
+- 해당 요구가 생기면 초대 토큰 기반 참가자용 상세 API를 별도 계약으로 추가한다.
 
 ### 3-2. 주최자용 목록 조회
 
@@ -223,7 +240,7 @@ GET /api/v1/parties/{partyId}/rolling-papers?page=1
 | `items[].rollingPaperId` | 롤링페이퍼 식별자. |
 | `items[].position` | 최신순 기준 현재 롤링페이퍼 순번. 1부터 시작한다. |
 | `items[].writerNickname` | 롤링페이퍼 작성 당시 닉네임 스냅샷. |
-| `items[].content` | 롤링페이퍼 상세 오버레이에 표시할 본문. |
+| `items[].content` | 롤링페이퍼 상세 오버레이에 표시할 본문. 작성 API 기준 최대 100자. |
 | `items[].wrapperImageUrl` | 카드 렌더링용 래퍼 이미지 URL. 이미지가 없으면 `null`. |
 
 응답에서 제외하는 필드:
@@ -231,7 +248,7 @@ GET /api/v1/parties/{partyId}/rolling-papers?page=1
 | 제외 필드 | 제외 이유 |
 |---|---|
 | `partyOption` | 주최자 목록 화면의 응답 요구사항에는 필요하지 않다. 열람 가능 여부는 서버가 검증한다. |
-| `pageSize` | 한 페이지 기준은 7개로 고정이므로 응답에 반복해서 내려주지 않는다. |
+| `pageSize` | 한 페이지 기준은 `PAGE_SIZE = 7`로 고정이므로 응답에 반복해서 내려주지 않는다. |
 | `inviteToken`, `shareLink` | 공유하기 버튼 클릭 시 기존 초대 링크 API를 별도로 호출한다. |
 
 ### 3-3. 주최자용 상세 조회
@@ -251,6 +268,7 @@ GET /api/v1/parties/{partyId}/rolling-papers/{rollingPaperId}
 - 목록 화면에서 토핑을 눌러 상세 오버레이를 여는 기본 플로우에는 사용하지 않는다.
 - 특정 롤링페이퍼 ID로 바로 상세를 열어야 하는 딥링크, 푸시 알림, 새로고침 복구, 운영성 조회 같은 보조 플로우를 위해 유지한다.
 - 상세 오버레이의 좌우 이동은 이 API의 이전/다음 ID에 의존하지 않고 목록 page 캐시와 인접 page 조회로 처리한다.
+- `previousRollingPaperId`, `nextRollingPaperId`는 딥링크나 새로고침 복구처럼 목록 page 캐시가 없는 상태에서 인접 항목을 안내하기 위한 보조 메타데이터다.
 
 응답:
 
@@ -353,7 +371,7 @@ override fun hostViewableAt(): LocalDateTime =
 ## 5. 페이지네이션 규칙
 
 페이지 요청은 1부터 시작하고, `page`가 1보다 작으면 서버에서 1로 보정한다.
-한 페이지 기준 개수는 7개 고정이며, 정렬은 `createdAt DESC, id DESC`다.
+한 페이지 기준 개수는 `PAGE_SIZE = 7`로 고정이며, 정렬은 `createdAt DESC, id DESC`다.
 
 서버는 `totalPages` 계산과 상세 오버레이의 `1 / N` 표시를 위해 `totalCount`를 조회한다.
 참가자용과 주최자용 응답 모두 `totalCount`를 내려준다.
@@ -362,8 +380,13 @@ override fun hostViewableAt(): LocalDateTime =
 목록 page 응답에서는 별도 count 쿼리로 개별 위치를 계산하지 않고, 현재 page와 index로 계산한다.
 
 ```text
-position = (page - 1) * 7 + itemIndex + 1
+position = (page - 1) * PAGE_SIZE + itemIndex + 1
 ```
+
+`position`과 `totalCount`는 해당 목록 API 응답 시점의 snapshot 기준이다.
+사용자가 상세 오버레이를 보고 있는 동안 새 롤링페이퍼가 추가되면 이미 캐시된 page의 `position`과 `totalCount`가 최신 DB 상태와 달라질 수 있다.
+이번 화면은 실시간 동기화보다 page 기반 탐색과 전체 페이지 표시를 우선하므로 이 정도의 eventual consistency를 허용한다.
+프론트가 최신 개수를 반드시 다시 보여줘야 하는 시점에는 목록 page를 재조회한다.
 
 응답 invariant:
 
@@ -414,6 +437,7 @@ Party.endedAt() = Party.startedAt + Party.ENDED_AFTER_DAYS
 ## 7. 이미지 URL 정책
 
 목록 item은 `wrapperImageUrl`과 상세 오버레이에 필요한 `content`를 내려준다.
+`content`는 작성 API와 엔티티의 기존 제한에 따라 최대 100자다.
 
 이유:
 
@@ -507,10 +531,10 @@ ROLLING_PAPER_NOT_VIEWABLE(HttpStatus.FORBIDDEN, "아직 롤링페이퍼를 확�
 페이지네이션:
 
 - totalCount 0이면 `totalPages = 0`, `items = []`
-- totalCount 7이면 1페이지 7개
-- totalCount 8이면 1페이지 7개, 2페이지 1개
-- totalCount 14이면 1페이지 7개, 2페이지 7개
-- totalCount 15이면 1페이지 7개, 2페이지 7개, 3페이지 1개
+- totalCount가 `PAGE_SIZE`이면 1페이지 `PAGE_SIZE`개
+- totalCount가 `PAGE_SIZE + 1`이면 1페이지 `PAGE_SIZE`개, 2페이지 1개
+- totalCount가 `PAGE_SIZE * 2`이면 1페이지 `PAGE_SIZE`개, 2페이지 `PAGE_SIZE`개
+- totalCount가 `PAGE_SIZE * 2 + 1`이면 1페이지 `PAGE_SIZE`개, 2페이지 `PAGE_SIZE`개, 3페이지 1개
 - `page`가 1보다 작으면 1페이지로 보정
 - 존재하지 않는 페이지 요청 시 `page`는 요청값 그대로, `items = []`, `hasNext = false`
 

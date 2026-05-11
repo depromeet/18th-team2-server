@@ -9,7 +9,9 @@
 - 두 API는 `content`, `position`을 포함하는 공통 목록 item을 사용한다.
 - 상세 오버레이는 기본적으로 목록 page 응답으로 렌더링한다.
 - 주최자용 상세 조회 API는 딥링크, 새로고침 복구, 운영성 조회 같은 보조 플로우를 위해 유지한다.
-- 목록은 표준 page 기반 페이지네이션으로 조회하고, 응답 시각은 기존 API와 맞춰 KST 기준 `LocalDateTime` 문자열을 유지한다.
+- 목록은 표준 page 기반 페이지네이션으로 조회하고, `PAGE_SIZE = 7`을 사용한다.
+- `content`는 작성 API의 기존 제한과 동일하게 최대 100자다.
+- 응답 시각은 기존 API와 맞춰 KST 기준 `LocalDateTime` 문자열을 유지한다.
 
 Spec: `docs/superpowers/specs/2026-05-05-rolling-paper-list-design.md`
 
@@ -27,6 +29,7 @@ Spec: `docs/superpowers/specs/2026-05-05-rolling-paper-list-design.md`
 - `PAPER_ONLY`는 `liveEndAt = null`로 응답한다.
 - 참가자 응답에는 상세 오버레이의 `1 / N` 표시에 필요한 `totalCount`를 포함한다.
 - 참가자 응답에는 `pageSize`, `partyEndAt`을 포함하지 않는다.
+- 참가자용 상세 단건 조회 API는 이번 계약에 추가하지 않는다. 특정 롤링페이퍼 ID로 바로 진입하는 참가자 딥링크/복구 요구가 생기면 별도 계약으로 추가한다.
 
 Response data:
 
@@ -91,6 +94,7 @@ Response data:
 - 목록 화면에서 토핑을 눌러 상세 오버레이를 여는 기본 플로우에는 사용하지 않는다.
 - 특정 롤링페이퍼 ID로 바로 진입해야 하는 딥링크, 푸시 알림, 새로고침 복구, 운영성 조회 같은 보조 플로우에 사용한다.
 - 상세 오버레이의 좌우 이동은 목록 page 캐시와 인접 page 조회로 처리한다.
+- `previousRollingPaperId`, `nextRollingPaperId`는 목록 page 캐시가 없는 직접 진입 상황에서 인접 항목 안내용으로 유지한다.
 
 ## Implementation Steps
 
@@ -107,13 +111,15 @@ Response data:
 
 3. 목록 조회 기반을 추가한다.
    - `RollingPaperRepository.findAllByParty(..., Pageable): Page<RollingPaper>`를 추가한다.
-   - 정렬은 `createdAt DESC, id DESC`, 페이지 크기는 7로 고정한다.
+   - 정렬은 `createdAt DESC, id DESC`, 페이지 크기는 `PAGE_SIZE = 7`로 고정한다.
    - `page < 1`은 1로 보정한다.
    - `totalCount = 0`이면 `totalPages = 0`, `items = []`, `hasNext = false`다.
    - `page > totalPages`이면 요청 page를 유지하고 `items = []`, `hasNext = false`다.
    - 참가자용과 주최자용 모두 `totalCount`를 응답한다.
-   - item의 `position`은 `(page - 1) * 7 + index + 1`로 계산한다.
+   - item의 `position`은 `(page - 1) * PAGE_SIZE + index + 1`로 계산한다.
    - item에는 상세 오버레이용 `content`를 포함한다.
+   - item의 `content`는 작성 API의 `@Size(max = 100)` 제한을 그대로 따른다.
+   - `position`과 `totalCount`는 목록 응답 시점의 snapshot 기준이며, 상세 오버레이를 보는 동안 새 롤링페이퍼가 추가되는 eventual consistency는 허용한다.
    - wrapper 이미지는 bulk 조회 후 `sortOrder ASC` 첫 번째 이미지를 매핑한다.
 
 4. DTO, UseCase, Controller를 추가한다.
@@ -138,6 +144,7 @@ Response data:
   - 파티 자체 종료 후에도 조회 성공
   - `totalCount` 응답
   - item에 `position`, `content` 응답
+  - item `content`는 최대 100자 계약을 따른다.
 
 - 주최자용 목록
   - 소유자 조회 성공
@@ -148,14 +155,16 @@ Response data:
   - `REALTIME`은 live 종료 시각 기준 열람 가능
   - `celebrantNickname`, `partyEndAt`, `totalCount`, `totalPages` 응답 확인
   - item에 `position`, `content` 응답
+  - item `content`는 최대 100자 계약을 따른다.
 
 - 공통 목록/페이지네이션
   - 최신순 `createdAt DESC, id DESC`
-  - 7개 고정 페이지
+  - `PAGE_SIZE = 7` 고정 페이지
   - `page < 1`은 1로 보정
   - 빈 목록: `totalPages = 0`, `items = []`
   - 초과 페이지: 요청 page 유지, `items = []`, `hasNext = false`
   - `position`은 전체 최신순 목록 기준 순번
+  - 조회 이후 새 롤링페이퍼 추가로 인한 cached `position` / `totalCount`의 eventual consistency 허용
   - wrapper 이미지는 bulk 조회 결과 중 `sortOrder ASC` 첫 번째 URL 사용
   - 이미지 없으면 `wrapperImageUrl = null`
 
