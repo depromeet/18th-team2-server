@@ -2,6 +2,7 @@ package com.team2.server.rollingpaper.controller
 
 import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
+import com.team2.server.common.DatabaseCleanup
 import com.team2.server.common.entity.Image
 import com.team2.server.common.entity.ImageTargetType
 import com.team2.server.common.repository.ImageRepository
@@ -45,8 +46,10 @@ class RollingPaperListControllerTest
         private val partyRepository: PartyRepository,
         private val userRepository: UserRepository,
         private val jwtProperties: JwtProperties,
+        private val databaseCleanup: DatabaseCleanup,
     ) {
         private val tokenProvider = JwtTokenProvider(jwtProperties)
+        private var defaultOwnerSequence = 0
 
         @BeforeEach
         fun setUp() {
@@ -69,6 +72,7 @@ class RollingPaperListControllerTest
                     wrapper = wrapper,
                     writerNickname = "작성자$index",
                     createdAt = DEFAULT_NOW.plusMinutes(index.toLong()),
+                    content = "축하해요$index",
                 )
             }
 
@@ -80,13 +84,17 @@ class RollingPaperListControllerTest
                     jsonPath("$.data.partyOption") { value("REALTIME") }
                     jsonPath("$.data.liveEndAt") { value("2026-05-06T22:10:00") }
                     jsonPath("$.data.page") { value(1) }
+                    jsonPath("$.data.totalCount") { value(8) }
                     jsonPath("$.data.totalPages") { value(2) }
                     jsonPath("$.data.hasNext") { value(true) }
-                    jsonPath("$.data.totalCount") { doesNotExist() }
                     jsonPath("$.data.items.length()") { value(7) }
+                    jsonPath("$.data.items[0].position") { value(1) }
                     jsonPath("$.data.items[0].writerNickname") { value("작성자8") }
+                    jsonPath("$.data.items[0].content") { value("축하해요8") }
                     jsonPath("$.data.items[0].wrapperImageUrl") { value("/images/rolling-paper-wrappers/first.svg") }
+                    jsonPath("$.data.items[6].position") { value(7) }
                     jsonPath("$.data.items[6].writerNickname") { value("작성자2") }
+                    jsonPath("$.data.items[6].content") { value("축하해요2") }
                 }
 
             mockMvc
@@ -95,9 +103,12 @@ class RollingPaperListControllerTest
                 }.andExpect {
                     status { isOk() }
                     jsonPath("$.data.page") { value(2) }
+                    jsonPath("$.data.totalCount") { value(8) }
                     jsonPath("$.data.hasNext") { value(false) }
                     jsonPath("$.data.items.length()") { value(1) }
+                    jsonPath("$.data.items[0].position") { value(8) }
                     jsonPath("$.data.items[0].writerNickname") { value("작성자1") }
+                    jsonPath("$.data.items[0].content") { value("축하해요1") }
                 }
         }
 
@@ -132,7 +143,7 @@ class RollingPaperListControllerTest
                     jsonPath("$.data.totalPages") { value(0) }
                     jsonPath("$.data.hasNext") { value(false) }
                     jsonPath("$.data.items.length()") { value(0) }
-                    jsonPath("$.data.totalCount") { doesNotExist() }
+                    jsonPath("$.data.totalCount") { value(0) }
                 }
         }
 
@@ -196,7 +207,9 @@ class RollingPaperListControllerTest
                     jsonPath("$.data.totalCount") { value(1) }
                     jsonPath("$.data.totalPages") { value(1) }
                     jsonPath("$.data.hasNext") { value(false) }
+                    jsonPath("$.data.items[0].position") { value(1) }
                     jsonPath("$.data.items[0].writerNickname") { value("축하요정") }
+                    jsonPath("$.data.items[0].content") { value("축하해요") }
                 }
         }
 
@@ -423,14 +436,15 @@ class RollingPaperListControllerTest
         }
 
         private fun savePaperOnlyParty(
-            ownerId: Long = 1L,
+            ownerId: Long? = null,
             createdAt: LocalDateTime = DEFAULT_NOW.minusDays(1),
             startedAt: LocalDateTime = DEFAULT_NOW.toLocalDate().atStartOfDay(),
         ): Party {
+            val actualOwnerId = ownerId ?: saveDefaultOwner().id
             val saved =
                 partyRepository.saveAndFlush(
                     PaperOnlyParty(
-                        ownerId = ownerId,
+                        ownerId = actualOwnerId,
                         celebrantNickname = "홍길동",
                         startedAt = startedAt,
                     ),
@@ -440,14 +454,15 @@ class RollingPaperListControllerTest
         }
 
         private fun saveRealtimeParty(
-            ownerId: Long = 1L,
+            ownerId: Long? = null,
             createdAt: LocalDateTime = DEFAULT_NOW.minusDays(1),
             startedAt: LocalDateTime = DEFAULT_NOW.withHour(20).withMinute(0),
         ): Party {
+            val actualOwnerId = ownerId ?: saveDefaultOwner().id
             val saved =
                 partyRepository.saveAndFlush(
                     RealtimeParty(
-                        ownerId = ownerId,
+                        ownerId = actualOwnerId,
                         celebrantNickname = "홍길동",
                         startedAt = startedAt,
                     ),
@@ -526,14 +541,13 @@ class RollingPaperListControllerTest
                 ),
             )
 
+        private fun saveDefaultOwner(): User {
+            defaultOwnerSequence += 1
+            return saveUser("default-owner-$defaultOwnerSequence")
+        }
+
         private fun clearDatabase() {
-            rollingPaperRepository.deleteAll()
-            imageRepository.deleteAll()
-            rollingPaperWrapperRepository.deleteAll()
-            partyInviteRepository.deleteAll()
-            participantRepository.deleteAll()
-            partyRepository.deleteAll()
-            userRepository.deleteAll()
+            databaseCleanup.execute()
         }
 
         companion object {
