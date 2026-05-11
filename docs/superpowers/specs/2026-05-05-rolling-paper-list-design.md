@@ -267,8 +267,8 @@ GET /api/v1/parties/{partyId}/rolling-papers/{rollingPaperId}
 
 - 목록 화면에서 토핑을 눌러 상세 오버레이를 여는 기본 플로우에는 사용하지 않는다.
 - 특정 롤링페이퍼 ID로 바로 상세를 열어야 하는 딥링크, 푸시 알림, 새로고침 복구, 운영성 조회 같은 보조 플로우를 위해 유지한다.
-- 상세 오버레이의 좌우 이동은 이 API의 이전/다음 ID에 의존하지 않고 목록 page 캐시와 인접 page 조회로 처리한다.
-- `previousRollingPaperId`, `nextRollingPaperId`는 딥링크나 새로고침 복구처럼 목록 page 캐시가 없는 상태에서 인접 항목을 안내하기 위한 보조 메타데이터다.
+- 상세 오버레이의 좌우 이동은 목록 page 캐시와 인접 page 조회로 처리한다.
+- 상세 API는 단건 복구에 필요한 내용과 `1 / N` 표시용 위치 정보만 제공하고, 이전/다음 롤링페이퍼 ID는 제공하지 않는다.
 
 응답:
 
@@ -278,9 +278,7 @@ GET /api/v1/parties/{partyId}/rolling-papers/{rollingPaperId}
   "content": "생일 축하해요!",
   "writerNickname": "축하요정",
   "position": 1,
-  "totalCount": 12,
-  "previousRollingPaperId": null,
-  "nextRollingPaperId": 9
+  "totalCount": 12
 }
 ```
 
@@ -524,6 +522,8 @@ ROLLING_PAPER_NOT_VIEWABLE(HttpStatus.FORBIDDEN, "아직 롤링페이퍼를 확�
 
 - 특정 롤링페이퍼 ID로 상세 조회 성공
 - 상세 조회는 목록 기반 상세 오버레이의 기본 플로우가 아니라 보조 플로우임
+- `rollingPaperId`, `content`, `writerNickname`, `position`, `totalCount` 응답
+- `previousRollingPaperId`, `nextRollingPaperId`는 응답하지 않음
 - 해당 파티의 롤링페이퍼가 아니면 404
 - 소유자가 아니면 403
 - 열람 가능 전이면 403 `ROLLING_PAPER_NOT_VIEWABLE`

@@ -94,7 +94,7 @@ Response data:
 - 목록 화면에서 토핑을 눌러 상세 오버레이를 여는 기본 플로우에는 사용하지 않는다.
 - 특정 롤링페이퍼 ID로 바로 진입해야 하는 딥링크, 푸시 알림, 새로고침 복구, 운영성 조회 같은 보조 플로우에 사용한다.
 - 상세 오버레이의 좌우 이동은 목록 page 캐시와 인접 page 조회로 처리한다.
-- `previousRollingPaperId`, `nextRollingPaperId`는 목록 page 캐시가 없는 직접 진입 상황에서 인접 항목 안내용으로 유지한다.
+- 상세 API는 단건 복구에 필요한 `content`, `writerNickname`, `position`, `totalCount`만 제공하고 이전/다음 롤링페이퍼 ID는 제공하지 않는다.
 
 ## Implementation Steps
 
@@ -170,6 +170,8 @@ Response data:
 
 - 주최자용 상세
   - 특정 롤링페이퍼 ID로 상세 조회 성공
+  - `rollingPaperId`, `content`, `writerNickname`, `position`, `totalCount` 응답
+  - `previousRollingPaperId`, `nextRollingPaperId`는 응답하지 않음
   - 해당 파티의 롤링페이퍼가 아니면 404
   - 소유자가 아니면 403
   - 열람 가능 전이면 403
