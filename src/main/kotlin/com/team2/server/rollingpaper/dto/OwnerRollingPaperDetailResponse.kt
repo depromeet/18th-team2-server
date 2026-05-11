@@ -14,8 +14,4 @@ data class OwnerRollingPaperDetailResponse(
     val position: Long,
     @Schema(description = "파티의 전체 롤링페이퍼 수", example = "12")
     val totalCount: Long,
-    @Schema(description = "최신순 화면 순서상 바로 이전 롤링페이퍼 ID. 첫 번째 롤링페이퍼면 null", example = "11")
-    val previousRollingPaperId: Long?,
-    @Schema(description = "최신순 화면 순서상 바로 다음 롤링페이퍼 ID. 마지막 롤링페이퍼면 null", example = "9")
-    val nextRollingPaperId: Long?,
 )

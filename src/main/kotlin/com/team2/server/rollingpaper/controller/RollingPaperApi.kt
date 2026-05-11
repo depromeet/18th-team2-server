@@ -23,7 +23,7 @@ interface RollingPaperApi {
     @Operation(
         summary = "참가자용 롤링페이퍼 목록 조회",
         description =
-            "초대 토큰으로 롤링페이퍼 목록을 조회한다. 인증 없이도 조회 가능하다. " +
+            "초대 토큰으로 롤링페이퍼 목록과 상세 오버레이용 본문을 조회한다. 인증 없이도 조회 가능하다. " +
                 "Authorization header를 보낼 경우 유효한 Bearer token이어야 한다.",
         security = [
             SecurityRequirement(name = "Bearer Authentication"),

@@ -7,7 +7,6 @@ import com.team2.server.party.repository.PartyRepository
 import com.team2.server.rollingpaper.dto.OwnerRollingPaperDetailResponse
 import com.team2.server.rollingpaper.entity.RollingPaper
 import com.team2.server.rollingpaper.repository.RollingPaperRepository
-import org.springframework.data.domain.PageRequest
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -35,8 +34,6 @@ class GetRollingPaperDetailUseCase(
                 ?: throw BusinessException(ErrorCode.ROLLING_PAPER_NOT_FOUND)
         val totalCount = rollingPaperRepository.countByParty(party)
         val position = calculatePosition(party, rollingPaper)
-        val previousRollingPaperId = findPreviousRollingPaperId(party, rollingPaper)
-        val nextRollingPaperId = findNextRollingPaperId(party, rollingPaper)
 
         return OwnerRollingPaperDetailResponse(
             rollingPaperId = rollingPaper.id,
@@ -44,8 +41,6 @@ class GetRollingPaperDetailUseCase(
             writerNickname = rollingPaper.writerNickname,
             position = position,
             totalCount = totalCount,
-            previousRollingPaperId = previousRollingPaperId,
-            nextRollingPaperId = nextRollingPaperId,
         )
     }
 
@@ -73,32 +68,4 @@ class GetRollingPaperDetailUseCase(
             createdAt = rollingPaper.createdAt,
             rollingPaperId = rollingPaper.id,
         ) + 1
-
-    private fun findPreviousRollingPaperId(
-        party: Party,
-        rollingPaper: RollingPaper,
-    ): Long? =
-        rollingPaperRepository
-            .findPreviousIdsByParty(
-                party = party,
-                createdAt = rollingPaper.createdAt,
-                rollingPaperId = rollingPaper.id,
-                pageable = FIRST_RESULT,
-            ).firstOrNull()
-
-    private fun findNextRollingPaperId(
-        party: Party,
-        rollingPaper: RollingPaper,
-    ): Long? =
-        rollingPaperRepository
-            .findNextIdsByParty(
-                party = party,
-                createdAt = rollingPaper.createdAt,
-                rollingPaperId = rollingPaper.id,
-                pageable = FIRST_RESULT,
-            ).firstOrNull()
-
-    companion object {
-        private val FIRST_RESULT = PageRequest.of(0, 1)
-    }
 }
