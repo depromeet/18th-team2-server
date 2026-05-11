@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
 import com.team2.server.common.DatabaseCleanup
+import com.team2.server.party.entity.Character
+import com.team2.server.party.repository.CharacterRepository
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyRepository
 import com.team2.server.user.entity.AuthProvider
@@ -29,28 +31,32 @@ class PartyControllerTest
         private val partyRepository: PartyRepository,
         private val participantRepository: ParticipantRepository,
         private val userRepository: UserRepository,
+        private val characterRepository: CharacterRepository,
         private val databaseCleanup: DatabaseCleanup,
         private val jwtProperties: JwtProperties,
     ) {
         private val tokenProvider = JwtTokenProvider(jwtProperties)
         private val objectMapper = ObjectMapper()
+        private var defaultCharacterId: Long = 1L
 
         @BeforeEach
         fun setUp() {
             databaseCleanup.execute()
+            defaultCharacterId = characterRepository.save(Character(name = "Default")).id
         }
 
         @Test
         fun `인증 없이 실시간 파티 생성 시 401`() {
             mockMvc
-                .post("/api/v1/parties/REALTIME") {
+                .post("/api/v1/parties/realtime") {
                     contentType = MediaType.APPLICATION_JSON
                     content =
                         """
                         {
                           "celebrantNickname": "홍길동",
                           "startedDate": "2026-04-28",
-                          "startTime": "14:30"
+                          "startTime": "14:30",
+                          "characterId": 1
                         }
                         """.trimIndent()
                 }.andExpect {
@@ -61,7 +67,7 @@ class PartyControllerTest
         @Test
         fun `인증 없이 롤링페이퍼 파티 생성 시 401`() {
             mockMvc
-                .post("/api/v1/parties/PAPER_ONLY") {
+                .post("/api/v1/parties/paper-only") {
                     contentType = MediaType.APPLICATION_JSON
                     content =
                         """
@@ -81,14 +87,15 @@ class PartyControllerTest
             val token = tokenProvider.issue(saveUser("kakao-create-1", "create@kakao.local"))
 
             mockMvc
-                .post("/api/v1/parties/REALTIME") {
+                .post("/api/v1/parties/realtime") {
                     contentType = MediaType.APPLICATION_JSON
                     content =
                         """
                         {
                           "celebrantNickname": "홍길동",
                           "startedDate": "2026-04-28",
-                          "startTime": "14:30"
+                          "startTime": "14:30",
+                          "characterId": $defaultCharacterId
                         }
                         """.trimIndent()
                     header("Authorization", "Bearer $token")
@@ -103,7 +110,7 @@ class PartyControllerTest
             val token = tokenProvider.issue(saveUser("kakao-create-2", "create2@kakao.local"))
 
             mockMvc
-                .post("/api/v1/parties/PAPER_ONLY") {
+                .post("/api/v1/parties/paper-only") {
                     contentType = MediaType.APPLICATION_JSON
                     content =
                         """
@@ -120,16 +127,18 @@ class PartyControllerTest
         }
 
         @Test
-        fun `잘못된 파티 유형으로 생성 시 400`() {
+        fun `존재하지 않는 파티 유형으로 생성 시 404`() {
             val token = tokenProvider.issue(saveUser("kakao-invalid-1", "invalid@kakao.local"))
 
             mockMvc
                 .post("/api/v1/parties/invalid-type") {
                     contentType = MediaType.APPLICATION_JSON
-                    content = """{"celebrantNickname": "홍길동", "startedDate": "2026-04-28", "startTime": "14:30"}"""
+                    content =
+                        """{"celebrantNickname": "홍길동", "startedDate": "2026-04-28", """ +
+                        """"startTime": "14:30", "characterId": $defaultCharacterId}"""
                     header("Authorization", "Bearer $token")
                 }.andExpect {
-                    status { isBadRequest() }
+                    status { isNotFound() }
                 }
         }
 
@@ -219,9 +228,11 @@ class PartyControllerTest
         ): Long {
             val result =
                 mockMvc
-                    .post("/api/v1/parties/REALTIME") {
+                    .post("/api/v1/parties/realtime") {
                         contentType = MediaType.APPLICATION_JSON
-                        content = """{"celebrantNickname": "홍길동", "startedDate": "$date", "startTime": "$time"}"""
+                        content =
+                            """{"celebrantNickname": "홍길동", "startedDate": "$date", """ +
+                            """"startTime": "$time", "characterId": $defaultCharacterId}"""
                         header("Authorization", "Bearer $token")
                     }.andExpect {
                         status { isCreated() }

@@ -48,44 +48,6 @@ interface RollingPaperRepository : JpaRepository<RollingPaper, Long> {
         @Param("rollingPaperId") rollingPaperId: Long,
     ): Long
 
-    @Query(
-        """
-            SELECT rp.id
-            FROM RollingPaper rp
-            WHERE rp.party = :party
-              AND (
-                rp.createdAt > :createdAt OR
-                (rp.createdAt = :createdAt AND rp.id > :rollingPaperId)
-              )
-            ORDER BY rp.createdAt ASC, rp.id ASC
-        """,
-    )
-    fun findPreviousIdsByParty(
-        @Param("party") party: Party,
-        @Param("createdAt") createdAt: LocalDateTime,
-        @Param("rollingPaperId") rollingPaperId: Long,
-        pageable: Pageable,
-    ): List<Long>
-
-    @Query(
-        """
-            SELECT rp.id
-            FROM RollingPaper rp
-            WHERE rp.party = :party
-              AND (
-                rp.createdAt < :createdAt OR
-                (rp.createdAt = :createdAt AND rp.id < :rollingPaperId)
-              )
-            ORDER BY rp.createdAt DESC, rp.id DESC
-        """,
-    )
-    fun findNextIdsByParty(
-        @Param("party") party: Party,
-        @Param("createdAt") createdAt: LocalDateTime,
-        @Param("rollingPaperId") rollingPaperId: Long,
-        pageable: Pageable,
-    ): List<Long>
-
     @Modifying
     @Transactional
     fun deleteAllByPartyId(partyId: Long)

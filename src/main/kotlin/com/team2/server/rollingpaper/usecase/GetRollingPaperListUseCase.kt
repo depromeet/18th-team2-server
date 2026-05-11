@@ -45,6 +45,7 @@ class GetRollingPaperListUseCase(
                     null
                 },
             page = pageResult.page,
+            totalCount = pageResult.totalCount,
             totalPages = pageResult.totalPages,
             hasNext = pageResult.hasNext,
             items = pageResult.items,
@@ -113,15 +114,22 @@ class GetRollingPaperListUseCase(
             totalPages = rollingPaperPage.totalPages,
             hasNext = rollingPaperPage.hasNext(),
             items =
-                rollingPapers.map { rollingPaper ->
+                rollingPapers.mapIndexed { index, rollingPaper ->
                     RollingPaperListItemResponse(
                         rollingPaperId = rollingPaper.id,
+                        position = calculatePosition(page, index),
                         writerNickname = rollingPaper.writerNickname,
+                        content = rollingPaper.content,
                         wrapperImageUrl = imageUrlByWrapperId[rollingPaper.wrapper.id],
                     )
                 },
         )
     }
+
+    private fun calculatePosition(
+        page: Int,
+        index: Int,
+    ): Long = ((page - 1) * PAGE_SIZE + index + 1).toLong()
 
     private fun findImageUrlByWrapperId(rollingPapers: List<RollingPaper>): Map<Long, String> =
         imageQueryService.findFirstImageUrlByTargetIds(

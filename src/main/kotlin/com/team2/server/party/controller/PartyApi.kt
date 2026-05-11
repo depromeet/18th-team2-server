@@ -4,9 +4,9 @@ import com.team2.server.auth.principal.UserPrincipal
 import com.team2.server.common.response.ApiResponse
 import com.team2.server.common.swagger.AuthErrorResponses
 import com.team2.server.common.swagger.InternalServerErrorResponse
-import com.team2.server.party.dto.CreatePartyRequest
+import com.team2.server.party.dto.CreatePaperOnlyPartyRequest
 import com.team2.server.party.dto.CreatePartyResponse
-import com.team2.server.party.entity.PartyOption
+import com.team2.server.party.dto.CreateRealtimePartyRequest
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.security.SecurityRequirement
@@ -16,19 +16,27 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse as SwaggerApiResponse
 @Tag(name = "Party", description = "파티 API")
 interface PartyApi {
     @Operation(
-        summary = "파티 생성 (REALTIME | PAPER_ONLY)",
+        summary = "실시간 파티 생성",
         security = [SecurityRequirement(name = "Bearer Authentication")],
     )
-    @SwaggerApiResponse(
-        responseCode = "201",
-        description = "파티 생성 성공",
-    )
+    @SwaggerApiResponse(responseCode = "201", description = "파티 생성 성공")
     @AuthErrorResponses
     @InternalServerErrorResponse
-    fun createParty(
+    fun createRealtimeParty(
         @Parameter(hidden = true) principal: UserPrincipal,
-        @Parameter(description = "파티 옵션", example = "REALTIME") partyOption: PartyOption,
-        request: CreatePartyRequest,
+        request: CreateRealtimePartyRequest,
+    ): ApiResponse<CreatePartyResponse>
+
+    @Operation(
+        summary = "롤링페이퍼 파티 생성",
+        security = [SecurityRequirement(name = "Bearer Authentication")],
+    )
+    @SwaggerApiResponse(responseCode = "201", description = "파티 생성 성공")
+    @AuthErrorResponses
+    @InternalServerErrorResponse
+    fun createPaperOnlyParty(
+        @Parameter(hidden = true) principal: UserPrincipal,
+        request: CreatePaperOnlyPartyRequest,
     ): ApiResponse<CreatePartyResponse>
 
     @Operation(

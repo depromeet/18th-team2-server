@@ -1,0 +1,44 @@
+name: Deploy Config Check
+
+on:
+  pull_request:
+    branches: [ develop, main ]
+    paths:
+      - '.github/workflows/deploy-config-check.yml'
+      - 'docker/**'
+      - 'nginx/**'
+      - 'scripts/**'
+      - 'docs/deployment.md'
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-config-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check shell syntax
+        run: |
+          bash -n scripts/deploy.sh
+          bash -n scripts/deploy-nginx.sh
+          bash -n scripts/lib-deploy.sh
+
+      - name: Check Docker Compose config
+        run: |
+          env APP_ENV=dev APP_SLOT=blue SPRING_PROFILES_ACTIVE=dev,secret-dev \
+            docker compose --env-file /dev/null -f docker/docker-compose.app.yml config --quiet
+
+          env APP_ENV=prod APP_SLOT=green SPRING_PROFILES_ACTIVE=prod,secret-prod \
+            docker compose --env-file /dev/null -f docker/docker-compose.app.yml config --quiet
+
+          env DEV_DB_USERNAME=user DEV_DB_PASSWORD=pass DEV_DB_ROOT_PASSWORD=root \
+            docker compose --env-file /dev/null -f docker/docker-compose.dev.yml config --quiet
+
+          env PROD_DB_USERNAME=user PROD_DB_PASSWORD=pass PROD_DB_ROOT_PASSWORD=root \
+            docker compose --env-file /dev/null -f docker/docker-compose.prod.yml config --quiet
+
+          docker compose -f docker/docker-compose.nginx.yml config --quiet

@@ -3,14 +3,16 @@ package com.team2.server.party.service
 import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
-import com.team2.server.party.dto.CreatePartyRequest
+import com.team2.server.party.dto.CreatePaperOnlyPartyRequest
+import com.team2.server.party.dto.CreateRealtimePartyRequest
+import com.team2.server.party.entity.Character
 import com.team2.server.party.entity.PaperOnlyParty
 import com.team2.server.party.entity.Participant
 import com.team2.server.party.entity.Party
-import com.team2.server.party.entity.PartyOption
 import com.team2.server.party.entity.PartyPurpose
 import com.team2.server.party.entity.RealtimeParticipantProfile
 import com.team2.server.party.entity.RealtimeParty
+import com.team2.server.party.repository.CharacterRepository
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyInviteRepository
 import com.team2.server.party.repository.PartyRepository
@@ -48,6 +50,9 @@ class PartyServiceTest {
 
     @Mock
     lateinit var realtimeParticipantProfileRepository: RealtimeParticipantProfileRepository
+
+    @Mock
+    lateinit var characterRepository: CharacterRepository
 
     @Mock
     lateinit var userRepository: UserRepository
@@ -95,6 +100,15 @@ class PartyServiceTest {
         return party
     }
 
+    private fun newCharacter(
+        id: Long = 1L,
+        name: String = "Default",
+    ): Character {
+        val character = Character(name = name)
+        setId(character, id)
+        return character
+    }
+
     private fun newUser(id: Long = 10L): User {
         val user =
             User(
@@ -108,63 +122,60 @@ class PartyServiceTest {
         return user
     }
 
+    private fun newPaperOnlyParty(id: Long = 1L): PaperOnlyParty {
+        val party =
+            PaperOnlyParty(
+                ownerId = 1L,
+                celebrantNickname = "홍길동",
+                startedAt = LocalDateTime.now(),
+            )
+        setId(party, id)
+        return party
+    }
+
     // --- 파티 생성 ---
 
     @Test
-    fun `createParty PAPER_ONLY는 startedDate를 당일 00시로 저장한다`() {
+    fun `createPaperOnlyParty startedDate를 당일 00시로 저장한다`() {
         val user = newUser(id = 1L)
-        val savedParty = newParty(id = 9L)
+        val savedParty = newPaperOnlyParty(id = 9L)
         val request =
-            CreatePartyRequest(
+            CreatePaperOnlyPartyRequest(
                 celebrantNickname = "홍길동",
                 startedDate = LocalDate.of(2026, 5, 1),
-                startTime = null,
             )
 
         whenever(userRepository.findById(1L)).thenReturn(Optional.of(user))
         whenever(partyRepository.save(any())).thenReturn(savedParty)
         whenever(participantRepository.save(any())).thenAnswer { it.getArgument<Participant>(0) }
 
-        partyService.createParty(1L, request, PartyOption.PAPER_ONLY)
+        partyService.createPaperOnlyParty(1L, request)
 
         val partyCaptor = argumentCaptor<Party>()
         verify(partyRepository).save(partyCaptor.capture())
         assertEquals(LocalDate.of(2026, 5, 1).atStartOfDay(), (partyCaptor.firstValue as PaperOnlyParty).startedAt)
+        verify(realtimeParticipantProfileRepository, never()).save(any())
     }
 
     @Test
-    fun `createParty REALTIME에서 startTime null이면 예외 발생`() {
-        val request =
-            CreatePartyRequest(
-                celebrantNickname = "홍길동",
-                startedDate = LocalDate.of(2026, 5, 1),
-                startTime = null,
-            )
-
-        whenever(userRepository.findById(1L)).thenReturn(Optional.of(newUser(id = 1L)))
-
-        assertThrows<IllegalArgumentException> {
-            partyService.createParty(1L, request, PartyOption.REALTIME)
-        }
-        verify(partyRepository, never()).save(any())
-    }
-
-    @Test
-    fun `createParty REALTIME 옵션으로 생성하면 REALTIME이 저장됨`() {
+    fun `createRealtimeParty REALTIME이 저장됨`() {
         val user = newUser(id = 1L)
         val savedParty = newParty(id = 7L)
+        val character = newCharacter(1L)
         val request =
-            CreatePartyRequest(
+            CreateRealtimePartyRequest(
                 celebrantNickname = "홍길동",
                 startedDate = LocalDate.of(2026, 4, 29),
                 startTime = LocalTime.of(14, 30),
+                characterId = 1L,
             )
 
         whenever(userRepository.findById(1L)).thenReturn(Optional.of(user))
         whenever(partyRepository.save(any())).thenReturn(savedParty)
         whenever(participantRepository.save(any())).thenAnswer { it.getArgument<Participant>(0) }
+        whenever(characterRepository.findById(1L)).thenReturn(Optional.of(character))
 
-        partyService.createParty(1L, request, PartyOption.REALTIME)
+        partyService.createRealtimeParty(1L, request)
 
         val partyCaptor = argumentCaptor<Party>()
         verify(partyRepository).save(partyCaptor.capture())
@@ -172,43 +183,46 @@ class PartyServiceTest {
     }
 
     @Test
-    fun `createParty PAPER_ONLY 옵션으로 생성하면 PAPER_ONLY가 저장됨`() {
+    fun `createPaperOnlyParty PAPER_ONLY가 저장됨`() {
         val user = newUser(id = 1L)
-        val savedParty = newParty(id = 7L)
+        val savedParty = newPaperOnlyParty(id = 7L)
         val request =
-            CreatePartyRequest(
+            CreatePaperOnlyPartyRequest(
                 celebrantNickname = "홍길동",
                 startedDate = LocalDate.of(2026, 4, 29),
-                startTime = LocalTime.of(14, 30),
             )
 
         whenever(userRepository.findById(1L)).thenReturn(Optional.of(user))
         whenever(partyRepository.save(any())).thenReturn(savedParty)
         whenever(participantRepository.save(any())).thenAnswer { it.getArgument<Participant>(0) }
 
-        partyService.createParty(1L, request, PartyOption.PAPER_ONLY)
+        partyService.createPaperOnlyParty(1L, request)
 
         val partyCaptor = argumentCaptor<Party>()
         verify(partyRepository).save(partyCaptor.capture())
         assertTrue(partyCaptor.firstValue is PaperOnlyParty)
+        verify(realtimeParticipantProfileRepository, never()).save(any())
     }
 
     @Test
-    fun `createParty 파티 생성 시 주최자를 참여자로 저장`() {
+    fun `createRealtimeParty 파티 생성 시 주최자를 참여자로 저장`() {
         val user = newUser(id = 1L)
         val savedParty = newParty(id = 7L)
+        val character = newCharacter(1L)
         val request =
-            CreatePartyRequest(
+            CreateRealtimePartyRequest(
                 celebrantNickname = "홍길동",
                 startedDate = LocalDate.of(2026, 4, 29),
                 startTime = LocalTime.of(14, 30),
+                characterId = 1L,
             )
 
         whenever(userRepository.findById(1L)).thenReturn(Optional.of(user))
         whenever(partyRepository.save(any())).thenReturn(savedParty)
         whenever(participantRepository.save(any())).thenAnswer { it.getArgument<Participant>(0) }
+        whenever(characterRepository.findById(1L)).thenReturn(Optional.of(character))
 
-        val result = partyService.createParty(1L, request, PartyOption.REALTIME)
+        val result = partyService.createRealtimeParty(1L, request)
 
         val participantCaptor = argumentCaptor<Participant>()
         val profileCaptor = argumentCaptor<RealtimeParticipantProfile>()
@@ -221,21 +235,74 @@ class PartyServiceTest {
         assertTrue(participant.isCelebrant)
         assertEquals(participant, profileCaptor.firstValue.participant)
         assertEquals("홍길동", profileCaptor.firstValue.nickname)
+        assertEquals(character, profileCaptor.firstValue.character)
     }
 
     @Test
-    fun `createParty 유저가 없으면 AUTH_USER_NOT_FOUND`() {
+    fun `createRealtimeParty 요청한 characterId의 캐릭터가 할당됨`() {
+        val user = newUser(id = 1L)
+        val savedParty = newParty(id = 7L)
+        val character = newCharacter(2L, "Girl")
         val request =
-            CreatePartyRequest(
+            CreateRealtimePartyRequest(
                 celebrantNickname = "홍길동",
                 startedDate = LocalDate.of(2026, 4, 29),
                 startTime = LocalTime.of(14, 30),
+                characterId = 2L,
+            )
+
+        whenever(userRepository.findById(1L)).thenReturn(Optional.of(user))
+        whenever(partyRepository.save(any())).thenReturn(savedParty)
+        whenever(participantRepository.save(any())).thenAnswer { it.getArgument<Participant>(0) }
+        whenever(characterRepository.findById(2L)).thenReturn(Optional.of(character))
+
+        partyService.createRealtimeParty(1L, request)
+
+        val profileCaptor = argumentCaptor<RealtimeParticipantProfile>()
+        verify(realtimeParticipantProfileRepository).save(profileCaptor.capture())
+        assertEquals(character, profileCaptor.firstValue.character)
+    }
+
+    @Test
+    fun `createRealtimeParty 존재하지 않는 characterId이면 CHARACTER_NOT_FOUND`() {
+        val user = newUser(id = 1L)
+        val savedParty = newParty(id = 7L)
+        val request =
+            CreateRealtimePartyRequest(
+                celebrantNickname = "홍길동",
+                startedDate = LocalDate.of(2026, 4, 29),
+                startTime = LocalTime.of(14, 30),
+                characterId = 999L,
+            )
+
+        whenever(userRepository.findById(1L)).thenReturn(Optional.of(user))
+        whenever(partyRepository.save(any())).thenReturn(savedParty)
+        whenever(participantRepository.save(any())).thenAnswer { it.getArgument<Participant>(0) }
+        whenever(characterRepository.findById(999L)).thenReturn(Optional.empty())
+
+        val ex =
+            assertThrows<BusinessException> {
+                partyService.createRealtimeParty(1L, request)
+            }
+
+        assertEquals(ErrorCode.CHARACTER_NOT_FOUND, ex.errorCode)
+        verify(realtimeParticipantProfileRepository, never()).save(any())
+    }
+
+    @Test
+    fun `createRealtimeParty 유저가 없으면 AUTH_USER_NOT_FOUND`() {
+        val request =
+            CreateRealtimePartyRequest(
+                celebrantNickname = "홍길동",
+                startedDate = LocalDate.of(2026, 4, 29),
+                startTime = LocalTime.of(14, 30),
+                characterId = 1L,
             )
         whenever(userRepository.findById(1L)).thenReturn(Optional.empty())
 
         val ex =
             assertThrows<BusinessException> {
-                partyService.createParty(1L, request, PartyOption.REALTIME)
+                partyService.createRealtimeParty(1L, request)
             }
 
         assertEquals(ErrorCode.AUTH_USER_NOT_FOUND, ex.errorCode)

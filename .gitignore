@@ -1,6 +1,7 @@
 # Spring
 .env
 .env.*
+.deploy-state/
 application-secret*.yml
 application-secret*.yaml
 HELP.md

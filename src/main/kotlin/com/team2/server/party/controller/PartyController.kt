@@ -1,10 +1,12 @@
 package com.team2.server.party.controller
 
 import com.team2.server.auth.principal.UserPrincipal
+import com.team2.server.common.exception.BusinessException
+import com.team2.server.common.exception.ErrorCode
 import com.team2.server.common.response.ApiResponse
-import com.team2.server.party.dto.CreatePartyRequest
+import com.team2.server.party.dto.CreatePaperOnlyPartyRequest
 import com.team2.server.party.dto.CreatePartyResponse
-import com.team2.server.party.entity.PartyOption
+import com.team2.server.party.dto.CreateRealtimePartyRequest
 import com.team2.server.party.service.PartyService
 import org.springframework.http.HttpStatus
 import org.springframework.security.core.annotation.AuthenticationPrincipal
@@ -22,13 +24,23 @@ class PartyController(
     private val partyService: PartyService,
 ) : PartyApi {
     @ResponseStatus(HttpStatus.CREATED)
-    @PostMapping("/{partyOption}")
-    override fun createParty(
+    @PostMapping("/realtime")
+    override fun createRealtimeParty(
         @AuthenticationPrincipal principal: UserPrincipal,
-        @PathVariable partyOption: PartyOption,
-        @RequestBody request: CreatePartyRequest,
+        @RequestBody request: CreateRealtimePartyRequest,
     ): ApiResponse<CreatePartyResponse> =
-        ApiResponse.success(HttpStatus.CREATED, partyService.createParty(principal.userId, request, partyOption))
+        ApiResponse.success(HttpStatus.CREATED, partyService.createRealtimeParty(principal.userId, request))
+
+    @ResponseStatus(HttpStatus.CREATED)
+    @PostMapping("/paper-only")
+    override fun createPaperOnlyParty(
+        @AuthenticationPrincipal principal: UserPrincipal,
+        @RequestBody request: CreatePaperOnlyPartyRequest,
+    ): ApiResponse<CreatePartyResponse> =
+        ApiResponse.success(HttpStatus.CREATED, partyService.createPaperOnlyParty(principal.userId, request))
+
+    @PostMapping("/{partyType}")
+    fun createPartyUnknownType(): Nothing = throw BusinessException(ErrorCode.RESOURCE_NOT_FOUND)
 
     @DeleteMapping("/{partyId}")
     override fun deleteParty(

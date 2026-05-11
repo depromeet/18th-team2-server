@@ -20,7 +20,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse as SwaggerApiResponse
 interface RollingPaperOwnerApi {
     @Operation(
         summary = "주최자용 롤링페이퍼 목록 조회",
-        description = "인증된 파티 소유자가 롤링페이퍼 목록을 조회한다.",
+        description = "인증된 파티 소유자가 롤링페이퍼 목록과 상세 오버레이용 본문을 조회한다.",
         security = [SecurityRequirement(name = "Bearer Authentication")],
     )
     @SwaggerApiResponse(
@@ -97,7 +97,7 @@ interface RollingPaperOwnerApi {
 
     @Operation(
         summary = "주최자용 롤링페이퍼 상세 조회",
-        description = "인증된 파티 소유자가 롤링페이퍼 상세 내용을 조회한다.",
+        description = "딥링크나 새로고침 복구처럼 목록 page 캐시가 없는 경우 롤링페이퍼 상세 내용을 조회한다.",
         security = [SecurityRequirement(name = "Bearer Authentication")],
     )
     @SwaggerApiResponse(

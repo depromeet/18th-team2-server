@@ -4,26 +4,70 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 ENV="${1:-}"
+DEPLOY_LOCK_DIR="$PROJECT_ROOT/.deploy-state/deploy.lock"
+DEPLOY_LOCK_TIMEOUT_SECONDS="${DEPLOY_LOCK_TIMEOUT_SECONDS:-30}"
 
 if [ -z "$ENV" ] || [[ ! "$ENV" =~ ^(dev|prod|all)$ ]]; then
     echo "Usage: ./scripts/deploy.sh [dev|prod|all]"
     exit 1
 fi
 
+release_deploy_lock() {
+    if [ -n "${DEPLOY_LOCK_ACQUIRED:-}" ]; then
+        rm -rf "$DEPLOY_LOCK_DIR"
+    fi
+}
+
+handle_deploy_signal() {
+    local signal="$1"
+
+    echo "ERROR: deployment interrupted by $signal."
+    release_deploy_lock
+    trap - EXIT
+    if [ "$signal" = "TERM" ]; then
+        exit 143
+    fi
+    exit 130
+}
+
+acquire_deploy_lock() {
+    local waited=0
+
+    mkdir -p "$(dirname "$DEPLOY_LOCK_DIR")"
+    while ! mkdir "$DEPLOY_LOCK_DIR" 2>/dev/null; do
+        if [ "$waited" -ge "$DEPLOY_LOCK_TIMEOUT_SECONDS" ]; then
+            echo "ERROR: another deployment is running; failed to acquire lock: $DEPLOY_LOCK_DIR"
+            return 1
+        fi
+        if [ "$waited" -eq 0 ]; then
+            echo "==> Another deployment is running; waiting for lock..."
+        fi
+        sleep 1
+        waited=$((waited + 1))
+    done
+
+    DEPLOY_LOCK_ACQUIRED=1
+    printf 'pid=%s\nstarted_at=%s\n' "$$" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$DEPLOY_LOCK_DIR/owner"
+    trap release_deploy_lock EXIT
+    trap 'handle_deploy_signal INT' INT
+    trap 'handle_deploy_signal TERM' TERM
+}
+
 cd "$PROJECT_ROOT"
+acquire_deploy_lock
+source "$PROJECT_ROOT/scripts/lib-deploy.sh"
+ensure_fallback_upstreams
 
 echo "==> Updating submodules..."
 git submodule update --init --recursive
 
 SECRET_DIR="$PROJECT_ROOT/config/secret"
 
-# yq 설치 확인
 if ! command -v yq &> /dev/null; then
     echo "ERROR: yq가 설치되어 있지 않습니다. https://github.com/mikefarah/yq 참고"
     exit 1
 fi
 
-# 서브모듈 secret yml에서 DB 정보를 파싱하여 .env 생성
 parse_db_info() {
     local file="$1"
     local prefix="$2"
@@ -54,16 +98,127 @@ if [ "$ENV" = "prod" ] || [ "$ENV" = "all" ]; then
     parse_db_info "$SECRET_DIR/application-secret-prod.yml" "PROD" >> "$PROJECT_ROOT/.env"
 fi
 
-# 컨테이너 healthcheck 대기
-wait_healthy() {
+for network in dev-network prod-network; do
+    if ! docker network inspect "$network" &>/dev/null; then
+        echo "==> Creating network: $network"
+        docker network create "$network"
+    fi
+done
+
+nginx_has_mount_destination() {
+    local destination="$1"
+
+    docker inspect -f '{{range .Mounts}}{{println .Destination}}{{end}}' team2-nginx 2>/dev/null |
+        grep -Fxq "$destination"
+}
+
+ensure_nginx_blue_green_ready() {
+    local nginx_dump
+
+    if ! docker ps --filter 'name=^/team2-nginx$' --format '{{.Names}}' | grep -qx 'team2-nginx'; then
+        echo "ERROR: team2-nginx is not running. Run ./scripts/deploy-nginx.sh before app deployment."
+        return 1
+    fi
+
+    if ! nginx_has_mount_destination /etc/nginx/nginx.conf ||
+        ! nginx_has_mount_destination /etc/nginx/conf.d; then
+        echo "ERROR: team2-nginx is not using the blue/green nginx mounts."
+        echo "Run ./scripts/deploy-nginx.sh before app deployment."
+        return 1
+    fi
+
+    # nginx.conf references both dev/prod maps even for a single-environment deploy.
+    if ! docker exec team2-nginx test -f /etc/nginx/conf.d/team2-active-upstreams-dev.conf ||
+        ! docker exec team2-nginx test -f /etc/nginx/conf.d/team2-active-upstreams-prod.conf; then
+        echo "ERROR: team2-nginx cannot see active upstream files."
+        echo "Run ./scripts/deploy-nginx.sh before app deployment."
+        return 1
+    fi
+
+    # These sentinels confirm team2-nginx is using the blue/green nginx configuration.
+    if ! nginx_dump="$(docker exec team2-nginx nginx -T 2>/dev/null)"; then
+        echo "ERROR: failed to dump team2-nginx configuration."
+        echo "Run ./scripts/deploy-nginx.sh before app deployment."
+        return 1
+    fi
+
+    if ! grep -q 'dev_api_upstream' <<< "$nginx_dump" ||
+        ! grep -q 'prod_api_upstream' <<< "$nginx_dump"; then
+        echo "ERROR: team2-nginx is not using the current blue/green nginx configuration."
+        echo "Run ./scripts/deploy-nginx.sh before app deployment."
+        return 1
+    fi
+
+    echo "==> nginx blue/green preflight: OK"
+}
+
+ensure_nginx_blue_green_ready || exit 1
+
+profiles_for_env() {
+    local app_env="$1"
+    echo "$app_env,secret-$app_env"
+}
+
+db_compose_files() {
+    local app_env="$1"
+    echo "--env-file .env -f docker/docker-compose.$app_env.yml"
+}
+
+db_service() {
+    echo "db-$1"
+}
+
+app_compose() {
+    local app_env="$1"
+    local slot="$2"
+    shift 2
+
+    local profiles
+    profiles="$(profiles_for_env "$app_env")"
+
+    APP_ENV="$app_env" APP_SLOT="$slot" SPRING_PROFILES_ACTIVE="$profiles" \
+        docker compose --env-file .env -f docker/docker-compose.app.yml -p "team2-app-$app_env-$slot" "$@"
+}
+
+wait_container_healthy() {
+    local container="$1"
+    local max_attempts=48
+    local interval=5
+    local status
+
+    echo "==> Waiting for $container to become healthy..."
+    for i in $(seq 1 "$max_attempts"); do
+        status="$(container_state "$container")"
+
+        if [ "$status" = "true:healthy" ]; then
+            echo "==> $container is healthy!"
+            return 0
+        elif [ "$status" = "true:unhealthy" ]; then
+            echo "ERROR: $container is unhealthy. Dumping logs:"
+            docker logs --tail=80 "$container"
+            return 1
+        fi
+
+        if [ "$i" -lt "$max_attempts" ]; then
+            echo "  [$i/$max_attempts] status=${status:-unknown}, waiting ${interval}s..."
+            sleep "$interval"
+        fi
+    done
+
+    echo "ERROR: $container failed to become healthy within $((max_attempts * interval))s. Dumping logs:"
+    docker logs --tail=80 "$container"
+    return 1
+}
+
+wait_compose_service_healthy() {
     local compose_files="$1"
     local service="$2"
-    local max_attempts=10
-    local interval=10
+    local max_attempts=24
+    local interval=5
     local status
 
     echo "==> Waiting for $service to become healthy..."
-    for i in $(seq 1 $max_attempts); do
+    for i in $(seq 1 "$max_attempts"); do
         if ! status=$(docker compose $compose_files ps "$service" --format '{{.Health}}' 2>/dev/null); then
             echo "ERROR: failed to read health status for $service"
             return 1
@@ -75,7 +230,7 @@ wait_healthy() {
             return 0
         elif [ "$status" = "unhealthy" ]; then
             echo "ERROR: $service is unhealthy. Dumping logs:"
-            docker compose $compose_files logs --tail=50 "$service"
+            docker compose $compose_files logs --tail=80 "$service"
             return 1
         fi
 
@@ -86,34 +241,189 @@ wait_healthy() {
     done
 
     echo "ERROR: $service failed to become healthy within $((max_attempts * interval))s. Dumping logs:"
-    docker compose $compose_files logs --tail=50 "$service"
+    docker compose $compose_files logs --tail=80 "$service"
     return 1
 }
 
-# 공유 네트워크 생성
-for network in dev-network prod-network; do
-    if ! docker network inspect "$network" &>/dev/null; then
-        echo "==> Creating network: $network"
-        docker network create "$network"
+test_nginx_config() {
+    if ! docker ps --filter 'name=^/team2-nginx$' --format '{{.Names}}' | grep -qx 'team2-nginx'; then
+        echo "ERROR: team2-nginx is not running"
+        return 1
     fi
-done
+
+    install_nginx_upstreams_for_running_container || return 1
+    docker exec team2-nginx nginx -t
+}
+
+reload_nginx() {
+    docker exec team2-nginx nginx -s reload
+}
+
+verify_nginx_route_once() {
+    local app_env="$1"
+    local output_mode="${2:-show}"
+
+    if [ "$app_env" = "dev" ]; then
+        if curl -fsS --connect-timeout 3 --max-time 10 http://127.0.0.1:8081/actuator/health >/dev/null 2>&1; then
+            return 0
+        fi
+
+        if [ "$output_mode" = "quiet" ]; then
+            curl -kfsS --connect-timeout 3 --max-time 10 --resolve dev-api.hapalin.com:443:127.0.0.1 https://dev-api.hapalin.com/actuator/health >/dev/null 2>&1
+        else
+            curl -kfsS --connect-timeout 3 --max-time 10 --resolve dev-api.hapalin.com:443:127.0.0.1 https://dev-api.hapalin.com/actuator/health >/dev/null
+        fi
+    else
+        if [ "$output_mode" = "quiet" ]; then
+            curl -kfsS --connect-timeout 3 --max-time 10 --resolve api.hapalin.com:443:127.0.0.1 https://api.hapalin.com/actuator/health >/dev/null 2>&1
+        else
+            curl -kfsS --connect-timeout 3 --max-time 10 --resolve api.hapalin.com:443:127.0.0.1 https://api.hapalin.com/actuator/health >/dev/null
+        fi
+    fi
+}
+
+validate_positive_integer() {
+    local name="$1"
+    local value="$2"
+
+    if [[ ! "$value" =~ ^[1-9][0-9]*$ ]]; then
+        echo "ERROR: $name must be a positive integer greater than 0."
+        return 1
+    fi
+}
+
+verify_nginx_route() {
+    local app_env="$1"
+    local max_attempts="${NGINX_ROUTE_VERIFY_MAX_ATTEMPTS:-10}"
+    local interval="${NGINX_ROUTE_VERIFY_INTERVAL:-2}"
+
+    if ! command -v curl &>/dev/null; then
+        echo "ERROR: curl is required on the deployment host for nginx route verification."
+        return 1
+    fi
+
+    validate_positive_integer "NGINX_ROUTE_VERIFY_MAX_ATTEMPTS" "$max_attempts" || return 1
+    validate_positive_integer "NGINX_ROUTE_VERIFY_INTERVAL" "$interval" || return 1
+
+    for i in $(seq 1 "$max_attempts"); do
+        if [ "$i" -lt "$max_attempts" ]; then
+            if verify_nginx_route_once "$app_env" quiet; then
+                return 0
+            fi
+
+            echo "  [$i/$max_attempts] nginx route for $app_env is not ready; retrying in ${interval}s..."
+            sleep "$interval"
+        elif verify_nginx_route_once "$app_env"; then
+            return 0
+        else
+            echo "  [$i/$max_attempts] nginx route for $app_env is not ready."
+        fi
+    done
+
+    echo "ERROR: nginx route verification failed after $max_attempts attempts for $app_env."
+    echo "==> Active upstream file for $app_env:"
+    cat "$(active_upstreams_file "$app_env")" || true
+    return 1
+}
+
+switch_nginx_to_slot() {
+    local app_env="$1"
+    local new_slot="$2"
+    local previous_target="$3"
+
+    echo "==> Switching nginx $app_env upstream to $new_slot..."
+    render_env_upstream "$app_env" "$new_slot"
+
+    if ! test_nginx_config; then
+        echo "ERROR: nginx config test failed. Restoring previous upstream file."
+        render_env_upstream "$app_env" "$previous_target"
+        install_nginx_upstreams_for_running_container || true
+        return 1
+    fi
+
+    if ! reload_nginx; then
+        echo "ERROR: nginx reload failed. Restoring previous upstream file."
+        render_env_upstream "$app_env" "$previous_target"
+        install_nginx_upstreams_for_running_container || true
+        if ! reload_nginx; then
+            echo "CRITICAL: nginx rollback reload also failed. Manual intervention required."
+        fi
+        return 1
+    fi
+
+    if ! verify_nginx_route "$app_env"; then
+        echo "ERROR: nginx route verification failed. Rolling back upstream."
+        render_env_upstream "$app_env" "$previous_target"
+        if ! install_nginx_upstreams_for_running_container; then
+            echo "CRITICAL: failed to restore nginx upstream file. Manual intervention required."
+            return 1
+        fi
+        if test_nginx_config; then
+            if ! reload_nginx; then
+                echo "CRITICAL: nginx rollback reload also failed. Manual intervention required."
+            fi
+        else
+            echo "CRITICAL: restored nginx config failed validation. Manual intervention required."
+        fi
+        return 1
+    fi
+
+    echo "$new_slot" > "$(state_file "$app_env")"
+}
+
+cleanup_previous_target() {
+    local app_env="$1"
+    local previous_target="$2"
+
+    if is_valid_slot "$previous_target"; then
+        echo "==> Stopping previous $app_env app slot: $previous_target"
+        app_compose "$app_env" "$previous_target" down --remove-orphans
+    elif [ "$previous_target" = "legacy" ]; then
+        echo "==> Removing legacy $app_env app container..."
+        docker rm -f "$(legacy_app_container "$app_env")" 2>/dev/null || true
+    fi
+}
+
+deploy_environment() {
+    local app_env="$1"
+    local compose_files
+    local service
+    local previous_target
+    local new_slot
+    local new_container
+
+    compose_files="$(db_compose_files "$app_env")"
+    service="$(db_service "$app_env")"
+
+    echo "==> Ensuring $app_env database is running..."
+    docker compose $compose_files up -d "$service"
+    wait_compose_service_healthy "$compose_files" "$service"
+
+    previous_target="$(detect_active_target "$app_env")"
+    if is_valid_slot "$previous_target"; then
+        new_slot="$(other_slot "$previous_target")"
+    else
+        new_slot="blue"
+    fi
+    new_container="$(app_container "$app_env" "$new_slot")"
+
+    echo "==> Current $app_env target: $previous_target"
+    echo "==> Building and starting new $app_env app slot: $new_slot"
+    app_compose "$app_env" "$new_slot" up -d --build --force-recreate app
+    wait_container_healthy "$new_container"
+
+    switch_nginx_to_slot "$app_env" "$new_slot" "$previous_target"
+    cleanup_previous_target "$app_env" "$previous_target"
+
+    echo "==> $app_env deployment switched to $new_slot"
+}
 
 if [ "$ENV" = "dev" ] || [ "$ENV" = "all" ]; then
-    DEV_FILES="--env-file .env -f docker/docker-compose.dev.yml"
-    echo "==> Stopping existing DEV containers..."
-    docker compose $DEV_FILES down --remove-orphans
-    echo "==> Building and starting DEV containers..."
-    docker compose $DEV_FILES up -d --build
-    wait_healthy "$DEV_FILES" "app-dev"
+    deploy_environment dev
 fi
 
 if [ "$ENV" = "prod" ] || [ "$ENV" = "all" ]; then
-    PROD_FILES="--env-file .env -f docker/docker-compose.prod.yml"
-    echo "==> Stopping existing PROD containers..."
-    docker compose $PROD_FILES down --remove-orphans
-    echo "==> Building and starting PROD containers..."
-    docker compose $PROD_FILES up -d --build
-    wait_healthy "$PROD_FILES" "app-prod"
+    deploy_environment prod
 fi
 
 echo "==> Done!"
