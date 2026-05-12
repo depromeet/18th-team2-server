@@ -30,6 +30,13 @@
 - PR 템플릿(`.github/PULL_REQUEST_TEMPLATE.md`) 필수 준수
 - 빌드 + 테스트 통과 후 PR 생성
 
+## 테스트
+
+- 테스트 작성·실행 규칙은 [docs/testing-rules.md](docs/testing-rules.md) 참고
+- `@SpringBootTest` / `@DataJpaTest`는 반드시 `TestcontainersConfiguration` 경유 (`@Import` 또는 base class 상속)
+- 단일 테스트: `./gradlew test --tests "<FQCN>"`
+- 컨테이너 누수 검증: `docker ps -a --filter "label=org.testcontainers"` → 0개
+
 ## 금지 사항
 
 - `--no-verify` 사용 금지
