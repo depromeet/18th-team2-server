@@ -1,4 +1,4 @@
-package com.team2.server.party.dto
+package com.team2.server.party.api.dto
 
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.team2.server.party.domain.entity.PartyOption

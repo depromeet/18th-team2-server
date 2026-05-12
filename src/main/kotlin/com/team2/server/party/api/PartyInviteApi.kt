@@ -1,4 +1,4 @@
-package com.team2.server.party.controller
+package com.team2.server.party.api
 
 import com.team2.server.auth.principal.UserPrincipal
 import com.team2.server.common.web.ApiResponse
@@ -6,7 +6,7 @@ import com.team2.server.common.web.ErrorResponse
 import com.team2.server.common.web.swagger.AuthErrorResponses
 import com.team2.server.common.web.swagger.ForbiddenResponse
 import com.team2.server.common.web.swagger.InternalServerErrorResponse
-import com.team2.server.party.dto.ActivateInviteLinkResponse
+import com.team2.server.party.api.dto.ActivateInviteLinkResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Content

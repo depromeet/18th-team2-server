@@ -1,10 +1,10 @@
 package com.team2.server.party.application.usecase
 
+import com.team2.server.party.application.dto.UpcomingPartyResult
+import com.team2.server.party.application.dto.UpcomingRealtimeScheduleResult
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.PartyOption
 import com.team2.server.party.domain.entity.RealtimeParty
-import com.team2.server.party.dto.UpcomingPartyResponse
-import com.team2.server.party.dto.UpcomingRealtimeScheduleResponse
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.PartyInviteRepository
 import org.springframework.stereotype.Service
@@ -17,7 +17,7 @@ class GetUpcomingPartiesUseCase(
     private val partyInviteRepository: PartyInviteRepository,
 ) {
     @Transactional(readOnly = true)
-    fun getUpcomingParties(userId: Long): List<UpcomingPartyResponse> {
+    fun getUpcomingParties(userId: Long): List<UpcomingPartyResult> {
         val now = LocalDateTime.now()
         val participants =
             participantRepository.findNotEndedByUserId(
@@ -29,7 +29,7 @@ class GetUpcomingPartiesUseCase(
         return participants.map { participant ->
             val party = participant.party
             val isHost = party.ownerId == userId
-            UpcomingPartyResponse(
+            UpcomingPartyResult(
                 partyId = party.id,
                 inviteToken = inviteTokenByPartyId[party.id],
                 partyOption = party.partyOption,
@@ -65,8 +65,8 @@ class GetUpcomingPartiesUseCase(
         return tokenByPartyId
     }
 
-    private fun RealtimeParty.toRealtimeSchedule(): UpcomingRealtimeScheduleResponse =
-        UpcomingRealtimeScheduleResponse(
+    private fun RealtimeParty.toRealtimeSchedule(): UpcomingRealtimeScheduleResult =
+        UpcomingRealtimeScheduleResult(
             enterableFrom = startedAt.minusMinutes(RealtimeParty.ENTERABLE_BEFORE_MINUTES),
             liveStartAt = startedAt,
             liveEndAt = startedAt.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES),

@@ -1,4 +1,4 @@
-package com.team2.server.party.controller
+package com.team2.server.party.api
 
 import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider

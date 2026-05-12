@@ -1,8 +1,8 @@
-package com.team2.server.party.controller
+package com.team2.server.party.api
 
 import com.team2.server.common.web.ApiResponse
+import com.team2.server.party.api.dto.CharacterResponse
 import com.team2.server.party.application.usecase.GetCharactersUseCase
-import com.team2.server.party.dto.CharacterResponse
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController

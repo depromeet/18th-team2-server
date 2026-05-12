@@ -4,7 +4,6 @@ import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.service.ParticipantService
 import com.team2.server.party.application.service.PartyInviteService
-import com.team2.server.party.dto.PartyInviteParticipationResponse
 import com.team2.server.user.repository.UserRepository
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
@@ -21,7 +20,7 @@ class JoinPartyInviteUseCase(
     fun join(
         inviteToken: String,
         userId: Long,
-    ): PartyInviteParticipationResponse {
+    ): Long {
         val now = LocalDateTime.now()
         val invite = partyInviteService.findUsableInvite(inviteToken, now)
 
@@ -34,6 +33,6 @@ class JoinPartyInviteUseCase(
             userRepository.findByIdOrNull(userId)
                 ?: throw BusinessException(ErrorCode.AUTH_USER_NOT_FOUND)
         val participant = participantService.joinMember(party, user)
-        return PartyInviteParticipationResponse(participantId = participant.id)
+        return participant.id
     }
 }

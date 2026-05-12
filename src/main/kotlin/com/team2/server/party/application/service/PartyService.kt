@@ -3,13 +3,12 @@ package com.team2.server.party.application.service
 import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
+import com.team2.server.party.application.dto.CreatePaperOnlyPartyCommand
+import com.team2.server.party.application.dto.CreateRealtimePartyCommand
 import com.team2.server.party.domain.entity.PaperOnlyParty
 import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
-import com.team2.server.party.dto.CreatePaperOnlyPartyRequest
-import com.team2.server.party.dto.CreatePartyResponse
-import com.team2.server.party.dto.CreateRealtimePartyRequest
 import com.team2.server.party.infrastructure.persistence.CharacterRepository
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.PartyInviteRepository
@@ -18,7 +17,6 @@ import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProf
 import com.team2.server.rollingpaper.repository.RollingPaperRepository
 import com.team2.server.user.repository.UserRepository
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
 
 @Service
@@ -32,17 +30,16 @@ class PartyService(
     private val rollingPaperRepository: RollingPaperRepository,
     private val userRepository: UserRepository,
 ) {
-    @Transactional
     fun createRealtimeParty(
         userId: Long,
-        request: CreateRealtimePartyRequest,
-    ): CreatePartyResponse {
+        command: CreateRealtimePartyCommand,
+    ): Long {
         val user = findUser(userId)
         val party =
             RealtimeParty(
                 ownerId = userId,
-                celebrantNickname = request.celebrantNickname,
-                startedAt = LocalDateTime.of(request.startedDate, request.startTime),
+                celebrantNickname = command.celebrantNickname,
+                startedAt = LocalDateTime.of(command.startedDate, command.startTime),
             )
         val saved = partyRepository.save(party)
         val participant =
@@ -55,29 +52,28 @@ class PartyService(
             )
         val character =
             characterRepository
-                .findById(request.characterId)
+                .findById(command.characterId)
                 .orElseThrow { BusinessException(ErrorCode.CHARACTER_NOT_FOUND) }
         realtimeParticipantProfileRepository.save(
             RealtimeParticipantProfile(
                 participant = participant,
-                nickname = request.celebrantNickname,
+                nickname = command.celebrantNickname,
                 character = character,
             ),
         )
-        return CreatePartyResponse(partyId = saved.id)
+        return saved.id
     }
 
-    @Transactional
     fun createPaperOnlyParty(
         userId: Long,
-        request: CreatePaperOnlyPartyRequest,
-    ): CreatePartyResponse {
+        command: CreatePaperOnlyPartyCommand,
+    ): Long {
         val user = findUser(userId)
         val party =
             PaperOnlyParty(
                 ownerId = userId,
-                celebrantNickname = request.celebrantNickname,
-                startedAt = request.startedDate.atStartOfDay(),
+                celebrantNickname = command.celebrantNickname,
+                startedAt = command.startedDate.atStartOfDay(),
             )
         val saved = partyRepository.save(party)
         participantRepository.save(
@@ -87,10 +83,9 @@ class PartyService(
                 isCelebrant = true,
             ),
         )
-        return CreatePartyResponse(partyId = saved.id)
+        return saved.id
     }
 
-    @Transactional
     fun deleteParty(
         partyId: Long,
         userId: Long,

@@ -1,4 +1,4 @@
-package com.team2.server.party.controller
+package com.team2.server.party.api
 
 import com.team2.server.common.DatabaseCleanup
 import com.team2.server.common.image.entity.Image

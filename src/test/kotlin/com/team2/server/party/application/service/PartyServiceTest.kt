@@ -3,6 +3,8 @@ package com.team2.server.party.application.service
 import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
+import com.team2.server.party.application.dto.CreatePaperOnlyPartyCommand
+import com.team2.server.party.application.dto.CreateRealtimePartyCommand
 import com.team2.server.party.domain.entity.Character
 import com.team2.server.party.domain.entity.PaperOnlyParty
 import com.team2.server.party.domain.entity.Participant
@@ -10,8 +12,6 @@ import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.PartyPurpose
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
-import com.team2.server.party.dto.CreatePaperOnlyPartyRequest
-import com.team2.server.party.dto.CreateRealtimePartyRequest
 import com.team2.server.party.infrastructure.persistence.CharacterRepository
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.PartyInviteRepository
@@ -140,7 +140,7 @@ class PartyServiceTest {
         val user = newUser(id = 1L)
         val savedParty = newPaperOnlyParty(id = 9L)
         val request =
-            CreatePaperOnlyPartyRequest(
+            CreatePaperOnlyPartyCommand(
                 celebrantNickname = "홍길동",
                 startedDate = LocalDate.of(2026, 5, 1),
             )
@@ -163,7 +163,7 @@ class PartyServiceTest {
         val savedParty = newParty(id = 7L)
         val character = newCharacter(1L)
         val request =
-            CreateRealtimePartyRequest(
+            CreateRealtimePartyCommand(
                 celebrantNickname = "홍길동",
                 startedDate = LocalDate.of(2026, 4, 29),
                 startTime = LocalTime.of(14, 30),
@@ -187,7 +187,7 @@ class PartyServiceTest {
         val user = newUser(id = 1L)
         val savedParty = newPaperOnlyParty(id = 7L)
         val request =
-            CreatePaperOnlyPartyRequest(
+            CreatePaperOnlyPartyCommand(
                 celebrantNickname = "홍길동",
                 startedDate = LocalDate.of(2026, 4, 29),
             )
@@ -210,7 +210,7 @@ class PartyServiceTest {
         val savedParty = newParty(id = 7L)
         val character = newCharacter(1L)
         val request =
-            CreateRealtimePartyRequest(
+            CreateRealtimePartyCommand(
                 celebrantNickname = "홍길동",
                 startedDate = LocalDate.of(2026, 4, 29),
                 startTime = LocalTime.of(14, 30),
@@ -229,7 +229,7 @@ class PartyServiceTest {
         verify(participantRepository).save(participantCaptor.capture())
         verify(realtimeParticipantProfileRepository).save(profileCaptor.capture())
         val participant = participantCaptor.firstValue
-        assertEquals(7L, result.partyId)
+        assertEquals(7L, result)
         assertEquals(savedParty, participant.party)
         assertEquals(user, participant.user)
         assertTrue(participant.isCelebrant)
@@ -244,7 +244,7 @@ class PartyServiceTest {
         val savedParty = newParty(id = 7L)
         val character = newCharacter(2L, "Girl")
         val request =
-            CreateRealtimePartyRequest(
+            CreateRealtimePartyCommand(
                 celebrantNickname = "홍길동",
                 startedDate = LocalDate.of(2026, 4, 29),
                 startTime = LocalTime.of(14, 30),
@@ -268,7 +268,7 @@ class PartyServiceTest {
         val user = newUser(id = 1L)
         val savedParty = newParty(id = 7L)
         val request =
-            CreateRealtimePartyRequest(
+            CreateRealtimePartyCommand(
                 celebrantNickname = "홍길동",
                 startedDate = LocalDate.of(2026, 4, 29),
                 startTime = LocalTime.of(14, 30),
@@ -292,7 +292,7 @@ class PartyServiceTest {
     @Test
     fun `createRealtimeParty 유저가 없으면 AUTH_USER_NOT_FOUND`() {
         val request =
-            CreateRealtimePartyRequest(
+            CreateRealtimePartyCommand(
                 celebrantNickname = "홍길동",
                 startedDate = LocalDate.of(2026, 4, 29),
                 startTime = LocalTime.of(14, 30),

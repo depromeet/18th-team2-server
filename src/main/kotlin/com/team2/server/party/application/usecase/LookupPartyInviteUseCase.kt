@@ -2,11 +2,11 @@ package com.team2.server.party.application.usecase
 
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
+import com.team2.server.party.application.dto.PartyInviteLookupResult
+import com.team2.server.party.application.dto.RealtimeScheduleResult
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.PartyOption
 import com.team2.server.party.domain.entity.RealtimeParty
-import com.team2.server.party.dto.PartyInviteLookupResponse
-import com.team2.server.party.dto.RealtimeSchedule
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.PartyInviteRepository
 import org.springframework.stereotype.Service
@@ -22,7 +22,7 @@ class LookupPartyInviteUseCase(
     fun lookup(
         inviteToken: String,
         userId: Long?,
-    ): PartyInviteLookupResponse {
+    ): PartyInviteLookupResult {
         val party =
             partyInviteRepository.findByToken(inviteToken)?.party
                 ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
@@ -31,7 +31,7 @@ class LookupPartyInviteUseCase(
         val partyEndAt = party.endedAt()
         val isRealtime = party.partyOption == PartyOption.REALTIME
 
-        return PartyInviteLookupResponse(
+        return PartyInviteLookupResult(
             partyId = party.id,
             celebrantNickname = party.celebrantNickname,
             isHost = isHost(party, userId),
@@ -59,8 +59,8 @@ class LookupPartyInviteUseCase(
         return participantRepository.findByPartyIdAndUserId(party.id, userId)?.hasWrittenPaper ?: false
     }
 
-    private fun createRealtimeSchedule(party: Party): RealtimeSchedule =
-        RealtimeSchedule(
+    private fun createRealtimeSchedule(party: Party): RealtimeScheduleResult =
+        RealtimeScheduleResult(
             liveStartAt = party.startedAt,
             enterableFrom = party.startedAt.minusMinutes(RealtimeParty.ENTERABLE_BEFORE_MINUTES),
             liveEndAt = party.startedAt.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES),

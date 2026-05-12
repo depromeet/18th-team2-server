@@ -1,12 +1,12 @@
-package com.team2.server.party.controller
+package com.team2.server.party.api
 
 import com.team2.server.auth.principal.UserPrincipal
 import com.team2.server.common.web.ApiResponse
 import com.team2.server.common.web.swagger.AuthErrorResponses
 import com.team2.server.common.web.swagger.InternalServerErrorResponse
-import com.team2.server.party.dto.CreatePaperOnlyPartyRequest
-import com.team2.server.party.dto.CreatePartyResponse
-import com.team2.server.party.dto.CreateRealtimePartyRequest
+import com.team2.server.party.api.dto.CreatePaperOnlyPartyRequest
+import com.team2.server.party.api.dto.CreatePartyResponse
+import com.team2.server.party.api.dto.CreateRealtimePartyRequest
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.security.SecurityRequirement

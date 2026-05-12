@@ -1,4 +1,4 @@
-package com.team2.server.party.dto
+package com.team2.server.party.api.dto
 
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDate

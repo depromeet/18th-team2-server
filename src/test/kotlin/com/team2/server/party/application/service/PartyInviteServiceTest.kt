@@ -82,7 +82,7 @@ class PartyInviteServiceTest {
         val result = service.activateInviteLink(1L, 1L)
 
         verify(participantRepository, never()).existsByPartyIdAndUserId(any(), any())
-        assertEquals(existingInvite.token, result.token)
+        assertEquals(existingInvite.token, result)
     }
 
     @Test
@@ -96,7 +96,7 @@ class PartyInviteServiceTest {
         val result = service.activateInviteLink(1L, 1L)
 
         verify(partyInviteRepository, never()).save(any())
-        assertEquals(existingInvite.token, result.token)
+        assertEquals(existingInvite.token, result)
     }
 
     @Test
@@ -110,7 +110,7 @@ class PartyInviteServiceTest {
         val result = service.activateInviteLink(1L, 1L)
 
         verify(partyInviteRepository).save(any())
-        assertTrue(result.token.isNotBlank())
+        assertTrue(result.isNotBlank())
     }
 
     @Test

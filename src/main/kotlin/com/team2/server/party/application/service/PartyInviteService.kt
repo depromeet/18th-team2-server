@@ -4,13 +4,11 @@ import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.PartyInvite
-import com.team2.server.party.dto.ActivateInviteLinkResponse
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.PartyInviteRepository
 import com.team2.server.party.infrastructure.persistence.PartyRepository
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
 import java.security.SecureRandom
 import java.time.LocalDateTime
 
@@ -20,11 +18,10 @@ class PartyInviteService(
     private val partyInviteRepository: PartyInviteRepository,
     private val participantRepository: ParticipantRepository,
 ) {
-    @Transactional
     fun activateInviteLink(
         partyId: Long,
         userId: Long,
-    ): ActivateInviteLinkResponse {
+    ): String {
         val party: Party =
             partyRepository.findByIdOrNull(partyId)
                 ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
@@ -39,7 +36,7 @@ class PartyInviteService(
             partyInviteRepository.findByPartyIdAndExpiresAtAfter(partyId, now)
                 ?: createInvite(party, now)
 
-        return ActivateInviteLinkResponse(token = invite.token)
+        return invite.token
     }
 
     fun findUsableInvite(
