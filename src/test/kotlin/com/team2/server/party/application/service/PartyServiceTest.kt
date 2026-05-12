@@ -422,4 +422,54 @@ class PartyServiceTest {
 
         verify(realtimeParticipantProfileRepository, never()).deleteAllByParticipantIdIn(any())
     }
+
+    // --- findActiveRealtimeParty ---
+
+    @Test
+    fun `findActiveRealtimeParty returns realtime party when live open`() {
+        val realtimeParty =
+            RealtimeParty(
+                ownerId = 1L,
+                celebrantNickname = "홍길동",
+                startedAt = LocalDateTime.now().minusSeconds(1),
+            )
+        whenever(partyRepository.findPartyById(10L)).thenReturn(realtimeParty)
+
+        val result = partyService.findActiveRealtimeParty(10L)
+
+        assertEquals(realtimeParty, result)
+    }
+
+    @Test
+    fun `findActiveRealtimeParty throws PARTY_NOT_FOUND when party absent`() {
+        whenever(partyRepository.findPartyById(10L)).thenReturn(null)
+        val e = assertThrows<BusinessException> { partyService.findActiveRealtimeParty(10L) }
+        assertEquals(ErrorCode.PARTY_NOT_FOUND, e.errorCode)
+    }
+
+    @Test
+    fun `findActiveRealtimeParty throws CHAT_NOT_SUPPORTED when paper only`() {
+        val paperOnly =
+            PaperOnlyParty(
+                ownerId = 1L,
+                celebrantNickname = "홍길동",
+                startedAt = LocalDateTime.now(),
+            )
+        whenever(partyRepository.findPartyById(10L)).thenReturn(paperOnly)
+        val e = assertThrows<BusinessException> { partyService.findActiveRealtimeParty(10L) }
+        assertEquals(ErrorCode.CHAT_NOT_SUPPORTED, e.errorCode)
+    }
+
+    @Test
+    fun `findActiveRealtimeParty throws CHAT_NOT_ACTIVE when not in live window`() {
+        val realtimeParty =
+            RealtimeParty(
+                ownerId = 1L,
+                celebrantNickname = "홍길동",
+                startedAt = LocalDateTime.now().plusHours(1),
+            )
+        whenever(partyRepository.findPartyById(10L)).thenReturn(realtimeParty)
+        val e = assertThrows<BusinessException> { partyService.findActiveRealtimeParty(10L) }
+        assertEquals(ErrorCode.CHAT_NOT_ACTIVE, e.errorCode)
+    }
 }

@@ -21,6 +21,14 @@ class ParticipantService(
 
     fun joinAnonymous(party: Party): Participant = participantRepository.save(Participant(party = party))
 
+    fun findOrCreate(
+        party: Party,
+        userId: Long,
+        user: User,
+    ): Participant =
+        participantRepository.findByPartyIdAndUserId(party.id, userId)
+            ?: participantRepository.save(Participant(party = party, user = user))
+
     private fun createMemberParticipant(
         party: Party,
         user: User,

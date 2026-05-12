@@ -7,8 +7,11 @@ import com.team2.server.party.application.dto.CreatePaperOnlyPartyCommand
 import com.team2.server.party.application.dto.CreateRealtimePartyCommand
 import com.team2.server.party.domain.entity.PaperOnlyParty
 import com.team2.server.party.domain.entity.Participant
+import com.team2.server.party.domain.entity.Party
+import com.team2.server.party.domain.entity.PartyOption
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
+import com.team2.server.party.domain.entity.RealtimePartyStatus
 import com.team2.server.party.infrastructure.persistence.CharacterRepository
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.PartyInviteRepository
@@ -109,6 +112,24 @@ class PartyService(
         participantRepository.deleteAll(participants)
         partyInviteRepository.deleteAllByPartyId(partyId)
         partyRepository.delete(party)
+    }
+
+    fun findActiveRealtimeParty(partyId: Long): RealtimeParty {
+        val party =
+            partyRepository.findPartyById(partyId)
+                ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
+        val realtimeParty = requireRealtimeParty(party)
+        if (realtimeParty.status() != RealtimePartyStatus.LIVE_OPEN) {
+            throw BusinessException(ErrorCode.CHAT_NOT_ACTIVE)
+        }
+        return realtimeParty
+    }
+
+    private fun requireRealtimeParty(party: Party): RealtimeParty {
+        if (party.partyOption != PartyOption.REALTIME) {
+            throw BusinessException(ErrorCode.CHAT_NOT_SUPPORTED)
+        }
+        return org.hibernate.Hibernate.unproxy(party) as RealtimeParty
     }
 
     private fun findParty(partyId: Long) =

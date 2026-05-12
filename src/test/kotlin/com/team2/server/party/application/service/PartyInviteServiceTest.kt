@@ -2,6 +2,7 @@ package com.team2.server.party.application.service
 
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
+import com.team2.server.party.domain.entity.PaperOnlyParty
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.PartyInvite
 import com.team2.server.party.domain.entity.RealtimeParty
@@ -148,5 +149,62 @@ class PartyInviteServiceTest {
 
         assertEquals(ErrorCode.PARTY_ENDED, ex.errorCode)
         verify(partyInviteRepository, never()).save(any())
+    }
+
+    // --- resolveEnterableRealtimeInvite ---
+
+    @Test
+    fun `resolveEnterableRealtimeInvite 정상 진입 윈도우면 invite 반환`() {
+        val realtimeParty = makeParty(startedAt = LocalDateTime.now().minusSeconds(1))
+        val invite = makeInvite(party = realtimeParty, expiresAt = LocalDateTime.now().plusMinutes(30))
+        whenever(partyInviteRepository.findByToken("tok")).thenReturn(invite)
+
+        val result = service.resolveEnterableRealtimeInvite("tok", LocalDateTime.now())
+
+        assertEquals(invite, result)
+    }
+
+    @Test
+    fun `resolveEnterableRealtimeInvite invite 없으면 PARTY_NOT_FOUND`() {
+        whenever(partyInviteRepository.findByToken("tok")).thenReturn(null)
+        val e =
+            assertThrows<BusinessException> {
+                service.resolveEnterableRealtimeInvite("tok", LocalDateTime.now())
+            }
+        assertEquals(ErrorCode.PARTY_NOT_FOUND, e.errorCode)
+    }
+
+    @Test
+    fun `resolveEnterableRealtimeInvite 만료된 토큰이면 INVITE_LINK_EXPIRED`() {
+        val realtimeParty = makeParty(startedAt = LocalDateTime.now())
+        val invite = makeInvite(party = realtimeParty, expiresAt = LocalDateTime.now().minusMinutes(1))
+        whenever(partyInviteRepository.findByToken("tok")).thenReturn(invite)
+        val e =
+            assertThrows<BusinessException> {
+                service.resolveEnterableRealtimeInvite("tok", LocalDateTime.now())
+            }
+        assertEquals(ErrorCode.INVITE_LINK_EXPIRED, e.errorCode)
+    }
+
+    @Test
+    fun `resolveEnterableRealtimeInvite PAPER_ONLY 파티면 CHAT_NOT_SUPPORTED`() {
+        val paperOnly =
+            PaperOnlyParty(
+                ownerId = 1L,
+                celebrantNickname = "x",
+                startedAt = LocalDateTime.now().plusDays(1),
+            )
+        val invite =
+            PartyInvite(
+                party = paperOnly,
+                token = "tok",
+                expiresAt = LocalDateTime.now().plusDays(7),
+            )
+        whenever(partyInviteRepository.findByToken("tok")).thenReturn(invite)
+        val e =
+            assertThrows<BusinessException> {
+                service.resolveEnterableRealtimeInvite("tok", LocalDateTime.now())
+            }
+        assertEquals(ErrorCode.CHAT_NOT_SUPPORTED, e.errorCode)
     }
 }

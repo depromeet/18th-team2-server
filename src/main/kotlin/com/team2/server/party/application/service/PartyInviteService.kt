@@ -4,6 +4,8 @@ import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.PartyInvite
+import com.team2.server.party.domain.entity.PartyOption
+import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.PartyInviteRepository
 import com.team2.server.party.infrastructure.persistence.PartyRepository
@@ -37,6 +39,43 @@ class PartyInviteService(
                 ?: createInvite(party, now)
 
         return invite.token
+    }
+
+    fun resolveEnterableRealtimeInvite(
+        inviteToken: String,
+        now: LocalDateTime,
+    ): PartyInvite {
+        val invite = requireValidInvite(inviteToken, now)
+        requireRealtimeEnterWindow(invite.party, now)
+        return invite
+    }
+
+    private fun requireValidInvite(
+        inviteToken: String,
+        now: LocalDateTime,
+    ): PartyInvite {
+        val invite =
+            partyInviteRepository.findByToken(inviteToken)
+                ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
+        if (!invite.expiresAt.isAfter(now)) {
+            throw BusinessException(ErrorCode.INVITE_LINK_EXPIRED)
+        }
+        return invite
+    }
+
+    private fun requireRealtimeEnterWindow(
+        party: Party,
+        now: LocalDateTime,
+    ) {
+        if (party.partyOption != PartyOption.REALTIME) {
+            throw BusinessException(ErrorCode.CHAT_NOT_SUPPORTED)
+        }
+        val realtimeParty = org.hibernate.Hibernate.unproxy(party) as RealtimeParty
+        val enterableFrom = realtimeParty.startedAt.minusMinutes(RealtimeParty.ENTERABLE_BEFORE_MINUTES)
+        val enterableTo = realtimeParty.startedAt.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES)
+        if (now.isBefore(enterableFrom) || !now.isBefore(enterableTo)) {
+            throw BusinessException(ErrorCode.CHAT_NOT_ACTIVE)
+        }
     }
 
     fun findUsableInvite(
