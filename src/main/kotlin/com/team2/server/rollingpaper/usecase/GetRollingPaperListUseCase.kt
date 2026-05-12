@@ -6,8 +6,8 @@ import com.team2.server.common.image.entity.ImageTargetType
 import com.team2.server.common.image.persistence.ImageUrlReader
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.PartyOption
-import com.team2.server.party.repository.PartyInviteRepository
-import com.team2.server.party.repository.PartyRepository
+import com.team2.server.party.infrastructure.persistence.PartyInviteRepository
+import com.team2.server.party.infrastructure.persistence.PartyRepository
 import com.team2.server.rollingpaper.dto.OwnerRollingPaperListResponse
 import com.team2.server.rollingpaper.dto.ParticipantRollingPaperListResponse
 import com.team2.server.rollingpaper.dto.RollingPaperListItemResponse

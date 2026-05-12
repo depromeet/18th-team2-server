@@ -12,9 +12,9 @@ import com.team2.server.party.domain.entity.PartyOption
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.domain.entity.RealtimePartyStatus
-import com.team2.server.party.repository.ParticipantRepository
-import com.team2.server.party.repository.PartyRepository
-import com.team2.server.party.repository.RealtimeParticipantProfileRepository
+import com.team2.server.party.infrastructure.persistence.ParticipantRepository
+import com.team2.server.party.infrastructure.persistence.PartyRepository
+import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProfileRepository
 import org.hibernate.Hibernate
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service

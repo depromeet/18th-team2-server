@@ -5,7 +5,7 @@ import com.team2.server.common.image.entity.Image
 import com.team2.server.common.image.entity.ImageTargetType
 import com.team2.server.common.image.persistence.ImageRepository
 import com.team2.server.party.domain.entity.Character
-import com.team2.server.party.repository.CharacterRepository
+import com.team2.server.party.infrastructure.persistence.CharacterRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired

@@ -1,4 +1,4 @@
-package com.team2.server.party.repository
+package com.team2.server.party.infrastructure.persistence
 
 import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.Party

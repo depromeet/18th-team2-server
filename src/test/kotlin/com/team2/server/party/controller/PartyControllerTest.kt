@@ -5,9 +5,9 @@ import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
 import com.team2.server.common.DatabaseCleanup
 import com.team2.server.party.domain.entity.Character
-import com.team2.server.party.repository.CharacterRepository
-import com.team2.server.party.repository.ParticipantRepository
-import com.team2.server.party.repository.PartyRepository
+import com.team2.server.party.infrastructure.persistence.CharacterRepository
+import com.team2.server.party.infrastructure.persistence.ParticipantRepository
+import com.team2.server.party.infrastructure.persistence.PartyRepository
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
 import com.team2.server.user.repository.UserRepository

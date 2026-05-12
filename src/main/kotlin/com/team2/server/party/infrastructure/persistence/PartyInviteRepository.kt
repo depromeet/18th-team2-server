@@ -1,10 +1,9 @@
-package com.team2.server.party.repository
+package com.team2.server.party.infrastructure.persistence
 
 import com.team2.server.party.domain.entity.PartyInvite
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
-import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
 
 interface PartyInviteRepository : JpaRepository<PartyInvite, Long> {
@@ -31,6 +30,5 @@ interface PartyInviteRepository : JpaRepository<PartyInvite, Long> {
     ): List<PartyInvite>
 
     @Modifying
-    @Transactional
     fun deleteAllByPartyId(partyId: Long)
 }
