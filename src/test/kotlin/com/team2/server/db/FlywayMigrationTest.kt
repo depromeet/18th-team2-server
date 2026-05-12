@@ -42,6 +42,7 @@ class FlywayMigrationTest {
         @JvmStatic
         private val MYSQL: MySQLContainer<*> =
             MySQLContainer(DockerImageName.parse("mysql:8.0"))
+                .withLabel("purpose", "flyway-migration-test")
                 .withReuse(true)
                 .also { it.start() }
     }
