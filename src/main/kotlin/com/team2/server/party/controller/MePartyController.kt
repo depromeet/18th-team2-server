@@ -2,8 +2,8 @@ package com.team2.server.party.controller
 
 import com.team2.server.auth.principal.UserPrincipal
 import com.team2.server.common.web.ApiResponse
-import com.team2.server.party.dto.UpcomingPartyResponse
 import com.team2.server.party.application.usecase.GetUpcomingPartiesUseCase
+import com.team2.server.party.dto.UpcomingPartyResponse
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping

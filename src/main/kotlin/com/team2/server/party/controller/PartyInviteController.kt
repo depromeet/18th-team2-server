@@ -2,8 +2,8 @@ package com.team2.server.party.controller
 
 import com.team2.server.auth.principal.UserPrincipal
 import com.team2.server.common.web.ApiResponse
-import com.team2.server.party.dto.ActivateInviteLinkResponse
 import com.team2.server.party.application.service.PartyInviteService
+import com.team2.server.party.dto.ActivateInviteLinkResponse
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping

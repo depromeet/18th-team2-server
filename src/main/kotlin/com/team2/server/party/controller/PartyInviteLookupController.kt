@@ -2,10 +2,10 @@ package com.team2.server.party.controller
 
 import com.team2.server.auth.principal.UserPrincipal
 import com.team2.server.common.web.ApiResponse
-import com.team2.server.party.dto.PartyInviteLookupResponse
-import com.team2.server.party.dto.PartyInviteParticipationResponse
 import com.team2.server.party.application.usecase.JoinPartyInviteUseCase
 import com.team2.server.party.application.usecase.LookupPartyInviteUseCase
+import com.team2.server.party.dto.PartyInviteLookupResponse
+import com.team2.server.party.dto.PartyInviteParticipationResponse
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
