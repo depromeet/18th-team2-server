@@ -1,4 +1,4 @@
-package com.team2.server.party.dto
+package com.team2.server.party.application.dto
 
 data class CharacterResult(
     val characterId: Long,

@@ -2,7 +2,7 @@ package com.team2.server.party.usecase
 
 import com.team2.server.common.image.entity.ImageTargetType
 import com.team2.server.common.image.persistence.ImageRepository
-import com.team2.server.party.dto.CharacterResult
+import com.team2.server.party.application.dto.CharacterResult
 import com.team2.server.party.infrastructure.persistence.CharacterRepository
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service

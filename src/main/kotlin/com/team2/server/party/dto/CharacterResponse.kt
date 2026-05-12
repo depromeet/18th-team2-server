@@ -1,5 +1,6 @@
 package com.team2.server.party.dto
 
+import com.team2.server.party.application.dto.CharacterResult
 import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(description = "캐릭터 조회 응답")
