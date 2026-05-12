@@ -1,4 +1,4 @@
-package com.team2.server.party.usecase
+package com.team2.server.party.application.usecase
 
 import com.team2.server.party.dto.UpcomingPartyResponse
 import com.team2.server.party.dto.UpcomingRealtimeScheduleResponse

@@ -2,7 +2,7 @@ package com.team2.server.party.controller
 
 import com.team2.server.common.web.ApiResponse
 import com.team2.server.party.dto.CharacterResponse
-import com.team2.server.party.usecase.GetCharactersUseCase
+import com.team2.server.party.application.usecase.GetCharactersUseCase
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
