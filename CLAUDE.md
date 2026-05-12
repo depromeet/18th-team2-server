@@ -39,6 +39,10 @@
 - 시크릿 파일 커밋 금지 (`.env`, `application-*.yml`, `*.pem`, `*.key` 등)
 - 영문 커밋 메시지 금지
 
+## 아키텍처
+
+- [레이어드 아키텍처 규칙](.claude/rules/layered-architecture.md) 필수 준수
+
 ## 팀 스킬
 
 - `/team-flow` — 이슈 생성 → 브랜치 생성 → checkout 전체 플로우
