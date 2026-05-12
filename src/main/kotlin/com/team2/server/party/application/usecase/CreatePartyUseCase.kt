@@ -3,10 +3,10 @@ package com.team2.server.party.application.usecase
 import com.team2.server.party.application.dto.CreatePaperOnlyPartyCommand
 import com.team2.server.party.application.dto.CreateRealtimePartyCommand
 import com.team2.server.party.application.service.PartyService
-import org.springframework.stereotype.Component
+import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
-@Component
+@Service
 class CreatePartyUseCase(
     private val partyService: PartyService,
 ) {

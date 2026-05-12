@@ -1,10 +1,10 @@
 package com.team2.server.party.application.usecase
 
 import com.team2.server.party.application.service.PartyInviteService
-import org.springframework.stereotype.Component
+import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
-@Component
+@Service
 class ActivateInviteLinkUseCase(
     private val partyInviteService: PartyInviteService,
 ) {
