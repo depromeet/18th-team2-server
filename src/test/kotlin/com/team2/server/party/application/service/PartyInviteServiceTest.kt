@@ -207,4 +207,17 @@ class PartyInviteServiceTest {
             }
         assertEquals(ErrorCode.CHAT_NOT_SUPPORTED, e.errorCode)
     }
+
+    @Test
+    fun `resolveEnterableRealtimeInvite 진입 윈도우 밖이면 CHAT_NOT_ACTIVE`() {
+        val realtimeParty = makeParty(startedAt = LocalDateTime.now().plusHours(1))
+        val invite = makeInvite(party = realtimeParty, expiresAt = LocalDateTime.now().plusDays(1))
+        whenever(partyInviteRepository.findByToken("tok")).thenReturn(invite)
+
+        val e =
+            assertThrows<BusinessException> {
+                service.resolveEnterableRealtimeInvite("tok", LocalDateTime.now())
+            }
+        assertEquals(ErrorCode.CHAT_NOT_ACTIVE, e.errorCode)
+    }
 }
