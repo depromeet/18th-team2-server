@@ -1,7 +1,7 @@
 package com.team2.server.auth.jwt
 
 import com.team2.server.common.exception.ErrorCode
-import com.team2.server.common.response.ErrorResponse
+import com.team2.server.common.web.ErrorResponse
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.http.MediaType

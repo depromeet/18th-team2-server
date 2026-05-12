@@ -1,5 +1,6 @@
-package com.team2.server.common.entity
+package com.team2.server.common.image.entity
 
+import com.team2.server.common.persistence.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType

@@ -1,7 +1,7 @@
 package com.team2.server.party.controller
 
 import com.team2.server.auth.principal.UserPrincipal
-import com.team2.server.common.response.ApiResponse
+import com.team2.server.common.web.ApiResponse
 import com.team2.server.party.dto.PartyInviteLookupResponse
 import com.team2.server.party.dto.PartyInviteParticipationResponse
 import com.team2.server.party.usecase.JoinPartyInviteUseCase

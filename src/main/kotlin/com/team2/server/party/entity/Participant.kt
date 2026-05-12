@@ -1,6 +1,6 @@
 package com.team2.server.party.entity
 
-import com.team2.server.common.entity.BaseEntity
+import com.team2.server.common.persistence.BaseEntity
 import com.team2.server.user.entity.User
 import jakarta.persistence.Column
 import jakarta.persistence.Entity

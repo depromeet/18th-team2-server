@@ -1,6 +1,6 @@
 package com.team2.server.rollingpaper.entity
 
-import com.team2.server.common.entity.BaseEntity
+import com.team2.server.common.persistence.BaseEntity
 import com.team2.server.party.entity.Participant
 import com.team2.server.party.entity.Party
 import jakarta.persistence.Column

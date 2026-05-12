@@ -1,9 +1,9 @@
 package com.team2.server.rollingpaper.controller
 
 import com.team2.server.common.DatabaseCleanup
-import com.team2.server.common.entity.Image
-import com.team2.server.common.entity.ImageTargetType
-import com.team2.server.common.repository.ImageRepository
+import com.team2.server.common.image.entity.Image
+import com.team2.server.common.image.entity.ImageTargetType
+import com.team2.server.common.image.persistence.ImageRepository
 import com.team2.server.rollingpaper.entity.RollingPaperWrapper
 import com.team2.server.rollingpaper.repository.RollingPaperWrapperRepository
 import org.junit.jupiter.api.BeforeEach

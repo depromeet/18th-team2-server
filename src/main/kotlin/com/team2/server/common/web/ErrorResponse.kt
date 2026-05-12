@@ -1,4 +1,4 @@
-package com.team2.server.common.response
+package com.team2.server.common.web
 
 import io.swagger.v3.oas.annotations.media.Schema
 import org.springframework.http.HttpStatusCode

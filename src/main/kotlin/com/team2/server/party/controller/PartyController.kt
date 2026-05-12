@@ -3,7 +3,7 @@ package com.team2.server.party.controller
 import com.team2.server.auth.principal.UserPrincipal
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
-import com.team2.server.common.response.ApiResponse
+import com.team2.server.common.web.ApiResponse
 import com.team2.server.party.dto.CreatePaperOnlyPartyRequest
 import com.team2.server.party.dto.CreatePartyResponse
 import com.team2.server.party.dto.CreateRealtimePartyRequest

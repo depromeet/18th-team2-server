@@ -1,7 +1,7 @@
 package com.team2.server.party.usecase
 
-import com.team2.server.common.entity.ImageTargetType
-import com.team2.server.common.repository.ImageRepository
+import com.team2.server.common.image.entity.ImageTargetType
+import com.team2.server.common.image.persistence.ImageRepository
 import com.team2.server.party.dto.CharacterResult
 import com.team2.server.party.repository.CharacterRepository
 import org.springframework.data.domain.Sort

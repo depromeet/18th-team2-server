@@ -1,6 +1,6 @@
 package com.team2.server.chat.entity
 
-import com.team2.server.common.entity.BaseEntity
+import com.team2.server.common.persistence.BaseEntity
 import com.team2.server.party.entity.Party
 import com.team2.server.party.entity.RealtimeParticipantProfile
 import jakarta.persistence.Column

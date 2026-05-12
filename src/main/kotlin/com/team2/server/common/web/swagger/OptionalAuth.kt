@@ -1,4 +1,4 @@
-package com.team2.server.common.swagger
+package com.team2.server.common.web.swagger
 
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)

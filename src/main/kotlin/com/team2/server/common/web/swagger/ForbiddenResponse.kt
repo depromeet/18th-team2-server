@@ -1,6 +1,6 @@
-package com.team2.server.common.swagger
+package com.team2.server.common.web.swagger
 
-import com.team2.server.common.response.ErrorResponse
+import com.team2.server.common.web.ErrorResponse
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.ExampleObject
 import io.swagger.v3.oas.annotations.media.Schema

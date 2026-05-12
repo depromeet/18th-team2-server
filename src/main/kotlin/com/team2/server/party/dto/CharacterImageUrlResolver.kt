@@ -1,7 +1,7 @@
 package com.team2.server.party.dto
 
-import com.team2.server.common.entity.ImageTargetType
-import com.team2.server.common.repository.ImageRepository
+import com.team2.server.common.image.entity.ImageTargetType
+import com.team2.server.common.image.persistence.ImageRepository
 import com.team2.server.party.entity.Character
 import org.springframework.stereotype.Component
 

@@ -1,15 +1,12 @@
-package com.team2.server.common.service
+package com.team2.server.common.image.persistence
 
-import com.team2.server.common.entity.ImageTargetType
-import com.team2.server.common.repository.ImageRepository
-import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
+import com.team2.server.common.image.entity.ImageTargetType
+import org.springframework.stereotype.Component
 
-@Service
-class ImageQueryService(
+@Component
+class ImageUrlReader(
     private val imageRepository: ImageRepository,
 ) {
-    @Transactional(readOnly = true)
     fun findFirstImageUrlByTargetIds(
         targetType: ImageTargetType,
         targetIds: Collection<Long>,

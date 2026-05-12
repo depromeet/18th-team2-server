@@ -1,4 +1,4 @@
-package com.team2.server.common.entity
+package com.team2.server.common.persistence
 
 import jakarta.persistence.EntityListeners
 import jakarta.persistence.GeneratedValue

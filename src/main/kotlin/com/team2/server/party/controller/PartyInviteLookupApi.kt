@@ -1,11 +1,11 @@
 package com.team2.server.party.controller
 
 import com.team2.server.auth.principal.UserPrincipal
-import com.team2.server.common.response.ApiResponse
-import com.team2.server.common.response.ErrorResponse
-import com.team2.server.common.swagger.AuthErrorResponses
-import com.team2.server.common.swagger.InternalServerErrorResponse
-import com.team2.server.common.swagger.OptionalAuth
+import com.team2.server.common.web.ApiResponse
+import com.team2.server.common.web.ErrorResponse
+import com.team2.server.common.web.swagger.AuthErrorResponses
+import com.team2.server.common.web.swagger.InternalServerErrorResponse
+import com.team2.server.common.web.swagger.OptionalAuth
 import com.team2.server.party.dto.PartyInviteLookupResponse
 import com.team2.server.party.dto.PartyInviteParticipationResponse
 import io.swagger.v3.oas.annotations.Operation

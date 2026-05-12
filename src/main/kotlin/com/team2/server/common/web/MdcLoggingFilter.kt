@@ -1,4 +1,4 @@
-package com.team2.server.common.filter
+package com.team2.server.common.web
 
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest

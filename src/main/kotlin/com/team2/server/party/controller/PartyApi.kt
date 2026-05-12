@@ -1,9 +1,9 @@
 package com.team2.server.party.controller
 
 import com.team2.server.auth.principal.UserPrincipal
-import com.team2.server.common.response.ApiResponse
-import com.team2.server.common.swagger.AuthErrorResponses
-import com.team2.server.common.swagger.InternalServerErrorResponse
+import com.team2.server.common.web.ApiResponse
+import com.team2.server.common.web.swagger.AuthErrorResponses
+import com.team2.server.common.web.swagger.InternalServerErrorResponse
 import com.team2.server.party.dto.CreatePaperOnlyPartyRequest
 import com.team2.server.party.dto.CreatePartyResponse
 import com.team2.server.party.dto.CreateRealtimePartyRequest

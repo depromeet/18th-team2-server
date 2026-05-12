@@ -1,7 +1,7 @@
 package com.team2.server.party.controller
 
-import com.team2.server.common.response.ApiResponse
-import com.team2.server.common.swagger.InternalServerErrorResponse
+import com.team2.server.common.web.ApiResponse
+import com.team2.server.common.web.swagger.InternalServerErrorResponse
 import com.team2.server.party.dto.CharacterResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag

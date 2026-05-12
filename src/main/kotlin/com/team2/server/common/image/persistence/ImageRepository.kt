@@ -1,7 +1,7 @@
-package com.team2.server.common.repository
+package com.team2.server.common.image.persistence
 
-import com.team2.server.common.entity.Image
-import com.team2.server.common.entity.ImageTargetType
+import com.team2.server.common.image.entity.Image
+import com.team2.server.common.image.entity.ImageTargetType
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param

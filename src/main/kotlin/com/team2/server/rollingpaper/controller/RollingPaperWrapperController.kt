@@ -1,6 +1,6 @@
 package com.team2.server.rollingpaper.controller
 
-import com.team2.server.common.response.ApiResponse
+import com.team2.server.common.web.ApiResponse
 import com.team2.server.rollingpaper.dto.RollingPaperWrapperResponse
 import com.team2.server.rollingpaper.usecase.GetRollingPaperWrappersUseCase
 import org.springframework.web.bind.annotation.GetMapping

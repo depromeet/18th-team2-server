@@ -1,6 +1,7 @@
-package com.team2.server.common.exception
+package com.team2.server.common.web
 
-import com.team2.server.common.response.ErrorResponse
+import com.team2.server.common.exception.BusinessException
+import com.team2.server.common.exception.ErrorCode
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
