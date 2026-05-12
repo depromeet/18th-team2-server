@@ -1,23 +1,22 @@
 package com.team2.server.user
 
+import com.team2.server.support.JpaSliceTestSupport
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
 import com.team2.server.user.repository.UserRepository
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
 import org.springframework.dao.DataIntegrityViolationException
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
-@DataJpaTest
 class UserRepositoryTest
     @Autowired
     constructor(
         private val userRepository: UserRepository,
-    ) {
+    ) : JpaSliceTestSupport() {
         private fun newUser(
             providerId: String,
             email: String = "$providerId@kakao.local",

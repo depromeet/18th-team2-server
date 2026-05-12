@@ -1,10 +1,9 @@
 package com.team2.server
 
+import com.team2.server.support.IntegrationTestSupport
 import org.junit.jupiter.api.Test
-import org.springframework.boot.test.context.SpringBootTest
 
-@SpringBootTest
-class ServerApplicationTests {
+class ServerApplicationTests : IntegrationTestSupport() {
     @Test
     @Suppress("EmptyFunctionBlock")
     fun contextLoads() {

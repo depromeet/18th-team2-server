@@ -3,6 +3,7 @@ package com.team2.server.auth
 import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
 import com.team2.server.common.DatabaseCleanup
+import com.team2.server.config.TestcontainersConfiguration
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
 import com.team2.server.user.repository.UserRepository
@@ -11,11 +12,13 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
+import org.springframework.context.annotation.Import
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import(TestcontainersConfiguration::class)
 class SecurityIntegrationTest
     @Autowired
     constructor(

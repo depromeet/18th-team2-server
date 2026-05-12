@@ -2,6 +2,7 @@ package com.team2.server.party.controller
 
 import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
+import com.team2.server.config.TestcontainersConfiguration
 import com.team2.server.party.entity.PaperOnlyParty
 import com.team2.server.party.entity.Participant
 import com.team2.server.party.entity.Party
@@ -19,6 +20,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
+import org.springframework.context.annotation.Import
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.MockMvcResultMatchersDsl
 import org.springframework.test.web.servlet.get
@@ -28,6 +30,7 @@ import java.time.temporal.ChronoUnit
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import(TestcontainersConfiguration::class)
 class MePartyControllerTest
     @Autowired
     constructor(
