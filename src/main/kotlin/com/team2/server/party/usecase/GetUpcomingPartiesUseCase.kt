@@ -2,9 +2,9 @@ package com.team2.server.party.usecase
 
 import com.team2.server.party.dto.UpcomingPartyResponse
 import com.team2.server.party.dto.UpcomingRealtimeScheduleResponse
-import com.team2.server.party.entity.Party
-import com.team2.server.party.entity.PartyOption
-import com.team2.server.party.entity.RealtimeParty
+import com.team2.server.party.domain.entity.Party
+import com.team2.server.party.domain.entity.PartyOption
+import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyInviteRepository
 import org.springframework.stereotype.Service

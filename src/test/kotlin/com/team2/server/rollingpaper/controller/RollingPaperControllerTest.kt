@@ -2,10 +2,10 @@ package com.team2.server.rollingpaper.controller
 
 import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
-import com.team2.server.party.entity.PaperOnlyParty
-import com.team2.server.party.entity.Participant
-import com.team2.server.party.entity.Party
-import com.team2.server.party.entity.PartyInvite
+import com.team2.server.party.domain.entity.PaperOnlyParty
+import com.team2.server.party.domain.entity.Participant
+import com.team2.server.party.domain.entity.Party
+import com.team2.server.party.domain.entity.PartyInvite
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyInviteRepository
 import com.team2.server.party.repository.PartyRepository

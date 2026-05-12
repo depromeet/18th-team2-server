@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
 import com.team2.server.common.DatabaseCleanup
-import com.team2.server.party.entity.Character
+import com.team2.server.party.domain.entity.Character
 import com.team2.server.party.repository.CharacterRepository
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyRepository

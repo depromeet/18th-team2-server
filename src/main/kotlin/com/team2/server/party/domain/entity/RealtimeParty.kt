@@ -1,4 +1,4 @@
-package com.team2.server.party.entity
+package com.team2.server.party.domain.entity
 
 import jakarta.persistence.DiscriminatorValue
 import jakarta.persistence.Entity

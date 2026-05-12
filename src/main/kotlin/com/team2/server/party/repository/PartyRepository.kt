@@ -1,6 +1,6 @@
 package com.team2.server.party.repository
 
-import com.team2.server.party.entity.Party
+import com.team2.server.party.domain.entity.Party
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 

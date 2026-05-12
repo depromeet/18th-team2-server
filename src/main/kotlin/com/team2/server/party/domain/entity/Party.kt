@@ -1,4 +1,4 @@
-package com.team2.server.party.entity
+package com.team2.server.party.domain.entity
 
 import com.team2.server.common.persistence.BaseEntity
 import jakarta.persistence.Column

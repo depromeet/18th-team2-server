@@ -1,8 +1,8 @@
 package com.team2.server.party.service
 
 import com.team2.server.common.exception.isConstraintViolation
-import com.team2.server.party.entity.Participant
-import com.team2.server.party.entity.Party
+import com.team2.server.party.domain.entity.Participant
+import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.user.entity.User
 import org.springframework.dao.DataIntegrityViolationException

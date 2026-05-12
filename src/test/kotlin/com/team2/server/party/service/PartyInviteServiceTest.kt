@@ -2,9 +2,9 @@ package com.team2.server.party.service
 
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
-import com.team2.server.party.entity.Party
-import com.team2.server.party.entity.PartyInvite
-import com.team2.server.party.entity.RealtimeParty
+import com.team2.server.party.domain.entity.Party
+import com.team2.server.party.domain.entity.PartyInvite
+import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyInviteRepository
 import com.team2.server.party.repository.PartyRepository

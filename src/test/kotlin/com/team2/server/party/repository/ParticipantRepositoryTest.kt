@@ -1,10 +1,10 @@
 package com.team2.server.party.repository
 
-import com.team2.server.party.entity.Participant
-import com.team2.server.party.entity.Party
-import com.team2.server.party.entity.PartyPurpose
-import com.team2.server.party.entity.RealtimeParticipantProfile
-import com.team2.server.party.entity.RealtimeParty
+import com.team2.server.party.domain.entity.Participant
+import com.team2.server.party.domain.entity.Party
+import com.team2.server.party.domain.entity.PartyPurpose
+import com.team2.server.party.domain.entity.RealtimeParticipantProfile
+import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.rollingpaper.entity.RollingPaper
 import com.team2.server.rollingpaper.entity.RollingPaperWrapper
 import com.team2.server.user.entity.AuthProvider

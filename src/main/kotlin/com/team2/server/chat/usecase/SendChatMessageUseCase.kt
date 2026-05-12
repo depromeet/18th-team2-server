@@ -7,11 +7,11 @@ import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.chat.service.ChatMessageBroadcastEvent
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
-import com.team2.server.party.entity.Party
-import com.team2.server.party.entity.PartyOption
-import com.team2.server.party.entity.RealtimeParticipantProfile
-import com.team2.server.party.entity.RealtimeParty
-import com.team2.server.party.entity.RealtimePartyStatus
+import com.team2.server.party.domain.entity.Party
+import com.team2.server.party.domain.entity.PartyOption
+import com.team2.server.party.domain.entity.RealtimeParticipantProfile
+import com.team2.server.party.domain.entity.RealtimeParty
+import com.team2.server.party.domain.entity.RealtimePartyStatus
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyRepository
 import com.team2.server.party.repository.RealtimeParticipantProfileRepository

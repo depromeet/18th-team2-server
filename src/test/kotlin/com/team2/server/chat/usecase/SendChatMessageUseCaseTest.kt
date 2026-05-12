@@ -6,10 +6,10 @@ import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.chat.service.ChatMessageBroadcastEvent
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
-import com.team2.server.party.entity.PaperOnlyParty
-import com.team2.server.party.entity.Participant
-import com.team2.server.party.entity.RealtimeParticipantProfile
-import com.team2.server.party.entity.RealtimeParty
+import com.team2.server.party.domain.entity.PaperOnlyParty
+import com.team2.server.party.domain.entity.Participant
+import com.team2.server.party.domain.entity.RealtimeParticipantProfile
+import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyRepository
 import com.team2.server.party.repository.RealtimeParticipantProfileRepository

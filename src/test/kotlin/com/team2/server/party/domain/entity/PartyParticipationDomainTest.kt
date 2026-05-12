@@ -1,6 +1,6 @@
-package com.team2.server.party.entity
+package com.team2.server.party.domain.entity
 
-import com.team2.server.party.entity.RealtimeParty
+import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.rollingpaper.entity.RollingPaper
 import com.team2.server.rollingpaper.entity.RollingPaperWrapper
 import com.team2.server.user.entity.AuthProvider

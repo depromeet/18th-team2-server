@@ -4,7 +4,7 @@ import com.team2.server.common.DatabaseCleanup
 import com.team2.server.common.image.entity.Image
 import com.team2.server.common.image.entity.ImageTargetType
 import com.team2.server.common.image.persistence.ImageRepository
-import com.team2.server.party.entity.Character
+import com.team2.server.party.domain.entity.Character
 import com.team2.server.party.repository.CharacterRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test

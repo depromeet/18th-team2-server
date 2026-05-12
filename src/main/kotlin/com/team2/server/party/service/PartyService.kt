@@ -6,10 +6,10 @@ import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.dto.CreatePaperOnlyPartyRequest
 import com.team2.server.party.dto.CreatePartyResponse
 import com.team2.server.party.dto.CreateRealtimePartyRequest
-import com.team2.server.party.entity.PaperOnlyParty
-import com.team2.server.party.entity.Participant
-import com.team2.server.party.entity.RealtimeParticipantProfile
-import com.team2.server.party.entity.RealtimeParty
+import com.team2.server.party.domain.entity.PaperOnlyParty
+import com.team2.server.party.domain.entity.Participant
+import com.team2.server.party.domain.entity.RealtimeParticipantProfile
+import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.repository.CharacterRepository
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyInviteRepository

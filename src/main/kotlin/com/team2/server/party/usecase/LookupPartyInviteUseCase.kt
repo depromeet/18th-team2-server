@@ -4,9 +4,9 @@ import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.dto.PartyInviteLookupResponse
 import com.team2.server.party.dto.RealtimeSchedule
-import com.team2.server.party.entity.Party
-import com.team2.server.party.entity.PartyOption
-import com.team2.server.party.entity.RealtimeParty
+import com.team2.server.party.domain.entity.Party
+import com.team2.server.party.domain.entity.PartyOption
+import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyInviteRepository
 import org.springframework.stereotype.Service

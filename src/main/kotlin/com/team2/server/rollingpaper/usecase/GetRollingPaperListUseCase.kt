@@ -4,8 +4,8 @@ import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.common.image.entity.ImageTargetType
 import com.team2.server.common.image.persistence.ImageUrlReader
-import com.team2.server.party.entity.Party
-import com.team2.server.party.entity.PartyOption
+import com.team2.server.party.domain.entity.Party
+import com.team2.server.party.domain.entity.PartyOption
 import com.team2.server.party.repository.PartyInviteRepository
 import com.team2.server.party.repository.PartyRepository
 import com.team2.server.rollingpaper.dto.OwnerRollingPaperListResponse
