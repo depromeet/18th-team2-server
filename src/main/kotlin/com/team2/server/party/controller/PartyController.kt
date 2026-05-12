@@ -7,7 +7,7 @@ import com.team2.server.common.web.ApiResponse
 import com.team2.server.party.dto.CreatePaperOnlyPartyRequest
 import com.team2.server.party.dto.CreatePartyResponse
 import com.team2.server.party.dto.CreateRealtimePartyRequest
-import com.team2.server.party.service.PartyService
+import com.team2.server.party.application.service.PartyService
 import org.springframework.http.HttpStatus
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.DeleteMapping

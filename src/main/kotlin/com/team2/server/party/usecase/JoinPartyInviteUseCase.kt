@@ -3,8 +3,8 @@ package com.team2.server.party.usecase
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.dto.PartyInviteParticipationResponse
-import com.team2.server.party.service.ParticipantService
-import com.team2.server.party.service.PartyInviteService
+import com.team2.server.party.application.service.ParticipantService
+import com.team2.server.party.application.service.PartyInviteService
 import com.team2.server.user.repository.UserRepository
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service

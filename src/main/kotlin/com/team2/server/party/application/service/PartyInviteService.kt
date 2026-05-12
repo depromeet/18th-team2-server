@@ -1,4 +1,4 @@
-package com.team2.server.party.service
+package com.team2.server.party.application.service
 
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode

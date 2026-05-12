@@ -5,8 +5,8 @@ import com.team2.server.common.exception.ErrorCode
 import com.team2.server.common.exception.isConstraintViolation
 import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.Party
-import com.team2.server.party.service.ParticipantService
-import com.team2.server.party.service.PartyInviteService
+import com.team2.server.party.application.service.ParticipantService
+import com.team2.server.party.application.service.PartyInviteService
 import com.team2.server.rollingpaper.dto.CreateRollingPaperRequest
 import com.team2.server.rollingpaper.dto.CreateRollingPaperResponse
 import com.team2.server.rollingpaper.entity.RollingPaper
