@@ -3,6 +3,7 @@ package com.team2.server.party.repository
 import com.team2.server.party.entity.Participant
 import com.team2.server.party.entity.Party
 import com.team2.server.user.entity.User
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import java.time.LocalDateTime
@@ -44,4 +45,23 @@ interface ParticipantRepository : JpaRepository<Participant, Long> {
         userId: Long,
         startedAfter: LocalDateTime,
     ): List<Participant>
+
+    @Query(
+        """
+        SELECT p
+        FROM Participant p
+        JOIN FETCH p.party party
+        WHERE p.user.id = :userId
+          AND (:cursor IS NULL OR p.id < :cursor)
+        ORDER BY p.id DESC
+        """,
+    )
+    fun findArchiveByUserId(
+        userId: Long,
+        cursor: Long?,
+        pageable: Pageable,
+    ): List<Participant>
+
+    @Query("SELECT COUNT(p) FROM Participant p WHERE p.user.id = :userId")
+    fun countArchiveByUserId(userId: Long): Long
 }
