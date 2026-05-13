@@ -9,8 +9,12 @@ import java.time.LocalDateTime
 @JsonInclude(JsonInclude.Include.ALWAYS)
 @Schema(description = "초대장 조회 응답")
 data class PartyInviteLookupResponse(
+    @Schema(description = "파티 ID", example = "1")
+    val partyId: Long,
     @Schema(description = "파티 주인공 이름", example = "홍길동")
     val celebrantNickname: String?,
+    @Schema(description = "현재 조회자가 파티 주최자인지 여부", example = "false")
+    val isHost: Boolean,
     @Schema(
         description = "파티 옵션. REALTIME: 실시간 파티, PAPER_ONLY: 롤링페이퍼 전용 파티",
         allowableValues = ["REALTIME", "PAPER_ONLY"],

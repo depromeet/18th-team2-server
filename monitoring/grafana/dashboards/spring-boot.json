@@ -20,7 +20,7 @@
       "targets": [
         {
           "expr": "rate(http_server_requests_seconds_count{job=\"team2-backend-$env\"}[1m])",
-          "legendFormat": "{{method}} {{uri}} {{status}}",
+          "legendFormat": "{{slot}} {{method}} {{uri}} {{status}}",
           "refId": "A"
         }
       ],
@@ -39,7 +39,7 @@
       "targets": [
         {
           "expr": "rate(http_server_requests_seconds_sum{job=\"team2-backend-$env\"}[1m]) / rate(http_server_requests_seconds_count{job=\"team2-backend-$env\"}[1m])",
-          "legendFormat": "{{method}} {{uri}}",
+          "legendFormat": "{{slot}} {{method}} {{uri}}",
           "refId": "A"
         }
       ],
@@ -58,7 +58,7 @@
       "targets": [
         {
           "expr": "jvm_memory_used_bytes{job=\"team2-backend-$env\"}",
-          "legendFormat": "{{area}} - {{id}}",
+          "legendFormat": "{{slot}} {{area}} - {{id}}",
           "refId": "A"
         }
       ],
@@ -77,7 +77,7 @@
       "targets": [
         {
           "expr": "rate(process_cpu_usage{job=\"team2-backend-$env\"}[1m])",
-          "legendFormat": "CPU 사용률",
+          "legendFormat": "{{slot}} CPU 사용률",
           "refId": "A"
         }
       ],

@@ -23,7 +23,7 @@ class OAuth2FailureHandler(
     ) {
         log.warn("OAuth2 authentication failed", exception)
 
-        val target = oAuth2Properties.authorizedRedirectUris.first()
+        val target = resolveRedirectUri(request) ?: oAuth2Properties.authorizedRedirectUris.first()
         val redirectUrl =
             UriComponentsBuilder
                 .fromUriString(target)
@@ -31,6 +31,15 @@ class OAuth2FailureHandler(
                 .build()
                 .toUriString()
 
+        OAuth2RedirectUriCookies.clear(response, oAuth2Properties.cookieSecure)
         redirectStrategy.sendRedirect(request, response, redirectUrl)
+    }
+
+    private fun resolveRedirectUri(request: HttpServletRequest): String? {
+        val candidate =
+            OAuth2RedirectUriCookies.read(request)
+                ?: request.getParameter("redirect_uri")
+                ?: return null
+        return if (oAuth2Properties.authorizedRedirectUris.contains(candidate)) candidate else null
     }
 }

@@ -9,9 +9,23 @@ import jakarta.persistence.FetchType
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
+import java.util.Locale
 
 @Entity
-@Table(name = "rolling_paper")
+@Table(
+    name = "rolling_paper",
+    uniqueConstraints = [
+        UniqueConstraint(
+            name = "uk_rolling_paper_party_writer_nickname",
+            columnNames = ["party_id", "writer_nickname_key"],
+        ),
+        UniqueConstraint(
+            name = "uk_rolling_paper_writer_participant",
+            columnNames = ["writer_participant_id"],
+        ),
+    ],
+)
 class RollingPaper(
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "wrapper_id", nullable = false)
@@ -22,10 +36,19 @@ class RollingPaper(
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "party_id", nullable = false)
     var party: Party,
-    @Column(name = "writer_nickname", length = 20)
-    var writerNickname: String? = null,
-    @Column(nullable = false, length = 1000)
+    writerNickname: String,
+    @Column(nullable = false, length = 100)
     var content: String,
     @Column(name = "is_read", nullable = false)
     var isRead: Boolean = false,
-) : BaseEntity()
+) : BaseEntity() {
+    @Column(name = "writer_nickname", nullable = false, length = 10)
+    var writerNickname: String = writerNickname.trim()
+        protected set
+
+    @Column(name = "writer_nickname_key", nullable = false, length = 10)
+    var writerNicknameKey: String = this.writerNickname.toWriterNicknameKey()
+        protected set
+}
+
+fun String.toWriterNicknameKey(): String = trim().lowercase(Locale.ROOT)

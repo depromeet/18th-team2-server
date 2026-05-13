@@ -14,20 +14,32 @@ class GetCharactersUseCase(
     private val imageRepository: ImageRepository,
 ) {
     @Transactional(readOnly = true)
-    fun invoke(): List<CharacterResult> =
-        characterRepository
-            .findAll(Sort.by(Sort.Direction.ASC, "id"))
-            .map { character ->
-                val url =
-                    imageRepository
-                        .findFirstByTargetTypeAndTargetIdOrderBySortOrderAsc(
-                            ImageTargetType.CHARACTER,
-                            character.id,
-                        )?.imageUrl
-                CharacterResult(
-                    characterId = character.id,
-                    name = character.name,
-                    characterImageUrl = url,
-                )
-            }
+    fun invoke(): List<CharacterResult> {
+        val characters = characterRepository.findAll(Sort.by(Sort.Direction.ASC, "id"))
+        if (characters.isEmpty()) {
+            return emptyList()
+        }
+
+        val imagesByCharacterId =
+            imageRepository
+                .findAllByTargetTypeAndTargetIdsOrderByTargetIdAndSortOrder(
+                    ImageTargetType.CHARACTER,
+                    characters.map { it.id },
+                ).groupBy { it.targetId }
+
+        return characters.map { character ->
+            val imagesBySortOrder = imagesByCharacterId[character.id].orEmpty().associateBy { it.sortOrder }
+            CharacterResult(
+                characterId = character.id,
+                name = character.name,
+                characterImageUrl = imagesBySortOrder[CHARACTER_IMAGE_SORT_ORDER]?.imageUrl,
+                characterThumbnailImageUrl = imagesBySortOrder[CHARACTER_THUMBNAIL_IMAGE_SORT_ORDER]?.imageUrl,
+            )
+        }
+    }
+
+    private companion object {
+        private const val CHARACTER_IMAGE_SORT_ORDER = 0
+        private const val CHARACTER_THUMBNAIL_IMAGE_SORT_ORDER = 1
+    }
 }

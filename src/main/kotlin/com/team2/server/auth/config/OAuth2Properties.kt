@@ -9,4 +9,5 @@ import org.springframework.validation.annotation.Validated
 data class OAuth2Properties(
     @field:NotEmpty
     val authorizedRedirectUris: List<String>,
+    val cookieSecure: Boolean = false,
 )
