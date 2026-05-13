@@ -9,6 +9,7 @@ import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.PartyInviteRepository
 import com.team2.server.party.infrastructure.persistence.PartyRepository
+import org.hibernate.Hibernate
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import java.security.SecureRandom
@@ -70,7 +71,7 @@ class PartyInviteService(
         if (party.partyOption != PartyOption.REALTIME) {
             throw BusinessException(ErrorCode.CHAT_NOT_SUPPORTED)
         }
-        val realtimeParty = org.hibernate.Hibernate.unproxy(party) as RealtimeParty
+        val realtimeParty = Hibernate.unproxy(party) as RealtimeParty
         val enterableFrom = realtimeParty.startedAt.minusMinutes(RealtimeParty.ENTERABLE_BEFORE_MINUTES)
         val enterableTo = realtimeParty.startedAt.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES)
         if (now.isBefore(enterableFrom) || !now.isBefore(enterableTo)) {

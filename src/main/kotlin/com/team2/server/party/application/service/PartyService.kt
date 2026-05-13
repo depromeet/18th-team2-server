@@ -19,6 +19,7 @@ import com.team2.server.party.infrastructure.persistence.PartyRepository
 import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProfileRepository
 import com.team2.server.rollingpaper.repository.RollingPaperRepository
 import com.team2.server.user.repository.UserRepository
+import org.hibernate.Hibernate
 import org.springframework.stereotype.Service
 import java.time.LocalDateTime
 
@@ -129,7 +130,7 @@ class PartyService(
         if (party.partyOption != PartyOption.REALTIME) {
             throw BusinessException(ErrorCode.CHAT_NOT_SUPPORTED)
         }
-        return org.hibernate.Hibernate.unproxy(party) as RealtimeParty
+        return Hibernate.unproxy(party) as RealtimeParty
     }
 
     private fun findParty(partyId: Long) =
