@@ -2,18 +2,22 @@ package com.team2.server.db
 
 import org.flywaydb.core.Flyway
 import org.junit.jupiter.api.Test
+import org.testcontainers.containers.MySQLContainer
+import org.testcontainers.utility.DockerImageName
 import java.sql.DriverManager
 import kotlin.test.assertEquals
 
 class FlywayMigrationTest {
     @Test
     fun `Flyway migration creates schema and seeds default assets`() {
-        DriverManager.getConnection(DATABASE_URL, USERNAME, PASSWORD).use { connection ->
+        DriverManager.getConnection(MYSQL.jdbcUrl, MYSQL.username, MYSQL.password).use { connection ->
             Flyway
                 .configure()
-                .dataSource(DATABASE_URL, USERNAME, PASSWORD)
+                .dataSource(MYSQL.jdbcUrl, MYSQL.username, MYSQL.password)
                 .locations("classpath:db/migration")
+                .cleanDisabled(false)
                 .load()
+                .also { it.clean() }
                 .migrate()
 
             assertEquals(5, connection.countRows("avatar"))
@@ -34,8 +38,12 @@ class FlywayMigrationTest {
 
     private companion object {
         private val COUNTABLE_TABLES = setOf("avatar", "rolling_paper_wrapper", "image")
-        private const val DATABASE_URL = "jdbc:tc:mysql:8.0:///flyway_migration_test"
-        private const val USERNAME = "test"
-        private const val PASSWORD = "test"
+
+        @JvmStatic
+        private val MYSQL: MySQLContainer<*> =
+            MySQLContainer(DockerImageName.parse("mysql:8.0"))
+                .withLabel("purpose", "flyway-migration-test")
+                .withReuse(true)
+                .also { it.start() }
     }
 }

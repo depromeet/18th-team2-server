@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
 import com.team2.server.chat.repository.ChatMessageRepository
+import com.team2.server.config.TestcontainersConfiguration
 import com.team2.server.party.entity.Character
 import com.team2.server.party.entity.PartyInvite
 import com.team2.server.party.entity.RealtimeParty
@@ -21,6 +22,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
+import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.MvcResult
@@ -30,6 +32,7 @@ import java.util.UUID
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import(TestcontainersConfiguration::class)
 class ChatControllerTest
     @Autowired
     constructor(
