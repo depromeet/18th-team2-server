@@ -3,9 +3,8 @@ spring:
     name: team2-backend-test
   profiles:
     active: test
-  datasource:
-    url: jdbc:tc:mysql:8.0:///testdb
-    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+  flyway:
+    enabled: false
   jpa:
     hibernate:
       ddl-auto: create-drop
