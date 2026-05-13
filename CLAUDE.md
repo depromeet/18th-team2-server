@@ -8,7 +8,7 @@
 
 ## 규칙
 
-- [Git 규칙](.claude/rules/git.md) — 커밋/브랜치/PR 컨벤션, 금지 사항
+- [Git 규칙](@.claude/rules/git.md) — 커밋/브랜치/PR 컨벤션, 금지 사항
 
 ## 테스트
 
@@ -19,7 +19,7 @@
 
 ## 아키텍처
 
-- [레이어드 아키텍처 규칙](.claude/rules/layered-architecture.md) 필수 준수
+- [레이어드 아키텍처 규칙](@.claude/rules/layered-architecture.md) 필수 준수
 
 ## 팀 스킬
 
