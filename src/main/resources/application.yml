@@ -34,3 +34,6 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.MySQLDialect
+
+support:
+  chat-url: "https://open.kakao.com/o/placeholder"
