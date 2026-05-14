@@ -32,7 +32,7 @@
 - 종료는 scheduler와 submit/snapshot lazy 종료 체크를 모두 둔다.
 - 박터뜨리기 start는 촛불끄기 완료 상태를 선행 조건으로 검증한다.
 - 참가자별 tap rate limit은 독립된 두 제약으로 검사한다.
-  - 초당 제한: 참가자별 sliding window 또는 token bucket 기준 초당 20회까지 반영
+  - 초당 제한: 참가자별 token bucket 기준 초당 20회 refill, burst capacity 30회까지 반영
   - 라운드 누적 제한: 참가자별 라운드 누적 400회까지 반영
 
 ---
@@ -152,8 +152,9 @@ X-Participant-Token: {participantToken}
 - 이미 ended session이 TTL 안에 있으면 기존 결과를 반환하지 않고 `BURST_GAME_ALREADY_ENDED (409)`로 막는다.
 - active/ended session이 없고 새 라운드를 생성해야 할 때 촛불끄기 완료 상태를 검증한다.
   - 촛불끄기가 완료되지 않았으면 `BURST_GAME_NOT_READY`.
-  - TODO: `burstgame.application.port.CandleBlowStatusReader`를 먼저 만들고 `fun isCandleBlowCompleted(partyId: Long): Boolean` 계약으로 촛불 완료 상태 조회 로직을 연결한다. 실제 촛불끄기 feature가 머지되면 port signature나 반환 타입은 사전 합의 후 조정한다.
+  - TODO: `burstgame.application.service.CandleBlowStatusReader`를 먼저 만들고 `fun isCandleBlowCompleted(partyId: Long): Boolean` 계약으로 촛불 완료 상태 조회 로직을 연결한다. 실제 촛불끄기 feature가 머지되면 인터페이스 signature나 반환 타입은 사전 합의 후 조정한다.
   - 촛불끄기 feature가 아직 머지되지 않은 개발/테스트 단계에서는 항상 `true`를 반환하고 warning log를 남기는 `CandleBlowStatusReaderStub`을 임시 adapter로 둔다.
+  - stub은 `local`, `dev`, `test` profile 또는 명시적 feature flag에서만 bean으로 등록하고, prod profile에는 등록하지 않는다.
 - 종료 결과 조회는 start API가 아니라 snapshot API를 사용한다.
 - 일반 참가자가 진행 중 라운드 상태를 복구해야 하는 경우 start API가 아니라 `GET /api/v1/parties/{partyId}/burst-game`을 사용한다.
 - `roundId`는 DB auto-increment가 아니라 UUID 문자열로 발급한다. in-memory session만 사용하는 1차 구현에서 서버 재시작/카운터 초기화 충돌을 피하기 위함이다.
@@ -239,8 +240,7 @@ X-Participant-Token: {participantToken}
 처리 정책:
 
 - 라운드가 없으면 `BURST_GAME_NOT_FOUND`.
-- 라운드가 아직 시작 전이거나 종료 후이면 `BURST_GAME_NOT_ACTIVE`.
-  - TTL 안에 ended session이 남아 있는 종료 라운드면 `BURST_GAME_NOT_ACTIVE`.
+- TTL 안에 ended session이 남아 있는 종료 라운드에 submit하면 `BURST_GAME_NOT_ACTIVE (409)`.
   - TTL 만료로 session이 제거됐거나 존재한 적 없는 `roundId`면 `BURST_GAME_NOT_FOUND`.
 - 참가자가 해당 파티의 실시간 프로필을 갖고 있지 않으면 `UNAUTHORIZED`.
 - 요청 시점에 `now >= endsAt`이면 lazy 종료를 먼저 수행하고, 해당 batch는 반영하지 않는다.
@@ -261,11 +261,12 @@ X-Participant-Token: {participantToken}
   - 에러 메시지는 `"clientSequence gap too large"`처럼 원인을 알 수 있게 둔다.
 - 요청 `tapCount`는 너무 큰 값 전송을 막기 위해 1~30으로 제한한다.
 - 요청 `tapCount` 제한과 별도로 참가자별 초당 반영 가능한 tap 수를 제한한다.
-  - 1차 기본값: 초당 20회, 참가자별 라운드 누적 400회.
+  - 1차 기본값: token bucket refill 초당 20회, burst capacity 30회, 참가자별 라운드 누적 400회.
   - 두 제한은 독립적으로 검사한다.
-  - 예: 1초 안에 30회가 들어오면 초당 제한 위반으로 초과분 또는 batch를 거부한다.
+  - 예: 라운드 시작 직후 `tapCount = 30` 단일 batch는 burst capacity 안에 있으므로 허용할 수 있다.
+  - 예: 1초 안에 여러 batch로 31회 이상이 들어오면 token bucket 잔여량을 초과한 batch를 거부한다.
   - 예: 매초 15회씩 들어와도 누적 반영 수가 400회를 넘으면 라운드 누적 제한 위반으로 이후 batch를 거부한다.
-  - 초당 제한은 sliding window 또는 token bucket 중 구현에 맞는 방식으로 적용하고, 라운드 누적 제한은 accepted tap count 합계로 적용한다.
+  - 초당 제한은 token bucket으로 적용하고, 라운드 누적 제한은 accepted tap count 합계로 적용한다.
   - 초과 시 `BURST_GAME_RATE_LIMITED (429)`를 반환하고 해당 batch는 반영하지 않는다.
 - 서버는 batch 반영 후 `burst-game-progress` SSE 이벤트를 브로드캐스트한다.
 
@@ -691,16 +692,22 @@ burstgame/
 │   ├── dto/
 │   ├── service/
 │   │   ├── BurstGameSessionService.kt
-│   │   └── BurstGameRankingService.kt
+│   │   ├── BurstGameParticipantReader.kt
+│   │   ├── CandleBlowStatusReader.kt
+│   │   ├── BurstGameEventBroadcaster.kt
+│   │   └── BurstGameEndScheduler.kt
 │   └── usecase/
 │       ├── StartBurstGameUseCase.kt
 │       ├── SubmitBurstGameTapUseCase.kt
 │       └── GetBurstGameSnapshotUseCase.kt
 ├── domain/
+│   ├── policy/
+│   │   └── BurstGameRankingPolicy.kt
 │   └── vo/
 │       ├── BurstGameRoundStatus.kt
 │       ├── BurstGameSession.kt
-│       └── BurstGameRankingEntry.kt
+│       ├── BurstGameRankingEntry.kt
+│       └── BurstGameWinner.kt
 └── infrastructure/
     ├── memory/
     │   └── InMemoryBurstGameSessionStore.kt
@@ -730,7 +737,7 @@ cross-feature 의존:
 | ErrorCode | HTTP | 상황 |
 |---|---|---|
 | `BURST_GAME_NOT_FOUND` | 404 | roundId가 없거나 파티에 active/TTL 안의 ended session이 없음 |
-| `BURST_GAME_NOT_ACTIVE` | 400 | 아직 시작 전이거나 TTL 안의 ended session에 submit 호출 |
+| `BURST_GAME_NOT_ACTIVE` | 409 | TTL 안의 ended session에 submit 호출 |
 | `BURST_GAME_ALREADY_ENDED` | 409 | TTL 안에 남아 있는 ended session에 대해 재시작 시도 |
 | `BURST_GAME_NOT_READY` | 400 | 촛불끄기가 아직 완료되지 않은 상태에서 start 호출 |
 | `BURST_GAME_RATE_LIMITED` | 429 | 참가자별 허용 tap rate 초과 |
@@ -841,9 +848,9 @@ cross-feature 의존:
 - 최종 결과는 DB 저장 없이 메모리에 5분 TTL로 유지한다.
 - active app instance가 하나면 in-memory aggregate로 시작한다.
 - 여러 app instance가 동시에 트래픽을 받으면 Redis 기반 aggregate로 전환한다.
-- tap rate limit 1차 기본값은 참가자별 초당 20회와 참가자별 라운드 누적 400회다.
+- tap rate limit 1차 기본값은 참가자별 token bucket refill 초당 20회, burst capacity 30회, 참가자별 라운드 누적 400회다.
   - 두 제약은 독립적으로 검사한다.
-  - 초당 제한은 sliding window 또는 token bucket, 라운드 누적 제한은 accepted tap count 합계 기준으로 적용한다.
+  - 초당 제한은 token bucket, 라운드 누적 제한은 accepted tap count 합계 기준으로 적용한다.
 - rate limit 수치는 QA 중 모바일 입력감에 맞춰 조정 가능하다.
 
 ---

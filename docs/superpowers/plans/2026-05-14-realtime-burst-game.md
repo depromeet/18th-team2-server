@@ -58,7 +58,7 @@ Request:
 - 중복 sequence는 `200 OK`, `accepted = false`, `ignoredReason = "DUPLICATE_SEQUENCE"`
 - `clientSequence > lastProcessedSequence + MAX_SEQUENCE_GAP`이면 `INVALID_INPUT`
 - `now >= endsAt`이면 lazy 종료 후 batch는 반영하지 않고 `accepted = false`, `ignoredReason = "ROUND_ENDED"`
-- TTL 안의 ended session에 submit하면 `BURST_GAME_NOT_ACTIVE`
+- TTL 안의 ended session에 submit하면 `BURST_GAME_NOT_ACTIVE`, 409
 - TTL 만료 또는 존재하지 않는 `roundId`면 `BURST_GAME_NOT_FOUND`
 
 ### Snapshot
@@ -90,13 +90,13 @@ Request:
 | `src/main/kotlin/com/team2/server/burstgame/application/usecase/SubmitBurstGameTapUseCase.kt` | tap batch 반영 |
 | `src/main/kotlin/com/team2/server/burstgame/application/usecase/GetBurstGameSnapshotUseCase.kt` | snapshot 조회 |
 | `src/main/kotlin/com/team2/server/burstgame/application/service/BurstGameSessionService.kt` | session 생성/조회/종료 orchestration |
-| `src/main/kotlin/com/team2/server/burstgame/application/service/BurstGameRankingService.kt` | ranking/winners 계산 |
-| `src/main/kotlin/com/team2/server/burstgame/application/port/BurstGameParticipantReader.kt` | 실시간 파티 참여자 식별 port |
-| `src/main/kotlin/com/team2/server/burstgame/application/port/CandleBlowStatusReader.kt` | 촛불끄기 완료 상태 조회 port |
-| `src/main/kotlin/com/team2/server/burstgame/application/port/BurstGameEventBroadcaster.kt` | 박터뜨리기 SSE 이벤트 발화 port |
-| `src/main/kotlin/com/team2/server/burstgame/application/port/BurstGameEndScheduler.kt` | 라운드 종료 예약 port |
+| `src/main/kotlin/com/team2/server/burstgame/application/service/BurstGameParticipantReader.kt` | 실시간 파티 참여자 식별 인터페이스 |
+| `src/main/kotlin/com/team2/server/burstgame/application/service/CandleBlowStatusReader.kt` | 촛불끄기 완료 상태 조회 인터페이스 |
+| `src/main/kotlin/com/team2/server/burstgame/application/service/BurstGameEventBroadcaster.kt` | 박터뜨리기 SSE 이벤트 발화 인터페이스 |
+| `src/main/kotlin/com/team2/server/burstgame/application/service/BurstGameEndScheduler.kt` | 라운드 종료 예약 인터페이스 |
 | `src/main/kotlin/com/team2/server/burstgame/infrastructure/candle/CandleBlowStatusReaderStub.kt` | 촛불끄기 feature 머지 전 임시 stub |
 | `src/main/kotlin/com/team2/server/burstgame/domain/BurstGamePolicy.kt` | duration, color threshold, rate limit, TTL 상수 |
+| `src/main/kotlin/com/team2/server/burstgame/domain/policy/BurstGameRankingPolicy.kt` | ranking/winners 계산 |
 | `src/main/kotlin/com/team2/server/burstgame/domain/BurstGameSession.kt` | in-memory aggregate session |
 | `src/main/kotlin/com/team2/server/burstgame/domain/BurstGameRoundStatus.kt` | `ACTIVE`, `ENDED` |
 | `src/main/kotlin/com/team2/server/burstgame/domain/BurstGameRankingEntry.kt` | ranking entry |
@@ -108,7 +108,7 @@ Request:
 | `src/test/kotlin/com/team2/server/burstgame/application/usecase/StartBurstGameUseCaseTest.kt` | start UseCase 테스트 |
 | `src/test/kotlin/com/team2/server/burstgame/application/usecase/SubmitBurstGameTapUseCaseTest.kt` | submit UseCase 테스트 |
 | `src/test/kotlin/com/team2/server/burstgame/application/usecase/GetBurstGameSnapshotUseCaseTest.kt` | snapshot UseCase 테스트 |
-| `src/test/kotlin/com/team2/server/burstgame/application/service/BurstGameRankingServiceTest.kt` | ranking/winners 테스트 |
+| `src/test/kotlin/com/team2/server/burstgame/domain/policy/BurstGameRankingPolicyTest.kt` | ranking/winners 테스트 |
 | `src/test/kotlin/com/team2/server/burstgame/infrastructure/memory/InMemoryBurstGameSessionStoreTest.kt` | 동시성/TTL 테스트 |
 | `src/test/kotlin/com/team2/server/burstgame/infrastructure/scheduler/ScheduledBurstGameEndSchedulerTest.kt` | 종료 scheduler 테스트 |
 | `src/test/kotlin/com/team2/server/burstgame/infrastructure/realtime/SseBurstGameEventBroadcasterTest.kt` | SSE 이벤트 발화/throttle 테스트 |
@@ -121,7 +121,7 @@ Request:
 | `src/main/kotlin/com/team2/server/common/exception/ErrorCode.kt` | `BURST_GAME_*` 에러 코드 추가 |
 | `src/main/kotlin/com/team2/server/chat/service/SseEmitterRegistry.kt` | 기존 파티 SSE 채널에 박터뜨리기 이벤트를 보낼 수 있는 메서드 추가 또는 공통 broadcaster로 감싸기 |
 | `src/main/kotlin/com/team2/server/party/service/PartyService.kt` 또는 신규 reader | 실시간 파티/프로필 조회 계약 재사용 |
-| 촛불끄기 feature 병합 후 adapter | `CandleBlowStatusReader` port 구현체 추가 |
+| 촛불끄기 feature 병합 후 adapter | `CandleBlowStatusReader` 구현체 추가 |
 
 ---
 
@@ -140,7 +140,7 @@ Request:
 - [ ] `ROUND_DURATION_SECONDS = 20`을 정의한다.
 - [ ] `COLOR_CHANGE_TAP_COUNT = 100`을 정의한다.
 - [ ] `ENDED_SESSION_TTL = 5 minutes`를 정의한다.
-- [ ] 참가자별 rate limit 기본값을 초당 20회, 참가자별 라운드 누적 400회로 정의한다.
+- [ ] 참가자별 rate limit 기본값을 token bucket refill 초당 20회, burst capacity 30회, 참가자별 라운드 누적 400회로 정의한다.
 - [ ] `MAX_SEQUENCE_GAP = 1000`을 정의한다.
 - [ ] `BurstGameSession`에 `roundId`, `partyId`, `startedAt`, `endsAt`, `status`, `stateVersion`, 참가자별 score map을 둔다.
 - [ ] 외부 응답에는 `endedAt`을 포함하지 않는 것을 DTO 설계 기준으로 둔다.
@@ -152,11 +152,11 @@ Run:
 ./gradlew test --tests com.team2.server.burstgame.domain.BurstGameSessionTest
 ```
 
-## Task 2: ranking/winners 계산 구현
+## Task 2: ranking/winners 도메인 정책 구현
 
 **Files:**
-- Create: `src/main/kotlin/com/team2/server/burstgame/application/service/BurstGameRankingService.kt`
-- Test: `src/test/kotlin/com/team2/server/burstgame/application/service/BurstGameRankingServiceTest.kt`
+- Create: `src/main/kotlin/com/team2/server/burstgame/domain/policy/BurstGameRankingPolicy.kt`
+- Test: `src/test/kotlin/com/team2/server/burstgame/domain/policy/BurstGameRankingPolicyTest.kt`
 
 - [ ] `tapCount DESC`로 정렬한다.
 - [ ] 같은 `tapCount`는 같은 rank를 부여한다.
@@ -170,7 +170,7 @@ Run:
 Run:
 
 ```bash
-./gradlew test --tests com.team2.server.burstgame.application.service.BurstGameRankingServiceTest
+./gradlew test --tests com.team2.server.burstgame.domain.policy.BurstGameRankingPolicyTest
 ```
 
 ## Task 3: in-memory session store와 동시성 제어
@@ -187,6 +187,7 @@ Run:
 - [ ] submit/snapshot/end는 `roundId` 단위 직렬화 구간에서 session mutation을 처리한다.
 - [ ] 두 직렬화 구간을 함께 잡는 경우 lock 순서는 `partyId -> roundId`로 고정한다.
 - [ ] accepted batch 반영, ranking 재계산, `stateVersion` 증가, immutable broadcast snapshot 생성을 같은 원자 구간에서 처리한다.
+- [ ] ranking 재계산은 다른 Service 호출이 아니라 `BurstGameRankingPolicy` 도메인 정책 호출로 처리한다.
 - [ ] 중복 batch는 count와 `stateVersion`을 증가시키지 않는다.
 - [ ] ended session은 TTL 이후 제거한다.
 
@@ -196,28 +197,29 @@ Run:
 ./gradlew test --tests com.team2.server.burstgame.infrastructure.memory.InMemoryBurstGameSessionStoreTest
 ```
 
-## Task 4: 외부 의존 port와 reader 계약 추가
+## Task 4: 외부 의존 인터페이스와 reader 계약 추가
 
 **Files:**
-- Create: `src/main/kotlin/com/team2/server/burstgame/application/port/BurstGameParticipantReader.kt`
-- Create: `src/main/kotlin/com/team2/server/burstgame/application/port/CandleBlowStatusReader.kt`
-- Create: `src/main/kotlin/com/team2/server/burstgame/application/port/BurstGameEventBroadcaster.kt`
-- Create: `src/main/kotlin/com/team2/server/burstgame/application/port/BurstGameEndScheduler.kt`
+- Create: `src/main/kotlin/com/team2/server/burstgame/application/service/BurstGameParticipantReader.kt`
+- Create: `src/main/kotlin/com/team2/server/burstgame/application/service/CandleBlowStatusReader.kt`
+- Create: `src/main/kotlin/com/team2/server/burstgame/application/service/BurstGameEventBroadcaster.kt`
+- Create: `src/main/kotlin/com/team2/server/burstgame/application/service/BurstGameEndScheduler.kt`
 - Modify: `src/main/kotlin/com/team2/server/party/service/PartyService.kt` 또는 기존 party reader
 
-- [ ] `BurstGameParticipantReader`는 Bearer token 또는 `X-Participant-Token`으로 `RealtimeParticipantProfile`을 식별하는 port다.
+- [ ] `BurstGameParticipantReader`는 Bearer token 또는 `X-Participant-Token`으로 `RealtimeParticipantProfile`을 식별하는 application service 인터페이스다.
 - [ ] `partyOption != REALTIME`이면 `CHAT_NOT_SUPPORTED`.
 - [ ] 실시간 파티 진행 가능 구간이 아니면 `CHAT_NOT_ACTIVE`.
 - [ ] 프로필이 없으면 `UNAUTHORIZED`.
-- [ ] `CandleBlowStatusReader`는 촛불 완료 여부만 반환하는 port다.
+- [ ] `CandleBlowStatusReader`는 촛불 완료 여부만 반환하는 application service 인터페이스다.
 - [ ] `CandleBlowStatusReader`는 `fun isCandleBlowCompleted(partyId: Long): Boolean` 시그니처를 기본 계약으로 둔다.
 - [ ] 새 라운드 생성 시 `CandleBlowStatusReader`로 촛불 완료 상태를 확인한다.
 - [ ] 촛불 완료 전이면 `BURST_GAME_NOT_READY`.
 - [ ] active 라운드가 이미 있으면 촛불 상태를 재검증하지 않는다.
 - [ ] `BurstGameEventBroadcaster`는 start/progress/end 이벤트 발화를 추상화한다.
 - [ ] `BurstGameEndScheduler`는 `endsAt` 기준 종료 예약을 추상화한다.
-- [ ] UseCase는 broadcaster/scheduler 구현체가 아니라 port에만 의존한다.
+- [ ] UseCase는 broadcaster/scheduler 구현체가 아니라 application service 인터페이스에만 의존한다.
 - [ ] 촛불끄기 feature가 아직 머지되지 않았다면 항상 `true`를 반환하고 warning log를 남기는 `CandleBlowStatusReaderStub`을 추가한다.
+- [ ] `CandleBlowStatusReaderStub`은 `@Profile("local", "dev", "test")` 또는 명시적 feature flag로 prod 등록을 막는다.
 - [ ] 실제 촛불끄기 feature가 머지되면 stub을 실제 adapter로 교체한다.
 
 Run:
@@ -244,8 +246,8 @@ Run:
 - [ ] active/ended session이 없을 때만 촛불 완료 상태를 검증한다.
 - [ ] 새 `roundId`는 UUID 문자열로 발급한다.
 - [ ] `startedAt`, `endsAt`, `stateVersion = 0`, `colorChanged = false`로 session을 생성한다.
-- [ ] `BurstGameEndScheduler` port로 종료 scheduler를 등록한다.
-- [ ] `BurstGameEventBroadcaster` port로 기존 파티 SSE 구독자에게 `burst-game-started`를 브로드캐스트한다.
+- [ ] `BurstGameEndScheduler` 인터페이스로 종료 scheduler를 등록한다.
+- [ ] `BurstGameEventBroadcaster` 인터페이스로 기존 파티 SSE 구독자에게 `burst-game-started`를 브로드캐스트한다.
 
 Run:
 
@@ -262,7 +264,7 @@ Run:
 - Test: `src/test/kotlin/com/team2/server/burstgame/infrastructure/scheduler/ScheduledBurstGameEndSchedulerTest.kt`
 - Test: `src/test/kotlin/com/team2/server/burstgame/infrastructure/memory/InMemoryBurstGameSessionStoreTest.kt`
 
-- [ ] start 시 `BurstGameEndScheduler` port를 통해 `endsAt` 기준 종료 작업을 등록한다.
+- [ ] start 시 `BurstGameEndScheduler` 인터페이스를 통해 `endsAt` 기준 종료 작업을 등록한다.
 - [ ] `ScheduledExecutorService` 기반 구현체로 종료 작업을 예약한다.
 - [ ] submit/snapshot은 `now >= endsAt`이면 lazy 종료를 시도한다.
 - [ ] scheduler와 lazy 종료 중 먼저 lock을 획득한 경로만 `ACTIVE -> ENDED`를 commit한다.
@@ -339,7 +341,7 @@ Run:
 - Test: `src/test/kotlin/com/team2/server/burstgame/infrastructure/realtime/SseBurstGameEventBroadcasterTest.kt`
 - Test: `src/test/kotlin/com/team2/server/burstgame/api/BurstGameControllerTest.kt`
 
-- [ ] `BurstGameEventBroadcaster` port 구현체를 추가한다.
+- [ ] `BurstGameEventBroadcaster` 인터페이스 구현체를 추가한다.
 - [ ] 기존 파티 SSE 연결에 `burst-game-started` 이벤트를 보낸다.
 - [ ] accepted tap batch 이후 `burst-game-progress` 이벤트를 보낸다.
 - [ ] progress 이벤트에는 `totalTapCount`, `colorChanged`, `remainingSeconds`, `stateVersion`, `serverTime`, `rankings`를 포함한다.
@@ -368,7 +370,7 @@ Run:
 
 - [ ] `BURST_GAME_NOT_FOUND`, `BURST_GAME_NOT_ACTIVE`, `BURST_GAME_ALREADY_ENDED`, `BURST_GAME_NOT_READY`, `BURST_GAME_RATE_LIMITED`를 추가한다.
 - [ ] start API의 200/400/401/404/409/500 예시를 문서화한다.
-- [ ] submit API의 200/400/401/404/429/500 예시를 문서화한다.
+- [ ] submit API의 200/400/401/404/409/429/500 예시를 문서화한다.
 - [ ] snapshot API의 200/401/404/500 예시를 문서화한다.
 - [ ] `X-Participant-Token` 헤더 사용 가능성을 API 문서에 명시한다.
 
@@ -393,7 +395,7 @@ Run:
 - start: 동시에 여러 명이 호출해도 partyId 단위 직렬화로 active session은 1개만 생성됨
 - start: active round가 이미 있으면 촛불끄기 완료 상태를 재검증하지 않고 기존 active snapshot 반환
 - start: `roundId`는 UUID 형식
-- submit: TTL 안의 ended session이면 `BURST_GAME_NOT_ACTIVE`
+- submit: TTL 안의 ended session이면 `BURST_GAME_NOT_ACTIVE`, 409
 - submit: TTL 만료 또는 존재하지 않는 roundId면 `BURST_GAME_NOT_FOUND`
 - submit: 요청 `tapCount`가 0 또는 31이면 `INVALID_INPUT`
 - submit: 같은 `clientSequence` 재요청은 `200 OK`, `accepted = false`, count 증가 없음
