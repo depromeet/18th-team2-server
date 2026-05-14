@@ -768,58 +768,11 @@ cross-feature 의존:
 
 ---
 
-## 11. 테스트 계획 [구현]
+## 11. 구현 계획과 테스트 계획 [구현]
 
-### UseCase 단위 테스트
+상세 구현 순서와 테스트 케이스는 별도 plan 문서에서 관리한다.
 
-- start: 실시간 파티가 아니면 `CHAT_NOT_SUPPORTED`
-- start: 프로필 없는 호출자는 `UNAUTHORIZED`
-- start: 촛불끄기가 완료되지 않았으면 `BURST_GAME_NOT_READY`
-- start: active round가 있으면 기존 round 반환
-- start: ended round가 있으면 `BURST_GAME_ALREADY_ENDED`
-- start: 실시간 파티 참여자는 누구나 호출 가능
-- start: 동시에 여러 명이 호출해도 partyId 단위 직렬화로 active session은 1개만 생성됨
-- start: active round가 이미 있으면 촛불끄기 완료 상태를 재검증하지 않고 기존 active snapshot 반환
-- start: `roundId`는 UUID 형식
-- submit: TTL 안의 ended session이면 `BURST_GAME_NOT_ACTIVE`
-- submit: TTL 만료 또는 존재하지 않는 roundId면 `BURST_GAME_NOT_FOUND`
-- submit: 요청 `tapCount`가 0 또는 31이면 `INVALID_INPUT`
-- submit: 같은 `clientSequence` 재요청은 `200 OK`, `accepted = false`, count 증가 없음
-- submit: 마지막 처리 sequence보다 큰 값은 gap이 있어도 허용
-- submit: 마지막 처리 sequence보다 작은 값은 stale duplicate로 무시
-- submit: 참가자별 rate limit 초과 시 `BURST_GAME_RATE_LIMITED`
-- submit: total이 100 이상이면 `colorChanged = true`
-- submit: accepted batch마다 `stateVersion` 증가
-- submit: ranking은 tap count desc로 정렬됨
-- submit: 공동 rank 내에서는 participant id asc로 정렬되어 잘라낼 entry를 결정
-- submit: 동시 요청에서도 total/ranking/stateVersion이 같은 session snapshot 기준으로 생성됨
-- submit: `now >= endsAt`이면 lazy 종료가 먼저 수행되고 tap batch는 반영되지 않음
-- submit: lazy 종료 응답은 `accepted = false`, `ignoredReason = "ROUND_ENDED"`를 반환하고 `winners`는 포함하지 않음
-- snapshot: active 라운드 현재 상태 조회 가능
-- snapshot: ended 라운드가 TTL 안에 있으면 최종 결과 조회 가능
-- snapshot: active session이지만 `now >= endsAt`이면 lazy 종료 후 ended snapshot 반환
-- end: 최종 결과가 ended session에 TTL 동안 유지됨
-- end: scheduler와 lazy 종료가 동시에 실행돼도 종료 처리는 한 번만 commit됨
-- SSE: progress 이벤트에 `stateVersion`, `serverTime` 포함
-- SSE: `remainingSeconds`는 `max(0, ceil((endsAt - serverTime) / 1000))` 기준 정수 초
-- SSE: stale `stateVersion` 이벤트를 무시할 수 있음
-- SSE: throttle 때문에 progress `stateVersion`은 연속되지 않을 수 있음
-- ranking: 참여자가 3명 미만이면 `rankings`도 3개보다 적음
-- ranking: 1등 2명, 다음 참가자 3등이면 `rankings`는 `[1등, 1등, 3등]`
-- ranking: 1등 4명이면 `rankings`는 공동 1등 중 3명까지만 포함
-- ranking: 전원 0회면 `winners = []`, `rankings = []`
-- winners: 공동 1등이 여러 명이고 tapCount > 0이면 `winners`에 모두 포함
-- policy: `BurstGamePolicy.COLOR_CHANGE_TAP_COUNT = 100` 상수 기준으로 `colorChanged` 테스트
-- SSE: 실제 emit은 lock 밖 비동기 executor에서 수행되고 실패해도 session 상태는 유지됨
-
-### Controller 통합 테스트
-
-- JWT 참여자 start 성공
-- participantToken 참여자 start 성공
-- tap batch 제출 후 SSE progress payload 형태 검증
-- 20초 종료는 테스트에서 clock/scheduler를 제어해 `burst-game-ended` 검증
-- snapshot API는 진행 중 현재 total/ranking 반환
-- snapshot API는 종료 후 TTL 안의 최종 winners, 최대 3명의 ranking entry, total count 반환
+- Plan: `docs/superpowers/plans/2026-05-14-realtime-burst-game.md`
 
 ---
 
