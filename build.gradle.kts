@@ -89,6 +89,7 @@ ktlint {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    environment("TESTCONTAINERS_RYUK_DISABLED", "true")
     finalizedBy(tasks.jacocoTestReport)
 }
 
