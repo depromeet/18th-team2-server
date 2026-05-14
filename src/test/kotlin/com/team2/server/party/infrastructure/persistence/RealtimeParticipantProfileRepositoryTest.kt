@@ -39,9 +39,25 @@ class RealtimeParticipantProfileRepositoryTest
                     ),
                 )
             val user1 =
-                userRepository.save(User(name = "해파리1", birthDay = "01-01", email = "a@a", provider = AuthProvider.KAKAO, providerId = "1"))
+                userRepository.save(
+                    User(
+                        name = "해파리1",
+                        birthDay = "01-01",
+                        email = "a@a",
+                        provider = AuthProvider.KAKAO,
+                        providerId = "1",
+                    ),
+                )
             val user2 =
-                userRepository.save(User(name = "해파리2", birthDay = "02-02", email = "b@b", provider = AuthProvider.KAKAO, providerId = "2"))
+                userRepository.save(
+                    User(
+                        name = "해파리2",
+                        birthDay = "02-02",
+                        email = "b@b",
+                        provider = AuthProvider.KAKAO,
+                        providerId = "2",
+                    ),
+                )
             val p1 = participantRepository.save(Participant(party = party, user = user1))
             val p2 = participantRepository.save(Participant(party = party, user = user2))
             profileRepository.save(RealtimeParticipantProfile(participant = p1, nickname = "해파리1"))
@@ -64,7 +80,16 @@ class RealtimeParticipantProfileRepositoryTest
                 partyRepository.save(
                     RealtimeParty(ownerId = 1L, name = "p2", celebrantNickname = "홍", startedAt = LocalDateTime.now()),
                 )
-            val user = userRepository.save(User(name = "해파리", birthDay = "01-01", email = "x@x", provider = AuthProvider.KAKAO, providerId = "x"))
+            val user =
+                userRepository.save(
+                    User(
+                        name = "해파리",
+                        birthDay = "01-01",
+                        email = "x@x",
+                        provider = AuthProvider.KAKAO,
+                        providerId = "x",
+                    ),
+                )
             val pA = participantRepository.save(Participant(party = party1, user = user))
             val pB = participantRepository.save(Participant(party = party2, user = user))
             profileRepository.save(RealtimeParticipantProfile(participant = pA, nickname = "A"))
@@ -82,9 +107,25 @@ class RealtimeParticipantProfileRepositoryTest
                     RealtimeParty(ownerId = 1L, name = "p", celebrantNickname = "홍", startedAt = LocalDateTime.now()),
                 )
             val user1 =
-                userRepository.save(User(name = "해A", birthDay = "01-01", email = "1@x", provider = AuthProvider.KAKAO, providerId = "1"))
+                userRepository.save(
+                    User(
+                        name = "해A",
+                        birthDay = "01-01",
+                        email = "1@x",
+                        provider = AuthProvider.KAKAO,
+                        providerId = "1",
+                    ),
+                )
             val user2 =
-                userRepository.save(User(name = "해B", birthDay = "02-02", email = "2@x", provider = AuthProvider.KAKAO, providerId = "2"))
+                userRepository.save(
+                    User(
+                        name = "해B",
+                        birthDay = "02-02",
+                        email = "2@x",
+                        provider = AuthProvider.KAKAO,
+                        providerId = "2",
+                    ),
+                )
             val p1 = participantRepository.save(Participant(party = party, user = user1))
             val p2 = participantRepository.save(Participant(party = party, user = user2))
             profileRepository.save(RealtimeParticipantProfile(participant = p1, nickname = "해A"))

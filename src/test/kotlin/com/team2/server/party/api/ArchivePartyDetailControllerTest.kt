@@ -7,7 +7,6 @@ import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.config.TestcontainersConfiguration
 import com.team2.server.party.domain.entity.PaperOnlyParty
 import com.team2.server.party.domain.entity.Participant
-import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
