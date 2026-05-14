@@ -5,6 +5,7 @@ import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.dto.CharacterImageUrlResolver
 import com.team2.server.party.dto.CharacterResult
 import com.team2.server.party.dto.ParticipantRealtimeProfileResult
+import com.team2.server.party.entity.Party
 import com.team2.server.party.entity.PartyOption
 import com.team2.server.party.service.ParticipantService
 import com.team2.server.party.service.PartyInviteService
@@ -31,12 +32,7 @@ class GetMyRealtimeProfileUseCase(
         val now = LocalDateTime.now()
         val invite = partyInviteService.findUsableInvite(inviteToken, now)
         val party = invite.party
-        if (party.isEnded(now)) {
-            throw BusinessException(ErrorCode.PARTY_ENDED)
-        }
-        if (party.partyOption != PartyOption.REALTIME) {
-            throw BusinessException(ErrorCode.PARTY_NOT_REALTIME)
-        }
+        validateUsableRealtimeParty(party, now)
         val user =
             userRepository.findByIdOrNull(userId)
                 ?: throw BusinessException(ErrorCode.AUTH_USER_NOT_FOUND)
@@ -57,5 +53,17 @@ class GetMyRealtimeProfileUseCase(
             nickname = profile?.nickname,
             character = character,
         )
+    }
+
+    private fun validateUsableRealtimeParty(
+        party: Party,
+        now: LocalDateTime,
+    ) {
+        if (party.isEnded(now)) {
+            throw BusinessException(ErrorCode.PARTY_ENDED)
+        }
+        if (party.partyOption != PartyOption.REALTIME) {
+            throw BusinessException(ErrorCode.PARTY_NOT_REALTIME)
+        }
     }
 }

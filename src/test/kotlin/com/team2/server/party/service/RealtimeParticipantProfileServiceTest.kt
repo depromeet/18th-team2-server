@@ -38,7 +38,8 @@ class RealtimeParticipantProfileServiceTest {
     private val character = Character(name = "기본")
     private val anotherCharacter = Character(name = "리본")
 
-    private fun newParticipant(isCelebrant: Boolean): Participant = Participant(party = party, isCelebrant = isCelebrant)
+    private fun newParticipant(isCelebrant: Boolean): Participant =
+        Participant(party = party, isCelebrant = isCelebrant)
 
     @Test
     fun `기존 프로필이 없으면 새로 생성한다`() {
