@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
 import com.team2.server.common.DatabaseCleanup
+import com.team2.server.config.TestcontainersConfiguration
 import com.team2.server.party.domain.entity.Character
 import com.team2.server.party.infrastructure.persistence.CharacterRepository
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
+import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.delete
@@ -24,6 +26,7 @@ import kotlin.test.assertEquals
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import(TestcontainersConfiguration::class)
 class PartyControllerTest
     @Autowired
     constructor(

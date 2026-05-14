@@ -4,6 +4,7 @@ import com.team2.server.common.DatabaseCleanup
 import com.team2.server.common.image.entity.Image
 import com.team2.server.common.image.entity.ImageTargetType
 import com.team2.server.common.image.persistence.ImageRepository
+import com.team2.server.config.TestcontainersConfiguration
 import com.team2.server.rollingpaper.entity.RollingPaperWrapper
 import com.team2.server.rollingpaper.repository.RollingPaperWrapperRepository
 import org.junit.jupiter.api.BeforeEach
@@ -11,11 +12,13 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
+import org.springframework.context.annotation.Import
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import(TestcontainersConfiguration::class)
 class RollingPaperWrapperControllerTest
     @Autowired
     constructor(

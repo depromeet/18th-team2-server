@@ -7,6 +7,7 @@ import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.rollingpaper.entity.RollingPaper
 import com.team2.server.rollingpaper.entity.RollingPaperWrapper
+import com.team2.server.support.JpaSliceTestSupport
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
 import com.team2.server.user.repository.UserRepository
@@ -14,14 +15,12 @@ import jakarta.persistence.EntityManager
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-@DataJpaTest
 class ParticipantRepositoryTest
     @Autowired
     constructor(
@@ -30,7 +29,7 @@ class ParticipantRepositoryTest
         private val realtimeParticipantProfileRepository: RealtimeParticipantProfileRepository,
         private val userRepository: UserRepository,
         private val entityManager: EntityManager,
-    ) {
+    ) : JpaSliceTestSupport() {
         private lateinit var party: Party
         private lateinit var user: User
 
