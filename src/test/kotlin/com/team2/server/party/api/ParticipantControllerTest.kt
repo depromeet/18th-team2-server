@@ -19,6 +19,7 @@ import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
 import com.team2.server.user.repository.UserRepository
 import org.hamcrest.Matchers.hasSize
+import org.hamcrest.Matchers.nullValue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -190,6 +191,77 @@ class ParticipantControllerTest
                 .get("/api/v1/parties/${realtimeParty.id}/participants")
                 .andExpect {
                     status { isUnauthorized() }
+                }
+        }
+
+        @Test
+        fun `참가자가 주최자 1명뿐이어도 totalCount는 1이고 maxCount는 14다`() {
+            val soloOwner = saveUser("participant-solo-owner", "solo-owner@e.com")
+            val soloParty =
+                partyRepository.save(
+                    RealtimeParty(
+                        ownerId = soloOwner.id,
+                        celebrantNickname = "혼자",
+                        startedAt = LocalDateTime.now().plusHours(2),
+                    ),
+                )
+            val character = characterRepository.save(Character(name = "solo-char"))
+            val participant =
+                participantRepository.save(Participant(party = soloParty, user = soloOwner, isCelebrant = true))
+            realtimeParticipantProfileRepository.save(
+                RealtimeParticipantProfile(participant = participant, nickname = "혼자", character = character),
+            )
+            val token = tokenProvider.issue(soloOwner)
+
+            mockMvc
+                .get("/api/v1/parties/${soloParty.id}/participants") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.totalCount") { value(1) }
+                    jsonPath("$.data.maxCount") { value(14) }
+                    jsonPath("$.data.participants", hasSize<Any>(1))
+                    jsonPath("$.data.participants[0].joinOrder") { value(1) }
+                    jsonPath("$.data.participants[0].isOwner") { value(true) }
+                    jsonPath("$.data.participants[0].isMe") { value(true) }
+                }
+        }
+
+        @Test
+        fun `익명 참가자와 캐릭터 없는 프로필도 응답에 포함된다`() {
+            val anonymousProfileParty =
+                partyRepository.save(
+                    RealtimeParty(
+                        ownerId = owner.id,
+                        celebrantNickname = "익명포함",
+                        startedAt = LocalDateTime.now().plusHours(3),
+                    ),
+                )
+            val character = characterRepository.save(Character(name = "anon-char"))
+            val ownerP =
+                participantRepository.save(
+                    Participant(party = anonymousProfileParty, user = owner, isCelebrant = true),
+                )
+            realtimeParticipantProfileRepository.save(
+                RealtimeParticipantProfile(participant = ownerP, nickname = "주최자", character = character),
+            )
+            val anonymousP = participantRepository.save(Participant(party = anonymousProfileParty, user = null))
+            realtimeParticipantProfileRepository.save(
+                RealtimeParticipantProfile(participant = anonymousP, nickname = "익명", character = null),
+            )
+            val token = tokenProvider.issue(owner)
+
+            mockMvc
+                .get("/api/v1/parties/${anonymousProfileParty.id}/participants") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.totalCount") { value(2) }
+                    jsonPath("$.data.participants[1].nickname") { value("익명") }
+                    jsonPath("$.data.participants[1].characterId") { value(nullValue()) }
+                    jsonPath("$.data.participants[1].characterImageUrl") { value(nullValue()) }
+                    jsonPath("$.data.participants[1].isOwner") { value(false) }
+                    jsonPath("$.data.participants[1].isMe") { value(false) }
                 }
         }
 
