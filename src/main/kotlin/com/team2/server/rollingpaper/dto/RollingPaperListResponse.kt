@@ -1,7 +1,7 @@
 package com.team2.server.rollingpaper.dto
 
 import com.fasterxml.jackson.annotation.JsonInclude
-import com.team2.server.party.entity.PartyOption
+import com.team2.server.party.domain.entity.PartyOption
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 

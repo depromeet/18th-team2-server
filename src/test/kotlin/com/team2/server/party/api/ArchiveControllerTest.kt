@@ -2,12 +2,13 @@ package com.team2.server.party.api
 
 import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
-import com.team2.server.party.entity.PaperOnlyParty
-import com.team2.server.party.entity.Participant
-import com.team2.server.party.entity.Party
-import com.team2.server.party.entity.RealtimeParty
-import com.team2.server.party.repository.ParticipantRepository
-import com.team2.server.party.repository.PartyRepository
+import com.team2.server.config.TestcontainersConfiguration
+import com.team2.server.party.domain.entity.PaperOnlyParty
+import com.team2.server.party.domain.entity.Participant
+import com.team2.server.party.domain.entity.Party
+import com.team2.server.party.domain.entity.RealtimeParty
+import com.team2.server.party.infrastructure.persistence.ParticipantRepository
+import com.team2.server.party.infrastructure.persistence.PartyRepository
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
 import com.team2.server.user.repository.UserRepository
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
+import org.springframework.context.annotation.Import
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import java.time.LocalDateTime
@@ -26,6 +28,7 @@ import java.time.temporal.ChronoUnit
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import(TestcontainersConfiguration::class)
 class ArchiveControllerTest
     @Autowired
     constructor(

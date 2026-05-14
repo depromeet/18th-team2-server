@@ -4,9 +4,9 @@ import com.team2.server.chat.dto.EnterRealtimePartyRequest
 import com.team2.server.chat.entity.ChatMessage
 import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.chat.service.SseEmitterRegistry
-import com.team2.server.party.entity.Participant
-import com.team2.server.party.entity.RealtimeParticipantProfile
-import com.team2.server.party.entity.RealtimeParty
+import com.team2.server.party.domain.entity.Participant
+import com.team2.server.party.domain.entity.RealtimeParticipantProfile
+import com.team2.server.party.domain.entity.RealtimeParty
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks

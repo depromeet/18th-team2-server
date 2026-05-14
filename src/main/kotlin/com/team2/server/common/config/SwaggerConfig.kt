@@ -1,6 +1,6 @@
 package com.team2.server.common.config
 
-import com.team2.server.common.swagger.OptionalAuth
+import com.team2.server.common.web.swagger.OptionalAuth
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType
 import io.swagger.v3.oas.annotations.security.SecurityScheme
 import io.swagger.v3.oas.models.OpenAPI

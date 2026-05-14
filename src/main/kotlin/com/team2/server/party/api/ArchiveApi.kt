@@ -1,9 +1,9 @@
 package com.team2.server.party.api
 
 import com.team2.server.auth.principal.UserPrincipal
-import com.team2.server.common.response.ApiResponse
-import com.team2.server.common.swagger.InternalServerErrorResponse
-import com.team2.server.common.swagger.ValidationErrorResponse
+import com.team2.server.common.web.ApiResponse
+import com.team2.server.common.web.swagger.InternalServerErrorResponse
+import com.team2.server.common.web.swagger.ValidationErrorResponse
 import com.team2.server.party.api.dto.ArchiveListResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter

@@ -6,7 +6,7 @@ import com.team2.server.chat.dto.EnterRealtimePartyRequest
 import com.team2.server.chat.dto.SendChatMessageRequest
 import com.team2.server.chat.usecase.EnterAndSubscribeChatUseCase
 import com.team2.server.chat.usecase.SendChatMessageUseCase
-import com.team2.server.common.response.ApiResponse
+import com.team2.server.common.web.ApiResponse
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType

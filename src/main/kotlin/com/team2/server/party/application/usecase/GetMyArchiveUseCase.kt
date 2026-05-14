@@ -2,7 +2,7 @@ package com.team2.server.party.application.usecase
 
 import com.team2.server.party.api.dto.ArchiveListItemResponse
 import com.team2.server.party.api.dto.ArchiveListResponse
-import com.team2.server.party.repository.ParticipantRepository
+import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional

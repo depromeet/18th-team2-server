@@ -1,7 +1,7 @@
 package com.team2.server.party.api.dto
 
 import com.fasterxml.jackson.annotation.JsonInclude
-import com.team2.server.party.entity.Participant
+import com.team2.server.party.domain.entity.Participant
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
