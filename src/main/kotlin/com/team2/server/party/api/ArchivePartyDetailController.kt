@@ -1,7 +1,7 @@
 package com.team2.server.party.api
 
 import com.team2.server.auth.principal.UserPrincipal
-import com.team2.server.common.response.ApiResponse
+import com.team2.server.common.web.ApiResponse
 import com.team2.server.party.api.dto.ArchivePartyDetailResponse
 import com.team2.server.party.application.usecase.GetArchivedPartyDetailUseCase
 import org.springframework.security.core.annotation.AuthenticationPrincipal

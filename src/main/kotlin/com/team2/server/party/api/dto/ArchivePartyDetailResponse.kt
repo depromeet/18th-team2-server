@@ -1,6 +1,6 @@
 package com.team2.server.party.api.dto
 
-import com.team2.server.party.entity.PartyOption
+import com.team2.server.party.domain.entity.PartyOption
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 

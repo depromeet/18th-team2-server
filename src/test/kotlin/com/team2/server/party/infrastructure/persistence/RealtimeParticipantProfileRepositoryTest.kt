@@ -1,10 +1,10 @@
-package com.team2.server.party.repository
+package com.team2.server.party.infrastructure.persistence
 
 import com.team2.server.config.TestcontainersConfiguration
-import com.team2.server.party.entity.Participant
-import com.team2.server.party.entity.PartyPurpose
-import com.team2.server.party.entity.RealtimeParticipantProfile
-import com.team2.server.party.entity.RealtimeParty
+import com.team2.server.party.domain.entity.Participant
+import com.team2.server.party.domain.entity.PartyPurpose
+import com.team2.server.party.domain.entity.RealtimeParticipantProfile
+import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
 import com.team2.server.user.repository.UserRepository

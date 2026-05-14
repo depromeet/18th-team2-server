@@ -1,19 +1,19 @@
 package com.team2.server.party.application.usecase
 
 import com.team2.server.chat.repository.ChatMessageRepository
-import com.team2.server.common.entity.ImageTargetType
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
-import com.team2.server.common.service.ImageQueryService
+import com.team2.server.common.image.entity.ImageTargetType
+import com.team2.server.common.image.persistence.ImageUrlReader
 import com.team2.server.party.api.dto.ArchiveChatMessageResponse
 import com.team2.server.party.api.dto.ArchiveParticipantResponse
 import com.team2.server.party.api.dto.ArchivePartyDetailResponse
 import com.team2.server.party.api.dto.ArchiveRole
-import com.team2.server.party.entity.Party
-import com.team2.server.party.entity.PartyOption
-import com.team2.server.party.repository.ParticipantRepository
-import com.team2.server.party.repository.PartyRepository
-import com.team2.server.party.repository.RealtimeParticipantProfileRepository
+import com.team2.server.party.domain.entity.Party
+import com.team2.server.party.domain.entity.PartyOption
+import com.team2.server.party.infrastructure.persistence.ParticipantRepository
+import com.team2.server.party.infrastructure.persistence.PartyRepository
+import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProfileRepository
 import com.team2.server.rollingpaper.repository.RollingPaperRepository
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.repository.findByIdOrNull
@@ -27,7 +27,7 @@ class GetArchivedPartyDetailUseCase(
     private val realtimeParticipantProfileRepository: RealtimeParticipantProfileRepository,
     private val rollingPaperRepository: RollingPaperRepository,
     private val chatMessageRepository: ChatMessageRepository,
-    private val imageQueryService: ImageQueryService,
+    private val imageUrlReader: ImageUrlReader,
 ) {
     @Transactional(readOnly = true)
     fun invoke(
@@ -47,7 +47,7 @@ class GetArchivedPartyDetailUseCase(
         val myPaper = rollingPaperRepository.findByWriter(myParticipant)
         val myPaperWrapperImageUrl: String? =
             myPaper?.let {
-                imageQueryService
+                imageUrlReader
                     .findFirstImageUrlByTargetIds(
                         ImageTargetType.ROLLING_PAPER_WRAPPER,
                         listOf(it.wrapper.id),
