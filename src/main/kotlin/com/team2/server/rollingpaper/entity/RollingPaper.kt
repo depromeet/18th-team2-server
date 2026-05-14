@@ -1,8 +1,8 @@
 package com.team2.server.rollingpaper.entity
 
-import com.team2.server.common.entity.BaseEntity
-import com.team2.server.party.entity.Participant
-import com.team2.server.party.entity.Party
+import com.team2.server.common.persistence.BaseEntity
+import com.team2.server.party.domain.entity.Participant
+import com.team2.server.party.domain.entity.Party
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.FetchType

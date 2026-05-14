@@ -1,6 +1,6 @@
 package com.team2.server.party.api.dto
 
-import com.team2.server.party.entity.PartyOption
+import com.team2.server.party.domain.entity.PartyOption
 
 enum class ArchiveItemType {
     PARTY,

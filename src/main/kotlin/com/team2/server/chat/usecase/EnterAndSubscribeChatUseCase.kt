@@ -5,7 +5,7 @@ import com.team2.server.chat.dto.EnterRealtimePartyRequest
 import com.team2.server.chat.dto.EnterRealtimePartyResponse
 import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.chat.service.SseEmitterRegistry
-import com.team2.server.party.entity.RealtimeParty
+import com.team2.server.party.domain.entity.RealtimeParty
 import org.springframework.stereotype.Service
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 

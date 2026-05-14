@@ -5,14 +5,14 @@ import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
 import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.config.TestcontainersConfiguration
-import com.team2.server.party.entity.Character
-import com.team2.server.party.entity.PartyInvite
-import com.team2.server.party.entity.RealtimeParty
-import com.team2.server.party.repository.CharacterRepository
-import com.team2.server.party.repository.ParticipantRepository
-import com.team2.server.party.repository.PartyInviteRepository
-import com.team2.server.party.repository.PartyRepository
-import com.team2.server.party.repository.RealtimeParticipantProfileRepository
+import com.team2.server.party.domain.entity.Character
+import com.team2.server.party.domain.entity.PartyInvite
+import com.team2.server.party.domain.entity.RealtimeParty
+import com.team2.server.party.infrastructure.persistence.CharacterRepository
+import com.team2.server.party.infrastructure.persistence.ParticipantRepository
+import com.team2.server.party.infrastructure.persistence.PartyInviteRepository
+import com.team2.server.party.infrastructure.persistence.PartyRepository
+import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProfileRepository
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
 import com.team2.server.user.repository.UserRepository
@@ -98,7 +98,7 @@ class ChatControllerTest
             val character = characterRepository.save(Character(name = "bird"))
             val party =
                 partyRepository.save(
-                    com.team2.server.party.entity.PaperOnlyParty(
+                    com.team2.server.party.domain.entity.PaperOnlyParty(
                         ownerId = owner.id,
                         celebrantNickname = "홍길동",
                         startedAt = LocalDateTime.now().plusHours(1),

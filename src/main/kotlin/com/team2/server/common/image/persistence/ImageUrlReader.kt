@@ -1,0 +1,23 @@
+package com.team2.server.common.image.persistence
+
+import com.team2.server.common.image.entity.ImageTargetType
+import org.springframework.stereotype.Component
+
+@Component
+class ImageUrlReader(
+    private val imageRepository: ImageRepository,
+) {
+    fun findFirstImageUrlByTargetIds(
+        targetType: ImageTargetType,
+        targetIds: Collection<Long>,
+    ): Map<Long, String> {
+        if (targetIds.isEmpty()) {
+            return emptyMap()
+        }
+
+        return imageRepository
+            .findAllByTargetTypeAndTargetIdsOrderByTargetIdAndSortOrder(targetType, targetIds.distinct())
+            .distinctBy { it.targetId }
+            .associate { it.targetId to it.imageUrl }
+    }
+}
