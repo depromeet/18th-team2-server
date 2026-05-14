@@ -1,9 +1,13 @@
 package com.team2.server.party.application.service
 
+import com.team2.server.common.exception.BusinessException
+import com.team2.server.common.exception.ErrorCode
 import com.team2.server.common.exception.isConstraintViolation
 import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.Party
+import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
+import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProfileRepository
 import com.team2.server.user.entity.User
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
@@ -11,6 +15,7 @@ import org.springframework.stereotype.Service
 @Service
 class ParticipantService(
     private val participantRepository: ParticipantRepository,
+    private val realtimeParticipantProfileRepository: RealtimeParticipantProfileRepository,
 ) {
     fun joinMember(
         party: Party,
@@ -28,6 +33,18 @@ class ParticipantService(
     ): Participant =
         participantRepository.findByPartyIdAndUserId(party.id, userId)
             ?: participantRepository.save(Participant(party = party, user = user))
+
+    fun requireParticipant(
+        partyId: Long,
+        userId: Long,
+    ) {
+        if (!participantRepository.existsByPartyIdAndUserId(partyId, userId)) {
+            throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
+        }
+    }
+
+    fun findOrderedProfiles(partyId: Long): List<RealtimeParticipantProfile> =
+        realtimeParticipantProfileRepository.findAllByPartyIdOrderByParticipantIdAsc(partyId)
 
     private fun createMemberParticipant(
         party: Party,
