@@ -43,6 +43,7 @@ class MeAccountControllerTest
         @Test
         fun `유효한 JWT 로 마이페이지 계정 정보를 조회한다`() {
             val user = saveUser("kakao-me-account-1", "me-account-1@kakao.local", name = "김이라")
+            // connectedAt 어설션을 위해 createdAt 을 고정값으로 override
             user.createdAt = LocalDateTime.of(2026, 2, 23, 10, 0)
             userRepository.saveAndFlush(user)
             val token = tokenProvider.issue(user)
@@ -62,6 +63,7 @@ class MeAccountControllerTest
 
         @Test
         fun `토큰의 userId 가 DB 에 없으면 401`() {
+            // 401 의 출처는 UseCase 의 BusinessException 이 아니라 JwtAuthenticationFilter (user 미존재 시 인증 실패)
             val user = saveUser("kakao-me-account-2", "me-account-2@kakao.local", name = "삭제예정")
             val token = tokenProvider.issue(user)
             userRepository.deleteById(user.id)
