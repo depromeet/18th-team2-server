@@ -9,7 +9,8 @@ import com.team2.server.party.api.dto.CreatePartyResponse
 import com.team2.server.party.api.dto.CreateRealtimePartyRequest
 import com.team2.server.party.application.dto.CreatePaperOnlyPartyCommand
 import com.team2.server.party.application.dto.CreateRealtimePartyCommand
-import com.team2.server.party.application.usecase.CreatePartyUseCase
+import com.team2.server.party.application.usecase.CreatePaperOnlyPartyUseCase
+import com.team2.server.party.application.usecase.CreateRealtimePartyUseCase
 import com.team2.server.party.application.usecase.DeletePartyUseCase
 import org.springframework.http.HttpStatus
 import org.springframework.security.core.annotation.AuthenticationPrincipal
@@ -24,7 +25,8 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/v1/parties")
 class PartyController(
-    private val createPartyUseCase: CreatePartyUseCase,
+    private val createRealtimePartyUseCase: CreateRealtimePartyUseCase,
+    private val createPaperOnlyPartyUseCase: CreatePaperOnlyPartyUseCase,
     private val deletePartyUseCase: DeletePartyUseCase,
 ) : PartyApi {
     @ResponseStatus(HttpStatus.CREATED)
@@ -34,7 +36,7 @@ class PartyController(
         @RequestBody request: CreateRealtimePartyRequest,
     ): ApiResponse<CreatePartyResponse> {
         val partyId =
-            createPartyUseCase.createRealtime(
+            createRealtimePartyUseCase.invoke(
                 userId = principal.userId,
                 command =
                     CreateRealtimePartyCommand(
@@ -54,7 +56,7 @@ class PartyController(
         @RequestBody request: CreatePaperOnlyPartyRequest,
     ): ApiResponse<CreatePartyResponse> {
         val partyId =
-            createPartyUseCase.createPaperOnly(
+            createPaperOnlyPartyUseCase.invoke(
                 userId = principal.userId,
                 command =
                     CreatePaperOnlyPartyCommand(

@@ -1,6 +1,5 @@
 package com.team2.server.party.application.usecase
 
-import com.team2.server.party.application.dto.CreatePaperOnlyPartyCommand
 import com.team2.server.party.application.dto.CreateRealtimePartyCommand
 import com.team2.server.party.application.service.PartyService
 import org.junit.jupiter.api.Test
@@ -15,15 +14,15 @@ import java.time.LocalTime
 import kotlin.test.assertEquals
 
 @ExtendWith(MockitoExtension::class)
-class CreatePartyUseCaseTest {
+class CreateRealtimePartyUseCaseTest {
     @Mock
     lateinit var partyService: PartyService
 
     @InjectMocks
-    lateinit var useCase: CreatePartyUseCase
+    lateinit var useCase: CreateRealtimePartyUseCase
 
     @Test
-    fun `createRealtime delegates to partyService and returns partyId`() {
+    fun `invoke delegates to partyService and returns partyId`() {
         val command =
             CreateRealtimePartyCommand(
                 celebrantNickname = "홍길동",
@@ -33,24 +32,9 @@ class CreatePartyUseCaseTest {
             )
         whenever(partyService.createRealtimeParty(userId = 42L, command = command)).thenReturn(100L)
 
-        val partyId = useCase.createRealtime(userId = 42L, command = command)
+        val partyId = useCase.invoke(userId = 42L, command = command)
 
         assertEquals(100L, partyId)
         verify(partyService).createRealtimeParty(userId = 42L, command = command)
-    }
-
-    @Test
-    fun `createPaperOnly delegates to partyService and returns partyId`() {
-        val command =
-            CreatePaperOnlyPartyCommand(
-                celebrantNickname = "홍길동",
-                startedDate = LocalDate.of(2026, 6, 1),
-            )
-        whenever(partyService.createPaperOnlyParty(userId = 42L, command = command)).thenReturn(101L)
-
-        val partyId = useCase.createPaperOnly(userId = 42L, command = command)
-
-        assertEquals(101L, partyId)
-        verify(partyService).createPaperOnlyParty(userId = 42L, command = command)
     }
 }
