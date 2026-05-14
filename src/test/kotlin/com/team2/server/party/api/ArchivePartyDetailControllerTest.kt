@@ -194,6 +194,63 @@ class ArchivePartyDetailControllerTest
                 }
         }
 
+        @Test
+        fun `Authorization 헤더가 없으면 401을 반환한다`() {
+            val party =
+                partyRepository.save(
+                    RealtimeParty(ownerId = 1L, name = "p", celebrantNickname = "홍", startedAt = LocalDateTime.now()),
+                )
+
+            mockMvc.get("/api/v1/archive/party/${party.id}").andExpect {
+                status { isUnauthorized() }
+            }
+        }
+
+        @Test
+        fun `잘못된 Bearer 토큰이면 401을 반환한다`() {
+            val party =
+                partyRepository.save(
+                    RealtimeParty(ownerId = 1L, name = "p", celebrantNickname = "홍", startedAt = LocalDateTime.now()),
+                )
+
+            mockMvc
+                .get("/api/v1/archive/party/${party.id}") {
+                    header("Authorization", "Bearer not-a-jwt")
+                }.andExpect {
+                    status { isUnauthorized() }
+                }
+        }
+
+        @Test
+        fun `해당 파티 participant가 아니면 403 PARTY_FORBIDDEN을 반환한다`() {
+            val outsider = saveUser("kakao-outsider", "outsider@x")
+            val party =
+                partyRepository.save(
+                    RealtimeParty(ownerId = 999L, name = "p", celebrantNickname = "홍", startedAt = LocalDateTime.now()),
+                )
+
+            mockMvc
+                .get("/api/v1/archive/party/${party.id}") {
+                    header("Authorization", "Bearer ${tokenProvider.issue(outsider)}")
+                }.andExpect {
+                    status { isForbidden() }
+                    jsonPath("$.error.code") { value("PARTY_FORBIDDEN") }
+                }
+        }
+
+        @Test
+        fun `없는 partyId면 404 PARTY_NOT_FOUND를 반환한다`() {
+            val me = saveUser("kakao-not-found", "notfound@x")
+
+            mockMvc
+                .get("/api/v1/archive/party/99999") {
+                    header("Authorization", "Bearer ${tokenProvider.issue(me)}")
+                }.andExpect {
+                    status { isNotFound() }
+                    jsonPath("$.error.code") { value("PARTY_NOT_FOUND") }
+                }
+        }
+
         private fun saveUser(
             providerId: String,
             email: String,
