@@ -56,16 +56,17 @@
 
 ```json
 {
-  "success": true,
+  "status": 200,
   "data": {
     "nickname": "김이라",
     "provider": "KAKAO",
     "connectedAt": "2026-02-23",
     "supportChatUrl": "https://open.kakao.com/o/xxxxx"
-  },
-  "error": null
+  }
 }
 ```
+
+응답 envelope은 프로젝트 공통 `ApiResponse<T> = { status: Int, data: T? }`을 따른다.
 
 **필드 정의**:
 
@@ -80,8 +81,8 @@
 
 | 상태 | 코드 | 시나리오 |
 |---|---|---|
-| 401 | (기본 EntryPoint) | Authorization 헤더 없음 또는 JWT invalid |
-| 404 | `AUTH_USER_NOT_FOUND` | 토큰의 userId가 DB에 없음 (계정 삭제 등) |
+| 401 | (JWT Entry Point) | Authorization 헤더 없음 또는 JWT invalid |
+| 401 | `AUTH_USER_NOT_FOUND` | 토큰의 userId가 DB에 없음 (계정 삭제 등). 기존 `ErrorCode.AUTH_USER_NOT_FOUND` 재사용 (의미상 인증 실패) |
 
 ## 5. 패키지 구조 (Layered)
 
@@ -159,11 +160,11 @@ support:
 
 | 레이어 | 테스트 | 도구 | 케이스 |
 |---|---|---|---|
-| Controller | `MeAccountControllerTest` | `@WebMvcTest` + MockMvc | (1) 인증 + 정상 200, (2) 미인증 401, (3) userId 없음 404 |
-| UseCase | `GetMeAccountUseCaseTest` | 순수 단위 테스트 (fake `UserRepository`) | (1) 정상 매핑, (2) User 없음 → BusinessException |
+| Controller | `MeAccountControllerTest` | `@SpringBootTest + @AutoConfigureMockMvc + @Import(TestcontainersConfiguration::class)` | (1) 인증 + 정상 200, (2) 미인증 401, (3) userId 없음 401 |
+| UseCase | `GetMeAccountUseCaseTest` | 순수 단위 테스트 (fake `UserRepository`) | (1) 정상 매핑, (2) User 없음 → `BusinessException(AUTH_USER_NOT_FOUND)` |
 
-- `@SpringBootTest` 미사용 — Controller 단위로 충분
-- 기존 `AuthControllerTest` 패턴 따름
+- Controller 통합 테스트는 프로젝트 표준 (`MePartyControllerTest` 등과 동일 패턴) — `@WebMvcTest` 미사용
+- UseCase 테스트는 fake repository로 빠른 단위 테스트
 
 ## 9. 마이그레이션 / 호환성
 
