@@ -56,6 +56,7 @@ Request:
 - `tapCount`는 1~30
 - `clientSequence`는 참가자별 증가 sequence
 - 중복 sequence는 `200 OK`, `accepted = false`, `ignoredReason = "DUPLICATE_SEQUENCE"`
+- `clientSequence > lastProcessedSequence + MAX_SEQUENCE_GAP`이면 `INVALID_INPUT`
 - `now >= endsAt`이면 lazy 종료 후 batch는 반영하지 않고 `accepted = false`, `ignoredReason = "ROUND_ENDED"`
 - TTL 안의 ended session에 submit하면 `BURST_GAME_NOT_ACTIVE`
 - TTL 만료 또는 존재하지 않는 `roundId`면 `BURST_GAME_NOT_FOUND`
@@ -94,6 +95,7 @@ Request:
 | `src/main/kotlin/com/team2/server/burstgame/application/port/CandleBlowStatusReader.kt` | 촛불끄기 완료 상태 조회 port |
 | `src/main/kotlin/com/team2/server/burstgame/application/port/BurstGameEventBroadcaster.kt` | 박터뜨리기 SSE 이벤트 발화 port |
 | `src/main/kotlin/com/team2/server/burstgame/application/port/BurstGameEndScheduler.kt` | 라운드 종료 예약 port |
+| `src/main/kotlin/com/team2/server/burstgame/infrastructure/candle/CandleBlowStatusReaderStub.kt` | 촛불끄기 feature 머지 전 임시 stub |
 | `src/main/kotlin/com/team2/server/burstgame/domain/BurstGamePolicy.kt` | duration, color threshold, rate limit, TTL 상수 |
 | `src/main/kotlin/com/team2/server/burstgame/domain/BurstGameSession.kt` | in-memory aggregate session |
 | `src/main/kotlin/com/team2/server/burstgame/domain/BurstGameRoundStatus.kt` | `ACTIVE`, `ENDED` |
@@ -138,7 +140,8 @@ Request:
 - [ ] `ROUND_DURATION_SECONDS = 20`을 정의한다.
 - [ ] `COLOR_CHANGE_TAP_COUNT = 100`을 정의한다.
 - [ ] `ENDED_SESSION_TTL = 5 minutes`를 정의한다.
-- [ ] 참가자별 rate limit 기본값을 초당 20회, 라운드 전체 400회로 정의한다.
+- [ ] 참가자별 rate limit 기본값을 초당 20회, 참가자별 라운드 누적 400회로 정의한다.
+- [ ] `MAX_SEQUENCE_GAP = 1000`을 정의한다.
 - [ ] `BurstGameSession`에 `roundId`, `partyId`, `startedAt`, `endsAt`, `status`, `stateVersion`, 참가자별 score map을 둔다.
 - [ ] 외부 응답에는 `endedAt`을 포함하지 않는 것을 DTO 설계 기준으로 둔다.
 
@@ -207,13 +210,15 @@ Run:
 - [ ] 실시간 파티 진행 가능 구간이 아니면 `CHAT_NOT_ACTIVE`.
 - [ ] 프로필이 없으면 `UNAUTHORIZED`.
 - [ ] `CandleBlowStatusReader`는 촛불 완료 여부만 반환하는 port다.
+- [ ] `CandleBlowStatusReader`는 `fun isCandleBlowCompleted(partyId: Long): Boolean` 시그니처를 기본 계약으로 둔다.
 - [ ] 새 라운드 생성 시 `CandleBlowStatusReader`로 촛불 완료 상태를 확인한다.
 - [ ] 촛불 완료 전이면 `BURST_GAME_NOT_READY`.
 - [ ] active 라운드가 이미 있으면 촛불 상태를 재검증하지 않는다.
 - [ ] `BurstGameEventBroadcaster`는 start/progress/end 이벤트 발화를 추상화한다.
 - [ ] `BurstGameEndScheduler`는 `endsAt` 기준 종료 예약을 추상화한다.
 - [ ] UseCase는 broadcaster/scheduler 구현체가 아니라 port에만 의존한다.
-- [ ] 촛불끄기 feature가 아직 머지되지 않았다면 `CandleBlowStatusReader` port와 TODO adapter만 먼저 둔다.
+- [ ] 촛불끄기 feature가 아직 머지되지 않았다면 항상 `true`를 반환하고 warning log를 남기는 `CandleBlowStatusReaderStub`을 추가한다.
+- [ ] 실제 촛불끄기 feature가 머지되면 stub을 실제 adapter로 교체한다.
 
 Run:
 
@@ -286,8 +291,9 @@ Run:
 - [ ] `tapCount`는 1~30으로 검증한다.
 - [ ] `clientSequence`는 1 이상으로 검증한다.
 - [ ] `clientSequence <= lastProcessedSequence`면 중복으로 보고 `accepted = false`, `ignoredReason = "DUPLICATE_SEQUENCE"`를 반환한다.
-- [ ] sequence gap은 허용한다.
-- [ ] 참가자별 초당/라운드 전체 rate limit을 적용한다.
+- [ ] `clientSequence > lastProcessedSequence + MAX_SEQUENCE_GAP`이면 `INVALID_INPUT`으로 거부하고 `"clientSequence gap too large"` 메시지를 내려준다.
+- [ ] `MAX_SEQUENCE_GAP` 이하의 sequence gap은 허용한다.
+- [ ] 참가자별 초당/라운드 누적 rate limit을 적용한다.
 - [ ] rate limit 초과 시 `BURST_GAME_RATE_LIMITED`.
 - [ ] `now >= endsAt`이면 lazy 종료 후 batch를 반영하지 않고 `accepted = false`, `ignoredReason = "ROUND_ENDED"`를 반환한다.
 - [ ] accepted batch마다 참가자별 count, total count, ranking, `stateVersion`을 갱신한다.
@@ -339,7 +345,7 @@ Run:
 - [ ] progress 이벤트에는 `totalTapCount`, `colorChanged`, `remainingSeconds`, `stateVersion`, `serverTime`, `rankings`를 포함한다.
 - [ ] `remainingSeconds = max(0, ceil((endsAt - serverTime) / 1000))`로 계산한다.
 - [ ] progress는 party/round 단위 200~300ms trailing throttle을 적용한다.
-- [ ] throttle 구현은 `ConcurrentHashMap<RoundId, ScheduledFuture>`와 `ScheduledExecutorService` 기반으로 둔다.
+- [ ] throttle 구현은 `ConcurrentHashMap<RoundId, ScheduledFuture>`와 `ScheduledExecutorService` 기반 또는 동등한 trailing throttle 메커니즘으로 둔다.
 - [ ] throttle 구간의 중간 `stateVersion` 누락을 허용한다.
 - [ ] 종료 이벤트는 throttle과 무관하게 반드시 `burst-game-ended`로 발화한다.
 - [ ] end 이벤트는 마지막 progress보다 큰 `stateVersion`을 가질 수 있다.
@@ -391,7 +397,8 @@ Run:
 - submit: TTL 만료 또는 존재하지 않는 roundId면 `BURST_GAME_NOT_FOUND`
 - submit: 요청 `tapCount`가 0 또는 31이면 `INVALID_INPUT`
 - submit: 같은 `clientSequence` 재요청은 `200 OK`, `accepted = false`, count 증가 없음
-- submit: 마지막 처리 sequence보다 큰 값은 gap이 있어도 허용
+- submit: 마지막 처리 sequence보다 큰 값은 `MAX_SEQUENCE_GAP` 이하이면 gap이 있어도 허용
+- submit: `clientSequence > lastProcessedSequence + MAX_SEQUENCE_GAP`이면 `INVALID_INPUT`
 - submit: 마지막 처리 sequence보다 작은 값은 stale duplicate로 무시
 - submit: 참가자별 rate limit 초과 시 `BURST_GAME_RATE_LIMITED`
 - submit: total이 100 이상이면 `colorChanged = true`

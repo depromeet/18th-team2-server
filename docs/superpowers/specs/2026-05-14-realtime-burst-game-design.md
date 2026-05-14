@@ -31,7 +31,9 @@
 - progress SSE는 throttle로 중간 버전이 누락될 수 있는 최신 aggregate snapshot
 - 종료는 scheduler와 submit/snapshot lazy 종료 체크를 모두 둔다.
 - 박터뜨리기 start는 촛불끄기 완료 상태를 선행 조건으로 검증한다.
-- 참가자별 tap rate limit 기본값은 초당 20회, 라운드 전체 400회
+- 참가자별 tap rate limit은 독립된 두 제약으로 검사한다.
+  - 초당 제한: 참가자별 sliding window 또는 token bucket 기준 초당 20회까지 반영
+  - 라운드 누적 제한: 참가자별 라운드 누적 400회까지 반영
 
 ---
 
@@ -70,7 +72,7 @@
 
 ## 3. 사용자 흐름 [기획/API]
 
-```
+```text
 참여자/호스트                         서버
   │                                    │
   │── POST /party-invites/{token}/     │
@@ -150,10 +152,20 @@ X-Participant-Token: {participantToken}
 - 이미 ended session이 TTL 안에 있으면 기존 결과를 반환하지 않고 `BURST_GAME_ALREADY_ENDED (409)`로 막는다.
 - active/ended session이 없고 새 라운드를 생성해야 할 때 촛불끄기 완료 상태를 검증한다.
   - 촛불끄기가 완료되지 않았으면 `BURST_GAME_NOT_READY`.
-  - TODO: 촛불끄기 feature의 `CandleBlowStatusReader`(가칭)에 촛불 완료 상태 조회 로직을 연결한다.
+  - TODO: `burstgame.application.port.CandleBlowStatusReader`를 먼저 만들고 `fun isCandleBlowCompleted(partyId: Long): Boolean` 계약으로 촛불 완료 상태 조회 로직을 연결한다. 실제 촛불끄기 feature가 머지되면 port signature나 반환 타입은 사전 합의 후 조정한다.
+  - 촛불끄기 feature가 아직 머지되지 않은 개발/테스트 단계에서는 항상 `true`를 반환하고 warning log를 남기는 `CandleBlowStatusReaderStub`을 임시 adapter로 둔다.
 - 종료 결과 조회는 start API가 아니라 snapshot API를 사용한다.
 - 일반 참가자가 진행 중 라운드 상태를 복구해야 하는 경우 start API가 아니라 `GET /api/v1/parties/{partyId}/burst-game`을 사용한다.
 - `roundId`는 DB auto-increment가 아니라 UUID 문자열로 발급한다. in-memory session만 사용하는 1차 구현에서 서버 재시작/카운터 초기화 충돌을 피하기 위함이다.
+
+Start API side effect 경계:
+
+- Start API handler는 호출자가 "게임을 시작하려는 의도"를 가진 요청으로 본다.
+- active session이 없으면 새 round를 만들고 `burst-game-started` SSE를 1회 브로드캐스트한다.
+- active session이 있으면 기존 active snapshot만 반환하고 start SSE를 재발화하지 않는다.
+- start 호출 자체는 권한/참여자/파티 상태 검증과 start attempt 로그/메트릭을 남길 수 있다.
+- round 생성 성공 시에는 start success 로그/메트릭을 남길 수 있다.
+- SSE broadcast logic은 새 round 생성 성공 또는 명시된 progress/end 전이에만 이벤트를 발화한다.
 
 ### 4-2. 터치 batch 반영
 
@@ -177,7 +189,7 @@ X-Participant-Token: {participantToken}
 | 필드 | 타입 | 검증 | 설명 |
 |---|---|---|---|
 | `tapCount` | number | 1~30 | 이번 batch에 포함된 터치 수 |
-| `clientSequence` | number | 1 이상 | 호출자가 참가자별로 증가시키는 batch 번호 |
+| `clientSequence` | number | 1 이상, 마지막 처리 sequence 대비 gap 1000 이하 | 호출자가 참가자별로 증가시키는 batch 번호 |
 
 응답:
 
@@ -243,9 +255,17 @@ X-Participant-Token: {participantToken}
   - 예: 마지막 처리 sequence가 5인데 10이 들어오면 허용한다.
   - 중간 sequence 누락은 모바일 네트워크/재시도 상황에서 자연스럽게 발생할 수 있으므로 서버가 막지 않는다.
   - 이후 6~9가 늦게 도착하면 이미 지난 sequence이므로 중복 요청으로 무시한다.
+- 단, `clientSequence > lastProcessedSequence + MAX_SEQUENCE_GAP`이면 잘못된 요청으로 본다.
+  - 1차 기본값: `MAX_SEQUENCE_GAP = 1000`
+  - 응답은 `INVALID_INPUT`.
+  - 에러 메시지는 `"clientSequence gap too large"`처럼 원인을 알 수 있게 둔다.
 - 요청 `tapCount`는 너무 큰 값 전송을 막기 위해 1~30으로 제한한다.
 - 요청 `tapCount` 제한과 별도로 참가자별 초당 반영 가능한 tap 수를 제한한다.
-  - 1차 기본값: 초당 20회, 라운드 전체 400회.
+  - 1차 기본값: 초당 20회, 참가자별 라운드 누적 400회.
+  - 두 제한은 독립적으로 검사한다.
+  - 예: 1초 안에 30회가 들어오면 초당 제한 위반으로 초과분 또는 batch를 거부한다.
+  - 예: 매초 15회씩 들어와도 누적 반영 수가 400회를 넘으면 라운드 누적 제한 위반으로 이후 batch를 거부한다.
+  - 초당 제한은 sliding window 또는 token bucket 중 구현에 맞는 방식으로 적용하고, 라운드 누적 제한은 accepted tap count 합계로 적용한다.
   - 초과 시 `BURST_GAME_RATE_LIMITED (429)`를 반환하고 해당 batch는 반영하지 않는다.
 - 서버는 batch 반영 후 `burst-game-progress` SSE 이벤트를 브로드캐스트한다.
 
@@ -323,6 +343,11 @@ SSE 재연결, `burst-game-started` 이벤트 유실, 종료 직후 재조회에
 - 외부 응답에서는 `endedAt`을 내려주지 않는다.
   - 게임 종료 기준은 항상 `endsAt`이다.
   - scheduler 지연이나 lazy 종료로 실제 종료 commit 시각이 늦어져도, 그 시간은 사용자가 플레이한 시간으로 보이지 않도록 서버 내부 로그/메트릭에서만 다룬다.
+- Snapshot API는 read-only 복구 API다.
+  - round를 생성하지 않는다.
+  - start attempt/start success 로그나 메트릭을 남기지 않는다.
+  - `burst-game-started` SSE를 발화하지 않는다.
+  - reconnect 참여자의 진행 중 상태 복구와 종료 결과 재조회에만 사용한다.
 
 ---
 
@@ -403,8 +428,9 @@ tap batch 반영 후 해당 파티의 기존 SSE 구독자에게 전송한다.
 브로드캐스트 빈도:
 
 - batch 요청마다 이벤트를 보낼 수는 있지만, 참여자가 많아지면 SSE가 과도하게 발생할 수 있다.
-- 추천은 서버에서 party/round 단위로 200~300ms throttle을 두고 최신 상태만 브로드캐스트하는 방식이다.
-- throttle 구간 안의 중간 상태 이벤트는 누락될 수 있다. progress 이벤트는 모든 tap event 로그가 아니라 최신 aggregate snapshot이다.
+- 서버는 party/round 단위로 200~300ms throttle을 적용하여 최신 상태만 브로드캐스트한다.
+- throttle 구간 안의 중간 상태 이벤트는 누락될 수 있다.
+- progress 이벤트는 모든 tap event 로그가 아니라 최신 aggregate snapshot이다.
 - progress 이벤트의 `stateVersion`은 연속적이지 않을 수 있다. 예를 들어 수신자가 13 다음에 18을 받아도 정상이며, 마지막으로 처리한 값보다 크면 최신 상태로 받아들이면 된다.
 - 이벤트 수신자는 `stateVersion`이 마지막으로 처리한 값보다 작거나 같으면 stale 이벤트로 보고 무시할 수 있다.
 - `stateVersion`은 라운드별 단조 증가 값이다. tap batch가 실제로 반영될 때 증가하고, 중복 batch 무시는 증가시키지 않는다.
@@ -625,6 +651,10 @@ DB 저장이 필요한 조건:
 - lock 밖에서는 이미 만들어진 immutable snapshot만 SSE로 전송한다.
 - 실제 SSE emit은 lock 밖에서 별도 executor로 비동기 발화한다.
 - SSE broadcast 실패는 라운드 상태에 영향을 주지 않는다.
+- SSE emit 실패는 재시도하지 않는다.
+  - 실패한 SSE emitter는 기존 registry 정책에 따라 closed/removed 상태로 정리한다.
+  - 클라이언트는 reconnect 후 snapshot API를 호출해 최신 aggregate 상태로 복구한다.
+  - 즉, SSE broadcast 실패는 round state를 롤백하거나 `stateVersion`을 되돌리지 않는다.
 
 이렇게 해야 동시 submit 요청에서도 `stateVersion`, `totalTapCount`, `rankings`가 서로 다른 시점의 값으로 섞이지 않는다.
 
@@ -651,7 +681,7 @@ DB 저장이 필요한 조건:
 
 신규 feature 패키지 후보:
 
-```
+```text
 burstgame/
 ├── api/
 │   ├── BurstGameApi.kt
@@ -811,7 +841,9 @@ cross-feature 의존:
 - 최종 결과는 DB 저장 없이 메모리에 5분 TTL로 유지한다.
 - active app instance가 하나면 in-memory aggregate로 시작한다.
 - 여러 app instance가 동시에 트래픽을 받으면 Redis 기반 aggregate로 전환한다.
-- tap rate limit 1차 기본값은 참가자별 초당 20회, 라운드 전체 400회다.
+- tap rate limit 1차 기본값은 참가자별 초당 20회와 참가자별 라운드 누적 400회다.
+  - 두 제약은 독립적으로 검사한다.
+  - 초당 제한은 sliding window 또는 token bucket, 라운드 누적 제한은 accepted tap count 합계 기준으로 적용한다.
 - rate limit 수치는 QA 중 모바일 입력감에 맞춰 조정 가능하다.
 
 ---
