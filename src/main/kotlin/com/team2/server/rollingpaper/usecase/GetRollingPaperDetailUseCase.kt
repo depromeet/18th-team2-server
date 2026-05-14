@@ -2,8 +2,8 @@ package com.team2.server.rollingpaper.usecase
 
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
-import com.team2.server.party.entity.Party
-import com.team2.server.party.repository.PartyRepository
+import com.team2.server.party.domain.entity.Party
+import com.team2.server.party.infrastructure.persistence.PartyRepository
 import com.team2.server.rollingpaper.dto.OwnerRollingPaperDetailResponse
 import com.team2.server.rollingpaper.entity.RollingPaper
 import com.team2.server.rollingpaper.repository.RollingPaperRepository

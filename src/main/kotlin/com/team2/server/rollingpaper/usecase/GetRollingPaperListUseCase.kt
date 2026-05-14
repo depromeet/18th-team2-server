@@ -1,13 +1,13 @@
 package com.team2.server.rollingpaper.usecase
 
-import com.team2.server.common.entity.ImageTargetType
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
-import com.team2.server.common.service.ImageQueryService
-import com.team2.server.party.entity.Party
-import com.team2.server.party.entity.PartyOption
-import com.team2.server.party.repository.PartyInviteRepository
-import com.team2.server.party.repository.PartyRepository
+import com.team2.server.common.image.entity.ImageTargetType
+import com.team2.server.common.image.persistence.ImageUrlReader
+import com.team2.server.party.domain.entity.Party
+import com.team2.server.party.domain.entity.PartyOption
+import com.team2.server.party.infrastructure.persistence.PartyInviteRepository
+import com.team2.server.party.infrastructure.persistence.PartyRepository
 import com.team2.server.rollingpaper.dto.OwnerRollingPaperListResponse
 import com.team2.server.rollingpaper.dto.ParticipantRollingPaperListResponse
 import com.team2.server.rollingpaper.dto.RollingPaperListItemResponse
@@ -25,7 +25,7 @@ class GetRollingPaperListUseCase(
     private val partyInviteRepository: PartyInviteRepository,
     private val partyRepository: PartyRepository,
     private val rollingPaperRepository: RollingPaperRepository,
-    private val imageQueryService: ImageQueryService,
+    private val imageUrlReader: ImageUrlReader,
 ) {
     @Transactional(readOnly = true)
     fun getParticipantList(
@@ -132,7 +132,7 @@ class GetRollingPaperListUseCase(
     ): Long = ((page - 1) * PAGE_SIZE + index + 1).toLong()
 
     private fun findImageUrlByWrapperId(rollingPapers: List<RollingPaper>): Map<Long, String> =
-        imageQueryService.findFirstImageUrlByTargetIds(
+        imageUrlReader.findFirstImageUrlByTargetIds(
             ImageTargetType.ROLLING_PAPER_WRAPPER,
             rollingPapers.map { it.wrapper.id },
         )

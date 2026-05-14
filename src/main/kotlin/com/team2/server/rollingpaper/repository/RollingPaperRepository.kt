@@ -1,6 +1,6 @@
 package com.team2.server.rollingpaper.repository
 
-import com.team2.server.party.entity.Party
+import com.team2.server.party.domain.entity.Party
 import com.team2.server.rollingpaper.entity.RollingPaper
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable

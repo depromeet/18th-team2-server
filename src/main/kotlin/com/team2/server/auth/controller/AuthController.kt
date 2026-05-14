@@ -3,7 +3,7 @@ package com.team2.server.auth.controller
 import com.team2.server.auth.principal.UserPrincipal
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
-import com.team2.server.common.response.ApiResponse
+import com.team2.server.common.web.ApiResponse
 import com.team2.server.user.repository.UserRepository
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.GetMapping
