@@ -3,6 +3,7 @@ package com.team2.server.party.application.service
 import com.team2.server.party.domain.entity.PaperOnlyParty
 import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
+import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProfileRepository
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
 import org.junit.jupiter.api.Test
@@ -15,7 +16,8 @@ import kotlin.test.assertEquals
 
 class ParticipantServiceTest {
     private val participantRepository: ParticipantRepository = mock()
-    private val service = ParticipantService(participantRepository)
+    private val realtimeParticipantProfileRepository: RealtimeParticipantProfileRepository = mock()
+    private val service = ParticipantService(participantRepository, realtimeParticipantProfileRepository)
 
     private fun makeUser(): User =
         User(
