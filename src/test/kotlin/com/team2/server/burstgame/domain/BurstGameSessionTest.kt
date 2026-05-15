@@ -93,6 +93,17 @@ class BurstGameSessionTest {
         assertEquals(BurstGameTapIgnoredReason.ROUND_ENDED, result.ignoredReason)
     }
 
+    @Test
+    fun `종료 결과는 rankings 없이 winners만 반환한다`() {
+        session.applyTap(participant(1), tapCount = 10, clientSequence = 1, now = startedAt.plusSeconds(1))
+        session.applyTap(participant(2), tapCount = 8, clientSequence = 1, now = startedAt.plusSeconds(1))
+
+        val ended = session.end(startedAt.plusSeconds(20))
+
+        assertEquals(emptyList(), ended.rankings)
+        assertEquals(listOf(1L), ended.winners.map { it.participantId })
+    }
+
     private fun participant(participantId: Long): BurstGameParticipantInfo =
         BurstGameParticipantInfo(
             participantId = participantId,

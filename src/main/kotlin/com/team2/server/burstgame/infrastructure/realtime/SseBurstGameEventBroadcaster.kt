@@ -128,7 +128,6 @@ class SseBurstGameEventBroadcaster(
         val colorChanged: Boolean,
         val stateVersion: Long,
         val serverTime: LocalDateTime,
-        val rankings: List<RankingPayload>,
         val winners: List<WinnerPayload>,
     ) {
         companion object {
@@ -142,7 +141,6 @@ class SseBurstGameEventBroadcaster(
                     colorChanged = snapshot.colorChanged,
                     stateVersion = snapshot.stateVersion,
                     serverTime = snapshot.serverTime,
-                    rankings = snapshot.rankings.map { RankingPayload.from(it) },
                     winners = snapshot.winners.map { WinnerPayload.from(it) },
                 )
         }
