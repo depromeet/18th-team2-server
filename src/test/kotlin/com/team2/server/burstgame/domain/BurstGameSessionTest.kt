@@ -1,0 +1,104 @@
+package com.team2.server.burstgame.domain
+
+import com.team2.server.common.exception.BusinessException
+import com.team2.server.common.exception.ErrorCode
+import org.junit.jupiter.api.assertThrows
+import java.time.LocalDateTime
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+
+class BurstGameSessionTest {
+    private val startedAt = LocalDateTime.of(2026, 5, 14, 20, 10)
+    private val session =
+        BurstGameSession(
+            roundId = "round-1",
+            partyId = 1L,
+            startedAt = startedAt,
+            endsAt = startedAt.plusSeconds(BurstGamePolicy.ROUND_DURATION_SECONDS),
+        )
+
+    @Test
+    fun `accepted batch는 tap count와 stateVersion을 증가시킨다`() {
+        val result = session.applyTap(participant(1), tapCount = 7, clientSequence = 1, now = startedAt.plusSeconds(1))
+
+        assertTrue(result.accepted)
+        assertEquals(7, result.snapshot.totalTapCount)
+        assertEquals(7, result.snapshot.myTapCount)
+        assertEquals(1, result.snapshot.stateVersion)
+    }
+
+    @Test
+    fun `이미 처리한 clientSequence는 중복으로 무시하고 stateVersion을 증가시키지 않는다`() {
+        session.applyTap(participant(1), tapCount = 7, clientSequence = 1, now = startedAt.plusSeconds(1))
+
+        val duplicate =
+            session.applyTap(participant(1), tapCount = 7, clientSequence = 1, now = startedAt.plusSeconds(2))
+
+        assertFalse(duplicate.accepted)
+        assertEquals(BurstGameTapIgnoredReason.DUPLICATE_SEQUENCE, duplicate.ignoredReason)
+        assertEquals(7, duplicate.snapshot.totalTapCount)
+        assertEquals(1, duplicate.snapshot.stateVersion)
+    }
+
+    @Test
+    fun `처리되지 않은 낮은 sequence는 gap 범위 안이면 반영한다`() {
+        session.applyTap(participant(1), tapCount = 3, clientSequence = 10, now = startedAt.plusSeconds(1))
+
+        val late = session.applyTap(participant(1), tapCount = 2, clientSequence = 5, now = startedAt.plusSeconds(2))
+
+        assertTrue(late.accepted)
+        assertEquals(5, late.snapshot.totalTapCount)
+        assertEquals(2, late.snapshot.stateVersion)
+    }
+
+    @Test
+    fun `sequence gap이 너무 크면 INVALID_INPUT`() {
+        val ex =
+            assertThrows<BusinessException> {
+                session.applyTap(
+                    participant(1),
+                    tapCount = 1,
+                    clientSequence = BurstGamePolicy.MAX_SEQUENCE_GAP + 1,
+                    now = startedAt.plusSeconds(1),
+                )
+            }
+
+        assertEquals(ErrorCode.INVALID_INPUT, ex.errorCode)
+    }
+
+    @Test
+    fun `total tap count가 100 이상이면 colorChanged true`() {
+        repeat(4) { index ->
+            session.applyTap(
+                participant(1),
+                tapCount = 20,
+                clientSequence = (index + 1).toLong(),
+                now = startedAt.plusSeconds(index.toLong() + 1),
+            )
+        }
+        session.applyTap(participant(1), tapCount = 20, clientSequence = 5, now = startedAt.plusSeconds(5))
+
+        assertTrue(session.snapshotFor(1, startedAt.plusSeconds(5)).colorChanged)
+    }
+
+    @Test
+    fun `종료 후 submit은 ROUND_ENDED로 무시한다`() {
+        session.end(startedAt.plusSeconds(20))
+
+        val result = session.applyTap(participant(1), tapCount = 1, clientSequence = 1, now = startedAt.plusSeconds(21))
+
+        assertFalse(result.accepted)
+        assertEquals(BurstGameTapIgnoredReason.ROUND_ENDED, result.ignoredReason)
+    }
+
+    private fun participant(participantId: Long): BurstGameParticipantInfo =
+        BurstGameParticipantInfo(
+            participantId = participantId,
+            nickname = "p$participantId",
+            characterId = null,
+            characterImageUrl = null,
+            role = "PARTICIPANT",
+        )
+}
