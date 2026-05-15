@@ -3,31 +3,23 @@ package com.team2.server.chat.usecase
 import com.team2.server.chat.dto.ChatMessageResponse
 import com.team2.server.chat.dto.SendChatMessageRequest
 import com.team2.server.chat.entity.ChatMessage
+import com.team2.server.chat.infrastructure.sse.ChatSseGateway
 import com.team2.server.chat.repository.ChatMessageRepository
-import com.team2.server.chat.service.ChatMessageBroadcastEvent
-import com.team2.server.common.exception.BusinessException
-import com.team2.server.common.exception.ErrorCode
-import com.team2.server.party.domain.entity.Party
-import com.team2.server.party.domain.entity.PartyOption
-import com.team2.server.party.domain.entity.RealtimeParticipantProfile
-import com.team2.server.party.domain.entity.RealtimeParty
-import com.team2.server.party.domain.entity.RealtimePartyStatus
-import com.team2.server.party.infrastructure.persistence.ParticipantRepository
-import com.team2.server.party.infrastructure.persistence.PartyRepository
-import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProfileRepository
-import org.hibernate.Hibernate
-import org.springframework.context.ApplicationEventPublisher
+import com.team2.server.common.image.entity.ImageTargetType
+import com.team2.server.common.image.persistence.ImageUrlReader
+import com.team2.server.party.application.usecase.ResolveLiveOpenRealtimePartyUseCase
+import com.team2.server.party.application.usecase.ResolveRealtimeParticipantProfileUseCase
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 
 @Service
 class SendChatMessageUseCase(
-    private val partyRepository: PartyRepository,
-    private val participantRepository: ParticipantRepository,
-    private val profileRepository: RealtimeParticipantProfileRepository,
+    private val resolveLiveOpenRealtimePartyUseCase: ResolveLiveOpenRealtimePartyUseCase,
+    private val resolveRealtimeParticipantProfileUseCase: ResolveRealtimeParticipantProfileUseCase,
     private val chatMessageRepository: ChatMessageRepository,
-    private val applicationEventPublisher: ApplicationEventPublisher,
+    private val imageUrlReader: ImageUrlReader,
+    private val chatSseGateway: ChatSseGateway,
 ) {
     @Transactional
     fun send(
@@ -36,80 +28,27 @@ class SendChatMessageUseCase(
         participantToken: String?,
         request: SendChatMessageRequest,
     ): ChatMessageResponse {
-        val party = resolveActiveRealtimeParty(partyId)
-        val profile = resolveProfile(userId, participantToken, party, partyId)
+        val party = resolveLiveOpenRealtimePartyUseCase.invoke(partyId)
+        val profile = resolveRealtimeParticipantProfileUseCase.invoke(partyId, userId, participantToken)
 
         val message =
             chatMessageRepository.save(
                 ChatMessage(content = request.content, party = party, profile = profile),
             )
 
-        val response = ChatMessageResponse.from(message)
-        applicationEventPublisher.publishEvent(
-            ChatMessageBroadcastEvent(
-                partyId,
-                SseEmitter
-                    .event()
-                    .name("message")
-                    .data(response)
-                    .build(),
-            ),
+        val imageUrl =
+            message.profile.character?.id?.let {
+                imageUrlReader.findFirstImageUrlByTargetIds(ImageTargetType.CHARACTER, listOf(it))[it]
+            }
+        val response = ChatMessageResponse.from(message, message.profile.participant.isCelebrant, imageUrl)
+        chatSseGateway.broadcastAfterCommit(
+            partyId,
+            SseEmitter
+                .event()
+                .name("message")
+                .data(response)
+                .build(),
         )
         return response
-    }
-
-    private fun resolveActiveRealtimeParty(partyId: Long): RealtimeParty {
-        val party =
-            partyRepository.findPartyById(partyId)
-                ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
-        return toActiveLiveParty(party)
-    }
-
-    private fun toActiveLiveParty(party: Party): RealtimeParty {
-        if (party.partyOption != PartyOption.REALTIME) {
-            throw BusinessException(ErrorCode.CHAT_NOT_SUPPORTED)
-        }
-        val realtimeParty = Hibernate.unproxy(party) as RealtimeParty
-        if (realtimeParty.status() != RealtimePartyStatus.LIVE_OPEN) {
-            throw BusinessException(ErrorCode.CHAT_NOT_ACTIVE)
-        }
-        return realtimeParty
-    }
-
-    private fun resolveProfile(
-        userId: Long?,
-        participantToken: String?,
-        party: RealtimeParty,
-        partyId: Long,
-    ): RealtimeParticipantProfile {
-        if (userId != null) return resolveProfileByUserId(partyId, userId)
-        if (participantToken != null) return resolveProfileByToken(participantToken, party, partyId)
-        throw BusinessException(ErrorCode.UNAUTHORIZED)
-    }
-
-    private fun resolveProfileByUserId(
-        partyId: Long,
-        userId: Long,
-    ): RealtimeParticipantProfile {
-        val participant =
-            participantRepository.findByPartyIdAndUserId(partyId, userId)
-                ?: throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
-        return profileRepository.findByParticipant(participant)
-            ?: throw BusinessException(ErrorCode.CHARACTER_REQUIRED)
-    }
-
-    private fun resolveProfileByToken(
-        participantToken: String,
-        party: RealtimeParty,
-        partyId: Long,
-    ): RealtimeParticipantProfile {
-        val profile =
-            profileRepository.findByParticipantToken(participantToken)
-                ?: throw BusinessException(ErrorCode.CHARACTER_REQUIRED)
-        val profileParty = profile.participant.party
-        if (profileParty.id != partyId) {
-            throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
-        }
-        return profile
     }
 }
