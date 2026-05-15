@@ -1,5 +1,6 @@
 package com.team2.server.burstgame.api.dto
 
+import com.team2.server.burstgame.domain.BurstGameRoundStatus
 import com.team2.server.burstgame.domain.BurstGameSnapshot
 import java.time.LocalDateTime
 
@@ -7,7 +8,7 @@ data class StartBurstGameResponse(
     val roundId: String,
     val partyId: Long,
     val myParticipantId: Long,
-    val status: String,
+    val status: BurstGameRoundStatus,
     val startedAt: LocalDateTime,
     val endsAt: LocalDateTime,
     val totalTapCount: Int,
@@ -21,7 +22,7 @@ data class StartBurstGameResponse(
                 roundId = snapshot.roundId,
                 partyId = snapshot.partyId,
                 myParticipantId = snapshot.myParticipantId,
-                status = snapshot.status.name,
+                status = snapshot.status,
                 startedAt = snapshot.startedAt,
                 endsAt = snapshot.endsAt,
                 totalTapCount = snapshot.totalTapCount,

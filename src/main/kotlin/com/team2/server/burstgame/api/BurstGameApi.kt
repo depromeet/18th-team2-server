@@ -3,7 +3,7 @@
 package com.team2.server.burstgame.api
 
 import com.team2.server.auth.principal.UserPrincipal
-import com.team2.server.burstgame.api.dto.BurstGameSnapshotResponse
+import com.team2.server.burstgame.api.dto.BurstGameStateResponse
 import com.team2.server.burstgame.api.dto.StartBurstGameResponse
 import com.team2.server.burstgame.api.dto.SubmitBurstGameTapRequest
 import com.team2.server.burstgame.api.dto.SubmitBurstGameTapResponse
@@ -28,7 +28,7 @@ interface BurstGameApi {
 실시간 파티의 박터뜨리기 라운드를 시작합니다.
 
 로그인 사용자는 `Authorization: Bearer {token}` 헤더를, 비로그인 참여자는 `X-Participant-Token: {participantToken}` 헤더를 사용합니다.
-이미 active 라운드가 있으면 기존 라운드 snapshot을 반환하고, 종료된 라운드가 TTL 안에 남아 있으면 재시작을 막습니다.
+이미 active 라운드가 있으면 현재 상태를 반환하고, 종료된 라운드가 TTL 안에 남아 있으면 재시작을 막습니다.
 """,
     )
     @SwaggerApiResponse(responseCode = "200", description = "라운드 시작 또는 active 라운드 조회 성공")
@@ -87,12 +87,12 @@ interface BurstGameApi {
     ): ApiResponse<SubmitBurstGameTapResponse>
 
     @Operation(
-        summary = "박터뜨리기 snapshot 조회",
-        description = "partyId 기준으로 active 또는 TTL 안의 ended 라운드 snapshot을 조회합니다.",
+        summary = "박터뜨리기 상태 및 결과 조회",
+        description = "partyId 기준으로 진행 중인 라운드의 현재 상태 또는 TTL 안에 남아 있는 종료 결과를 조회합니다.",
     )
     @SwaggerApiResponse(
         responseCode = "200",
-        description = "snapshot 조회 성공. ended snapshot에서만 winners가 채워집니다.",
+        description = "상태 및 결과 조회 성공. 종료 상태에서만 winners가 채워집니다.",
     )
     @AuthErrorResponses
     @SwaggerApiResponse(
@@ -101,10 +101,10 @@ interface BurstGameApi {
         content = [Content(schema = Schema(implementation = ErrorResponse::class))],
     )
     @InternalServerErrorResponse
-    fun getSnapshot(
+    fun getState(
         @Parameter(description = "파티 ID") partyId: Long,
         @Parameter(hidden = true) principal: UserPrincipal?,
         @Parameter(description = "비로그인 참여자 토큰", `in` = ParameterIn.HEADER, name = "X-Participant-Token")
         participantToken: String?,
-    ): ApiResponse<BurstGameSnapshotResponse>
+    ): ApiResponse<BurstGameStateResponse>
 }

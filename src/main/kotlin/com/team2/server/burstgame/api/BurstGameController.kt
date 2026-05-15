@@ -1,7 +1,7 @@
 package com.team2.server.burstgame.api
 
 import com.team2.server.auth.principal.UserPrincipal
-import com.team2.server.burstgame.api.dto.BurstGameSnapshotResponse
+import com.team2.server.burstgame.api.dto.BurstGameStateResponse
 import com.team2.server.burstgame.api.dto.StartBurstGameResponse
 import com.team2.server.burstgame.api.dto.SubmitBurstGameTapRequest
 import com.team2.server.burstgame.api.dto.SubmitBurstGameTapResponse
@@ -56,13 +56,13 @@ class BurstGameController(
         )
 
     @GetMapping("/api/v1/parties/{partyId}/burst-game")
-    override fun getSnapshot(
+    override fun getState(
         @PathVariable partyId: Long,
         @AuthenticationPrincipal principal: UserPrincipal?,
         @RequestHeader(value = "X-Participant-Token", required = false) participantToken: String?,
-    ): ApiResponse<BurstGameSnapshotResponse> =
+    ): ApiResponse<BurstGameStateResponse> =
         ApiResponse.success(
-            BurstGameSnapshotResponse.from(
+            BurstGameStateResponse.from(
                 getBurstGameSnapshotUseCase.get(partyId, principal?.userId, participantToken),
             ),
         )

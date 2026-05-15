@@ -1,13 +1,20 @@
 package com.team2.server.burstgame.api.dto
 
+import com.team2.server.burstgame.domain.BurstGameTapIgnoredReason
 import com.team2.server.burstgame.domain.BurstGameTapResult
+import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 
 data class SubmitBurstGameTapResponse(
     val roundId: String,
     val myParticipantId: Long,
     val accepted: Boolean,
-    val ignoredReason: String?,
+    @Schema(
+        description = "터치 batch가 반영되지 않은 이유입니다. accepted=true이면 null입니다.",
+        allowableValues = ["DUPLICATE_SEQUENCE", "ROUND_ENDED"],
+        nullable = true,
+    )
+    val ignoredReason: BurstGameTapIgnoredReason?,
     val totalTapCount: Int,
     val myTapCount: Int,
     val colorChanged: Boolean,
@@ -22,7 +29,7 @@ data class SubmitBurstGameTapResponse(
                 roundId = snapshot.roundId,
                 myParticipantId = snapshot.myParticipantId,
                 accepted = result.accepted,
-                ignoredReason = result.ignoredReason?.name,
+                ignoredReason = result.ignoredReason,
                 totalTapCount = snapshot.totalTapCount,
                 myTapCount = snapshot.myTapCount,
                 colorChanged = snapshot.colorChanged,
