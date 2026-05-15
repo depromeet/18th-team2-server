@@ -4,7 +4,7 @@
 
 **Goal:** 실시간 파티에서 촛불끄기 완료 후 20초 동안 참여자 터치 수를 집계하고, 기존 파티 SSE 연결로 시작/진행/종료 이벤트를 브로드캐스트하는 박터뜨리기 기능을 추가한다.
 
-**Architecture:** 참고 브랜치 머지 후 4-layer 구조를 기준으로 `burstgame/api -> application/usecase -> domain -> infrastructure` 흐름을 따른다. 현재 `develop` 패키지와 병합 시에는 기존 `controller/dto/usecase/service/repository` 패턴을 유지하되, feature 경계는 `burstgame`으로 분리한다.
+**Architecture:** 현재 `develop`에 반영된 4-layer 구조를 기준으로 `burstgame/api -> application/usecase -> domain -> infrastructure` 흐름을 따른다. feature 경계는 `burstgame`으로 분리하고, 기존 `party`, `chat` 기능과는 application service 또는 infrastructure gateway를 통해서만 연동한다.
 
 **Spec Reference:** `docs/superpowers/specs/2026-05-14-realtime-burst-game-design.md`
 
@@ -54,11 +54,10 @@ Request:
 ```
 
 - `tapCount`는 1~30
-- `clientSequence`는 참가자별 증가 sequence
+- `clientSequence`는 참가자별 batch 멱등성 키
 - 중복 sequence는 `200 OK`, `accepted = false`, `ignoredReason = "DUPLICATE_SEQUENCE"`
-- `clientSequence > lastProcessedSequence + MAX_SEQUENCE_GAP`이면 `INVALID_INPUT`
-- `now >= endsAt`이면 lazy 종료 후 batch는 반영하지 않고 `accepted = false`, `ignoredReason = "ROUND_ENDED"`
-- TTL 안의 ended session에 submit하면 `BURST_GAME_NOT_ACTIVE`, 409
+- `clientSequence > maxAcceptedSequence + MAX_SEQUENCE_GAP`이면 `INVALID_INPUT`
+- `now >= endsAt`이거나 TTL 안의 ended session에 submit하면 batch는 반영하지 않고 `200 OK`, `accepted = false`, `ignoredReason = "ROUND_ENDED"`
 - TTL 만료 또는 존재하지 않는 `roundId`면 `BURST_GAME_NOT_FOUND`
 
 ### Snapshot
@@ -119,8 +118,9 @@ Request:
 | 경로 | 변경 내용 |
 |---|---|
 | `src/main/kotlin/com/team2/server/common/exception/ErrorCode.kt` | `BURST_GAME_*` 에러 코드 추가 |
-| `src/main/kotlin/com/team2/server/chat/service/SseEmitterRegistry.kt` | 기존 파티 SSE 채널에 박터뜨리기 이벤트를 보낼 수 있는 메서드 추가 또는 공통 broadcaster로 감싸기 |
-| `src/main/kotlin/com/team2/server/party/service/PartyService.kt` 또는 신규 reader | 실시간 파티/프로필 조회 계약 재사용 |
+| `src/main/kotlin/com/team2/server/chat/infrastructure/sse/ChatSseGateway.kt` | 기존 파티 SSE 채널에 박터뜨리기 이벤트를 발행하는 gateway 재사용, 필요 시 최소 확장 |
+| `src/main/kotlin/com/team2/server/chat/infrastructure/sse/SseEmitterRegistry.kt` | `ChatSseGateway`만으로 부족한 registry 기능이 있을 때만 최소 수정 |
+| `src/main/kotlin/com/team2/server/party/application/service/PartyService.kt`, `RealtimeParticipantProfileService.kt` 또는 신규 reader | 실시간 파티/프로필 조회 계약 재사용 |
 | 촛불끄기 feature 병합 후 adapter | `CandleBlowStatusReader` 구현체 추가 |
 
 ---
@@ -205,7 +205,7 @@ Run:
 - Create: `src/main/kotlin/com/team2/server/burstgame/application/service/CandleBlowStatusReader.kt`
 - Create: `src/main/kotlin/com/team2/server/burstgame/application/service/BurstGameEventBroadcaster.kt`
 - Create: `src/main/kotlin/com/team2/server/burstgame/application/service/BurstGameEndScheduler.kt`
-- Modify: `src/main/kotlin/com/team2/server/party/service/PartyService.kt` 또는 기존 party reader
+- Modify: `src/main/kotlin/com/team2/server/party/application/service/PartyService.kt`, `RealtimeParticipantProfileService.kt` 또는 기존 party reader
 
 - [ ] `BurstGameParticipantReader`는 Bearer token 또는 `X-Participant-Token`으로 `RealtimeParticipantProfile`을 식별하는 application service 인터페이스다.
 - [ ] `partyOption != REALTIME`이면 `CHAT_NOT_SUPPORTED`.
@@ -293,12 +293,13 @@ Run:
 - [ ] `POST /api/v1/burst-game/rounds/{roundId}/taps`를 추가한다.
 - [ ] `tapCount`는 1~30으로 검증한다.
 - [ ] `clientSequence`는 1 이상으로 검증한다.
-- [ ] `clientSequence <= lastProcessedSequence`면 중복으로 보고 `accepted = false`, `ignoredReason = "DUPLICATE_SEQUENCE"`를 반환한다.
-- [ ] `clientSequence > lastProcessedSequence + MAX_SEQUENCE_GAP`이면 `INVALID_INPUT`으로 거부하고 `"clientSequence gap too large"` 메시지를 내려준다.
-- [ ] `MAX_SEQUENCE_GAP` 이하의 sequence gap은 허용한다.
+- [ ] 참가자별 처리 완료 `clientSequence` 집합을 기준으로 이미 처리한 sequence만 중복으로 본다.
+- [ ] 중복 sequence면 `accepted = false`, `ignoredReason = "DUPLICATE_SEQUENCE"`를 반환한다.
+- [ ] `clientSequence > maxAcceptedSequence + MAX_SEQUENCE_GAP`이면 `INVALID_INPUT`으로 거부하고 `"clientSequence gap too large"` 메시지를 내려준다.
+- [ ] `MAX_SEQUENCE_GAP` 이하의 sequence gap은 허용하고, 늦게 도착한 미처리 sequence도 반영한다.
 - [ ] 참가자별 초당/라운드 누적 rate limit을 적용한다.
 - [ ] rate limit 초과 시 `BURST_GAME_RATE_LIMITED`.
-- [ ] `now >= endsAt`이면 lazy 종료 후 batch를 반영하지 않고 `accepted = false`, `ignoredReason = "ROUND_ENDED"`를 반환한다.
+- [ ] `now >= endsAt`이거나 TTL 안의 ended session이면 batch를 반영하지 않고 `200 OK`, `accepted = false`, `ignoredReason = "ROUND_ENDED"`를 반환한다.
 - [ ] accepted batch마다 참가자별 count, total count, ranking, `stateVersion`을 갱신한다.
 - [ ] total이 100 이상이면 `colorChanged = true`.
 - [ ] 성공/중복/종료 응답 모두 submit 응답 스키마를 유지한다.
@@ -338,11 +339,13 @@ Run:
 
 **Files:**
 - Create: `src/main/kotlin/com/team2/server/burstgame/infrastructure/realtime/SseBurstGameEventBroadcaster.kt`
-- Modify: `src/main/kotlin/com/team2/server/chat/service/SseEmitterRegistry.kt`
+- Modify: `src/main/kotlin/com/team2/server/chat/infrastructure/sse/ChatSseGateway.kt`
+- Modify if needed: `src/main/kotlin/com/team2/server/chat/infrastructure/sse/SseEmitterRegistry.kt`
 - Test: `src/test/kotlin/com/team2/server/burstgame/infrastructure/realtime/SseBurstGameEventBroadcasterTest.kt`
 - Test: `src/test/kotlin/com/team2/server/burstgame/api/BurstGameControllerTest.kt`
 
 - [ ] `BurstGameEventBroadcaster` 인터페이스 구현체를 추가한다.
+- [ ] `SseBurstGameEventBroadcaster`는 `ChatSseGateway.broadcastAfterCommit(...)` 또는 동등한 현재 chat SSE gateway 계약을 통해 기존 파티 SSE 채널에 이벤트를 발행한다.
 - [ ] 기존 파티 SSE 연결에 `burst-game-started` 이벤트를 보낸다.
 - [ ] accepted tap batch 이후 `burst-game-progress` 이벤트를 보낸다.
 - [ ] progress 이벤트에는 `totalTapCount`, `colorChanged`, `remainingSeconds`, `stateVersion`, `serverTime`, `rankings`를 포함한다.
@@ -359,7 +362,7 @@ Run:
 
 ```bash
 ./gradlew test --tests com.team2.server.burstgame.infrastructure.realtime.SseBurstGameEventBroadcasterTest
-./gradlew test --tests com.team2.server.chat.service.SseEmitterRegistryTest
+./gradlew test --tests com.team2.server.chat.infrastructure.sse.SseEmitterRegistryTest
 ```
 
 ## Task 10: Swagger와 에러 응답 정리
@@ -369,9 +372,9 @@ Run:
 - Modify: `src/main/kotlin/com/team2/server/common/exception/ErrorCode.kt`
 - Test: `src/test/kotlin/com/team2/server/common/config/SwaggerConfigTest.kt`
 
-- [ ] `BURST_GAME_NOT_FOUND`, `BURST_GAME_NOT_ACTIVE`, `BURST_GAME_ALREADY_ENDED`, `BURST_GAME_NOT_READY`, `BURST_GAME_RATE_LIMITED`를 추가한다.
+- [ ] `BURST_GAME_NOT_FOUND`, `BURST_GAME_ALREADY_ENDED`, `BURST_GAME_NOT_READY`, `BURST_GAME_RATE_LIMITED`를 추가한다.
 - [ ] start API의 200/400/401/404/409/500 예시를 문서화한다.
-- [ ] submit API의 200/400/401/404/409/429/500 예시를 문서화한다.
+- [ ] submit API의 200/400/401/404/429/500 예시를 문서화한다.
 - [ ] snapshot API의 200/401/404/500 예시를 문서화한다.
 - [ ] `X-Participant-Token` 헤더 사용 가능성을 API 문서에 명시한다.
 
@@ -396,13 +399,13 @@ Run:
 - start: 동시에 여러 명이 호출해도 partyId 단위 직렬화로 active session은 1개만 생성됨
 - start: active round가 이미 있으면 촛불끄기 완료 상태를 재검증하지 않고 기존 active snapshot 반환
 - start: `roundId`는 UUID 형식
-- submit: TTL 안의 ended session이면 `BURST_GAME_NOT_ACTIVE`, 409
+- submit: TTL 안의 ended session이면 `200 OK`, `accepted = false`, `ignoredReason = "ROUND_ENDED"`
 - submit: TTL 만료 또는 존재하지 않는 roundId면 `BURST_GAME_NOT_FOUND`
 - submit: 요청 `tapCount`가 0 또는 31이면 `INVALID_INPUT`
 - submit: 같은 `clientSequence` 재요청은 `200 OK`, `accepted = false`, count 증가 없음
-- submit: 마지막 처리 sequence보다 큰 값은 `MAX_SEQUENCE_GAP` 이하이면 gap이 있어도 허용
-- submit: `clientSequence > lastProcessedSequence + MAX_SEQUENCE_GAP`이면 `INVALID_INPUT`
-- submit: 마지막 처리 sequence보다 작은 값은 stale duplicate로 무시
+- submit: `MAX_SEQUENCE_GAP` 이하의 sequence gap은 허용하고 늦게 도착한 미처리 sequence도 반영
+- submit: `clientSequence > maxAcceptedSequence + MAX_SEQUENCE_GAP`이면 `INVALID_INPUT`
+- submit: 이미 처리한 `clientSequence`만 duplicate로 무시
 - submit: 참가자별 rate limit 초과 시 `BURST_GAME_RATE_LIMITED`
 - submit: total이 100 이상이면 `colorChanged = true`
 - submit: accepted batch마다 `stateVersion` 증가

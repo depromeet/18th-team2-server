@@ -2,7 +2,6 @@
 
 - 작성일: 2026-05-14
 - 기준 브랜치: `develop`
-- 참고 예정 브랜치: `refactor/pr3-party-layered`, `feature/chat-events-role-image`
 - 목적: 실시간 파티에서 채팅/촛불끄기 이후 20초 동안 참여자가 함께 원을 터치하고, 총 터치 수와 실시간 순위를 집계하는 박터뜨리기 기능 설계
 - 구현 전 확인 상태: 이 문서는 구현 전 설계 확인용이며, 승인 전에는 Kotlin 코드를 변경하지 않는다.
 
@@ -190,7 +189,7 @@ X-Participant-Token: {participantToken}
 | 필드 | 타입 | 검증 | 설명 |
 |---|---|---|---|
 | `tapCount` | number | 1~30 | 이번 batch에 포함된 터치 수 |
-| `clientSequence` | number | 1 이상, 마지막 처리 sequence 대비 gap 1000 이하 | 호출자가 참가자별로 증가시키는 batch 번호 |
+| `clientSequence` | number | 1 이상, 참가자별 최대 accepted sequence 대비 gap 1000 이하 | 호출자가 참가자별로 증가시키는 batch 멱등성 키 |
 
 응답:
 
@@ -240,22 +239,25 @@ X-Participant-Token: {participantToken}
 처리 정책:
 
 - 라운드가 없으면 `BURST_GAME_NOT_FOUND`.
-- TTL 안에 ended session이 남아 있는 종료 라운드에 submit하면 `BURST_GAME_NOT_ACTIVE (409)`.
+- TTL 안에 ended session이 남아 있는 종료 라운드에 submit하면 `200 OK`로 submit 응답 스키마를 유지한다.
+  - 해당 batch는 반영하지 않는다.
+  - `accepted = false`, `ignoredReason = "ROUND_ENDED"`와 종료 시점의 aggregate 상태를 반환한다.
   - TTL 만료로 session이 제거됐거나 존재한 적 없는 `roundId`면 `BURST_GAME_NOT_FOUND`.
 - 참가자가 해당 파티의 실시간 프로필을 갖고 있지 않으면 `UNAUTHORIZED`.
 - 요청 시점에 `now >= endsAt`이면 lazy 종료를 먼저 수행하고, 해당 batch는 반영하지 않는다.
   - 응답은 submit 응답 스키마를 유지한다.
   - `accepted = false`, `ignoredReason = "ROUND_ENDED"`와 종료 시점의 aggregate 상태를 반환한다.
   - 최종 `winners`가 필요한 호출자는 snapshot API 또는 `burst-game-ended` 이벤트를 사용한다.
-- `clientSequence`가 참가자의 마지막 처리 sequence 이하이면 중복 요청으로 본다.
+- `clientSequence`는 참가자별 순서 보장 수단이 아니라 batch 멱등성 키로 사용한다.
+- 참가자별로 이미 처리한 `clientSequence` 집합을 유지한다.
+- `clientSequence`가 이미 처리된 값이면 중복 요청으로 본다.
   - 응답은 `200 OK`.
   - tap 수는 추가하지 않는다.
   - `accepted = false`, `ignoredReason = "DUPLICATE_SEQUENCE"`와 현재 집계 상태를 반환한다.
-- `clientSequence`가 마지막 처리 sequence보다 크면 반영한다.
-  - 예: 마지막 처리 sequence가 5인데 10이 들어오면 허용한다.
+- 아직 처리되지 않은 `clientSequence`는 현재 최대 accepted sequence보다 작거나 같아도 반영할 수 있다.
+  - 예: 현재 최대 accepted sequence가 10이고 6~9가 늦게 도착했더라도, 아직 처리된 적이 없으면 중복으로 보지 않는다.
   - 중간 sequence 누락은 모바일 네트워크/재시도 상황에서 자연스럽게 발생할 수 있으므로 서버가 막지 않는다.
-  - 이후 6~9가 늦게 도착하면 이미 지난 sequence이므로 중복 요청으로 무시한다.
-- 단, `clientSequence > lastProcessedSequence + MAX_SEQUENCE_GAP`이면 잘못된 요청으로 본다.
+- 단, `clientSequence > maxAcceptedSequence + MAX_SEQUENCE_GAP`이면 잘못된 요청으로 본다.
   - 1차 기본값: `MAX_SEQUENCE_GAP = 1000`
   - 응답은 `INVALID_INPUT`.
   - 에러 메시지는 `"clientSequence gap too large"`처럼 원인을 알 수 있게 둔다.
@@ -494,7 +496,7 @@ tap batch 반영 후 해당 파티의 기존 SSE 구독자에게 전송한다.
       "tapCount": 52
     },
     {
-      "rank": 3,
+      "rank": 2,
       "participantId": 39,
       "nickname": "고양이",
       "characterId": 3,
@@ -672,7 +674,7 @@ DB 저장이 필요한 조건:
 - `submit taps`와 `snapshot`도 매 호출마다 `now >= endsAt`이면 lazy 종료를 시도한다.
 - scheduler와 lazy 종료 중 먼저 lock을 획득한 쪽만 `ACTIVE -> ENDED` 전이를 commit한다.
 - 이미 `ENDED`인 session에 대해서는 종료 처리를 다시 수행하지 않는다.
-- lazy 종료가 submit 요청에서 발생하면 해당 tap batch는 반영하지 않고 submit 응답 스키마로 `accepted = false`, `ignoredReason = "ROUND_ENDED"`를 반환한다.
+- lazy 종료가 submit 요청에서 발생하거나 이미 `ENDED`인 session에 submit하면 해당 tap batch는 반영하지 않고 submit 응답 스키마로 `accepted = false`, `ignoredReason = "ROUND_ENDED"`를 반환한다.
   - 종료 후 `winners`가 필요한 호출자는 snapshot API를 조회하거나 `burst-game-ended` 이벤트를 사용한다.
 
 이 정책으로 GC pause, scheduler 지연, 요청 타이밍 차이로 active session이 오래 남는 문제를 줄인다.
@@ -681,7 +683,7 @@ DB 저장이 필요한 조건:
 
 ## 8. 패키지 구조 [구현]
 
-두 참고 브랜치가 머지된 뒤의 4-layer 구조를 기준으로 한다.
+현재 `develop`에 반영된 4-layer 구조를 기준으로 한다.
 
 신규 feature 패키지 후보:
 
@@ -728,8 +730,8 @@ cross-feature 의존:
 
 - `burstgame.application.usecase`는 `party.application.service`를 통해 실시간 파티/참여자 프로필을 조회한다.
 - `burstgame`은 `party.infrastructure.persistence`에 직접 의존하지 않는다.
-- SSE 브로드캐스트는 `chat`의 `SseEmitterRegistry` 또는 공통 realtime broadcaster를 재사용한다.
-  - 단, 엄밀한 feature 경계를 지키려면 PR7 이후 `chat` 전용 이름을 `realtime` 공통 인프라로 분리하는 후속 정리가 필요할 수 있다.
+- SSE 브로드캐스트는 현재 `develop`의 `chat.infrastructure.sse.ChatSseGateway`를 우선 재사용한다.
+  - `burstgame`은 `SseEmitterRegistry`에 직접 의존하지 않고 `BurstGameEventBroadcaster` 구현체 뒤에서 `ChatSseGateway`를 호출한다.
 
 ---
 
@@ -740,7 +742,6 @@ cross-feature 의존:
 | ErrorCode | HTTP | 상황 |
 |---|---|---|
 | `BURST_GAME_NOT_FOUND` | 404 | roundId가 없거나 파티에 active/TTL 안의 ended session이 없음 |
-| `BURST_GAME_NOT_ACTIVE` | 409 | TTL 안의 ended session에 submit 호출 |
 | `BURST_GAME_ALREADY_ENDED` | 409 | TTL 안에 남아 있는 ended session에 대해 재시작 시도 |
 | `BURST_GAME_NOT_READY` | 400 | 촛불끄기가 아직 완료되지 않은 상태에서 start 호출 |
 | `BURST_GAME_RATE_LIMITED` | 429 | 참가자별 허용 tap rate 초과 |
@@ -777,16 +778,17 @@ cross-feature 의존:
 
 1. `roundId`로 session 조회
 2. 호출자를 `RealtimeParticipantProfile`로 식별
-3. session lock 안에서 `now >= endsAt`이면 lazy 종료 시도
-4. lazy 종료가 발생했으면 해당 batch는 반영하지 않고 `accepted = false`, `ignoredReason = "ROUND_ENDED"` 반환
-5. 종료되지 않은 active session이면 `clientSequence` 중복 여부 확인
-6. 참가자별 rate limit 확인
-7. 요청 `tapCount`를 참가자별 count와 total count에 반영
-8. ranking/winners 재계산
-9. `stateVersion` 증가
-10. immutable aggregate snapshot 생성
-11. 최신 aggregate response 반환
-12. throttle 정책에 따라 기존 파티 SSE 구독자에게 `burst-game-progress` 브로드캐스트
+3. session lock 안에서 이미 `ENDED`면 해당 batch는 반영하지 않고 `accepted = false`, `ignoredReason = "ROUND_ENDED"` 반환
+4. `ACTIVE`이지만 `now >= endsAt`이면 lazy 종료 시도
+5. lazy 종료가 발생했으면 해당 batch는 반영하지 않고 `accepted = false`, `ignoredReason = "ROUND_ENDED"` 반환
+6. 종료되지 않은 active session이면 처리된 `clientSequence` 집합 기준으로 중복 여부 확인
+7. 참가자별 rate limit 확인
+8. 요청 `tapCount`를 참가자별 count와 total count에 반영
+9. ranking/winners 재계산
+10. `stateVersion` 증가
+11. immutable aggregate snapshot 생성
+12. 최신 aggregate response 반환
+13. throttle 정책에 따라 기존 파티 SSE 구독자에게 `burst-game-progress` 브로드캐스트
 
 ### snapshot
 
