@@ -1,4 +1,4 @@
-package com.team2.server.chat.service
+package com.team2.server.chat.infrastructure.sse
 
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration

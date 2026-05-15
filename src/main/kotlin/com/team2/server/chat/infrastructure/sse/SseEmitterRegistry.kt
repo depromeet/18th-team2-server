@@ -1,4 +1,4 @@
-package com.team2.server.chat.service
+package com.team2.server.chat.infrastructure.sse
 
 import org.springframework.stereotype.Component
 import org.springframework.transaction.event.TransactionPhase
@@ -28,8 +28,11 @@ class SseEmitterRegistry {
         emitter: SseEmitter,
         participantToken: String,
     ) {
+        tokenToEmitter.put(participantToken, emitter)?.also { oldEmitter ->
+            emitters[partyId]?.remove(oldEmitter)
+            oldEmitter.complete()
+        }
         emitters.computeIfAbsent(partyId) { CopyOnWriteArrayList() }.add(emitter)
-        tokenToEmitter[participantToken] = emitter
 
         val remove =
             Runnable {
@@ -48,9 +51,16 @@ class SseEmitterRegistry {
     fun broadcast(
         partyId: Long,
         event: Set<ResponseBodyEmitter.DataWithMediaType>,
+        excludeToken: String? = null,
     ) {
         val list = emitters[partyId] ?: return
-        val dead = list.filter { emitter -> !trySend(emitter, event) }
+        val excludedEmitter = excludeToken?.let { tokenToEmitter[it] }
+        val dead =
+            list
+                .asSequence()
+                .filter { emitter -> emitter !== excludedEmitter }
+                .filter { emitter -> !trySend(emitter, event) }
+                .toList()
         list.removeAll(dead)
     }
 
@@ -76,7 +86,7 @@ class SseEmitterRegistry {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     fun onBroadcast(event: SseBroadcastEvent) {
-        broadcast(event.partyId, event.event)
+        broadcast(event.partyId, event.event, event.excludeToken)
     }
 
     fun completeAll(partyId: Long) {

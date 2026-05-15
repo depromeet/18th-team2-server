@@ -2,9 +2,9 @@ package com.team2.server.chat.usecase
 
 import com.team2.server.chat.dto.EnterRealtimePartyRequest
 import com.team2.server.chat.entity.ChatMessage
+import com.team2.server.chat.infrastructure.sse.ChatSseGateway
+import com.team2.server.chat.infrastructure.sse.PartyEndScheduler
 import com.team2.server.chat.repository.ChatMessageRepository
-import com.team2.server.chat.service.ChatSseService
-import com.team2.server.chat.service.PartyEndScheduler
 import com.team2.server.common.image.persistence.ImageUrlReader
 import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
@@ -29,7 +29,7 @@ class EnterAndSubscribeChatUseCaseTest {
 
     @Mock lateinit var imageUrlReader: ImageUrlReader
 
-    @Mock lateinit var chatSseService: ChatSseService
+    @Mock lateinit var chatSseGateway: ChatSseGateway
 
     @Mock lateinit var partyEndScheduler: PartyEndScheduler
 
@@ -66,8 +66,8 @@ class EnterAndSubscribeChatUseCaseTest {
         val emitter = useCase.enterAndSubscribe("tok", null, request)
 
         assertNotNull(emitter)
-        verify(chatSseService).subscribe(eq(1L), any(), eq("abc12345"))
-        verify(chatSseService).broadcastAfterCommit(eq(1L), any())
+        verify(chatSseGateway).subscribe(eq(1L), any(), eq("abc12345"))
+        verify(chatSseGateway).broadcastAfterCommit(eq(1L), any(), eq("abc12345"))
         verify(partyEndScheduler).scheduleIfNeeded(eq(1L), any())
     }
 
@@ -82,8 +82,8 @@ class EnterAndSubscribeChatUseCaseTest {
         val emitter = useCase.enterAndSubscribe("tok", null, request)
 
         assertNotNull(emitter)
-        verify(chatSseService).subscribe(eq(1L), any(), eq("abc12345"))
-        verify(chatSseService).broadcastAfterCommit(eq(1L), any())
+        verify(chatSseGateway).subscribe(eq(1L), any(), eq("abc12345"))
+        verify(chatSseGateway).broadcastAfterCommit(eq(1L), any(), eq("abc12345"))
         verify(partyEndScheduler).scheduleIfNeeded(eq(1L), any())
     }
 
@@ -98,8 +98,8 @@ class EnterAndSubscribeChatUseCaseTest {
 
         useCase.enterAndSubscribe("tok", null, request)
 
-        verify(chatSseService).broadcastAfterCommit(eq(1L), any())
-        verify(chatSseService).subscribe(eq(1L), any(), eq("abc12345"))
+        verify(chatSseGateway).broadcastAfterCommit(eq(1L), any(), eq("abc12345"))
+        verify(chatSseGateway).subscribe(eq(1L), any(), eq("abc12345"))
         verify(partyEndScheduler).scheduleIfNeeded(eq(1L), any())
     }
 }

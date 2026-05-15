@@ -5,9 +5,9 @@ import com.team2.server.chat.dto.ChatMessageResponse
 import com.team2.server.chat.dto.EnterRealtimePartyRequest
 import com.team2.server.chat.dto.EnterRealtimePartyResponse
 import com.team2.server.chat.dto.UserEnteredEventPayload
+import com.team2.server.chat.infrastructure.sse.ChatSseGateway
+import com.team2.server.chat.infrastructure.sse.PartyEndScheduler
 import com.team2.server.chat.repository.ChatMessageRepository
-import com.team2.server.chat.service.ChatSseService
-import com.team2.server.chat.service.PartyEndScheduler
 import com.team2.server.common.image.entity.ImageTargetType
 import com.team2.server.common.image.persistence.ImageUrlReader
 import com.team2.server.party.domain.entity.RealtimeParty
@@ -20,7 +20,7 @@ class EnterAndSubscribeChatUseCase(
     private val enterRealtimePartyUseCase: EnterRealtimePartyUseCase,
     private val chatMessageRepository: ChatMessageRepository,
     private val imageUrlReader: ImageUrlReader,
-    private val chatSseService: ChatSseService,
+    private val chatSseGateway: ChatSseGateway,
     private val partyEndScheduler: PartyEndScheduler,
 ) {
     @Transactional
@@ -56,16 +56,17 @@ class EnterAndSubscribeChatUseCase(
             )
 
         val emitter = SseEmitter(EMITTER_TIMEOUT_MS)
-        chatSseService.subscribe(enterResult.partyId, emitter, enterResult.participantToken)
+        chatSseGateway.subscribe(enterResult.partyId, emitter, enterResult.participantToken)
         sendEntered(emitter, enterResult.participantToken, messages)
 
-        chatSseService.broadcastAfterCommit(
+        chatSseGateway.broadcastAfterCommit(
             enterResult.partyId,
             SseEmitter
                 .event()
                 .name("user-entered")
                 .data(enteredPayload)
                 .build(),
+            excludeToken = enterResult.participantToken,
         )
         partyEndScheduler.scheduleIfNeeded(enterResult.partyId, enterResult.startedAt)
         return emitter

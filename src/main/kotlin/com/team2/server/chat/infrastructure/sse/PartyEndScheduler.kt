@@ -1,4 +1,4 @@
-package com.team2.server.chat.service
+package com.team2.server.chat.infrastructure.sse
 
 import com.team2.server.party.domain.entity.RealtimeParty
 import org.springframework.scheduling.TaskScheduler

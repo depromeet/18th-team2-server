@@ -1,4 +1,4 @@
-package com.team2.server.chat.service
+package com.team2.server.chat.infrastructure.sse
 
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -61,6 +61,8 @@ class SseEmitterRegistryTest {
 
         registry.subscribe(1L, oldEmitter, "tok")
         registry.subscribe(1L, newEmitter, "tok")
+
+        assertEquals(1, registry.count(1L))
 
         oldEmitter.complete()
         assertEquals(1, registry.count(1L))
