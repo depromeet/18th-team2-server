@@ -91,6 +91,7 @@ interface BurstGameApi {
         description = """
 partyId 기준으로 진행 중인 라운드의 현재 상태 또는 TTL 안에 남아 있는 종료 결과를 조회합니다.
 진행 중에는 rankings를, 종료 후에는 공동 1등 winners만 반환합니다.
+ended=false이면 아직 결과가 확정되지 않은 상태이며 winners는 빈 배열입니다.
 """,
     )
     @SwaggerApiResponse(

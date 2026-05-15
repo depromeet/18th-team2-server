@@ -54,7 +54,6 @@ class BurstGameControllerTest
                     jsonPath("$.status") { value(200) }
                     jsonPath("$.data.partyId") { value(fixture.partyId) }
                     jsonPath("$.data.myParticipantId") { value(fixture.participantId) }
-                    jsonPath("$.data.status") { value("ACTIVE") }
                     jsonPath("$.data.totalTapCount") { value(0) }
                     jsonPath("$.data.colorChanged") { value(false) }
                 }
@@ -123,10 +122,35 @@ class BurstGameControllerTest
                     header("X-Participant-Token", fixture.participantToken)
                 }.andExpect {
                     status { isOk() }
-                    jsonPath("$.data.status") { value("ENDED") }
+                    jsonPath("$.data.ended") { value(true) }
                     jsonPath("$.data.rankings") { isEmpty() }
                     jsonPath("$.data.winners[0].participantId") { value(fixture.participantId) }
                     jsonPath("$.data.winners[0].tapCount") { value(7) }
+                }
+        }
+
+        @Test
+        fun `여러 참여자가 탭한 뒤 종료 결과는 1등 winners만 반환한다`() {
+            val fixtures = saveRealtimeParticipants()
+            val firstParticipant = fixtures[0]
+            val secondParticipant = fixtures[1]
+            val roundId = startRound(firstParticipant)
+            submitTap(roundId, firstParticipant.participantToken, tapCount = 7, clientSequence = 1)
+            submitTap(roundId, secondParticipant.participantToken, tapCount = 14, clientSequence = 1)
+
+            sessionService.end(roundId, LocalDateTime.now().plusSeconds(21))
+
+            mockMvc
+                .get("/api/v1/parties/${firstParticipant.partyId}/burst-game") {
+                    header("X-Participant-Token", firstParticipant.participantToken)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.ended") { value(true) }
+                    jsonPath("$.data.totalTapCount") { value(21) }
+                    jsonPath("$.data.rankings") { isEmpty() }
+                    jsonPath("$.data.winners.length()") { value(1) }
+                    jsonPath("$.data.winners[0].participantId") { value(secondParticipant.participantId) }
+                    jsonPath("$.data.winners[0].tapCount") { value(14) }
                 }
         }
 
@@ -145,13 +169,14 @@ class BurstGameControllerTest
         private fun submitTap(
             roundId: String,
             participantToken: String,
+            tapCount: Int = 7,
             clientSequence: Long,
         ) {
             mockMvc
                 .post("/api/v1/burst-game/rounds/$roundId/taps") {
                     contentType = MediaType.APPLICATION_JSON
                     header("X-Participant-Token", participantToken)
-                    content = """{"tapCount":7,"clientSequence":$clientSequence}"""
+                    content = """{"tapCount":$tapCount,"clientSequence":$clientSequence}"""
                 }.andExpect {
                     status { isOk() }
                 }
@@ -174,6 +199,43 @@ class BurstGameControllerTest
                         participant = participant,
                         nickname = "토끼왕",
                         participantToken = "tokn0001",
+                    ),
+                )
+            return BurstGameFixture(
+                partyId = party.id,
+                participantId = participant.id,
+                participantToken = profile.participantToken,
+            )
+        }
+
+        private fun saveRealtimeParticipants(): List<BurstGameFixture> {
+            val party =
+                partyRepository.saveAndFlush(
+                    RealtimeParty(
+                        ownerId = 1L,
+                        name = "실시간 파티",
+                        celebrantNickname = "주인공",
+                        startedAt = LocalDateTime.now().minusMinutes(1),
+                    ),
+                )
+            return listOf(
+                saveParticipant(party, nickname = "토끼왕", participantToken = "tokn0001"),
+                saveParticipant(party, nickname = "곰돌이", participantToken = "tokn0002"),
+            )
+        }
+
+        private fun saveParticipant(
+            party: RealtimeParty,
+            nickname: String,
+            participantToken: String,
+        ): BurstGameFixture {
+            val participant = participantRepository.saveAndFlush(Participant(party = party))
+            val profile =
+                profileRepository.saveAndFlush(
+                    RealtimeParticipantProfile(
+                        participant = participant,
+                        nickname = nickname,
+                        participantToken = participantToken,
                     ),
                 )
             return BurstGameFixture(

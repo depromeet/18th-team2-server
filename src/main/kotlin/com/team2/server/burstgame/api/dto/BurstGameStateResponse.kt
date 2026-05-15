@@ -1,6 +1,5 @@
 package com.team2.server.burstgame.api.dto
 
-import com.team2.server.burstgame.domain.BurstGameRoundStatus
 import com.team2.server.burstgame.domain.BurstGameSnapshot
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
@@ -9,7 +8,8 @@ data class BurstGameStateResponse(
     val roundId: String,
     val partyId: Long,
     val myParticipantId: Long,
-    val status: BurstGameRoundStatus,
+    @Schema(description = "박터뜨리기 라운드 종료 여부입니다.", example = "false")
+    val ended: Boolean,
     val startedAt: LocalDateTime,
     val endsAt: LocalDateTime,
     val totalTapCount: Int,
@@ -29,7 +29,7 @@ data class BurstGameStateResponse(
                 roundId = snapshot.roundId,
                 partyId = snapshot.partyId,
                 myParticipantId = snapshot.myParticipantId,
-                status = snapshot.status,
+                ended = snapshot.status.isEnded(),
                 startedAt = snapshot.startedAt,
                 endsAt = snapshot.endsAt,
                 totalTapCount = snapshot.totalTapCount,
@@ -41,5 +41,8 @@ data class BurstGameStateResponse(
                 rankings = snapshot.rankings.map { BurstGameRankingResponse.from(it) },
                 winners = snapshot.winners.map { BurstGameWinnerResponse.from(it) },
             )
+
+        private fun com.team2.server.burstgame.domain.BurstGameRoundStatus.isEnded(): Boolean =
+            this == com.team2.server.burstgame.domain.BurstGameRoundStatus.ENDED
     }
 }
