@@ -18,8 +18,8 @@
 - 파티당 라운드는 1회만 허용한다. TTL 안의 ended session이 있으면 재시작하지 않는다.
 - 라운드는 서버 기준 20초 동안 진행한다.
 - 총 터치 수가 100회 이상이면 `colorChanged = true`가 되지만, 라운드는 계속 진행된다.
-- 진행 중에는 `totalTapCount`와 최대 3개의 ranking entry를 SSE로 브로드캐스트한다.
-- 동점은 공동 순위로 처리한다. 진행 중 `rankings`는 최대 3개 entry로 자르고, 최종 `winners`는 공동 1등 전체를 포함한다.
+- 진행 중에는 `totalTapCount`와 상위 3개 rank group의 ranking entry를 SSE로 브로드캐스트한다.
+- 동점은 공동 순위로 처리한다. 진행 중 `rankings`는 상위 3개 rank group에 속한 참가자를 전부 포함하고, 최종 `winners`는 공동 1등 전체를 포함한다.
 - 전원 0회로 종료되면 `winners = []`, `rankings = []`로 응답한다.
 - 외부 응답에는 `endedAt`을 내려주지 않는다. 종료 기준은 항상 `endsAt`이다.
 - active 집계와 종료 결과는 1차 구현에서 DB 저장 없이 in-memory session으로 유지한다.
@@ -69,7 +69,7 @@ Request:
 - party 기준 API 하나만 제공한다.
 - active session이면 현재 aggregate snapshot 반환
 - ended session이면 TTL 안의 최종 snapshot 반환
-- `rankings`는 최대 3개 entry
+- `rankings`는 상위 3개 rank group의 모든 entry
 - `winners`는 ended snapshot에서만 최종 공동 1등 전체를 포함한다.
 
 ---
@@ -162,8 +162,9 @@ Run:
 - [ ] 같은 `tapCount`는 같은 rank를 부여한다.
 - [ ] 다음 rank는 competition ranking으로 계산한다.
 - [ ] 공동 rank 내 표시 순서는 `participant.id ASC`로 고정한다.
-- [ ] 진행 중/summary `rankings`는 최대 3개 entry만 반환한다.
-- [ ] 공동 1등이 4명 이상이면 `rankings`에는 앞의 3명만 포함한다.
+- [ ] 진행 중/summary `rankings`는 상위 3개 rank group의 모든 entry를 반환한다.
+- [ ] 공동 rank에 속한 참가자는 entry 개수와 무관하게 전부 포함한다.
+- [ ] 공동 1등이 5명이면 `rankings`에는 공동 1등 5명을 모두 포함한다.
 - [ ] 최종 `winners`는 `tapCount > 0`인 공동 1등 전체를 반환한다.
 - [ ] 전원 0회면 `winners = []`, `rankings = []`를 반환한다.
 
@@ -406,7 +407,7 @@ Run:
 - submit: total이 100 이상이면 `colorChanged = true`
 - submit: accepted batch마다 `stateVersion` 증가
 - submit: ranking은 tap count desc로 정렬됨
-- submit: 공동 rank 내에서는 participant id asc로 정렬되어 잘라낼 entry를 결정
+- submit: 공동 rank 내에서는 participant id asc로 표시 순서를 결정
 - submit: 동시 요청에서도 total/ranking/stateVersion이 같은 session snapshot 기준으로 생성됨
 - submit: `now >= endsAt`이면 lazy 종료가 먼저 수행되고 tap batch는 반영되지 않음
 - submit: lazy 종료 응답은 `accepted = false`, `ignoredReason = "ROUND_ENDED"`를 반환하고 `winners`는 포함하지 않음
@@ -422,7 +423,9 @@ Run:
 - SSE: throttle 때문에 progress `stateVersion`은 연속되지 않을 수 있음
 - ranking: 참여자가 3명 미만이면 `rankings`도 3개보다 적음
 - ranking: 1등 2명, 다음 참가자 3등이면 `rankings`는 `[1등, 1등, 3등]`
-- ranking: 1등 4명이면 `rankings`는 공동 1등 중 3명까지만 포함
+- ranking: 1등 5명이면 `rankings`는 공동 1등 5명을 모두 포함
+- ranking: 1등 2명, 3등 4명이면 `rankings`는 rank 1 참가자 2명과 rank 3 참가자 4명을 모두 포함
+- ranking: 1등 3명, 다음 참가자가 4등이면 `rankings`는 rank 1 참가자 3명만 포함
 - ranking: 전원 0회면 `winners = []`, `rankings = []`
 - winners: 공동 1등이 여러 명이고 tapCount > 0이면 `winners`에 모두 포함
 - policy: `BurstGamePolicy.COLOR_CHANGE_TAP_COUNT = 100` 상수 기준으로 `colorChanged` 테스트
@@ -438,7 +441,7 @@ Run:
 - tap batch 제출 후 SSE progress payload 형태 검증
 - 20초 종료는 테스트에서 clock/scheduler를 제어해 `burst-game-ended` 검증
 - snapshot API는 진행 중 현재 total/ranking 반환
-- snapshot API는 종료 후 TTL 안의 최종 winners, 최대 3개의 ranking entry, total count 반환
+- snapshot API는 종료 후 TTL 안의 최종 winners, 상위 3개 rank group의 ranking entry, total count 반환
 - snapshot API는 `burst-game-started` 이벤트를 놓친 호출자가 partyId만으로 복구 가능
 
 ---
