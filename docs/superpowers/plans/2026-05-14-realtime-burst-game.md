@@ -160,7 +160,7 @@ Run:
 
 - [ ] `tapCount DESC`로 정렬한다.
 - [ ] 같은 `tapCount`는 같은 rank를 부여한다.
-- [ ] 다음 rank는 competition ranking으로 계산한다.
+- [ ] 다음 rank는 dense ranking으로 계산한다.
 - [ ] 공동 rank 내 표시 순서는 `participant.id ASC`로 고정한다.
 - [ ] 진행 중/summary `rankings`는 상위 3개 rank group의 모든 entry를 반환한다.
 - [ ] 공동 rank에 속한 참가자는 entry 개수와 무관하게 전부 포함한다.
@@ -422,10 +422,10 @@ Run:
 - SSE: stale `stateVersion` 이벤트를 무시할 수 있음
 - SSE: throttle 때문에 progress `stateVersion`은 연속되지 않을 수 있음
 - ranking: 참여자가 3명 미만이면 `rankings`도 3개보다 적음
-- ranking: 1등 2명, 다음 참가자 3등이면 `rankings`는 `[1등, 1등, 3등]`
+- ranking: 1등 2명, 다음 참가자 2등이면 `rankings`는 `[1등, 1등, 2등]`
 - ranking: 1등 5명이면 `rankings`는 공동 1등 5명을 모두 포함
-- ranking: 1등 2명, 3등 4명이면 `rankings`는 rank 1 참가자 2명과 rank 3 참가자 4명을 모두 포함
-- ranking: 1등 3명, 다음 참가자가 4등이면 `rankings`는 rank 1 참가자 3명만 포함
+- ranking: 1등 2명, 2등 4명, 3등 2명이면 `rankings`는 세 rank group의 참가자를 모두 포함
+- ranking: 1등 3명, 다음 rank group이 2등이면 `rankings`는 rank 1 참가자 3명과 rank 2 참가자를 포함
 - ranking: 전원 0회면 `winners = []`, `rankings = []`
 - winners: 공동 1등이 여러 명이고 tapCount > 0이면 `winners`에 모두 포함
 - policy: `BurstGamePolicy.COLOR_CHANGE_TAP_COUNT = 100` 상수 기준으로 `colorChanged` 테스트
