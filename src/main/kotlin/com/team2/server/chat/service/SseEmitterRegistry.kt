@@ -11,6 +11,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 @Component
 class SseEmitterRegistry {
     private val emitters = ConcurrentHashMap<Long, CopyOnWriteArrayList<SseEmitter>>()
+    private val tokenToEmitter = ConcurrentHashMap<String, SseEmitter>()
 
     private fun isCompleted(emitter: SseEmitter): Boolean =
         try {
@@ -25,13 +26,23 @@ class SseEmitterRegistry {
     fun subscribe(
         partyId: Long,
         emitter: SseEmitter,
+        participantToken: String,
     ) {
         emitters.computeIfAbsent(partyId) { CopyOnWriteArrayList() }.add(emitter)
+        tokenToEmitter[participantToken] = emitter
 
-        val remove = Runnable { remove(partyId, emitter) }
+        val remove =
+            Runnable {
+                remove(partyId, emitter)
+                tokenToEmitter.remove(participantToken, emitter)
+            }
         emitter.onCompletion(remove)
         emitter.onTimeout(remove)
         emitter.onError { remove.run() }
+    }
+
+    fun unsubscribeByToken(participantToken: String) {
+        tokenToEmitter.remove(participantToken)?.complete()
     }
 
     fun broadcast(
@@ -64,8 +75,12 @@ class SseEmitterRegistry {
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    fun onBroadcast(event: ChatMessageBroadcastEvent) {
+    fun onBroadcast(event: SseBroadcastEvent) {
         broadcast(event.partyId, event.event)
+    }
+
+    fun completeAll(partyId: Long) {
+        emitters.remove(partyId)?.forEach { it.complete() }
     }
 
     private fun remove(

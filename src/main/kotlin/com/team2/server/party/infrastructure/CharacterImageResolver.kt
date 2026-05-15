@@ -10,8 +10,10 @@ import org.springframework.stereotype.Component
 class CharacterImageResolver(
     private val imageRepository: ImageRepository,
 ) {
-    fun resolve(character: Character): String? =
+    fun resolve(character: Character): String? = resolve(character.id)
+
+    fun resolve(characterId: Long): String? =
         imageRepository
-            .findFirstByTargetTypeAndTargetIdOrderBySortOrderAsc(ImageTargetType.CHARACTER, character.id)
+            .findFirstByTargetTypeAndTargetIdOrderBySortOrderAsc(ImageTargetType.CHARACTER, characterId)
             ?.imageUrl
 }

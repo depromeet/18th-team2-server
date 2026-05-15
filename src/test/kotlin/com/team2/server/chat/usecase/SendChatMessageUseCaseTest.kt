@@ -1,18 +1,20 @@
 package com.team2.server.chat.usecase
 
+import com.team2.server.chat.domain.vo.ParticipantRole
 import com.team2.server.chat.dto.SendChatMessageRequest
 import com.team2.server.chat.entity.ChatMessage
 import com.team2.server.chat.repository.ChatMessageRepository
-import com.team2.server.chat.service.ChatMessageBroadcastEvent
+import com.team2.server.chat.service.ChatSseService
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
+import com.team2.server.party.application.service.RealtimeParticipantProfileService
+import com.team2.server.party.domain.entity.Character
 import com.team2.server.party.domain.entity.PaperOnlyParty
 import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
-import com.team2.server.party.infrastructure.persistence.ParticipantRepository
+import com.team2.server.party.infrastructure.CharacterImageResolver
 import com.team2.server.party.infrastructure.persistence.PartyRepository
-import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProfileRepository
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
@@ -22,7 +24,6 @@ import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
-import org.springframework.context.ApplicationEventPublisher
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
 
@@ -30,13 +31,13 @@ import kotlin.test.assertEquals
 class SendChatMessageUseCaseTest {
     @Mock lateinit var partyRepository: PartyRepository
 
-    @Mock lateinit var participantRepository: ParticipantRepository
-
-    @Mock lateinit var profileRepository: RealtimeParticipantProfileRepository
+    @Mock lateinit var profileService: RealtimeParticipantProfileService
 
     @Mock lateinit var chatMessageRepository: ChatMessageRepository
 
-    @Mock lateinit var applicationEventPublisher: ApplicationEventPublisher
+    @Mock lateinit var characterImageResolver: CharacterImageResolver
+
+    @Mock lateinit var chatSseService: ChatSseService
 
     @InjectMocks
     lateinit var useCase: SendChatMessageUseCase
@@ -79,10 +80,11 @@ class SendChatMessageUseCaseTest {
     }
 
     @Test
-    fun `JWT + 파티 미소속이면 PARTY_FORBIDDEN`() {
+    fun `profileService가 PARTY_FORBIDDEN 던지면 전파됨`() {
         val party = RealtimeParty(ownerId = 1L, startedAt = LocalDateTime.now().minusMinutes(5))
         whenever(partyRepository.findPartyById(1L)).thenReturn(party)
-        whenever(participantRepository.findByPartyIdAndUserId(1L, 99L)).thenReturn(null)
+        whenever(profileService.resolveProfile(1L, 99L, null))
+            .thenThrow(BusinessException(ErrorCode.PARTY_FORBIDDEN))
 
         val ex =
             assertThrows<BusinessException> {
@@ -92,12 +94,11 @@ class SendChatMessageUseCaseTest {
     }
 
     @Test
-    fun `JWT + 프로필 없으면 CHARACTER_REQUIRED`() {
+    fun `profileService가 CHARACTER_REQUIRED 던지면 전파됨`() {
         val party = RealtimeParty(ownerId = 1L, startedAt = LocalDateTime.now().minusMinutes(5))
-        val participant = Participant(party = party)
         whenever(partyRepository.findPartyById(1L)).thenReturn(party)
-        whenever(participantRepository.findByPartyIdAndUserId(1L, 10L)).thenReturn(participant)
-        whenever(profileRepository.findByParticipant(participant)).thenReturn(null)
+        whenever(profileService.resolveProfile(1L, 10L, null))
+            .thenThrow(BusinessException(ErrorCode.CHARACTER_REQUIRED))
 
         val ex =
             assertThrows<BusinessException> {
@@ -107,77 +108,55 @@ class SendChatMessageUseCaseTest {
     }
 
     @Test
-    fun `participantToken + 다른 파티 프로필이면 PARTY_FORBIDDEN`() {
-        val party = RealtimeParty(ownerId = 1L, startedAt = LocalDateTime.now().minusMinutes(5))
-        val otherParty = RealtimeParty(ownerId = 2L, startedAt = LocalDateTime.now().minusMinutes(5))
-        val participant = Participant(party = otherParty)
-        val profile = RealtimeParticipantProfile(participant = participant, nickname = "닉", participantToken = "tok")
-        whenever(partyRepository.findPartyById(1L)).thenReturn(party)
-        whenever(profileRepository.findByParticipantToken("tok")).thenReturn(profile)
-
-        val ex =
-            assertThrows<BusinessException> {
-                useCase.send(partyId = 1L, userId = null, participantToken = "tok", request)
-            }
-        assertEquals(ErrorCode.PARTY_FORBIDDEN, ex.errorCode)
-    }
-
-    @Test
     fun `JWT로 메시지 전송 성공`() {
         val party = RealtimeParty(ownerId = 1L, startedAt = LocalDateTime.now().minusMinutes(5))
-        val participant = Participant(party = party)
-        val profile = RealtimeParticipantProfile(participant = participant, nickname = "토끼왕")
+        val participant = Participant(party = party, isCelebrant = true)
+        val character = Character(name = "토끼")
+        val profile = RealtimeParticipantProfile(participant = participant, nickname = "토끼왕", character = character)
         val savedMessage = ChatMessage(content = "안녕하세요!", party = party, profile = profile)
         whenever(partyRepository.findPartyById(1L)).thenReturn(party)
-        whenever(participantRepository.findByPartyIdAndUserId(1L, 10L)).thenReturn(participant)
-        whenever(profileRepository.findByParticipant(participant)).thenReturn(profile)
+        whenever(profileService.resolveProfile(1L, 10L, null)).thenReturn(profile)
         whenever(chatMessageRepository.save(any())).thenReturn(savedMessage)
+        whenever(characterImageResolver.resolve(character)).thenReturn("https://example.com/rabbit.png")
 
         val response = useCase.send(partyId = 1L, userId = 10L, participantToken = null, request)
 
         assertEquals("안녕하세요!", response.content)
         assertEquals("토끼왕", response.senderNickname)
-        verify(applicationEventPublisher).publishEvent(any<ChatMessageBroadcastEvent>())
+        assertEquals(ParticipantRole.CELEBRANT, response.senderRole)
+        assertEquals("https://example.com/rabbit.png", response.senderCharacterImageUrl)
+        verify(chatSseService).broadcastAfterCommit(any(), any())
     }
 
     @Test
     fun `participantToken으로 메시지 전송 성공`() {
         val party = RealtimeParty(ownerId = 1L, startedAt = LocalDateTime.now().minusMinutes(5))
-        val participant = Participant(party = party)
+        val participant = Participant(party = party, isCelebrant = false)
         val profile = RealtimeParticipantProfile(participant = participant, nickname = "손님", participantToken = "tok")
         val savedMessage = ChatMessage(content = "안녕하세요!", party = party, profile = profile)
         whenever(partyRepository.findPartyById(party.id)).thenReturn(party)
-        whenever(profileRepository.findByParticipantToken("tok")).thenReturn(profile)
+        whenever(profileService.resolveProfile(party.id, null, "tok")).thenReturn(profile)
         whenever(chatMessageRepository.save(any())).thenReturn(savedMessage)
 
         val response = useCase.send(partyId = party.id, userId = null, participantToken = "tok", request)
 
         assertEquals("손님", response.senderNickname)
-        verify(applicationEventPublisher).publishEvent(any<ChatMessageBroadcastEvent>())
+        assertEquals(ParticipantRole.PARTICIPANT, response.senderRole)
+        assertEquals(null, response.senderCharacterImageUrl)
+        verify(chatSseService).broadcastAfterCommit(any(), any())
     }
 
     @Test
     fun `userId도 없고 participantToken도 없으면 UNAUTHORIZED`() {
         val party = RealtimeParty(ownerId = 1L, startedAt = LocalDateTime.now().minusMinutes(5))
         whenever(partyRepository.findPartyById(1L)).thenReturn(party)
+        whenever(profileService.resolveProfile(1L, null, null))
+            .thenThrow(BusinessException(ErrorCode.UNAUTHORIZED))
 
         val ex =
             assertThrows<BusinessException> {
                 useCase.send(partyId = 1L, userId = null, participantToken = null, request)
             }
         assertEquals(ErrorCode.UNAUTHORIZED, ex.errorCode)
-    }
-
-    @Test
-    fun `participantToken + 프로필 없으면 CHARACTER_REQUIRED`() {
-        val party = RealtimeParty(ownerId = 1L, startedAt = LocalDateTime.now().minusMinutes(5))
-        whenever(partyRepository.findPartyById(1L)).thenReturn(party)
-        whenever(profileRepository.findByParticipantToken("tok")).thenReturn(null)
-
-        val ex =
-            assertThrows<BusinessException> {
-                useCase.send(partyId = 1L, userId = null, participantToken = "tok", request)
-            }
-        assertEquals(ErrorCode.CHARACTER_REQUIRED, ex.errorCode)
     }
 }

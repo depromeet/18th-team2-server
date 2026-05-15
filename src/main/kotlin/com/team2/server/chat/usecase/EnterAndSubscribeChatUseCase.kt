@@ -1,20 +1,29 @@
 package com.team2.server.chat.usecase
 
+import com.team2.server.chat.domain.vo.ParticipantRole
 import com.team2.server.chat.dto.ChatMessageResponse
 import com.team2.server.chat.dto.EnterRealtimePartyRequest
 import com.team2.server.chat.dto.EnterRealtimePartyResponse
+import com.team2.server.chat.dto.UserEnteredEventPayload
 import com.team2.server.chat.repository.ChatMessageRepository
-import com.team2.server.chat.service.SseEmitterRegistry
+import com.team2.server.chat.service.ChatSseService
+import com.team2.server.chat.service.PartyEndScheduler
+import com.team2.server.common.image.entity.ImageTargetType
+import com.team2.server.common.image.persistence.ImageUrlReader
 import com.team2.server.party.domain.entity.RealtimeParty
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 
 @Service
 class EnterAndSubscribeChatUseCase(
     private val enterRealtimePartyUseCase: EnterRealtimePartyUseCase,
     private val chatMessageRepository: ChatMessageRepository,
-    private val sseEmitterRegistry: SseEmitterRegistry,
+    private val imageUrlReader: ImageUrlReader,
+    private val chatSseService: ChatSseService,
+    private val partyEndScheduler: PartyEndScheduler,
 ) {
+    @Transactional
     fun enterAndSubscribe(
         inviteToken: String,
         userId: Long?,
@@ -22,33 +31,64 @@ class EnterAndSubscribeChatUseCase(
     ): SseEmitter {
         val enterResult = enterRealtimePartyUseCase.enter(inviteToken, userId, request)
 
+        val rawMessages =
+            chatMessageRepository.findAllByPartyIdWithProfileOrderByCreatedAtAsc(enterResult.partyId)
+        val characterIds =
+            (rawMessages.mapNotNull { it.profile.character?.id } + enterResult.characterId)
+                .filterNotNull()
+                .distinct()
+        val imageUrlMap =
+            imageUrlReader.findFirstImageUrlByTargetIds(ImageTargetType.CHARACTER, characterIds)
         val messages =
-            chatMessageRepository
-                .findAllByPartyIdWithProfileOrderByCreatedAtAsc(enterResult.partyId)
-                .map { ChatMessageResponse.from(it) }
+            rawMessages.map {
+                ChatMessageResponse.from(
+                    message = it,
+                    isCelebrant = it.profile.participant.isCelebrant,
+                    imageUrl = it.profile.character?.let { c -> imageUrlMap[c.id] },
+                )
+            }
+        val enteredPayload =
+            UserEnteredEventPayload(
+                nickname = enterResult.nickname,
+                characterId = enterResult.characterId,
+                characterImageUrl = enterResult.characterId?.let { imageUrlMap[it] },
+                role = if (enterResult.isCelebrant) ParticipantRole.CELEBRANT else ParticipantRole.PARTICIPANT,
+            )
 
         val emitter = SseEmitter(EMITTER_TIMEOUT_MS)
-        sseEmitterRegistry.subscribe(enterResult.partyId, emitter)
+        chatSseService.subscribe(enterResult.partyId, emitter, enterResult.participantToken)
+        sendEntered(emitter, enterResult.participantToken, messages)
 
+        chatSseService.broadcastAfterCommit(
+            enterResult.partyId,
+            SseEmitter
+                .event()
+                .name("user-entered")
+                .data(enteredPayload)
+                .build(),
+        )
+        partyEndScheduler.scheduleIfNeeded(enterResult.partyId, enterResult.startedAt)
+        return emitter
+    }
+
+    private fun sendEntered(
+        emitter: SseEmitter,
+        participantToken: String,
+        messages: List<ChatMessageResponse>,
+    ) {
         try {
             emitter.send(
                 SseEmitter
                     .event()
                     .name("entered")
-                    .data(
-                        EnterRealtimePartyResponse(
-                            participantToken = enterResult.participantToken,
-                            messages = messages,
-                        ),
-                    ).build(),
+                    .data(EnterRealtimePartyResponse(participantToken, messages))
+                    .build(),
             )
         } catch (e: IllegalStateException) {
             emitter.completeWithError(e)
         } catch (e: java.io.IOException) {
             emitter.completeWithError(e)
         }
-
-        return emitter
     }
 
     companion object {

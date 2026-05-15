@@ -31,6 +31,10 @@ class EnterRealtimePartyUseCase(
     data class EnterResult(
         val participantToken: String,
         val partyId: Long,
+        val startedAt: LocalDateTime,
+        val isCelebrant: Boolean,
+        val nickname: String,
+        val characterId: Long?,
     )
 
     @Transactional
@@ -48,14 +52,22 @@ class EnterRealtimePartyUseCase(
             characterRepository.findByIdOrNull(request.characterId)
                 ?: throw BusinessException(ErrorCode.CHARACTER_NOT_FOUND)
 
-        if (userId == null && request.participantToken != null) {
-            return reenterAsGuest(invite.party, request.participantToken, request.nickname, character)
-        }
+        val profile =
+            if (userId == null && request.participantToken != null) {
+                reenterAsGuestProfile(invite.party, request.participantToken, request.nickname, character)
+            } else {
+                val participant = findOrCreateParticipant(invite.party.id, userId, invite.party)
+                upsertProfile(participant, request.nickname, character)
+            }
 
-        val participant = findOrCreateParticipant(invite.party.id, userId, invite.party)
-        val participantToken = upsertProfile(participant, request.nickname, character)
-
-        return EnterResult(participantToken = participantToken, partyId = invite.party.id)
+        return EnterResult(
+            participantToken = profile.participantToken,
+            partyId = invite.party.id,
+            startedAt = invite.party.startedAt,
+            isCelebrant = profile.participant.isCelebrant,
+            nickname = profile.nickname,
+            characterId = character.id,
+        )
     }
 
     private fun validateInvite(
@@ -81,12 +93,12 @@ class EnterRealtimePartyUseCase(
         }
     }
 
-    private fun reenterAsGuest(
+    private fun reenterAsGuestProfile(
         party: Party,
         participantToken: String,
         nickname: String,
         character: Character,
-    ): EnterResult {
+    ): RealtimeParticipantProfile {
         val profile =
             realtimeParticipantProfileRepository.findByParticipantToken(participantToken)
                 ?: throw BusinessException(ErrorCode.UNAUTHORIZED)
@@ -95,25 +107,23 @@ class EnterRealtimePartyUseCase(
         }
         profile.nickname = nickname
         profile.character = character
-        return EnterResult(participantToken = profile.participantToken, partyId = party.id)
+        return profile
     }
 
     private fun upsertProfile(
         participant: Participant,
         nickname: String,
         character: Character,
-    ): String {
+    ): RealtimeParticipantProfile {
         val profile = realtimeParticipantProfileRepository.findByParticipant(participant)
         if (profile != null) {
             profile.nickname = nickname
             profile.character = character
-            return profile.participantToken
+            return profile
         }
-        val newProfile =
-            realtimeParticipantProfileRepository.save(
-                RealtimeParticipantProfile(participant = participant, nickname = nickname, character = character),
-            )
-        return newProfile.participantToken
+        return realtimeParticipantProfileRepository.save(
+            RealtimeParticipantProfile(participant = participant, nickname = nickname, character = character),
+        )
     }
 
     private fun findOrCreateParticipant(

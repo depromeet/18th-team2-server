@@ -50,6 +50,10 @@ interface ChatApi {
 | 이벤트 이름 | 설명 |
 |---|---|
 | `message` | 새로 전송된 메시지 1건 |
+| `user-entered` | 참여자 입장 알림 |
+| `user-left` | 참여자 퇴장 알림 |
+| `party-ending` | 파티 종료 1분 전 알림 |
+| `party-ended` | 파티 종료 및 스트림 종료 알림 |
 
 ---
 
@@ -63,6 +67,8 @@ interface ChatApi {
       "content": "안녕하세요!",
       "senderNickname": "토끼왕",
       "senderCharacterId": 2,
+      "senderCharacterImageUrl": "https://example.com/rabbit.png",
+      "senderRole": "PARTICIPANT",
       "sentAt": "2026-05-07T10:00:00"
     }
   ]
@@ -76,6 +82,8 @@ interface ChatApi {
   "content": "반갑습니다!",
   "senderNickname": "곰돌이",
   "senderCharacterId": null,
+  "senderCharacterImageUrl": null,
+  "senderRole": "CELEBRANT",
   "sentAt": "2026-05-07T10:01:00"
 }
 ```
@@ -236,4 +244,23 @@ curl -N -X POST http://localhost:8080/api/v1/party-invites/{inviteToken}/realtim
         participantToken: String?,
         request: SendChatMessageRequest,
     ): ApiResponse<ChatMessageResponse>
+
+    @Operation(
+        summary = "실시간 파티 퇴장",
+        description = """
+실시간 파티 채팅에서 퇴장합니다.
+
+로그인 사용자는 `Authorization: Bearer {token}` 헤더를, 비로그인 참여자는 `X-Participant-Token: {participantToken}` 헤더를 사용합니다.
+퇴장하면 현재 SSE 연결이 종료되고, 다른 구독자에게 `user-left` 이벤트가 발송됩니다.
+""",
+    )
+    @SwaggerApiResponse(responseCode = "204", description = "퇴장 성공")
+    @AuthErrorResponses
+    @InternalServerErrorResponse
+    fun leaveParty(
+        @Parameter(description = "파티 ID") partyId: Long,
+        @Parameter(hidden = true) principal: UserPrincipal?,
+        @Parameter(description = "비로그인 참여자 토큰", `in` = ParameterIn.HEADER, name = "X-Participant-Token")
+        participantToken: String?,
+    )
 }

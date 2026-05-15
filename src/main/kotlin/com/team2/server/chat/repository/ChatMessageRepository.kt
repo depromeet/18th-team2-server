@@ -15,11 +15,13 @@ interface ChatMessageRepository : JpaRepository<ChatMessage, Long> {
     fun findAllByPartyIdOrderByCreatedAtAsc(partyId: Long): List<ChatMessage>
 
     @Query(
-        "SELECT m FROM ChatMessage m " +
-            "JOIN FETCH m.profile p " +
-            "LEFT JOIN FETCH p.character " +
-            "WHERE m.party.id = :partyId " +
-            "ORDER BY m.createdAt ASC",
+        """
+        SELECT m FROM ChatMessage m
+        JOIN FETCH m.profile p
+        LEFT JOIN FETCH p.character
+        WHERE m.party.id = :partyId
+        ORDER BY m.createdAt ASC
+        """,
     )
     fun findAllByPartyIdWithProfileOrderByCreatedAtAsc(
         @Param("partyId") partyId: Long,
