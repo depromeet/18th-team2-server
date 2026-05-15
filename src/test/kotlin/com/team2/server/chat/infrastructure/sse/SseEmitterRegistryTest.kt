@@ -2,6 +2,7 @@ package com.team2.server.chat.infrastructure.sse
 
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 import kotlin.test.assertEquals
 
@@ -69,5 +70,37 @@ class SseEmitterRegistryTest {
 
         registry.unsubscribeByToken("tok")
         assertEquals(0, registry.count(1L))
+    }
+
+    @Test
+    fun `broadcast 실패 emitter는 토큰 매핑도 정리됨`() {
+        val emitter = FailingSseEmitter()
+        registry.subscribe(1L, emitter, "tok")
+
+        registry.broadcast(
+            1L,
+            SseEmitter
+                .event()
+                .name("message")
+                .data("hello")
+                .build(),
+        )
+        registry.unsubscribeByToken("tok")
+
+        assertEquals(0, registry.count(1L))
+        assertEquals(0, emitter.completeCount)
+    }
+
+    private class FailingSseEmitter : SseEmitter(5000L) {
+        var completeCount = 0
+            private set
+
+        override fun send(dataSet: Set<ResponseBodyEmitter.DataWithMediaType>): Unit =
+            throw IllegalStateException("closed")
+
+        override fun complete() {
+            completeCount += 1
+            super.complete()
+        }
     }
 }

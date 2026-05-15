@@ -62,6 +62,7 @@ class SseEmitterRegistry {
                 .filter { emitter -> !trySend(emitter, event) }
                 .toList()
         list.removeAll(dead)
+        removeTokenMappings(dead)
     }
 
     private fun trySend(
@@ -76,6 +77,15 @@ class SseEmitterRegistry {
         } catch (_: java.io.IOException) {
             false
         }
+
+    private fun removeTokenMappings(dead: List<SseEmitter>) {
+        dead.forEach { deadEmitter ->
+            tokenToEmitter
+                .filterValues { emitter -> emitter === deadEmitter }
+                .keys
+                .forEach { token -> tokenToEmitter.remove(token, deadEmitter) }
+        }
+    }
 
     fun count(partyId: Long): Int {
         val list = emitters[partyId] ?: return 0
