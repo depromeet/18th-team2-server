@@ -14,7 +14,7 @@ class GetBurstGameSnapshotUseCase(
     private val sessionService: BurstGameSessionService,
     private val eventBroadcaster: BurstGameEventBroadcaster,
 ) {
-    @Transactional(readOnly = true)
+    @Transactional
     fun get(
         partyId: Long,
         userId: Long?,

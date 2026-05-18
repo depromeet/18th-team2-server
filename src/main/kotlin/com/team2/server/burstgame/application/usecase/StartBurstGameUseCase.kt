@@ -16,7 +16,7 @@ class StartBurstGameUseCase(
     private val eventBroadcaster: BurstGameEventBroadcaster,
     private val endScheduler: BurstGameEndScheduler,
 ) {
-    @Transactional(readOnly = true)
+    @Transactional
     fun start(
         partyId: Long,
         userId: Long?,

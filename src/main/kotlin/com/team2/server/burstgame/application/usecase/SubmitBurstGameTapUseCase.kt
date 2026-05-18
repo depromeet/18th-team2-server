@@ -14,7 +14,7 @@ class SubmitBurstGameTapUseCase(
     private val sessionService: BurstGameSessionService,
     private val eventBroadcaster: BurstGameEventBroadcaster,
 ) {
-    @Transactional(readOnly = true)
+    @Transactional
     fun submit(
         roundId: String,
         userId: Long?,
