@@ -4,6 +4,7 @@ import com.team2.server.burstgame.application.service.BurstGameEventBroadcaster
 import com.team2.server.burstgame.domain.BurstGameSnapshot
 import com.team2.server.chat.infrastructure.sse.ChatSseGateway
 import jakarta.annotation.PreDestroy
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 import java.time.LocalDateTime
@@ -16,6 +17,7 @@ import java.util.concurrent.TimeUnit
 class SseBurstGameEventBroadcaster(
     private val chatSseGateway: ChatSseGateway,
 ) : BurstGameEventBroadcaster {
+    private val log = LoggerFactory.getLogger(javaClass)
     private val executor = Executors.newSingleThreadScheduledExecutor()
     private val pendingProgress = ConcurrentHashMap<String, BurstGameSnapshot>()
     private val scheduledProgress = ConcurrentHashMap<String, ScheduledFuture<*>>()
@@ -29,10 +31,14 @@ class SseBurstGameEventBroadcaster(
         scheduledProgress.computeIfAbsent(snapshot.roundId) { roundId ->
             executor.schedule(
                 {
-                    val latest = pendingProgress.remove(roundId)
-                    scheduledProgress.remove(roundId)
-                    if (latest != null) {
-                        emit(latest.partyId, EVENT_PROGRESS, BurstGameProgressPayload.from(latest))
+                    try {
+                        val latest = pendingProgress.remove(roundId)
+                        scheduledProgress.remove(roundId)
+                        if (latest != null) {
+                            emit(latest.partyId, EVENT_PROGRESS, BurstGameProgressPayload.from(latest))
+                        }
+                    } catch (ex: Throwable) {
+                        log.error("Failed to broadcast burst game progress. roundId={}", roundId, ex)
                     }
                 },
                 PROGRESS_THROTTLE_MILLIS,
