@@ -22,7 +22,7 @@ class SseBurstGameEventBroadcaster(
     private val pendingProgress = ConcurrentHashMap<Long, BurstGameSnapshot>()
     private val scheduledProgress = ConcurrentHashMap<Long, ScheduledFuture<*>>()
     private val roundLocks = ConcurrentHashMap<Long, Any>()
-    private val endedRounds = ConcurrentHashMap.newKeySet<Long>()
+    private val endedRounds = ConcurrentHashMap<Long, LocalDateTime>()
 
     override fun broadcastStarted(snapshot: BurstGameSnapshot) {
         emit(snapshot.partyId, EVENT_STARTED, BurstGameStartedPayload.from(snapshot))
@@ -31,8 +31,12 @@ class SseBurstGameEventBroadcaster(
     override fun broadcastProgress(snapshot: BurstGameSnapshot) {
         val lock = lockFor(snapshot.partyId)
         synchronized(lock) {
-            if (snapshot.partyId in endedRounds) {
+            val endedStartedAt = endedRounds[snapshot.partyId]
+            if (endedStartedAt == snapshot.startedAt) {
                 return
+            }
+            if (endedStartedAt != null) {
+                endedRounds.remove(snapshot.partyId, endedStartedAt)
             }
             pendingProgress[snapshot.partyId] = snapshot
             scheduledProgress.computeIfAbsent(snapshot.partyId) { partyId ->
@@ -44,12 +48,12 @@ class SseBurstGameEventBroadcaster(
     override fun broadcastEnded(snapshot: BurstGameSnapshot) {
         val lock = lockFor(snapshot.partyId)
         synchronized(lock) {
-            endedRounds.add(snapshot.partyId)
+            endedRounds[snapshot.partyId] = snapshot.startedAt
             pendingProgress.remove(snapshot.partyId)
             scheduledProgress.remove(snapshot.partyId)?.cancel(false)
             emit(snapshot.partyId, EVENT_ENDED, BurstGameEndedPayload.from(snapshot))
         }
-        scheduleEndedRoundCleanup(snapshot.partyId, lock)
+        scheduleEndedRoundCleanup(snapshot.partyId, snapshot.startedAt, lock)
     }
 
     private fun scheduleProgress(
@@ -62,7 +66,7 @@ class SseBurstGameEventBroadcaster(
                     synchronized(lock) {
                         val latest = pendingProgress.remove(partyId)
                         scheduledProgress.remove(partyId)
-                        if (latest != null && partyId !in endedRounds) {
+                        if (latest != null && endedRounds[partyId] != latest.startedAt) {
                             emit(latest.partyId, EVENT_PROGRESS, BurstGameProgressPayload.from(latest))
                         }
                     }
@@ -76,13 +80,15 @@ class SseBurstGameEventBroadcaster(
 
     private fun scheduleEndedRoundCleanup(
         partyId: Long,
+        startedAt: LocalDateTime,
         lock: Any,
     ) {
         executor.schedule(
             {
                 synchronized(lock) {
-                    endedRounds.remove(partyId)
-                    roundLocks.remove(partyId, lock)
+                    if (endedRounds.remove(partyId, startedAt)) {
+                        roundLocks.remove(partyId, lock)
+                    }
                 }
             },
             PROGRESS_THROTTLE_MILLIS,

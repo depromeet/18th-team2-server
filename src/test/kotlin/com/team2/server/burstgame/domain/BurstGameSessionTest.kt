@@ -69,10 +69,19 @@ class BurstGameSessionTest {
     }
 
     @Test
-    fun `tapCount와 clientSequence는 양수만 허용한다`() {
+    fun `tapCount와 clientSequence는 허용 범위 안의 값만 허용한다`() {
         val invalidTapCount =
             assertThrows<BusinessException> {
                 session.applyTap(participant(1), tapCount = 0, clientSequence = 1, now = startedAt.plusSeconds(1))
+            }
+        val tooLargeTapCount =
+            assertThrows<BusinessException> {
+                session.applyTap(
+                    participant(1),
+                    tapCount = BurstGamePolicy.MAX_BATCH_TAP_COUNT.toInt() + 1,
+                    clientSequence = 1,
+                    now = startedAt.plusSeconds(1),
+                )
             }
         val invalidSequence =
             assertThrows<BusinessException> {
@@ -80,6 +89,7 @@ class BurstGameSessionTest {
             }
 
         assertEquals(ErrorCode.INVALID_INPUT, invalidTapCount.errorCode)
+        assertEquals(ErrorCode.INVALID_INPUT, tooLargeTapCount.errorCode)
         assertEquals(ErrorCode.INVALID_INPUT, invalidSequence.errorCode)
     }
 

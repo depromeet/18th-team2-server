@@ -51,25 +51,43 @@ class SseBurstGameEventBroadcasterTest {
         verify(chatSseGateway, times(1)).broadcastAfterCommit(eq(1L), anyEvent(), isNull())
     }
 
+    @Test
+    fun `같은 party의 새 session progress는 이전 ended cleanup 이후에도 전송한다`() {
+        val endedStartedAt = LocalDateTime.of(2026, 5, 18, 14, 20)
+        val newStartedAt = endedStartedAt.plusMinutes(1)
+
+        broadcaster.broadcastEnded(
+            snapshot(
+                status = BurstGameRoundStatus.ENDED,
+                totalTapCount = 1,
+                stateVersion = 2,
+                startedAt = endedStartedAt,
+            ),
+        )
+        broadcaster.broadcastProgress(snapshot(totalTapCount = 2, stateVersion = 1, startedAt = newStartedAt))
+
+        verify(chatSseGateway, timeout(1_000).times(2)).broadcastAfterCommit(eq(1L), anyEvent(), isNull())
+    }
+
     private fun anyEvent(): Set<ResponseBodyEmitter.DataWithMediaType> = any()
 
     private fun snapshot(
         status: BurstGameRoundStatus = BurstGameRoundStatus.ACTIVE,
         totalTapCount: Int = 0,
         stateVersion: Long = 0,
-    ): BurstGameSnapshot {
-        val now = LocalDateTime.of(2026, 5, 18, 14, 20)
-        return BurstGameSnapshot(
+        startedAt: LocalDateTime = LocalDateTime.of(2026, 5, 18, 14, 20),
+    ): BurstGameSnapshot =
+        BurstGameSnapshot(
             partyId = 1L,
             myParticipantId = 10L,
             status = status,
-            startedAt = now,
-            endsAt = now.plusSeconds(20),
+            startedAt = startedAt,
+            endsAt = startedAt.plusSeconds(20),
             totalTapCount = totalTapCount,
             myTapCount = totalTapCount,
             colorChanged = false,
             stateVersion = stateVersion,
-            serverTime = now,
+            serverTime = startedAt,
             remainingSeconds = 20,
             rankings =
                 listOf(
@@ -95,5 +113,4 @@ class SseBurstGameEventBroadcasterTest {
                     ),
                 ),
         )
-    }
 }

@@ -142,7 +142,7 @@ class BurstGameSession(
         tapCount: Int,
         clientSequence: Long,
     ) {
-        if (tapCount <= 0 || clientSequence <= 0) {
+        if (tapCount !in 1..BurstGamePolicy.MAX_BATCH_TAP_COUNT.toInt() || clientSequence <= 0) {
             throw BusinessException(ErrorCode.INVALID_INPUT)
         }
     }
