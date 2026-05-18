@@ -29,10 +29,10 @@ class StartBurstGameUseCase(
         val result = sessionService.start(partyId, participant, LocalDateTime.now())
         if (result.created) {
             runCatching {
-                endScheduler.schedule(result.snapshot.roundId, result.snapshot.endsAt, ::endScheduledRound)
+                endScheduler.schedule(partyId, result.snapshot.endsAt, ::endScheduledParty)
                 eventBroadcaster.broadcastStarted(result.snapshot)
             }.onFailure { ex ->
-                sessionService.remove(result.snapshot.roundId)
+                sessionService.remove(partyId)
                 log.error("Failed to complete burst game start. snapshot={}", result.snapshot, ex)
                 throw ex
             }
@@ -40,8 +40,8 @@ class StartBurstGameUseCase(
         return StartBurstGameResponse.from(result.snapshot)
     }
 
-    private fun endScheduledRound(roundId: String) {
-        val result = sessionService.end(roundId, LocalDateTime.now()) ?: return
+    private fun endScheduledParty(partyId: Long) {
+        val result = sessionService.end(partyId, LocalDateTime.now()) ?: return
         if (result.endedNow) {
             eventBroadcaster.broadcastEnded(result.snapshot)
         }

@@ -4,8 +4,8 @@ import java.time.LocalDateTime
 
 interface BurstGameEndScheduler {
     fun schedule(
-        roundId: String,
+        partyId: Long,
         endsAt: LocalDateTime,
-        onEnd: (String) -> Unit,
+        onEnd: (Long) -> Unit,
     )
 }

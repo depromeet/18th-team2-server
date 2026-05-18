@@ -10,7 +10,6 @@ import java.util.concurrent.ConcurrentHashMap
 @Component
 class InMemoryBurstGameSessionStore : BurstGameSessionStore {
     private val sessionsByPartyId = ConcurrentHashMap<Long, BurstGameSession>()
-    private val sessionsByRoundId = ConcurrentHashMap<String, BurstGameSession>()
     private val partyLocks = Array(LOCK_STRIPE_COUNT) { Any() }
 
     override fun start(
@@ -29,9 +28,6 @@ class InMemoryBurstGameSessionStore : BurstGameSessionStore {
                 require(session.partyId == partyId) {
                     "Burst game session partyId mismatch. expected=$partyId actual=${session.partyId}"
                 }
-                require(sessionsByRoundId.putIfAbsent(session.roundId, session) == null) {
-                    "Burst game round already exists. roundId=${session.roundId}"
-                }
                 sessionsByPartyId[partyId] = session
                 BurstGameSessionStore.StartResult.Created(session)
             }
@@ -49,18 +45,6 @@ class InMemoryBurstGameSessionStore : BurstGameSessionStore {
         }
     }
 
-    override fun findByRoundId(
-        roundId: String,
-        now: LocalDateTime,
-    ): BurstGameSession? {
-        val session = sessionsByRoundId[roundId] ?: return null
-        val lock = lockFor(session.partyId)
-        return synchronized(lock) {
-            pruneExpiredLocked(session.partyId, now)
-            sessionsByRoundId[roundId]
-        }
-    }
-
     override fun removeExpired(now: LocalDateTime) {
         sessionsByPartyId.keys.forEach { partyId ->
             val lock = lockFor(partyId)
@@ -70,13 +54,10 @@ class InMemoryBurstGameSessionStore : BurstGameSessionStore {
         }
     }
 
-    override fun removeByRoundId(roundId: String): Boolean {
-        val session = sessionsByRoundId[roundId] ?: return false
-        val lock = lockFor(session.partyId)
+    override fun removeByPartyId(partyId: Long): Boolean {
+        val lock = lockFor(partyId)
         return synchronized(lock) {
-            val current = sessionsByRoundId[roundId] ?: return@synchronized false
-            sessionsByRoundId.remove(roundId, current)
-            sessionsByPartyId.remove(current.partyId, current)
+            sessionsByPartyId.remove(partyId) != null
         }
     }
 
@@ -87,7 +68,6 @@ class InMemoryBurstGameSessionStore : BurstGameSessionStore {
         val session = sessionsByPartyId[partyId] ?: return
         if (session.status == BurstGameRoundStatus.ENDED && session.isExpired(now)) {
             sessionsByPartyId.remove(partyId, session)
-            sessionsByRoundId.remove(session.roundId, session)
         }
     }
 

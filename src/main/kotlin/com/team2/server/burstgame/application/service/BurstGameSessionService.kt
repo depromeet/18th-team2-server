@@ -11,7 +11,6 @@ import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import org.springframework.stereotype.Service
 import java.time.LocalDateTime
-import java.util.UUID
 
 @Service
 class BurstGameSessionService(
@@ -37,7 +36,6 @@ class BurstGameSessionService(
             sessionStore.start(partyId, now) {
                 validateCandleBlowCompleted(partyId)
                 BurstGameSession(
-                    roundId = UUID.randomUUID().toString(),
                     partyId = partyId,
                     startedAt = now,
                     endsAt = now.plusSeconds(BurstGamePolicy.ROUND_DURATION_SECONDS),
@@ -63,14 +61,14 @@ class BurstGameSessionService(
     }
 
     fun submit(
-        roundId: String,
+        partyId: Long,
         participant: BurstGameParticipantInfo,
         tapCount: Int,
         clientSequence: Long,
         now: LocalDateTime,
     ): BurstGameTapResult {
         val session =
-            sessionStore.findByRoundId(roundId, now) ?: throw BusinessException(ErrorCode.BURST_GAME_NOT_FOUND)
+            sessionStore.findByPartyId(partyId, now) ?: throw BusinessException(ErrorCode.BURST_GAME_NOT_FOUND)
         return synchronized(session) {
             if (session.isPastEndsAt(now)) {
                 val endedNow = session.status == BurstGameRoundStatus.ACTIVE
@@ -107,10 +105,10 @@ class BurstGameSessionService(
     }
 
     fun end(
-        roundId: String,
+        partyId: Long,
         now: LocalDateTime,
     ): SnapshotResult? {
-        val session = sessionStore.findByRoundId(roundId, now) ?: return null
+        val session = sessionStore.findByPartyId(partyId, now) ?: return null
         return synchronized(session) {
             val endedNow = session.status == BurstGameRoundStatus.ACTIVE
             val snapshot = session.end(now)
@@ -118,8 +116,8 @@ class BurstGameSessionService(
         }
     }
 
-    fun remove(roundId: String) {
-        sessionStore.removeByRoundId(roundId)
+    fun remove(partyId: Long) {
+        sessionStore.removeByPartyId(partyId)
     }
 
     private fun validateCandleBlowCompleted(partyId: Long) {

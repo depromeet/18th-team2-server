@@ -6,7 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 
 data class SubmitBurstGameTapResponse(
-    val roundId: String,
+    val partyId: Long,
     val myParticipantId: Long,
     val accepted: Boolean,
     @Schema(
@@ -26,7 +26,7 @@ data class SubmitBurstGameTapResponse(
         fun from(result: BurstGameTapResult): SubmitBurstGameTapResponse {
             val snapshot = result.snapshot
             return SubmitBurstGameTapResponse(
-                roundId = snapshot.roundId,
+                partyId = snapshot.partyId,
                 myParticipantId = snapshot.myParticipantId,
                 accepted = result.accepted,
                 ignoredReason = result.ignoredReason,

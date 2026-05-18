@@ -60,7 +60,6 @@ class SseBurstGameEventBroadcasterTest {
     ): BurstGameSnapshot {
         val now = LocalDateTime.of(2026, 5, 18, 14, 20)
         return BurstGameSnapshot(
-            roundId = "round-1",
             partyId = 1L,
             myParticipantId = 10L,
             status = status,

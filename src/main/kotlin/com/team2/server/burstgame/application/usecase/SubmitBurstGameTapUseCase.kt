@@ -3,7 +3,6 @@ package com.team2.server.burstgame.application.usecase
 import com.team2.server.burstgame.api.dto.SubmitBurstGameTapResponse
 import com.team2.server.burstgame.application.service.BurstGameEventBroadcaster
 import com.team2.server.burstgame.application.service.BurstGameParticipantReader
-import com.team2.server.burstgame.application.service.BurstGameRoundQueryService
 import com.team2.server.burstgame.application.service.BurstGameSessionService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -13,7 +12,6 @@ import java.time.LocalDateTime
 @Service
 class SubmitBurstGameTapUseCase(
     private val participantReader: BurstGameParticipantReader,
-    private val roundQueryService: BurstGameRoundQueryService,
     private val sessionService: BurstGameSessionService,
     private val eventBroadcaster: BurstGameEventBroadcaster,
 ) {
@@ -21,16 +19,15 @@ class SubmitBurstGameTapUseCase(
 
     @Transactional(readOnly = true)
     operator fun invoke(
-        roundId: String,
+        partyId: Long,
         userId: Long?,
         participantToken: String?,
         tapCount: Int,
         clientSequence: Long,
     ): SubmitBurstGameTapResponse {
         val now = LocalDateTime.now()
-        val partyId = roundQueryService.findPartyIdByRoundId(roundId, now)
         val participant = participantReader.resolve(partyId, userId, participantToken)
-        val result = sessionService.submit(roundId, participant, tapCount, clientSequence, now)
+        val result = sessionService.submit(partyId, participant, tapCount, clientSequence, now)
         if (result.accepted) {
             runCatching {
                 eventBroadcaster.broadcastProgress(result.snapshot)

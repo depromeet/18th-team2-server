@@ -19,8 +19,8 @@ class ScheduledBurstGameEndSchedulerTest {
     fun `종료 시간이 되면 callback을 실행한다`() {
         val latch = CountDownLatch(1)
 
-        scheduler.schedule("round-1", LocalDateTime.now().plusNanos(1)) { roundId ->
-            if (roundId == "round-1") {
+        scheduler.schedule(1L, LocalDateTime.now().plusNanos(1)) { partyId ->
+            if (partyId == 1L) {
                 latch.countDown()
             }
         }
@@ -30,7 +30,7 @@ class ScheduledBurstGameEndSchedulerTest {
 
     @Test
     fun `callback 예외는 스케줄러 밖으로 전파하지 않는다`() {
-        scheduler.schedule("round-1", LocalDateTime.now().plusNanos(1)) {
+        scheduler.schedule(1L, LocalDateTime.now().plusNanos(1)) {
             throw IllegalStateException("boom")
         }
 

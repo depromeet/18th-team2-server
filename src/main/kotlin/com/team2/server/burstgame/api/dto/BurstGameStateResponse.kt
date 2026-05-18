@@ -5,7 +5,6 @@ import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 
 data class BurstGameStateResponse(
-    val roundId: String,
     val partyId: Long,
     val myParticipantId: Long,
     @Schema(description = "박터뜨리기 라운드 종료 여부입니다.", example = "false")
@@ -26,7 +25,6 @@ data class BurstGameStateResponse(
     companion object {
         fun from(snapshot: BurstGameSnapshot): BurstGameStateResponse =
             BurstGameStateResponse(
-                roundId = snapshot.roundId,
                 partyId = snapshot.partyId,
                 myParticipantId = snapshot.myParticipantId,
                 ended = snapshot.status.isEnded(),

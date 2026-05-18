@@ -15,14 +15,9 @@ interface BurstGameSessionStore {
         now: LocalDateTime,
     ): BurstGameSession?
 
-    fun findByRoundId(
-        roundId: String,
-        now: LocalDateTime,
-    ): BurstGameSession?
-
     fun removeExpired(now: LocalDateTime)
 
-    fun removeByRoundId(roundId: String): Boolean
+    fun removeByPartyId(partyId: Long): Boolean
 
     sealed interface StartResult {
         data class Created(

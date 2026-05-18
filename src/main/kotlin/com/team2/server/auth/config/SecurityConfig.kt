@@ -63,7 +63,7 @@ class SecurityConfig(
                     ).permitAll()
                 auth.requestMatchers(HttpMethod.POST, "/api/v1/parties/*/chat-messages").permitAll()
                 auth.requestMatchers(HttpMethod.POST, "/api/v1/parties/*/burst-game/start").permitAll()
-                auth.requestMatchers(HttpMethod.POST, "/api/v1/burst-game/rounds/*/taps").permitAll()
+                auth.requestMatchers(HttpMethod.POST, "/api/v1/parties/*/burst-game/taps").permitAll()
                 auth.requestMatchers(HttpMethod.GET, "/api/v1/parties/*/burst-game").permitAll()
                 auth.anyRequest().authenticated()
             }.oauth2Login { oauth ->

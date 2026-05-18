@@ -14,7 +14,6 @@ class BurstGameSessionTest {
     private val startedAt = LocalDateTime.of(2026, 5, 14, 20, 10)
     private val session =
         BurstGameSession(
-            roundId = "round-1",
             partyId = 1L,
             startedAt = startedAt,
             endsAt = startedAt.plusSeconds(BurstGamePolicy.ROUND_DURATION_SECONDS),
@@ -88,7 +87,6 @@ class BurstGameSessionTest {
     fun `종료 시간이 시작 시간보다 늦어야 한다`() {
         assertThrows<IllegalArgumentException> {
             BurstGameSession(
-                roundId = "round-invalid",
                 partyId = 1L,
                 startedAt = startedAt,
                 endsAt = startedAt,

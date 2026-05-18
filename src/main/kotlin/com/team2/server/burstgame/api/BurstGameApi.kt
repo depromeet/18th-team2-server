@@ -55,7 +55,7 @@ interface BurstGameApi {
     @Operation(
         summary = "박터뜨리기 터치 batch 제출",
         description = """
-라운드 진행 중 터치 batch를 제출합니다.
+파티의 진행 중인 박터뜨리기 라운드에 터치 batch를 제출합니다.
 
 `tapCount`는 1~30, `clientSequence`는 참가자별 batch 멱등성 키입니다.
 중복 sequence와 종료 후 submit은 200 응답에서 `accepted=false`로 표현합니다.
@@ -69,7 +69,7 @@ interface BurstGameApi {
     @AuthErrorResponses
     @SwaggerApiResponse(
         responseCode = "404",
-        description = "라운드 없음",
+        description = "파티에 진행 중이거나 TTL 안에 남은 라운드 없음",
         content = [Content(schema = Schema(implementation = ErrorResponse::class))],
     )
     @SwaggerApiResponse(
@@ -79,7 +79,7 @@ interface BurstGameApi {
     )
     @InternalServerErrorResponse
     fun submitTaps(
-        @Parameter(description = "라운드 ID") roundId: String,
+        @Parameter(description = "파티 ID") partyId: Long,
         @Parameter(hidden = true) principal: UserPrincipal?,
         @Parameter(description = "비로그인 참여자 토큰", `in` = ParameterIn.HEADER, name = "X-Participant-Token")
         participantToken: String?,

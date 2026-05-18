@@ -42,7 +42,7 @@
 
 ### Submit Taps
 
-`POST /api/v1/burst-game/rounds/{roundId}/taps`
+`POST /api/v1/parties/{partyId}/burst-game/taps`
 
 Request:
 
@@ -58,7 +58,7 @@ Request:
 - 중복 sequence는 `200 OK`, `accepted = false`, `ignoredReason = "DUPLICATE_SEQUENCE"`
 - `clientSequence > maxAcceptedSequence + MAX_SEQUENCE_GAP`이면 `INVALID_INPUT`
 - `now >= endsAt`이거나 TTL 안의 ended session에 submit하면 batch는 반영하지 않고 `200 OK`, `accepted = false`, `ignoredReason = "ROUND_ENDED"`
-- TTL 만료 또는 존재하지 않는 `roundId`면 `BURST_GAME_NOT_FOUND`
+- TTL 만료 또는 해당 파티에 session이 없으면 `BURST_GAME_NOT_FOUND`
 
 ### State / Result Lookup
 
@@ -142,7 +142,7 @@ Request:
 - [ ] `ENDED_SESSION_TTL = 5 minutes`를 정의한다.
 - [ ] 참가자별 rate limit 기본값을 token bucket refill 초당 20회, burst capacity 30회, 참가자별 라운드 누적 400회로 정의한다.
 - [ ] `MAX_SEQUENCE_GAP = 1000`을 정의한다.
-- [ ] `BurstGameSession`에 `roundId`, `partyId`, `startedAt`, `endsAt`, `status`, `stateVersion`, 참가자별 score map을 둔다.
+- [ ] `BurstGameSession`에 `partyId`, `startedAt`, `endsAt`, `status`, `stateVersion`, 참가자별 score map을 둔다.
 - [ ] 외부 응답에는 `endedAt`을 포함하지 않는 것을 DTO 설계 기준으로 둔다.
 
 Run:
@@ -182,11 +182,9 @@ Run:
 - Test: `src/test/kotlin/com/team2/server/burstgame/infrastructure/memory/InMemoryBurstGameSessionStoreTest.kt`
 
 - [ ] `partyId` 기준 active/ended session 조회를 지원한다.
-- [ ] `roundId` 기준 session 조회를 지원한다.
 - [ ] start는 `partyId` 단위 직렬화 구간에서 active 중복 생성을 막는다.
-- [ ] start는 session 생성과 `roundId` 등록을 같은 직렬화 구간에서 끝낸다.
-- [ ] submit/상태 조회/end는 `roundId` 단위 직렬화 구간에서 session mutation을 처리한다.
-- [ ] 두 직렬화 구간을 함께 잡는 경우 lock 순서는 `partyId -> roundId`로 고정한다.
+- [ ] start는 session 생성을 같은 직렬화 구간에서 끝낸다.
+- [ ] submit/상태 조회/end는 `partyId` 단위 직렬화 구간에서 session mutation을 처리한다.
 - [ ] accepted batch 반영, ranking 재계산, `stateVersion` 증가, immutable broadcast snapshot 생성을 같은 원자 구간에서 처리한다.
 - [ ] ranking 재계산은 다른 Service 호출이 아니라 `BurstGameRankingPolicy` 도메인 정책 호출로 처리한다.
 - [ ] 중복 batch는 count와 `stateVersion`을 증가시키지 않는다.
@@ -245,7 +243,6 @@ Run:
 - [ ] active session이 있으면 기존 active 상태를 반환한다.
 - [ ] TTL 안의 ended session이 있으면 `BURST_GAME_ALREADY_ENDED`.
 - [ ] active/ended session이 없을 때만 촛불 완료 상태를 검증한다.
-- [ ] 새 `roundId`는 UUID 문자열로 발급한다.
 - [ ] `startedAt`, `endsAt`, `stateVersion = 0`, `colorChanged = false`로 session을 생성한다.
 - [ ] `BurstGameEndScheduler` 인터페이스로 종료 scheduler를 등록한다.
 - [ ] `BurstGameEventBroadcaster` 인터페이스로 기존 파티 SSE 구독자에게 `burst-game-started`를 브로드캐스트한다.
@@ -272,7 +269,7 @@ Run:
 - [ ] 종료 commit 시 최종 total/winners와 최종 `stateVersion`을 확정한다.
 - [ ] ended session은 TTL 동안 유지한다.
 - [ ] TTL 만료는 Caffeine `expireAfterWrite(5, MINUTES)` 또는 동등한 lazy 만료 메커니즘으로 처리한다.
-- [ ] TTL 만료 후 roundId/partyId 조회에서 제거한다.
+- [ ] TTL 만료 후 partyId 조회에서 제거한다.
 
 Run:
 
@@ -290,7 +287,7 @@ Run:
 - Test: `src/test/kotlin/com/team2/server/burstgame/application/usecase/SubmitBurstGameTapUseCaseTest.kt`
 - Test: `src/test/kotlin/com/team2/server/burstgame/api/BurstGameControllerTest.kt`
 
-- [ ] `POST /api/v1/burst-game/rounds/{roundId}/taps`를 추가한다.
+- [ ] `POST /api/v1/parties/{partyId}/burst-game/taps`를 추가한다.
 - [ ] `tapCount`는 1~30으로 검증한다.
 - [ ] `clientSequence`는 1 이상으로 검증한다.
 - [ ] 참가자별 처리 완료 `clientSequence` 집합을 기준으로 이미 처리한 sequence만 중복으로 본다.
@@ -393,14 +390,13 @@ Run:
 - start: 실시간 파티가 아니면 `CHAT_NOT_SUPPORTED`
 - start: 프로필 없는 호출자는 `UNAUTHORIZED`
 - start: 촛불끄기가 완료되지 않았으면 `BURST_GAME_NOT_READY`
-- start: active round가 있으면 기존 round 반환
+- start: active round가 있으면 기존 party 상태 반환
 - start: ended round가 있으면 `BURST_GAME_ALREADY_ENDED`
 - start: 실시간 파티 참여자는 누구나 호출 가능
 - start: 동시에 여러 명이 호출해도 partyId 단위 직렬화로 active session은 1개만 생성됨
 - start: active round가 이미 있으면 촛불끄기 완료 상태를 재검증하지 않고 기존 active 상태 반환
-- start: `roundId`는 UUID 형식
 - submit: TTL 안의 ended session이면 `200 OK`, `accepted = false`, `ignoredReason = "ROUND_ENDED"`
-- submit: TTL 만료 또는 존재하지 않는 roundId면 `BURST_GAME_NOT_FOUND`
+- submit: TTL 만료 또는 해당 파티에 session이 없으면 `BURST_GAME_NOT_FOUND`
 - submit: 요청 `tapCount`가 0 또는 31이면 `INVALID_INPUT`
 - submit: 같은 `clientSequence` 재요청은 `200 OK`, `accepted = false`, count 증가 없음
 - submit: `MAX_SEQUENCE_GAP` 이하의 sequence gap은 허용하고 늦게 도착한 미처리 sequence도 반영
@@ -441,7 +437,7 @@ Run:
 - JWT 참여자 start 성공
 - participantToken 참여자 start 성공
 - start API는 요청 body 없이 성공
-- active round가 있을 때 start 재호출은 같은 `roundId` 반환
+- active round가 있을 때 start 재호출은 같은 party 상태 반환
 - tap batch 제출 후 submit response payload 형태 검증
 - tap batch 제출 후 SSE progress payload 형태 검증
 - 20초 종료는 테스트에서 clock/scheduler를 제어해 `burst-game-ended` 검증

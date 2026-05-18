@@ -6,7 +6,6 @@ import kotlin.math.ceil
 import kotlin.math.max
 
 data class BurstGameSnapshot(
-    val roundId: String,
     val partyId: Long,
     val myParticipantId: Long,
     val status: BurstGameRoundStatus,

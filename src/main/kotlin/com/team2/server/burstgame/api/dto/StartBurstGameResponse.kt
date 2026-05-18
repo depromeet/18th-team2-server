@@ -4,7 +4,6 @@ import com.team2.server.burstgame.domain.BurstGameSnapshot
 import java.time.LocalDateTime
 
 data class StartBurstGameResponse(
-    val roundId: String,
     val partyId: Long,
     val myParticipantId: Long,
     val startedAt: LocalDateTime,
@@ -17,7 +16,6 @@ data class StartBurstGameResponse(
     companion object {
         fun from(snapshot: BurstGameSnapshot): StartBurstGameResponse =
             StartBurstGameResponse(
-                roundId = snapshot.roundId,
                 partyId = snapshot.partyId,
                 myParticipantId = snapshot.myParticipantId,
                 startedAt = snapshot.startedAt,

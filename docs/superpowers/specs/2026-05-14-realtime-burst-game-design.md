@@ -25,7 +25,7 @@
 
 기본값으로 진행 가능한 기술 결정:
 
-- `roundId`는 UUID 문자열
+- 박터뜨리기 라운드는 파티당 1회 정책이므로 외부 API는 `partyId` 기준으로 식별한다.
 - `stateVersion`은 라운드 session lock 안에서 집계 반영과 함께 증가
 - progress SSE는 throttle로 중간 버전이 누락될 수 있는 최신 aggregate snapshot
 - 종료는 scheduler와 submit/상태 조회 lazy 종료 체크를 모두 둔다.
@@ -84,10 +84,10 @@
   │── POST /parties/{id}/              │
   │   burst-game/start ───────────────►│  1. 실시간 파티/참여자 검증
   │                                    │  2. 라운드 생성 또는 기존 active 라운드 반환
-  │◄── { roundId, startedAt, endsAt } ─│
+  │◄── { partyId, startedAt, endsAt } ─│
   │◄── event: burst-game-started ─────│  3. 기존 SSE 구독자에게 시작 이벤트
   │                                    │
-  │── POST /burst-game/rounds/{id}/    │
+  │── POST /parties/{id}/burst-game/   │
   │   taps { tapCount, sequence } ────►│  4. tap batch 반영
   │◄── { totalTapCount, myTapCount } ─│
   │◄── event: burst-game-progress ────│  5. 기존 SSE로 총 터치 수 + 순위 entry 갱신
@@ -127,7 +127,6 @@ X-Participant-Token: {participantToken}
 
 ```json
 {
-  "roundId": "5f8b7c2a-6a0e-4a4b-9d2d-8b2e0f3d2c11",
   "partyId": 10,
   "myParticipantId": 37,
   "startedAt": "2026-05-14T20:10:00",
@@ -155,7 +154,7 @@ X-Participant-Token: {participantToken}
   - stub은 `local`, `dev`, `test` profile 또는 명시적 feature flag에서만 bean으로 등록하고, prod profile에는 등록하지 않는다.
 - 종료 결과 조회는 start API가 아니라 상태 및 결과 조회 API를 사용한다.
 - 일반 참가자가 진행 중 라운드 상태를 복구해야 하는 경우 start API가 아니라 `GET /api/v1/parties/{partyId}/burst-game`을 사용한다.
-- `roundId`는 DB auto-increment가 아니라 UUID 문자열로 발급한다. in-memory session만 사용하는 1차 구현에서 서버 재시작/카운터 초기화 충돌을 피하기 위함이다.
+- 파티당 1회 정책이므로 외부 응답과 submit 경로에는 별도 `roundId`를 노출하지 않는다.
 
 Start API side effect 경계:
 
@@ -169,7 +168,7 @@ Start API side effect 경계:
 ### 4-2. 터치 batch 반영
 
 ```http
-POST /api/v1/burst-game/rounds/{roundId}/taps
+POST /api/v1/parties/{partyId}/burst-game/taps
 Authorization: Bearer {token}
 X-Participant-Token: {participantToken}
 ```
@@ -194,7 +193,7 @@ X-Participant-Token: {participantToken}
 
 ```json
 {
-  "roundId": "5f8b7c2a-6a0e-4a4b-9d2d-8b2e0f3d2c11",
+  "partyId": 10,
   "myParticipantId": 37,
   "accepted": true,
   "ignoredReason": null,
@@ -237,11 +236,11 @@ X-Participant-Token: {participantToken}
 
 처리 정책:
 
-- 라운드가 없으면 `BURST_GAME_NOT_FOUND`.
+- 파티에 진행 중이거나 TTL 안에 남은 라운드가 없으면 `BURST_GAME_NOT_FOUND`.
 - TTL 안에 ended session이 남아 있는 종료 라운드에 submit하면 `200 OK`로 submit 응답 스키마를 유지한다.
   - 해당 batch는 반영하지 않는다.
   - `accepted = false`, `ignoredReason = "ROUND_ENDED"`와 종료 시점의 aggregate 상태를 반환한다.
-  - TTL 만료로 session이 제거됐거나 존재한 적 없는 `roundId`면 `BURST_GAME_NOT_FOUND`.
+  - TTL 만료로 session이 제거됐거나 해당 파티에 session이 없으면 `BURST_GAME_NOT_FOUND`.
 - 참가자가 해당 파티의 실시간 프로필을 갖고 있지 않으면 `UNAUTHORIZED`.
 - 요청 시점에 `now >= endsAt`이면 lazy 종료를 먼저 수행하고, 해당 batch는 반영하지 않는다.
   - 응답은 submit 응답 스키마를 유지한다.
@@ -283,15 +282,13 @@ SSE 재연결, `burst-game-started` 이벤트 유실, 종료 직후 재조회에
 
 경로를 party 중심으로 둔 이유:
 
-- `burst-game-started` 이벤트를 놓친 호출자는 `roundId`를 모를 수 있다.
 - 이 기능은 파티당 active/ended session을 최대 1개만 유지하는 정책이므로 party 기준 조회가 자연스럽다.
-- `GET /api/v1/burst-game/rounds/{roundId}`는 1차 범위에서 제공하지 않는다. roundId를 알고 있는 경우에도 상태/결과 복구는 party 기준 API 하나로 통일한다.
+- `GET /api/v1/burst-game/rounds/{roundId}`는 1차 범위에서 제공하지 않는다. 상태/결과 복구는 party 기준 API 하나로 통일한다.
 
 응답:
 
 ```json
 {
-  "roundId": "5f8b7c2a-6a0e-4a4b-9d2d-8b2e0f3d2c11",
   "partyId": 10,
   "myParticipantId": 37,
   "myTapCount": 52,
@@ -353,7 +350,6 @@ SSE 재연결, `burst-game-started` 이벤트 유실, 종료 직후 재조회에
 
 ```json
 {
-  "roundId": "5f8b7c2a-6a0e-4a4b-9d2d-8b2e0f3d2c11",
   "partyId": 10,
   "status": "ACTIVE",
   "startedAt": "2026-05-14T20:10:00",
@@ -373,7 +369,7 @@ tap batch 반영 후 해당 파티의 기존 SSE 구독자에게 전송한다.
 
 ```json
 {
-  "roundId": "5f8b7c2a-6a0e-4a4b-9d2d-8b2e0f3d2c11",
+  "partyId": 10,
   "totalTapCount": 42,
   "colorChanged": false,
   "remainingSeconds": 13,
@@ -414,13 +410,13 @@ tap batch 반영 후 해당 파티의 기존 SSE 구독자에게 전송한다.
 브로드캐스트 빈도:
 
 - batch 요청마다 이벤트를 보낼 수는 있지만, 참여자가 많아지면 SSE가 과도하게 발생할 수 있다.
-- 서버는 party/round 단위로 200~300ms throttle을 적용하여 최신 상태만 브로드캐스트한다.
+- 서버는 party 단위로 200~300ms throttle을 적용하여 최신 상태만 브로드캐스트한다.
 - throttle 구간 안의 중간 상태 이벤트는 누락될 수 있다.
 - progress 이벤트는 모든 tap event 로그가 아니라 최신 aggregate snapshot이다.
 - progress 이벤트의 `stateVersion`은 연속적이지 않을 수 있다. 예를 들어 수신자가 13 다음에 18을 받아도 정상이며, 마지막으로 처리한 값보다 크면 최신 상태로 받아들이면 된다.
 - 이벤트 수신자는 `stateVersion`이 마지막으로 처리한 값보다 작거나 같으면 stale 이벤트로 보고 무시할 수 있다.
-- `stateVersion`은 라운드별 단조 증가 값이다. tap batch가 실제로 반영될 때 증가하고, 중복 batch 무시는 증가시키지 않는다.
-- in-memory 1차 구현에서는 라운드 session 단위 lock 안에서 tap count 반영, ranking 재계산, `stateVersion` 증가, broadcast snapshot 생성을 하나의 원자적 구간으로 묶는다.
+- `stateVersion`은 party session별 단조 증가 값이다. tap batch가 실제로 반영될 때 증가하고, 중복 batch 무시는 증가시키지 않는다.
+- in-memory 1차 구현에서는 party session 단위 lock 안에서 tap count 반영, ranking 재계산, `stateVersion` 증가, broadcast snapshot 생성을 하나의 원자적 구간으로 묶는다.
 - 최종 종료 이벤트는 throttle과 무관하게 반드시 전송한다.
 - end 이벤트의 `stateVersion`은 마지막 progress 이벤트의 `stateVersion`보다 클 수 있다. 이벤트 수신자는 end 이벤트를 최종 결과로 채택한다.
 - `remainingSeconds`는 정수 초로 내려준다.
@@ -433,7 +429,6 @@ tap batch 반영 후 해당 파티의 기존 SSE 구독자에게 전송한다.
 
 ```json
 {
-  "roundId": "5f8b7c2a-6a0e-4a4b-9d2d-8b2e0f3d2c11",
   "partyId": 10,
   "status": "ENDED",
   "totalTapCount": 137,
@@ -576,29 +571,27 @@ DB 저장이 필요한 조건:
 
 ### 7-3. 라운드 식별자
 
-`roundId`는 UUID 문자열로 발급한다.
+파티당 1회 정책이므로 1차 구현은 외부 API에서 별도 라운드 식별자를 사용하지 않는다.
 
 이유:
 
-- 1차 구현은 DB auto-increment를 쓰지 않는다.
-- 전역 atomic counter는 서버 재시작 시 충돌 가능성이 있다.
-- party별 counter는 TTL 만료/재시작/동시성 처리가 번거롭다.
-- UUID는 in-memory session과 Redis 전환 양쪽에 모두 맞는다.
+- start, submit, 상태 조회 모두 `partyId`만으로 현재 session을 찾을 수 있다.
+- 클라이언트가 별도 `roundId`를 저장하거나 전달할 필요가 없다.
+- in-memory session을 장기 저장하지 않으므로 DB 식별자 설계도 현재 범위에 포함하지 않는다.
 
 ### 7-4. 동시성 제어와 `stateVersion`
 
-라운드별 session은 동일 라운드에 대한 tap 반영을 직렬화해야 한다.
+파티별 session은 동일 파티의 tap 반영을 직렬화해야 한다.
 
 1차 구현 기준:
 
 - start 요청도 `partyId` 단위 lock 또는 `ConcurrentHashMap.compute(partyId) { ... }`로 직렬화한다.
   - 촛불끄기 완료 직후 여러 참여자가 동시에 start를 호출해도 active session은 1개만 생성되어야 한다.
-  - 먼저 session을 생성한 요청만 새 `roundId`를 발급하고, 나머지 요청은 같은 active 상태를 반환한다.
-- `BurstGameSessionStore`가 `roundId`별 session을 보관한다.
-- session 내부 mutation은 라운드 단위 lock 또는 `ConcurrentHashMap.compute(roundId) { ... }` 안에서 수행한다.
-- start는 `partyId` 단위 직렬화 구간 안에서 session 생성과 `roundId` 등록을 끝낸다.
-- submit/상태 조회/end는 `roundId` 단위 직렬화 구간에서 session mutation을 처리한다.
-- 두 직렬화 구간을 함께 잡아야 하는 경우 lock 획득 순서는 항상 `partyId -> roundId`로 고정한다.
+  - 먼저 session을 생성한 요청만 새 session을 만들고, 나머지 요청은 같은 active 상태를 반환한다.
+- `BurstGameSessionStore`가 `partyId`별 session을 보관한다.
+- session 내부 mutation은 party 단위 lock 안에서 수행한다.
+- start는 `partyId` 단위 직렬화 구간 안에서 session 생성을 끝낸다.
+- submit/상태 조회/end도 같은 `partyId` 단위 직렬화 구간에서 session mutation을 처리한다.
 - 같은 원자적 구간에서 다음 작업을 함께 처리한다.
   - `clientSequence` 검증
   - rate limit 검증
@@ -694,7 +687,7 @@ cross-feature 의존:
 
 | ErrorCode | HTTP | 상황 |
 |---|---|---|
-| `BURST_GAME_NOT_FOUND` | 404 | roundId가 없거나 파티에 active/TTL 안의 ended session이 없음 |
+| `BURST_GAME_NOT_FOUND` | 404 | 파티에 active/TTL 안의 ended session이 없음 |
 | `BURST_GAME_ALREADY_ENDED` | 409 | TTL 안에 남아 있는 ended session에 대해 재시작 시도 |
 | `BURST_GAME_NOT_READY` | 400 | 촛불끄기가 아직 완료되지 않은 상태에서 start 호출 |
 | `BURST_GAME_RATE_LIMITED` | 429 | 참가자별 허용 tap rate 초과 |
@@ -707,7 +700,7 @@ cross-feature 의존:
 | `CHAT_NOT_SUPPORTED` | `REALTIME` 파티가 아님 |
 | `CHAT_NOT_ACTIVE` | 실시간 파티 진행 시간이 아님 |
 | `UNAUTHORIZED` | JWT/participantToken 없음 또는 프로필 식별 실패 |
-| `INVALID_INPUT` | 요청 `tapCount`, `clientSequence`, `roundId` 검증 실패 |
+| `INVALID_INPUT` | 요청 `tapCount`, `clientSequence` 검증 실패 |
 
 ---
 
@@ -721,15 +714,14 @@ cross-feature 의존:
 4. 파티에 active round가 있으면 촛불끄기 검증을 건너뛰고 기존 active 상태 반환
 5. TTL 안의 ended round가 있으면 `BURST_GAME_ALREADY_ENDED`
 6. active/ended round가 없으면 촛불끄기 완료 상태 확인
-7. 새 UUID `roundId` 발급
-8. in-memory session 생성 및 `roundId` 등록
+7. in-memory session 생성
 9. 20초 뒤 종료 scheduler 등록
 10. 기존 파티 SSE 구독자에게 `burst-game-started` 브로드캐스트
 11. start response 반환
 
 ### submit taps
 
-1. `roundId`로 session 조회
+1. `partyId`로 session 조회
 2. 호출자를 `RealtimeParticipantProfile`로 식별
 3. session lock 안에서 이미 `ENDED`면 해당 batch는 반영하지 않고 `accepted = false`, `ignoredReason = "ROUND_ENDED"` 반환
 4. `ACTIVE`이지만 `now >= endsAt`이면 lazy 종료 시도
@@ -825,7 +817,6 @@ cross-feature 의존:
 - 종료 결과는 DB 저장 없이 in-memory ended session에 5분 TTL로 유지
 - 진행 중 ranking은 상위 3개 rank group의 순위 entry와 각 순위자의 터치 수를 반환
 - 종료 이벤트/상태 결과 조회는 최종 winners만 반환하고 rankings는 비워둔다
-- `roundId`는 UUID 문자열로 발급
 - SSE progress/end 이벤트에 `stateVersion`, `serverTime` 포함
 - 참가자별 최소 rate limit 적용
 

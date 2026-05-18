@@ -1,6 +1,5 @@
 package com.team2.server.burstgame.api
 
-import com.jayway.jsonpath.JsonPath
 import com.team2.server.burstgame.application.service.BurstGameSessionService
 import com.team2.server.common.DatabaseCleanup
 import com.team2.server.config.TestcontainersConfiguration
@@ -60,22 +59,30 @@ class BurstGameControllerTest
         }
 
         @Test
-        fun `active 라운드가 있으면 start 재호출은 같은 roundId를 반환한다`() {
+        fun `active 라운드가 있으면 start 재호출은 같은 party 상태를 반환한다`() {
             val fixture = saveRealtimeParticipant()
 
-            val firstRoundId = startRound(fixture)
-            val secondRoundId = startRound(fixture)
+            startGame(fixture)
+            startGame(fixture)
 
-            kotlin.test.assertEquals(firstRoundId, secondRoundId)
+            mockMvc
+                .get("/api/v1/parties/${fixture.partyId}/burst-game") {
+                    header("X-Participant-Token", fixture.participantToken)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.partyId") { value(fixture.partyId) }
+                    jsonPath("$.data.ended") { value(false) }
+                    jsonPath("$.data.totalTapCount") { value(0) }
+                }
         }
 
         @Test
         fun `터치 batch 제출 후 진행 상태에 rankings를 반환한다`() {
             val fixture = saveRealtimeParticipant()
-            val roundId = startRound(fixture)
+            startGame(fixture)
 
             mockMvc
-                .post("/api/v1/burst-game/rounds/$roundId/taps") {
+                .post("/api/v1/parties/${fixture.partyId}/burst-game/taps") {
                     contentType = MediaType.APPLICATION_JSON
                     header("X-Participant-Token", fixture.participantToken)
                     content = """{"tapCount":7,"clientSequence":1}"""
@@ -93,11 +100,11 @@ class BurstGameControllerTest
         @Test
         fun `중복 clientSequence는 200 응답에서 DUPLICATE_SEQUENCE로 무시한다`() {
             val fixture = saveRealtimeParticipant()
-            val roundId = startRound(fixture)
-            submitTap(roundId, fixture.participantToken, clientSequence = 1)
+            startGame(fixture)
+            submitTap(fixture, clientSequence = 1)
 
             mockMvc
-                .post("/api/v1/burst-game/rounds/$roundId/taps") {
+                .post("/api/v1/parties/${fixture.partyId}/burst-game/taps") {
                     contentType = MediaType.APPLICATION_JSON
                     header("X-Participant-Token", fixture.participantToken)
                     content = """{"tapCount":7,"clientSequence":1}"""
@@ -112,10 +119,10 @@ class BurstGameControllerTest
         @Test
         fun `종료 상태 조회는 rankings 없이 winners만 반환한다`() {
             val fixture = saveRealtimeParticipant()
-            val roundId = startRound(fixture)
-            submitTap(roundId, fixture.participantToken, clientSequence = 1)
+            startGame(fixture)
+            submitTap(fixture, clientSequence = 1)
 
-            sessionService.end(roundId, LocalDateTime.now().plusSeconds(21))
+            sessionService.end(fixture.partyId, LocalDateTime.now().plusSeconds(21))
 
             mockMvc
                 .get("/api/v1/parties/${fixture.partyId}/burst-game") {
@@ -135,11 +142,11 @@ class BurstGameControllerTest
             val fixtures = saveRealtimeParticipants()
             val firstParticipant = fixtures[0]
             val secondParticipant = fixtures[1]
-            val roundId = startRound(firstParticipant)
-            submitTap(roundId, firstParticipant.participantToken, tapCount = 7, clientSequence = 1)
-            submitTap(roundId, secondParticipant.participantToken, tapCount = 14, clientSequence = 1)
+            startGame(firstParticipant)
+            submitTap(firstParticipant, tapCount = 7, clientSequence = 1)
+            submitTap(secondParticipant, tapCount = 14, clientSequence = 1)
 
-            sessionService.end(roundId, LocalDateTime.now().plusSeconds(21))
+            sessionService.end(firstParticipant.partyId, LocalDateTime.now().plusSeconds(21))
 
             mockMvc
                 .get("/api/v1/parties/${firstParticipant.partyId}/burst-game") {
@@ -155,28 +162,24 @@ class BurstGameControllerTest
                 }
         }
 
-        private fun startRound(fixture: BurstGameFixture): String {
-            val result =
-                mockMvc
-                    .post("/api/v1/parties/${fixture.partyId}/burst-game/start") {
-                        header("X-Participant-Token", fixture.participantToken)
-                    }.andExpect {
-                        status { isOk() }
-                    }.andReturn()
-
-            return JsonPath.read(result.response.contentAsString, "$.data.roundId")
+        private fun startGame(fixture: BurstGameFixture) {
+            mockMvc
+                .post("/api/v1/parties/${fixture.partyId}/burst-game/start") {
+                    header("X-Participant-Token", fixture.participantToken)
+                }.andExpect {
+                    status { isOk() }
+                }
         }
 
         private fun submitTap(
-            roundId: String,
-            participantToken: String,
+            fixture: BurstGameFixture,
             tapCount: Int = 7,
             clientSequence: Long,
         ) {
             mockMvc
-                .post("/api/v1/burst-game/rounds/$roundId/taps") {
+                .post("/api/v1/parties/${fixture.partyId}/burst-game/taps") {
                     contentType = MediaType.APPLICATION_JSON
-                    header("X-Participant-Token", participantToken)
+                    header("X-Participant-Token", fixture.participantToken)
                     content = """{"tapCount":$tapCount,"clientSequence":$clientSequence}"""
                 }.andExpect {
                     status { isOk() }

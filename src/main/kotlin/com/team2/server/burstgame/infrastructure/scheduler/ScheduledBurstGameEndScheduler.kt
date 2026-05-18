@@ -15,17 +15,17 @@ class ScheduledBurstGameEndScheduler : BurstGameEndScheduler {
     private val executor = Executors.newSingleThreadScheduledExecutor()
 
     override fun schedule(
-        roundId: String,
+        partyId: Long,
         endsAt: LocalDateTime,
-        onEnd: (String) -> Unit,
+        onEnd: (Long) -> Unit,
     ) {
         val delayMillis = maxOf(0L, Duration.between(LocalDateTime.now(), endsAt).toMillis())
         executor.schedule(
             {
                 runCatching {
-                    onEnd(roundId)
+                    onEnd(partyId)
                 }.onFailure { ex ->
-                    log.error("Failed to end scheduled burst game round. roundId={}", roundId, ex)
+                    log.error("Failed to end scheduled burst game. partyId={}", partyId, ex)
                 }
             },
             delayMillis,

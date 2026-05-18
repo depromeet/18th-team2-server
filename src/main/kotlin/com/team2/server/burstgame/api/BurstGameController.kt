@@ -34,16 +34,16 @@ class BurstGameController(
             startBurstGameUseCase(partyId, principal?.userId, participantToken),
         )
 
-    @PostMapping("/api/v1/burst-game/rounds/{roundId}/taps")
+    @PostMapping("/api/v1/parties/{partyId}/burst-game/taps")
     override fun submitTaps(
-        @PathVariable roundId: String,
+        @PathVariable partyId: Long,
         @AuthenticationPrincipal principal: UserPrincipal?,
         @RequestHeader(value = "X-Participant-Token", required = false) participantToken: String?,
         @RequestBody @Valid request: SubmitBurstGameTapRequest,
     ): ApiResponse<SubmitBurstGameTapResponse> =
         ApiResponse.success(
             submitBurstGameTapUseCase(
-                roundId = roundId,
+                partyId = partyId,
                 userId = principal?.userId,
                 participantToken = participantToken,
                 tapCount = request.tapCount,

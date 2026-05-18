@@ -8,7 +8,6 @@ import java.time.Duration
 import java.time.LocalDateTime
 
 class BurstGameSession(
-    val roundId: String,
     val partyId: Long,
     val startedAt: LocalDateTime,
     val endsAt: LocalDateTime,
@@ -111,7 +110,6 @@ class BurstGameSession(
         val scores = participantScores.values.map { it.toRankingScore() }
         val totalTapCount = participantScores.values.sumOf { it.tapCount }
         return BurstGameSnapshot(
-            roundId = roundId,
             partyId = partyId,
             myParticipantId = myParticipantId,
             status = status,

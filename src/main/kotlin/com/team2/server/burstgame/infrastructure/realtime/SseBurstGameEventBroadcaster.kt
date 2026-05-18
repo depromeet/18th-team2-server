@@ -19,55 +19,55 @@ class SseBurstGameEventBroadcaster(
 ) : BurstGameEventBroadcaster {
     private val log = LoggerFactory.getLogger(javaClass)
     private val executor = Executors.newSingleThreadScheduledExecutor()
-    private val pendingProgress = ConcurrentHashMap<String, BurstGameSnapshot>()
-    private val scheduledProgress = ConcurrentHashMap<String, ScheduledFuture<*>>()
-    private val roundLocks = ConcurrentHashMap<String, Any>()
-    private val endedRounds = ConcurrentHashMap.newKeySet<String>()
+    private val pendingProgress = ConcurrentHashMap<Long, BurstGameSnapshot>()
+    private val scheduledProgress = ConcurrentHashMap<Long, ScheduledFuture<*>>()
+    private val roundLocks = ConcurrentHashMap<Long, Any>()
+    private val endedRounds = ConcurrentHashMap.newKeySet<Long>()
 
     override fun broadcastStarted(snapshot: BurstGameSnapshot) {
         emit(snapshot.partyId, EVENT_STARTED, BurstGameStartedPayload.from(snapshot))
     }
 
     override fun broadcastProgress(snapshot: BurstGameSnapshot) {
-        val lock = lockFor(snapshot.roundId)
+        val lock = lockFor(snapshot.partyId)
         synchronized(lock) {
-            if (snapshot.roundId in endedRounds) {
+            if (snapshot.partyId in endedRounds) {
                 return
             }
-            pendingProgress[snapshot.roundId] = snapshot
-            scheduledProgress.computeIfAbsent(snapshot.roundId) { roundId ->
-                scheduleProgress(roundId, lock)
+            pendingProgress[snapshot.partyId] = snapshot
+            scheduledProgress.computeIfAbsent(snapshot.partyId) { partyId ->
+                scheduleProgress(partyId, lock)
             }
         }
     }
 
     override fun broadcastEnded(snapshot: BurstGameSnapshot) {
-        val lock = lockFor(snapshot.roundId)
+        val lock = lockFor(snapshot.partyId)
         synchronized(lock) {
-            endedRounds.add(snapshot.roundId)
-            pendingProgress.remove(snapshot.roundId)
-            scheduledProgress.remove(snapshot.roundId)?.cancel(false)
+            endedRounds.add(snapshot.partyId)
+            pendingProgress.remove(snapshot.partyId)
+            scheduledProgress.remove(snapshot.partyId)?.cancel(false)
             emit(snapshot.partyId, EVENT_ENDED, BurstGameEndedPayload.from(snapshot))
         }
-        scheduleEndedRoundCleanup(snapshot.roundId, lock)
+        scheduleEndedRoundCleanup(snapshot.partyId, lock)
     }
 
     private fun scheduleProgress(
-        roundId: String,
+        partyId: Long,
         lock: Any,
     ): ScheduledFuture<*> =
         executor.schedule(
             {
                 runCatching {
                     synchronized(lock) {
-                        val latest = pendingProgress.remove(roundId)
-                        scheduledProgress.remove(roundId)
-                        if (latest != null && roundId !in endedRounds) {
+                        val latest = pendingProgress.remove(partyId)
+                        scheduledProgress.remove(partyId)
+                        if (latest != null && partyId !in endedRounds) {
                             emit(latest.partyId, EVENT_PROGRESS, BurstGameProgressPayload.from(latest))
                         }
                     }
                 }.onFailure { ex ->
-                    log.error("Failed to broadcast burst game progress. roundId={}", roundId, ex)
+                    log.error("Failed to broadcast burst game progress. partyId={}", partyId, ex)
                 }
             },
             PROGRESS_THROTTLE_MILLIS,
@@ -75,14 +75,14 @@ class SseBurstGameEventBroadcaster(
         )
 
     private fun scheduleEndedRoundCleanup(
-        roundId: String,
+        partyId: Long,
         lock: Any,
     ) {
         executor.schedule(
             {
                 synchronized(lock) {
-                    endedRounds.remove(roundId)
-                    roundLocks.remove(roundId, lock)
+                    endedRounds.remove(partyId)
+                    roundLocks.remove(partyId, lock)
                 }
             },
             PROGRESS_THROTTLE_MILLIS,
@@ -110,10 +110,9 @@ class SseBurstGameEventBroadcaster(
         executor.shutdownNow()
     }
 
-    private fun lockFor(roundId: String): Any = roundLocks.computeIfAbsent(roundId) { Any() }
+    private fun lockFor(partyId: Long): Any = roundLocks.computeIfAbsent(partyId) { Any() }
 
     data class BurstGameStartedPayload(
-        val roundId: String,
         val partyId: Long,
         val status: String,
         val startedAt: LocalDateTime,
@@ -126,7 +125,6 @@ class SseBurstGameEventBroadcaster(
         companion object {
             fun from(snapshot: BurstGameSnapshot): BurstGameStartedPayload =
                 BurstGameStartedPayload(
-                    roundId = snapshot.roundId,
                     partyId = snapshot.partyId,
                     status = snapshot.status.name,
                     startedAt = snapshot.startedAt,
@@ -140,7 +138,6 @@ class SseBurstGameEventBroadcaster(
     }
 
     data class BurstGameProgressPayload(
-        val roundId: String,
         val partyId: Long,
         val totalTapCount: Int,
         val colorChanged: Boolean,
@@ -152,7 +149,6 @@ class SseBurstGameEventBroadcaster(
         companion object {
             fun from(snapshot: BurstGameSnapshot): BurstGameProgressPayload =
                 BurstGameProgressPayload(
-                    roundId = snapshot.roundId,
                     partyId = snapshot.partyId,
                     totalTapCount = snapshot.totalTapCount,
                     colorChanged = snapshot.colorChanged,
@@ -165,7 +161,6 @@ class SseBurstGameEventBroadcaster(
     }
 
     data class BurstGameEndedPayload(
-        val roundId: String,
         val partyId: Long,
         val status: String,
         val endsAt: LocalDateTime,
@@ -178,7 +173,6 @@ class SseBurstGameEventBroadcaster(
         companion object {
             fun from(snapshot: BurstGameSnapshot): BurstGameEndedPayload =
                 BurstGameEndedPayload(
-                    roundId = snapshot.roundId,
                     partyId = snapshot.partyId,
                     status = snapshot.status.name,
                     endsAt = snapshot.endsAt,
