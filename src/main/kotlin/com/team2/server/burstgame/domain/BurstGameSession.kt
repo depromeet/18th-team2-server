@@ -100,6 +100,7 @@ class BurstGameSession(
         now: LocalDateTime,
     ): BurstGameSnapshot {
         val scores = participantScores.values.map { it.toRankingScore() }
+        val totalTapCount = participantScores.values.sumOf { it.tapCount }
         return BurstGameSnapshot(
             roundId = roundId,
             partyId = partyId,
@@ -107,9 +108,9 @@ class BurstGameSession(
             status = status,
             startedAt = startedAt,
             endsAt = endsAt,
-            totalTapCount = participantScores.values.sumOf { it.tapCount },
+            totalTapCount = totalTapCount,
             myTapCount = participantScores[myParticipantId]?.tapCount ?: 0,
-            colorChanged = participantScores.values.sumOf { it.tapCount } >= BurstGamePolicy.COLOR_CHANGE_TAP_COUNT,
+            colorChanged = totalTapCount >= BurstGamePolicy.COLOR_CHANGE_TAP_COUNT,
             stateVersion = stateVersion,
             serverTime = now,
             remainingSeconds = BurstGameSnapshot.remainingSeconds(endsAt, now),

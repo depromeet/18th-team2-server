@@ -50,15 +50,17 @@ class BurstGameSessionService(
                 is InMemoryBurstGameSessionStore.StartResult.Existing -> result.session
             }
 
-        if (session.status == BurstGameRoundStatus.ENDED || session.isPastEndsAt(now)) {
-            end(session.roundId, now)
-            throw BusinessException(ErrorCode.BURST_GAME_ALREADY_ENDED)
-        }
+        return synchronized(session) {
+            if (session.status == BurstGameRoundStatus.ENDED || session.isPastEndsAt(now)) {
+                session.end(now)
+                throw BusinessException(ErrorCode.BURST_GAME_ALREADY_ENDED)
+            }
 
-        return StartResult(
-            snapshot = synchronized(session) { session.snapshotFor(participant.participantId, now) },
-            created = result is InMemoryBurstGameSessionStore.StartResult.Created,
-        )
+            StartResult(
+                snapshot = session.snapshotFor(participant.participantId, now),
+                created = result is InMemoryBurstGameSessionStore.StartResult.Created,
+            )
+        }
     }
 
     fun submit(

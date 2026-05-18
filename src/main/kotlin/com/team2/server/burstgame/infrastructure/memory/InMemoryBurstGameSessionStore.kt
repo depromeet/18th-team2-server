@@ -10,7 +10,7 @@ import java.util.concurrent.ConcurrentHashMap
 class InMemoryBurstGameSessionStore {
     private val sessionsByPartyId = ConcurrentHashMap<Long, BurstGameSession>()
     private val sessionsByRoundId = ConcurrentHashMap<String, BurstGameSession>()
-    private val partyLocks = ConcurrentHashMap<Long, Any>()
+    private val partyLocks = Array(LOCK_STRIPE_COUNT) { Any() }
 
     fun start(
         partyId: Long,
@@ -75,7 +75,7 @@ class InMemoryBurstGameSessionStore {
         }
     }
 
-    private fun lockFor(partyId: Long): Any = partyLocks.computeIfAbsent(partyId) { Any() }
+    private fun lockFor(partyId: Long): Any = partyLocks[Math.floorMod(partyId.hashCode(), LOCK_STRIPE_COUNT)]
 
     sealed interface StartResult {
         data class Created(
@@ -85,5 +85,9 @@ class InMemoryBurstGameSessionStore {
         data class Existing(
             val session: BurstGameSession,
         ) : StartResult
+    }
+
+    private companion object {
+        const val LOCK_STRIPE_COUNT = 64
     }
 }
