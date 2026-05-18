@@ -21,37 +21,53 @@ class SseBurstGameEventBroadcaster(
     private val executor = Executors.newSingleThreadScheduledExecutor()
     private val pendingProgress = ConcurrentHashMap<String, BurstGameSnapshot>()
     private val scheduledProgress = ConcurrentHashMap<String, ScheduledFuture<*>>()
+    private val roundLocks = ConcurrentHashMap<String, Any>()
 
     override fun broadcastStarted(snapshot: BurstGameSnapshot) {
         emit(snapshot.partyId, EVENT_STARTED, BurstGameStartedPayload.from(snapshot))
     }
 
     override fun broadcastProgress(snapshot: BurstGameSnapshot) {
-        pendingProgress[snapshot.roundId] = snapshot
-        scheduledProgress.computeIfAbsent(snapshot.roundId) { roundId ->
-            executor.schedule(
-                {
-                    runCatching {
+        val lock = lockFor(snapshot.roundId)
+        synchronized(lock) {
+            pendingProgress[snapshot.roundId] = snapshot
+            scheduledProgress.computeIfAbsent(snapshot.roundId) { roundId ->
+                scheduleProgress(roundId, lock)
+            }
+        }
+    }
+
+    override fun broadcastEnded(snapshot: BurstGameSnapshot) {
+        val lock = lockFor(snapshot.roundId)
+        synchronized(lock) {
+            pendingProgress.remove(snapshot.roundId)
+            scheduledProgress.remove(snapshot.roundId)?.cancel(false)
+            roundLocks.remove(snapshot.roundId, lock)
+            emit(snapshot.partyId, EVENT_ENDED, BurstGameEndedPayload.from(snapshot))
+        }
+    }
+
+    private fun scheduleProgress(
+        roundId: String,
+        lock: Any,
+    ): ScheduledFuture<*> =
+        executor.schedule(
+            {
+                runCatching {
+                    synchronized(lock) {
                         val latest = pendingProgress.remove(roundId)
                         scheduledProgress.remove(roundId)
                         if (latest != null) {
                             emit(latest.partyId, EVENT_PROGRESS, BurstGameProgressPayload.from(latest))
                         }
-                    }.onFailure { ex ->
-                        log.error("Failed to broadcast burst game progress. roundId={}", roundId, ex)
                     }
-                },
-                PROGRESS_THROTTLE_MILLIS,
-                TimeUnit.MILLISECONDS,
-            )
-        }
-    }
-
-    override fun broadcastEnded(snapshot: BurstGameSnapshot) {
-        pendingProgress.remove(snapshot.roundId)
-        scheduledProgress.remove(snapshot.roundId)?.cancel(false)
-        emit(snapshot.partyId, EVENT_ENDED, BurstGameEndedPayload.from(snapshot))
-    }
+                }.onFailure { ex ->
+                    log.error("Failed to broadcast burst game progress. roundId={}", roundId, ex)
+                }
+            },
+            PROGRESS_THROTTLE_MILLIS,
+            TimeUnit.MILLISECONDS,
+        )
 
     private fun emit(
         partyId: Long,
@@ -72,6 +88,8 @@ class SseBurstGameEventBroadcaster(
     fun shutdown() {
         executor.shutdownNow()
     }
+
+    private fun lockFor(roundId: String): Any = roundLocks.computeIfAbsent(roundId) { Any() }
 
     data class BurstGameStartedPayload(
         val roundId: String,
