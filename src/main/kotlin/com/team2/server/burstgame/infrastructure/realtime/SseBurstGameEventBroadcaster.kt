@@ -22,6 +22,7 @@ class SseBurstGameEventBroadcaster(
     private val pendingProgress = ConcurrentHashMap<String, BurstGameSnapshot>()
     private val scheduledProgress = ConcurrentHashMap<String, ScheduledFuture<*>>()
     private val roundLocks = ConcurrentHashMap<String, Any>()
+    private val endedRounds = ConcurrentHashMap.newKeySet<String>()
 
     override fun broadcastStarted(snapshot: BurstGameSnapshot) {
         emit(snapshot.partyId, EVENT_STARTED, BurstGameStartedPayload.from(snapshot))
@@ -30,6 +31,9 @@ class SseBurstGameEventBroadcaster(
     override fun broadcastProgress(snapshot: BurstGameSnapshot) {
         val lock = lockFor(snapshot.roundId)
         synchronized(lock) {
+            if (snapshot.roundId in endedRounds) {
+                return
+            }
             pendingProgress[snapshot.roundId] = snapshot
             scheduledProgress.computeIfAbsent(snapshot.roundId) { roundId ->
                 scheduleProgress(roundId, lock)
@@ -40,11 +44,12 @@ class SseBurstGameEventBroadcaster(
     override fun broadcastEnded(snapshot: BurstGameSnapshot) {
         val lock = lockFor(snapshot.roundId)
         synchronized(lock) {
+            endedRounds.add(snapshot.roundId)
             pendingProgress.remove(snapshot.roundId)
             scheduledProgress.remove(snapshot.roundId)?.cancel(false)
-            roundLocks.remove(snapshot.roundId, lock)
             emit(snapshot.partyId, EVENT_ENDED, BurstGameEndedPayload.from(snapshot))
         }
+        scheduleEndedRoundCleanup(snapshot.roundId, lock)
     }
 
     private fun scheduleProgress(
@@ -57,7 +62,7 @@ class SseBurstGameEventBroadcaster(
                     synchronized(lock) {
                         val latest = pendingProgress.remove(roundId)
                         scheduledProgress.remove(roundId)
-                        if (latest != null) {
+                        if (latest != null && roundId !in endedRounds) {
                             emit(latest.partyId, EVENT_PROGRESS, BurstGameProgressPayload.from(latest))
                         }
                     }
@@ -68,6 +73,22 @@ class SseBurstGameEventBroadcaster(
             PROGRESS_THROTTLE_MILLIS,
             TimeUnit.MILLISECONDS,
         )
+
+    private fun scheduleEndedRoundCleanup(
+        roundId: String,
+        lock: Any,
+    ) {
+        executor.schedule(
+            {
+                synchronized(lock) {
+                    endedRounds.remove(roundId)
+                    roundLocks.remove(roundId, lock)
+                }
+            },
+            PROGRESS_THROTTLE_MILLIS,
+            TimeUnit.MILLISECONDS,
+        )
+    }
 
     private fun emit(
         partyId: Long,
