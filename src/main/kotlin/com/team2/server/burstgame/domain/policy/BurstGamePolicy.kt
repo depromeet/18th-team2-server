@@ -1,4 +1,4 @@
-package com.team2.server.burstgame.domain
+package com.team2.server.burstgame.domain.policy
 
 import java.time.Duration
 

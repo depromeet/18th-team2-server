@@ -1,5 +1,6 @@
 package com.team2.server.burstgame.domain
 
+import com.team2.server.burstgame.domain.policy.BurstGamePolicy
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import org.junit.jupiter.api.assertThrows

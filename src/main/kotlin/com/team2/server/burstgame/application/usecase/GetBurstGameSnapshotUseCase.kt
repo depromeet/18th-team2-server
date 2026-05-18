@@ -1,9 +1,9 @@
 package com.team2.server.burstgame.application.usecase
 
+import com.team2.server.burstgame.api.dto.BurstGameStateResponse
 import com.team2.server.burstgame.application.service.BurstGameEventBroadcaster
 import com.team2.server.burstgame.application.service.BurstGameParticipantReader
 import com.team2.server.burstgame.application.service.BurstGameSessionService
-import com.team2.server.burstgame.domain.BurstGameSnapshot
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -18,11 +18,11 @@ class GetBurstGameSnapshotUseCase(
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional(readOnly = true)
-    fun get(
+    operator fun invoke(
         partyId: Long,
         userId: Long?,
         participantToken: String?,
-    ): BurstGameSnapshot {
+    ): BurstGameStateResponse {
         val participant = participantReader.resolve(partyId, userId, participantToken)
         val result = sessionService.snapshot(partyId, participant, LocalDateTime.now())
         if (result.endedNow) {
@@ -32,6 +32,6 @@ class GetBurstGameSnapshotUseCase(
                 log.error("Failed to broadcast burst game end after snapshot. snapshot={}", result.snapshot, ex)
             }
         }
-        return result.snapshot
+        return BurstGameStateResponse.from(result.snapshot)
     }
 }

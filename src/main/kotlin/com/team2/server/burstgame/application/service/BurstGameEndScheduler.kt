@@ -6,5 +6,6 @@ interface BurstGameEndScheduler {
     fun schedule(
         roundId: String,
         endsAt: LocalDateTime,
+        onEnd: (String) -> Unit,
     )
 }

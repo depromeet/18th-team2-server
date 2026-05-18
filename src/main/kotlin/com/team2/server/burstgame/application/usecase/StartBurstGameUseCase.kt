@@ -1,10 +1,10 @@
 package com.team2.server.burstgame.application.usecase
 
+import com.team2.server.burstgame.api.dto.StartBurstGameResponse
 import com.team2.server.burstgame.application.service.BurstGameEndScheduler
 import com.team2.server.burstgame.application.service.BurstGameEventBroadcaster
 import com.team2.server.burstgame.application.service.BurstGameParticipantReader
 import com.team2.server.burstgame.application.service.BurstGameSessionService
-import com.team2.server.burstgame.domain.BurstGameSnapshot
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -20,16 +20,16 @@ class StartBurstGameUseCase(
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional(readOnly = true)
-    fun start(
+    operator fun invoke(
         partyId: Long,
         userId: Long?,
         participantToken: String?,
-    ): BurstGameSnapshot {
+    ): StartBurstGameResponse {
         val participant = participantReader.resolve(partyId, userId, participantToken)
         val result = sessionService.start(partyId, participant, LocalDateTime.now())
         if (result.created) {
             runCatching {
-                endScheduler.schedule(result.snapshot.roundId, result.snapshot.endsAt)
+                endScheduler.schedule(result.snapshot.roundId, result.snapshot.endsAt, ::endScheduledRound)
                 eventBroadcaster.broadcastStarted(result.snapshot)
             }.onFailure { ex ->
                 sessionService.remove(result.snapshot.roundId)
@@ -37,6 +37,13 @@ class StartBurstGameUseCase(
                 throw ex
             }
         }
-        return result.snapshot
+        return StartBurstGameResponse.from(result.snapshot)
+    }
+
+    private fun endScheduledRound(roundId: String) {
+        val result = sessionService.end(roundId, LocalDateTime.now()) ?: return
+        if (result.endedNow) {
+            eventBroadcaster.broadcastEnded(result.snapshot)
+        }
     }
 }

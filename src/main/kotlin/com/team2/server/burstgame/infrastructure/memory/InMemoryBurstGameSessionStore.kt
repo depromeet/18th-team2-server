@@ -1,5 +1,6 @@
 package com.team2.server.burstgame.infrastructure.memory
 
+import com.team2.server.burstgame.application.service.BurstGameSessionStore
 import com.team2.server.burstgame.domain.BurstGameRoundStatus
 import com.team2.server.burstgame.domain.BurstGameSession
 import org.springframework.stereotype.Component
@@ -7,22 +8,22 @@ import java.time.LocalDateTime
 import java.util.concurrent.ConcurrentHashMap
 
 @Component
-class InMemoryBurstGameSessionStore {
+class InMemoryBurstGameSessionStore : BurstGameSessionStore {
     private val sessionsByPartyId = ConcurrentHashMap<Long, BurstGameSession>()
     private val sessionsByRoundId = ConcurrentHashMap<String, BurstGameSession>()
     private val partyLocks = Array(LOCK_STRIPE_COUNT) { Any() }
 
-    fun start(
+    override fun start(
         partyId: Long,
         now: LocalDateTime,
         sessionFactory: () -> BurstGameSession,
-    ): StartResult {
+    ): BurstGameSessionStore.StartResult {
         val lock = lockFor(partyId)
         return synchronized(lock) {
             pruneExpiredLocked(partyId, now)
             val existing = sessionsByPartyId[partyId]
             if (existing != null) {
-                StartResult.Existing(existing)
+                BurstGameSessionStore.StartResult.Existing(existing)
             } else {
                 val session = sessionFactory()
                 require(session.partyId == partyId) {
@@ -32,12 +33,12 @@ class InMemoryBurstGameSessionStore {
                     "Burst game round already exists. roundId=${session.roundId}"
                 }
                 sessionsByPartyId[partyId] = session
-                StartResult.Created(session)
+                BurstGameSessionStore.StartResult.Created(session)
             }
         }
     }
 
-    fun findByPartyId(
+    override fun findByPartyId(
         partyId: Long,
         now: LocalDateTime,
     ): BurstGameSession? {
@@ -48,7 +49,7 @@ class InMemoryBurstGameSessionStore {
         }
     }
 
-    fun findByRoundId(
+    override fun findByRoundId(
         roundId: String,
         now: LocalDateTime,
     ): BurstGameSession? {
@@ -60,7 +61,7 @@ class InMemoryBurstGameSessionStore {
         }
     }
 
-    fun removeExpired(now: LocalDateTime) {
+    override fun removeExpired(now: LocalDateTime) {
         sessionsByPartyId.keys.forEach { partyId ->
             val lock = lockFor(partyId)
             synchronized(lock) {
@@ -69,7 +70,7 @@ class InMemoryBurstGameSessionStore {
         }
     }
 
-    fun removeByRoundId(roundId: String): Boolean {
+    override fun removeByRoundId(roundId: String): Boolean {
         val session = sessionsByRoundId[roundId] ?: return false
         val lock = lockFor(session.partyId)
         return synchronized(lock) {
@@ -91,16 +92,6 @@ class InMemoryBurstGameSessionStore {
     }
 
     private fun lockFor(partyId: Long): Any = partyLocks[Math.floorMod(partyId.hashCode(), LOCK_STRIPE_COUNT)]
-
-    sealed interface StartResult {
-        data class Created(
-            val session: BurstGameSession,
-        ) : StartResult
-
-        data class Existing(
-            val session: BurstGameSession,
-        ) : StartResult
-    }
 
     private companion object {
         const val LOCK_STRIPE_COUNT = 64

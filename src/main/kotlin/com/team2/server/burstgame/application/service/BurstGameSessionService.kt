@@ -1,13 +1,12 @@
 package com.team2.server.burstgame.application.service
 
 import com.team2.server.burstgame.domain.BurstGameParticipantInfo
-import com.team2.server.burstgame.domain.BurstGamePolicy
 import com.team2.server.burstgame.domain.BurstGameRoundStatus
 import com.team2.server.burstgame.domain.BurstGameSession
 import com.team2.server.burstgame.domain.BurstGameSnapshot
 import com.team2.server.burstgame.domain.BurstGameTapIgnoredReason
 import com.team2.server.burstgame.domain.BurstGameTapResult
-import com.team2.server.burstgame.infrastructure.memory.InMemoryBurstGameSessionStore
+import com.team2.server.burstgame.domain.policy.BurstGamePolicy
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import org.springframework.stereotype.Service
@@ -16,7 +15,7 @@ import java.util.UUID
 
 @Service
 class BurstGameSessionService(
-    private val sessionStore: InMemoryBurstGameSessionStore,
+    private val sessionStore: BurstGameSessionStore,
     private val candleBlowStatusReader: CandleBlowStatusReader,
 ) {
     data class StartResult(
@@ -46,8 +45,8 @@ class BurstGameSessionService(
             }
         val session =
             when (result) {
-                is InMemoryBurstGameSessionStore.StartResult.Created -> result.session
-                is InMemoryBurstGameSessionStore.StartResult.Existing -> result.session
+                is BurstGameSessionStore.StartResult.Created -> result.session
+                is BurstGameSessionStore.StartResult.Existing -> result.session
             }
 
         return synchronized(session) {
@@ -58,7 +57,7 @@ class BurstGameSessionService(
 
             StartResult(
                 snapshot = session.snapshotFor(participant.participantId, now),
-                created = result is InMemoryBurstGameSessionStore.StartResult.Created,
+                created = result is BurstGameSessionStore.StartResult.Created,
             )
         }
     }
@@ -105,15 +104,6 @@ class BurstGameSessionService(
                 endedNow = endedNow,
             )
         }
-    }
-
-    fun findPartyIdByRoundId(
-        roundId: String,
-        now: LocalDateTime,
-    ): Long {
-        val session =
-            sessionStore.findByRoundId(roundId, now) ?: throw BusinessException(ErrorCode.BURST_GAME_NOT_FOUND)
-        return session.partyId
     }
 
     fun end(

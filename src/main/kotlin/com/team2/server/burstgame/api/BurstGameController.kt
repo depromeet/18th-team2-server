@@ -31,9 +31,7 @@ class BurstGameController(
         @RequestHeader(value = "X-Participant-Token", required = false) participantToken: String?,
     ): ApiResponse<StartBurstGameResponse> =
         ApiResponse.success(
-            StartBurstGameResponse.from(
-                startBurstGameUseCase.start(partyId, principal?.userId, participantToken),
-            ),
+            startBurstGameUseCase(partyId, principal?.userId, participantToken),
         )
 
     @PostMapping("/api/v1/burst-game/rounds/{roundId}/taps")
@@ -44,14 +42,12 @@ class BurstGameController(
         @RequestBody @Valid request: SubmitBurstGameTapRequest,
     ): ApiResponse<SubmitBurstGameTapResponse> =
         ApiResponse.success(
-            SubmitBurstGameTapResponse.from(
-                submitBurstGameTapUseCase.submit(
-                    roundId = roundId,
-                    userId = principal?.userId,
-                    participantToken = participantToken,
-                    tapCount = request.tapCount,
-                    clientSequence = request.clientSequence,
-                ),
+            submitBurstGameTapUseCase(
+                roundId = roundId,
+                userId = principal?.userId,
+                participantToken = participantToken,
+                tapCount = request.tapCount,
+                clientSequence = request.clientSequence,
             ),
         )
 
@@ -62,8 +58,6 @@ class BurstGameController(
         @RequestHeader(value = "X-Participant-Token", required = false) participantToken: String?,
     ): ApiResponse<BurstGameStateResponse> =
         ApiResponse.success(
-            BurstGameStateResponse.from(
-                getBurstGameSnapshotUseCase.get(partyId, principal?.userId, participantToken),
-            ),
+            getBurstGameSnapshotUseCase(partyId, principal?.userId, participantToken),
         )
 }

@@ -1,6 +1,6 @@
 package com.team2.server.burstgame.api.dto
 
-import com.team2.server.burstgame.domain.BurstGamePolicy
+import com.team2.server.burstgame.domain.policy.BurstGamePolicy
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
