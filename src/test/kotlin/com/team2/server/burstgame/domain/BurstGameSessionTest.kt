@@ -146,6 +146,23 @@ class BurstGameSessionTest {
     }
 
     @Test
+    fun `종료 시간 이후 submit은 세션을 종료 상태로 전환한 뒤 ROUND_ENDED로 무시한다`() {
+        val result = session.applyTap(participant(1), tapCount = 1, clientSequence = 1, now = startedAt.plusSeconds(20))
+
+        assertFalse(result.accepted)
+        assertTrue(result.endedNow)
+        assertEquals(BurstGameTapIgnoredReason.ROUND_ENDED, result.ignoredReason)
+        assertEquals(BurstGameRoundStatus.ENDED, result.snapshot.status)
+    }
+
+    @Test
+    fun `종료 시간 전에는 세션을 종료할 수 없다`() {
+        assertThrows<IllegalStateException> {
+            session.end(startedAt.plusSeconds(19))
+        }
+    }
+
+    @Test
     fun `종료 결과는 rankings 없이 winners만 반환한다`() {
         session.applyTap(participant(1), tapCount = 10, clientSequence = 1, now = startedAt.plusSeconds(1))
         session.applyTap(participant(2), tapCount = 8, clientSequence = 1, now = startedAt.plusSeconds(1))

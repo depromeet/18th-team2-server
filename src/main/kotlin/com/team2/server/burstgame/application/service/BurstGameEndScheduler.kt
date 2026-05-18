@@ -8,4 +8,6 @@ interface BurstGameEndScheduler {
         endsAt: LocalDateTime,
         onEnd: (Long) -> Unit,
     )
+
+    fun cancel(partyId: Long): Boolean
 }

@@ -35,12 +35,18 @@ class BurstGameSession(
     ): BurstGameTapResult {
         validateTapInput(tapCount, clientSequence)
         return when {
-            status == BurstGameRoundStatus.ENDED || !now.isBefore(endsAt) ->
+            status == BurstGameRoundStatus.ENDED || !now.isBefore(endsAt) -> {
+                val endedNow = status == BurstGameRoundStatus.ACTIVE
+                if (endedNow) {
+                    end(now)
+                }
                 BurstGameTapResult(
                     accepted = false,
                     ignoredReason = BurstGameTapIgnoredReason.ROUND_ENDED,
                     snapshot = snapshotFor(participant.participantId, now),
+                    endedNow = endedNow,
                 )
+            }
 
             else -> applyActiveTap(participant, tapCount, clientSequence, now)
         }
@@ -96,6 +102,9 @@ class BurstGameSession(
 
     fun end(now: LocalDateTime): BurstGameSnapshot {
         if (status == BurstGameRoundStatus.ACTIVE) {
+            check(!now.isBefore(endsAt)) {
+                "Burst game cannot end before endsAt. now=$now endsAt=$endsAt"
+            }
             status = BurstGameRoundStatus.ENDED
             endedAt = now
             stateVersion += 1

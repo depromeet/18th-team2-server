@@ -46,9 +46,7 @@ class SseBurstGameEventBroadcasterTest {
         broadcaster.broadcastProgress(snapshot(totalTapCount = 1, stateVersion = 1))
         broadcaster.broadcastEnded(snapshot(status = BurstGameRoundStatus.ENDED, totalTapCount = 1, stateVersion = 2))
 
-        Thread.sleep(400)
-
-        verify(chatSseGateway, times(1)).broadcastAfterCommit(eq(1L), anyEvent(), isNull())
+        verify(chatSseGateway, timeout(400).times(1)).broadcastAfterCommit(eq(1L), anyEvent(), isNull())
     }
 
     @Test

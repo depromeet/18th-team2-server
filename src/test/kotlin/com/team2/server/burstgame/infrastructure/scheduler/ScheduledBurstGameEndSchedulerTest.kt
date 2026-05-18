@@ -30,10 +30,13 @@ class ScheduledBurstGameEndSchedulerTest {
 
     @Test
     fun `callback 예외는 스케줄러 밖으로 전파하지 않는다`() {
+        val latch = CountDownLatch(1)
+
         scheduler.schedule(1L, LocalDateTime.now().plusNanos(1)) {
+            latch.countDown()
             throw IllegalStateException("boom")
         }
 
-        Thread.sleep(100)
+        assertTrue(latch.await(1, TimeUnit.SECONDS))
     }
 }

@@ -32,14 +32,26 @@ class SubmitBurstGameTapUseCase(
             runCatching {
                 eventBroadcaster.broadcastProgress(result.snapshot)
             }.onFailure { ex ->
-                log.error("Failed to broadcast burst game progress. result={}", result, ex)
+                log.error(
+                    "Failed to broadcast burst game progress. partyId={} participantId={} stateVersion={}",
+                    result.snapshot.partyId,
+                    result.snapshot.myParticipantId,
+                    result.snapshot.stateVersion,
+                    ex,
+                )
             }
         }
         if (result.endedNow) {
             runCatching {
                 eventBroadcaster.broadcastEnded(result.snapshot)
             }.onFailure { ex ->
-                log.error("Failed to broadcast burst game end after submit. result={}", result, ex)
+                log.error(
+                    "Failed to broadcast burst game end after submit. partyId={} participantId={} stateVersion={}",
+                    result.snapshot.partyId,
+                    result.snapshot.myParticipantId,
+                    result.snapshot.stateVersion,
+                    ex,
+                )
             }
         }
         return SubmitBurstGameTapResponse.from(result)

@@ -116,8 +116,17 @@ class BurstGameSessionService(
         }
     }
 
-    fun remove(partyId: Long) {
-        sessionStore.removeByPartyId(partyId)
+    fun removeStarted(
+        partyId: Long,
+        startedAt: LocalDateTime,
+    ): Boolean {
+        val session = sessionStore.findByPartyId(partyId, LocalDateTime.now()) ?: return false
+        return synchronized(session) {
+            check(session.status == BurstGameRoundStatus.ACTIVE && session.startedAt == startedAt) {
+                "Only the just-started active burst game session can be removed. partyId=$partyId"
+            }
+            sessionStore.removeByPartyId(partyId)
+        }
     }
 
     private fun validateCandleBlowCompleted(partyId: Long) {
