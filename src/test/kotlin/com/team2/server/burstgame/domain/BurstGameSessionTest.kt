@@ -69,6 +69,49 @@ class BurstGameSessionTest {
     }
 
     @Test
+    fun `tapCount와 clientSequence는 양수만 허용한다`() {
+        val invalidTapCount =
+            assertThrows<BusinessException> {
+                session.applyTap(participant(1), tapCount = 0, clientSequence = 1, now = startedAt.plusSeconds(1))
+            }
+        val invalidSequence =
+            assertThrows<BusinessException> {
+                session.applyTap(participant(1), tapCount = 1, clientSequence = 0, now = startedAt.plusSeconds(1))
+            }
+
+        assertEquals(ErrorCode.INVALID_INPUT, invalidTapCount.errorCode)
+        assertEquals(ErrorCode.INVALID_INPUT, invalidSequence.errorCode)
+    }
+
+    @Test
+    fun `종료 시간이 시작 시간보다 늦어야 한다`() {
+        assertThrows<IllegalArgumentException> {
+            BurstGameSession(
+                roundId = "round-invalid",
+                partyId = 1L,
+                startedAt = startedAt,
+                endsAt = startedAt,
+            )
+        }
+    }
+
+    @Test
+    fun `tap result는 accepted와 ignoredReason 조합이 일관되어야 한다`() {
+        val snapshot = session.snapshotFor(1, startedAt)
+
+        assertThrows<IllegalArgumentException> {
+            BurstGameTapResult(
+                accepted = true,
+                ignoredReason = BurstGameTapIgnoredReason.DUPLICATE_SEQUENCE,
+                snapshot = snapshot,
+            )
+        }
+        assertThrows<IllegalArgumentException> {
+            BurstGameTapResult(accepted = false, ignoredReason = null, snapshot = snapshot)
+        }
+    }
+
+    @Test
     fun `total tap count가 100 이상이면 colorChanged true`() {
         repeat(4) { index ->
             session.applyTap(

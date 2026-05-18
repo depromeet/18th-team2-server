@@ -5,4 +5,10 @@ data class BurstGameTapResult(
     val ignoredReason: BurstGameTapIgnoredReason?,
     val snapshot: BurstGameSnapshot,
     val endedNow: Boolean = false,
-)
+) {
+    init {
+        require(accepted == (ignoredReason == null)) {
+            "Inconsistent tap result. accepted=$accepted ignoredReason=$ignoredReason"
+        }
+    }
+}

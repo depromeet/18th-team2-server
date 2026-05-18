@@ -124,6 +124,7 @@ class BurstGameControllerTest
                     status { isOk() }
                     jsonPath("$.data.ended") { value(true) }
                     jsonPath("$.data.rankings") { isEmpty() }
+                    jsonPath("$.data.winners.length()") { value(1) }
                     jsonPath("$.data.winners[0].participantId") { value(fixture.participantId) }
                     jsonPath("$.data.winners[0].tapCount") { value(7) }
                 }

@@ -12,6 +12,12 @@ class BurstGameSession(
     val startedAt: LocalDateTime,
     val endsAt: LocalDateTime,
 ) {
+    init {
+        require(endsAt.isAfter(startedAt)) {
+            "Burst game endsAt must be after startedAt. startedAt=$startedAt endsAt=$endsAt"
+        }
+    }
+
     var status: BurstGameRoundStatus = BurstGameRoundStatus.ACTIVE
         private set
     var stateVersion: Long = 0
@@ -26,8 +32,9 @@ class BurstGameSession(
         tapCount: Int,
         clientSequence: Long,
         now: LocalDateTime,
-    ): BurstGameTapResult =
-        when {
+    ): BurstGameTapResult {
+        validateTapInput(tapCount, clientSequence)
+        return when {
             status == BurstGameRoundStatus.ENDED || !now.isBefore(endsAt) ->
                 BurstGameTapResult(
                     accepted = false,
@@ -37,6 +44,7 @@ class BurstGameSession(
 
             else -> applyActiveTap(participant, tapCount, clientSequence, now)
         }
+    }
 
     private fun applyActiveTap(
         participant: BurstGameParticipantInfo,
@@ -130,6 +138,15 @@ class BurstGameSession(
     }
 
     fun isPastEndsAt(now: LocalDateTime): Boolean = !now.isBefore(endsAt)
+
+    private fun validateTapInput(
+        tapCount: Int,
+        clientSequence: Long,
+    ) {
+        if (tapCount <= 0 || clientSequence <= 0) {
+            throw BusinessException(ErrorCode.INVALID_INPUT)
+        }
+    }
 
     private fun validateSequenceGap(
         clientSequence: Long,
