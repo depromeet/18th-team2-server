@@ -26,12 +26,12 @@ class ScheduledBurstGameEndScheduler(
         val delayMillis = maxOf(0L, Duration.between(LocalDateTime.now(), endsAt).toMillis())
         executor.schedule(
             {
-                try {
+                runCatching {
                     val result = sessionService.end(roundId, LocalDateTime.now())
                     if (result?.endedNow == true) {
                         eventBroadcaster.broadcastEnded(result.snapshot)
                     }
-                } catch (ex: Throwable) {
+                }.onFailure { ex ->
                     log.error("Failed to end scheduled burst game round. roundId={}", roundId, ex)
                 }
             },

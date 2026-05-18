@@ -31,13 +31,13 @@ class SseBurstGameEventBroadcaster(
         scheduledProgress.computeIfAbsent(snapshot.roundId) { roundId ->
             executor.schedule(
                 {
-                    try {
+                    runCatching {
                         val latest = pendingProgress.remove(roundId)
                         scheduledProgress.remove(roundId)
                         if (latest != null) {
                             emit(latest.partyId, EVENT_PROGRESS, BurstGameProgressPayload.from(latest))
                         }
-                    } catch (ex: Throwable) {
+                    }.onFailure { ex ->
                         log.error("Failed to broadcast burst game progress. roundId={}", roundId, ex)
                     }
                 },
