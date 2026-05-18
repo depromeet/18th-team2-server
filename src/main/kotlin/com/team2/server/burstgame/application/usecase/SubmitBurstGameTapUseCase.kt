@@ -4,6 +4,7 @@ import com.team2.server.burstgame.application.service.BurstGameEventBroadcaster
 import com.team2.server.burstgame.application.service.BurstGameParticipantReader
 import com.team2.server.burstgame.application.service.BurstGameSessionService
 import com.team2.server.burstgame.domain.BurstGameTapResult
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -14,6 +15,8 @@ class SubmitBurstGameTapUseCase(
     private val sessionService: BurstGameSessionService,
     private val eventBroadcaster: BurstGameEventBroadcaster,
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     @Transactional(readOnly = true)
     fun submit(
         roundId: String,
@@ -27,10 +30,18 @@ class SubmitBurstGameTapUseCase(
         val participant = participantReader.resolve(partyId, userId, participantToken)
         val result = sessionService.submit(roundId, participant, tapCount, clientSequence, now)
         if (result.accepted) {
-            eventBroadcaster.broadcastProgress(result.snapshot)
+            runCatching {
+                eventBroadcaster.broadcastProgress(result.snapshot)
+            }.onFailure { ex ->
+                log.error("Failed to broadcast burst game progress. result={}", result, ex)
+            }
         }
         if (result.endedNow) {
-            eventBroadcaster.broadcastEnded(result.snapshot)
+            runCatching {
+                eventBroadcaster.broadcastEnded(result.snapshot)
+            }.onFailure { ex ->
+                log.error("Failed to broadcast burst game end after submit. result={}", result, ex)
+            }
         }
         return result
     }

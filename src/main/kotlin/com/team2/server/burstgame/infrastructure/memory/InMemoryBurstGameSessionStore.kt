@@ -25,8 +25,13 @@ class InMemoryBurstGameSessionStore {
                 StartResult.Existing(existing)
             } else {
                 val session = sessionFactory()
+                require(session.partyId == partyId) {
+                    "Burst game session partyId mismatch. expected=$partyId actual=${session.partyId}"
+                }
+                require(sessionsByRoundId.putIfAbsent(session.roundId, session) == null) {
+                    "Burst game round already exists. roundId=${session.roundId}"
+                }
                 sessionsByPartyId[partyId] = session
-                sessionsByRoundId[session.roundId] = session
                 StartResult.Created(session)
             }
         }
@@ -61,6 +66,16 @@ class InMemoryBurstGameSessionStore {
             synchronized(lock) {
                 pruneExpiredLocked(partyId, now)
             }
+        }
+    }
+
+    fun removeByRoundId(roundId: String): Boolean {
+        val session = sessionsByRoundId[roundId] ?: return false
+        val lock = lockFor(session.partyId)
+        return synchronized(lock) {
+            val current = sessionsByRoundId[roundId] ?: return@synchronized false
+            sessionsByRoundId.remove(roundId, current)
+            sessionsByPartyId.remove(current.partyId, current)
         }
     }
 

@@ -128,6 +128,10 @@ class BurstGameSessionService(
         }
     }
 
+    fun remove(roundId: String) {
+        sessionStore.removeByRoundId(roundId)
+    }
+
     private fun validateCandleBlowCompleted(partyId: Long) {
         if (!candleBlowStatusReader.isCandleBlowCompleted(partyId)) {
             throw BusinessException(ErrorCode.BURST_GAME_NOT_READY)
