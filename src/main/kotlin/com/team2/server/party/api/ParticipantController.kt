@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
@@ -18,10 +19,16 @@ class ParticipantController(
 ) : ParticipantApi {
     @GetMapping("/{partyId}/participants")
     override fun getPartyParticipants(
-        @AuthenticationPrincipal principal: UserPrincipal,
+        @AuthenticationPrincipal principal: UserPrincipal?,
         @PathVariable partyId: Long,
+        @RequestHeader(value = "X-Participant-Token", required = false) participantToken: String?,
     ): ApiResponse<PartyParticipantsResponse> {
-        val result = getPartyParticipantsUseCase.invoke(partyId = partyId, userId = principal.userId)
+        val result =
+            getPartyParticipantsUseCase.invoke(
+                partyId = partyId,
+                userId = principal?.userId,
+                participantToken = participantToken,
+            )
         return ApiResponse.success(HttpStatus.OK, PartyParticipantsResponse.from(result))
     }
 }

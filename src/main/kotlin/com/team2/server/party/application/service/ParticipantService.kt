@@ -34,13 +34,35 @@ class ParticipantService(
         participantRepository.findByPartyIdAndUserId(party.id, userId)
             ?: participantRepository.save(Participant(party = party, user = user))
 
-    fun requireParticipant(
+    fun requireCallerParticipantId(
+        partyId: Long,
+        userId: Long?,
+        participantToken: String?,
+    ): Long =
+        when {
+            userId != null -> resolveCallerByUser(partyId, userId)
+            participantToken != null -> resolveCallerByToken(partyId, participantToken)
+            else -> throw BusinessException(ErrorCode.UNAUTHORIZED)
+        }
+
+    private fun resolveCallerByUser(
         partyId: Long,
         userId: Long,
-    ) {
-        if (!participantRepository.existsByPartyIdAndUserId(partyId, userId)) {
+    ): Long =
+        participantRepository.findByPartyIdAndUserId(partyId, userId)?.id
+            ?: throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
+
+    private fun resolveCallerByToken(
+        partyId: Long,
+        participantToken: String,
+    ): Long {
+        val profile =
+            realtimeParticipantProfileRepository.findByParticipantToken(participantToken)
+                ?: throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
+        if (profile.participant.party.id != partyId) {
             throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
         }
+        return profile.participant.id
     }
 
     fun findOrderedProfiles(partyId: Long): List<RealtimeParticipantProfile> =

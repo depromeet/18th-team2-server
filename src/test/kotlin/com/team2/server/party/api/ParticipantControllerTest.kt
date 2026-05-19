@@ -52,6 +52,7 @@ class ParticipantControllerTest
         private lateinit var outsider: User
         private lateinit var realtimeParty: RealtimeParty
         private lateinit var paperOnlyParty: PaperOnlyParty
+        private lateinit var memberProfile: RealtimeParticipantProfile
 
         @BeforeEach
         fun setUp() {
@@ -100,9 +101,14 @@ class ParticipantControllerTest
             )
             val memberParticipant =
                 participantRepository.save(Participant(party = realtimeParty, user = member, isCelebrant = false))
-            realtimeParticipantProfileRepository.save(
-                RealtimeParticipantProfile(participant = memberParticipant, nickname = "참가자A", character = character),
-            )
+            memberProfile =
+                realtimeParticipantProfileRepository.save(
+                    RealtimeParticipantProfile(
+                        participant = memberParticipant,
+                        nickname = "참가자A",
+                        character = character,
+                    ),
+                )
         }
 
         @Test
@@ -146,6 +152,49 @@ class ParticipantControllerTest
         }
 
         @Test
+        fun `X-Participant-Token 헤더로 비로그인 참가자가 조회 시 토큰 owner의 isMe만 true 다`() {
+            mockMvc
+                .get("/api/v1/parties/${realtimeParty.id}/participants") {
+                    header("X-Participant-Token", memberProfile.participantToken)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.participants[0].isMe") { value(false) }
+                    jsonPath("$.data.participants[1].isMe") { value(true) }
+                }
+        }
+
+        @Test
+        fun `다른 파티의 X-Participant-Token으로 호출 시 403 PARTY_FORBIDDEN`() {
+            val otherParty =
+                partyRepository.save(
+                    RealtimeParty(
+                        ownerId = outsider.id,
+                        celebrantNickname = "다른파티",
+                        startedAt = LocalDateTime.now().plusDays(1),
+                    ),
+                )
+
+            mockMvc
+                .get("/api/v1/parties/${otherParty.id}/participants") {
+                    header("X-Participant-Token", memberProfile.participantToken)
+                }.andExpect {
+                    status { isForbidden() }
+                    jsonPath("$.error.code") { value("PARTY_FORBIDDEN") }
+                }
+        }
+
+        @Test
+        fun `존재하지 않는 X-Participant-Token으로 호출 시 403 PARTY_FORBIDDEN`() {
+            mockMvc
+                .get("/api/v1/parties/${realtimeParty.id}/participants") {
+                    header("X-Participant-Token", "deadbeef")
+                }.andExpect {
+                    status { isForbidden() }
+                    jsonPath("$.error.code") { value("PARTY_FORBIDDEN") }
+                }
+        }
+
+        @Test
         fun `비참가자 호출 시 403 PARTY_FORBIDDEN`() {
             val token = tokenProvider.issue(outsider)
 
@@ -159,7 +208,7 @@ class ParticipantControllerTest
         }
 
         @Test
-        fun `PaperOnly 파티 호출 시 400 PARTY_NOT_REALTIME`() {
+        fun `참가자가 PaperOnly 파티 호출 시 400 PARTY_NOT_REALTIME`() {
             participantRepository.save(Participant(party = paperOnlyParty, user = owner, isCelebrant = true))
             val token = tokenProvider.issue(owner)
 
@@ -173,6 +222,19 @@ class ParticipantControllerTest
         }
 
         @Test
+        fun `비참가자가 PaperOnly 파티 호출 시 인가 우선으로 403 PARTY_FORBIDDEN`() {
+            val token = tokenProvider.issue(outsider)
+
+            mockMvc
+                .get("/api/v1/parties/${paperOnlyParty.id}/participants") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isForbidden() }
+                    jsonPath("$.error.code") { value("PARTY_FORBIDDEN") }
+                }
+        }
+
+        @Test
         fun `존재하지 않는 파티 호출 시 404 PARTY_NOT_FOUND`() {
             val token = tokenProvider.issue(owner)
 
@@ -180,17 +242,18 @@ class ParticipantControllerTest
                 .get("/api/v1/parties/99999/participants") {
                     header("Authorization", "Bearer $token")
                 }.andExpect {
-                    status { isNotFound() }
-                    jsonPath("$.error.code") { value("PARTY_NOT_FOUND") }
+                    status { isForbidden() }
+                    jsonPath("$.error.code") { value("PARTY_FORBIDDEN") }
                 }
         }
 
         @Test
-        fun `Authorization 헤더 없으면 401`() {
+        fun `Authorization과 X-Participant-Token 모두 없으면 401 UNAUTHORIZED`() {
             mockMvc
                 .get("/api/v1/parties/${realtimeParty.id}/participants")
                 .andExpect {
                     status { isUnauthorized() }
+                    jsonPath("$.error.code") { value("UNAUTHORIZED") }
                 }
         }
 

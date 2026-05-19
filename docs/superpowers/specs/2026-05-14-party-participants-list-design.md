@@ -30,8 +30,12 @@
 
 ```
 GET /api/v1/parties/{partyId}/participants
-Authorization: Bearer <jwt>      # 필수
+Authorization: Bearer <jwt>      # 로그인 사용자
+X-Participant-Token: <token>     # 비로그인 참가자
 ```
+
+- 로그인 사용자는 `Authorization: Bearer <jwt>` 헤더를, 비로그인 참가자는 `X-Participant-Token: <participantToken>` 헤더를 사용한다. 둘 중 하나는 반드시 포함해야 한다.
+- 두 헤더가 모두 있으면 `Authorization` 헤더 우선.
 
 ### Path Variable
 
@@ -83,11 +87,11 @@ Authorization: Bearer <jwt>      # 필수
 | participants[].participantId | Long | 식별자 |
 | participants[].joinOrder | Int | 1..N, 서버가 `participant.id ASC` 기준으로 부여 |
 | participants[].nickname | String | `RealtimeParticipantProfile.nickname` |
-| participants[].characterId | Long | `Character.id` |
+| participants[].characterId | Long? | `Character.id`. 익명 참가자는 character 없을 수 있음 → null |
 | participants[].characterImageUrl | String? | sortOrder=0 이미지 (`ImageRepository` 배치 조회) |
 | participants[].isOwner | Boolean | `participant.user?.id == party.ownerId` |
 | participants[].isCelebrant | Boolean | `participant.isCelebrant` |
-| participants[].isMe | Boolean | `participant.user?.id == 호출자 userId` |
+| participants[].isMe | Boolean | `participant.id == 호출자의 participantId` (JWT 호출자는 partyId+userId 조회, 토큰 호출자는 토큰으로 식별된 participant) |
 
 > `isOwner` / `isCelebrant` 는 현재 항상 동일하지만 향후 "남이 대신 만든 파티" 시나리오에 대비해 분리. 클라이언트 측 UI 룰(모자 표시 vs 주인공 표시)을 독립적으로 매핑할 수 있음.
 
@@ -95,10 +99,13 @@ Authorization: Bearer <jwt>      # 필수
 
 | 상황 | HTTP | code | message |
 |---|---|---|---|
-| 미인증 | 401 | AUTH_UNAUTHORIZED | 인증이 필요합니다 |
-| 존재하지 않는 partyId | 404 | PARTY_NOT_FOUND | 파티를 찾을 수 없습니다 |
-| PaperOnly 파티 | 400 | **PARTY_NOT_REALTIME** *(신규)* | 실시간 파티가 아닙니다 |
+| JWT/토큰 모두 없음 | 401 | UNAUTHORIZED | 로그인이 필요합니다 |
+| 잘못된 토큰 / 다른 파티의 토큰 | 403 | PARTY_FORBIDDEN | 파티에 대한 권한이 없습니다 |
 | 참가자 아닌 사용자 | 403 | PARTY_FORBIDDEN | 파티에 대한 권한이 없습니다 |
+| 존재하지 않는 partyId | 403 | PARTY_FORBIDDEN | 파티에 대한 권한이 없습니다 |
+| 참가자가 호출한 PaperOnly 파티 | 400 | **PARTY_NOT_REALTIME** *(신규)* | 실시간 파티가 아닙니다 |
+
+> 인가 → 파티 타입 검사 순서: 비참가자가 PaperOnly 파티 / 존재하지 않는 파티를 호출하면 파티 타입(400) / 존재 여부(404)가 아닌 인가 실패(403)로 응답한다. 비참가자에게 리소스 속성·존재 여부를 노출하지 않기 위함.
 
 ## 4. 레이어드 아키텍처 매핑
 
@@ -107,8 +114,8 @@ ParticipantController              (api)
         │ invoke
 GetPartyParticipantsUseCase        (application/usecase, @Transactional(readOnly = true))
         │
-        ├─ PartyService.requireRealtimeParty(partyId)        → RealtimeParty
-        ├─ ParticipantService.requireParticipant(partyId, userId)
+        ├─ ParticipantService.requireCallerParticipantId(partyId, userId?, participantToken?) → Long  (인가 먼저)
+        ├─ PartyService.requireRealtimeParty(partyId)        → RealtimeParty           (인가 후 파티 타입 검사)
         ├─ ParticipantService.findOrderedProfiles(partyId)   → List<RealtimeParticipantProfile>
         └─ ImageRepository.findAllByTargetTypeAndTargetIdsOrderByTargetIdAndSortOrder(CHARACTER, ids)
 ```
@@ -141,7 +148,8 @@ GetPartyParticipantsUseCase        (application/usecase, @Transactional(readOnly
 | `common/exception/ErrorCode.kt` | `PARTY_NOT_REALTIME(BAD_REQUEST, "실시간 파티가 아닙니다")` 추가 |
 | `party/domain/entity/RealtimeParty.kt` | `const val MAX_PARTICIPANTS = 14` 추가 |
 | `party/application/service/PartyService.kt` | `requireRealtimeParty(partyId): RealtimeParty` 추가 (status 무관) |
-| `party/application/service/ParticipantService.kt` | `requireParticipant(partyId, userId)` 추가 / `findOrderedProfiles(partyId): List<RealtimeParticipantProfile>` 추가 |
+| `party/application/service/ParticipantService.kt` | `requireCallerParticipantId(partyId, userId?, participantToken?): Long` 추가 / `findOrderedProfiles(partyId): List<RealtimeParticipantProfile>` 추가 |
+| `auth/config/SecurityConfig.kt` | `GET /api/v1/parties/*/participants` → `permitAll` (토큰 인증을 UseCase 내부에서 검증하므로 필터 우회) |
 | `party/infrastructure/persistence/RealtimeParticipantProfileRepository.kt` | `findAllByPartyIdOrderByParticipantIdAsc(partyId)` JPQL JOIN FETCH 쿼리 추가 |
 
 ### Repository 쿼리
@@ -184,15 +192,34 @@ fun requireRealtimeParty(partyId: Long): RealtimeParty {
 - 기존 `findActiveRealtimeParty` 와 다름: LIVE_OPEN 상태 강제하지 않음 (시작 전 화면용)
 - `findParty` private → 재사용
 
-**`ParticipantService.requireParticipant`**
+**`ParticipantService.requireCallerParticipantId`**
 
 ```kotlin
-fun requireParticipant(partyId: Long, userId: Long) {
-    if (!participantRepository.existsByPartyIdAndUserId(partyId, userId)) {
-        throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
+fun requireCallerParticipantId(
+    partyId: Long,
+    userId: Long?,
+    participantToken: String?,
+): Long {
+    if (userId != null) {
+        val participant = participantRepository.findByPartyIdAndUserId(partyId, userId)
+            ?: throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
+        return participant.id
     }
+    if (participantToken != null) {
+        val profile = realtimeParticipantProfileRepository.findByParticipantToken(participantToken)
+            ?: throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
+        if (profile.participant.party.id != partyId) {
+            throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
+        }
+        return profile.participant.id
+    }
+    throw BusinessException(ErrorCode.UNAUTHORIZED)
 }
 ```
+
+- JWT 호출자: `partyId + userId` 로 participant 조회 → 없으면 `403 PARTY_FORBIDDEN`
+- 토큰 호출자: 토큰으로 profile 조회 후 partyId 일치 검사 → 불일치/없음이면 `403 PARTY_FORBIDDEN`
+- 둘 다 없으면 `401 UNAUTHORIZED`
 
 **`ParticipantService.findOrderedProfiles`**
 
@@ -213,9 +240,14 @@ class GetPartyParticipantsUseCase(
     private val imageRepository: ImageRepository,
 ) {
     @Transactional(readOnly = true)
-    fun invoke(partyId: Long, userId: Long): PartyParticipantsResult {
+    fun invoke(
+        partyId: Long,
+        userId: Long?,
+        participantToken: String?,
+    ): PartyParticipantsResult {
+        // 인가 먼저 — 비참가자에게 파티 타입(400)을 노출하지 않기 위해
+        val callerParticipantId = participantService.requireCallerParticipantId(partyId, userId, participantToken)
         val party = partyService.requireRealtimeParty(partyId)
-        participantService.requireParticipant(partyId, userId)
 
         val profiles = participantService.findOrderedProfiles(partyId)
         val characterIds = profiles.mapNotNull { it.character?.id }.distinct()
@@ -236,7 +268,7 @@ class GetPartyParticipantsUseCase(
                 characterImageUrl = profile.character?.id?.let { imageUrlByCharacterId[it] },
                 isOwner = participant.user?.id == party.ownerId,
                 isCelebrant = participant.isCelebrant,
-                isMe = participant.user?.id == userId,
+                isMe = participant.id == callerParticipantId,
             )
         }
         return PartyParticipantsResult(
@@ -264,12 +296,15 @@ class GetPartyParticipantsUseCase(
 |---|---|
 | 주최자 호출 (참가자 4명) | 200, `isOwner=true` 1건, 응답 순서 `joinOrder` 1..4 |
 | 일반 참가자 호출 | 200, 본인 `isMe=true` 1건만 |
+| `X-Participant-Token` 호출 (비로그인 참가자) | 200, 토큰 owner의 `isMe=true` |
+| 다른 파티의 `X-Participant-Token` 호출 | 403, PARTY_FORBIDDEN |
 | 참가자 1명만 (주최자 단독) | 200, totalCount=1 |
 | 참가자 14명 (가득) | 200, totalCount=14, maxCount=14 |
-| 비참가자 호출 | 403, PARTY_FORBIDDEN |
-| PaperOnly 파티 | 400, PARTY_NOT_REALTIME |
-| 존재하지 않는 partyId | 404, PARTY_NOT_FOUND |
-| Authorization 헤더 없음 | 401, AUTH_UNAUTHORIZED |
+| 비참가자 호출 (JWT) | 403, PARTY_FORBIDDEN |
+| 비참가자가 PaperOnly 파티 호출 (JWT) | 403, PARTY_FORBIDDEN (인가 우선) |
+| 참가자가 PaperOnly 파티 호출 (JWT) | 400, PARTY_NOT_REALTIME |
+| 존재하지 않는 partyId | 403, PARTY_FORBIDDEN (존재 노출 방지) |
+| 헤더 둘 다 없음 | 401, UNAUTHORIZED |
 
 ### Repository 테스트 (`@DataJpaTest` + Testcontainers)
 

@@ -19,10 +19,11 @@ class GetPartyParticipantsUseCase(
     @Transactional(readOnly = true)
     fun invoke(
         partyId: Long,
-        userId: Long,
+        userId: Long?,
+        participantToken: String?,
     ): PartyParticipantsResult {
+        val callerParticipantId = participantService.requireCallerParticipantId(partyId, userId, participantToken)
         val party = partyService.requireRealtimeParty(partyId)
-        participantService.requireParticipant(partyId, userId)
 
         val profiles = participantService.findOrderedProfiles(partyId)
         val characterIds = profiles.mapNotNull { it.character?.id }.distinct()
@@ -47,7 +48,7 @@ class GetPartyParticipantsUseCase(
                     characterImageUrl = profile.character?.id?.let { imageUrlByCharacterId[it] },
                     isOwner = participant.user?.id == party.ownerId,
                     isCelebrant = participant.isCelebrant,
-                    isMe = participant.user?.id == userId,
+                    isMe = participant.id == callerParticipantId,
                 )
             }
         return PartyParticipantsResult(
