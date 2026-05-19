@@ -318,6 +318,7 @@ REALTIME_PARTY_ALREADY_ENDED(HttpStatus.CONFLICT, "이미 종료된 실시간 �
 16. 박터뜨리기 종료 시 `BurstGameEndedEvent` 발행/구독 연결
 17. 테스트 추가
 
-## 9. 확인 필요
+## 9. 참가자 next action 계산 기준
 
-- 비회원 참가자의 `rollingPaperWritten` 계산 기준: 현재 롤링페이퍼 작성은 `inviteToken`, 실시간 채팅은 `participantToken` 기반이다.
+- 비회원 참가자의 `rollingPaperWritten`은 `participantToken -> RealtimeParticipantProfile -> Participant.hasWrittenPaper`로 계산한다.
+- 참가자용 `inviteToken`은 해당 party의 만료되지 않은 초대 토큰을 `PartyInviteRepository.findByPartyIdAndExpiresAtAfter(partyId, now)`로 조회한다.
