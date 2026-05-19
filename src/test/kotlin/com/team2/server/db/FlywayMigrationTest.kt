@@ -69,7 +69,10 @@ class FlywayMigrationTest {
             statement.setString(1, table)
             statement.setString(2, column)
             statement.executeQuery().use { resultSet ->
-                resultSet.next()
+                if (!resultSet.next()) {
+                    throw NoSuchElementException("Column not found: $table.$column")
+                }
+
                 ColumnDefinition(
                     dataType = resultSet.getString("data_type"),
                     datetimePrecision = resultSet.getInt("datetime_precision"),
