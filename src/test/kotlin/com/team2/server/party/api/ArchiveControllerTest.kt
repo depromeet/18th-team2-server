@@ -97,6 +97,7 @@ class ArchiveControllerTest
                     status { isOk() }
                     jsonPath("$.data.items.length()") { value(1) }
                     jsonPath("$.data.items[0].id") { value(participant.id.toString()) }
+                    jsonPath("$.data.items[0].partyId") { value(party.id) }
                     jsonPath("$.data.items[0].type") { value("PARTY") }
                     jsonPath("$.data.items[0].title") { value("김루카 생일 파티") }
                     jsonPath("$.data.items[0].celebrantName") { value("김루카") }
