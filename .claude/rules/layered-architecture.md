@@ -4,10 +4,11 @@
 
 ```
 feature/
-├── api/              Controller, Request/Response DTO
+├── api/              Controller, Request DTO, (선택) Response DTO
 ├── application/
 │   ├── usecase/      흐름 제어, @Transactional 경계
-│   └── service/      Aggregate 단위 행위
+│   ├── service/      Aggregate 단위 행위
+│   └── dto/          UseCase 입출력 모델 (Command / Result)
 ├── domain/
 │   ├── entity/       행동 있는 JPA 엔티티
 │   ├── policy/       여러 엔티티 걸친 도메인 규칙
@@ -24,7 +25,7 @@ api → usecase → service → infrastructure
          └── domain ◀┘
 ```
 
-- Controller → UseCase만 허용
+- Controller → UseCase 호출만 허용 (UseCase 입출력용 `application/dto` 타입 참조는 허용)
 - UseCase → Service 조합, 다른 feature UseCase 허용
 - Service → 자기 Aggregate Repository/Domain만 허용
 - Service → Service 호출 금지 (어디든)
