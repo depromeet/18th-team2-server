@@ -66,7 +66,7 @@
 - [ ] `RealtimePartyStatus.LIVE_ENDING`을 추가한다.
 - [ ] `effectiveEndingStartedAt()`은 `liveEndingStartedAt ?: startedAt.plusMinutes(LIVE_DURATION_MINUTES)`로 계산한다.
 - [ ] `effectiveLiveEndedAt()`은 `effectiveEndingStartedAt().plusSeconds(LIVE_END_COUNTDOWN_SECONDS)`로 계산한다.
-- [ ] `status(now)`는 `LIVE_OPEN`, `LIVE_ENDING`, `LIVE_CLOSED`, `ROLLING_PAPER_CLOSED` 순서를 정확히 반영한다.
+- [ ] `status(now)`는 `ROLLING_PAPER_CLOSED`, `ROLLING_PAPER_OPEN`, `LIVE_OPEN`, `LIVE_ENDING`, `LIVE_CLOSED` 우선순서로 평가한다.
 - [ ] `hostViewableAt()`은 `liveEndingStartedAt ?: startedAt.plusMinutes(LIVE_DURATION_MINUTES)`로 변경한다.
 - [ ] `FlywayMigrationTest`로 V4 migration이 clean DB에 적용되는지 검증한다.
 
@@ -88,7 +88,7 @@ Run:
 - [ ] polling 대상 조회를 추가한다: `liveEndingStartedAt != null`인 realtime party 목록.
 - [ ] `PartyEndScheduler`가 repository를 직접 주입받지 않도록 polling용 UseCase를 제공한다.
 - [ ] 종료 가능 조회는 주최자 권한, `REALTIME` 타입, 4분 경과 또는 박터뜨리기 종료 여부를 검증한다.
-- [ ] 종료 가능 조회의 `canEnd`는 `liveEndingStartedAt == null && (now >= startedAt + 4분 || 박터뜨리기 종료)`일 때만 true다.
+- [ ] 종료 가능 조회의 `canEnd`는 `status(now) == LIVE_OPEN && liveEndingStartedAt == null && (now >= startedAt + 4분 || 박터뜨리기 종료)`일 때만 true다.
 - [ ] 박터뜨리기 완료 상태는 이벤트/상태 provider로 분리해 연결하고, 도메인이 없으면 false를 기본값으로 둔다.
 - [ ] 종료 요청은 `LIVE_CLOSED`를 먼저 거부하고 `REALTIME_PARTY_ALREADY_ENDED`를 반환한다.
 - [ ] 이미 `LIVE_ENDING`이면 수동 종료 가능 조건을 다시 검사하지 않고 기존 `endingStartedAt`, `endedAt`을 반환한다.

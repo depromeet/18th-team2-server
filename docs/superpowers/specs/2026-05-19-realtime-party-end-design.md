@@ -54,13 +54,15 @@ override fun hostViewableAt(): LocalDateTime =
 
 상태:
 
+아래 순서로 평가한다. `Party.isEnded(now)`가 우선되어야 `LIVE_CLOSED`가 롤링페이퍼 종료 상태를 가리지 않는다.
+
 | 상태 | 조건 |
 |---|---|
+| `ROLLING_PAPER_CLOSED` | `Party.isEnded(now)` |
 | `ROLLING_PAPER_OPEN` | `now < startedAt` |
 | `LIVE_OPEN` | `startedAt <= now < effectiveEndingStartedAt` |
 | `LIVE_ENDING` | `effectiveEndingStartedAt <= now < effectiveLiveEndedAt` |
 | `LIVE_CLOSED` | `effectiveLiveEndedAt <= now` |
-| `ROLLING_PAPER_CLOSED` | `Party.isEnded(now)` |
 
 ## 3. API
 
@@ -86,7 +88,7 @@ SSE 유실, 새로고침, 화면 재진입 시 주최자 화면 상태를 복구
 `canEnd` 계산:
 
 - `liveEndingStartedAt != null`이면 이미 종료 절차가 시작된 상태이므로 `canEnd = false`
-- 그 외에는 `now >= startedAt + 4분` 또는 박터뜨리기 종료 상태이면 `canEnd = true`
+- 그 외에는 `status(now) == RealtimePartyStatus.LIVE_OPEN`이고, `now >= startedAt + 4분` 또는 박터뜨리기 종료 상태이면 `canEnd = true`
 - 위 조건을 만족하지 않으면 `canEnd = false`
 
 ### 3-2. 주최자 종료 요청
@@ -239,7 +241,7 @@ AND started_at + 10분 <= now
 수동 종료 시작:
 
 ```text
-POST /parties/{partyId}/realtime-end
+POST /api/v1/parties/{partyId}/realtime-end
   -> 조건부 update로 live_ending_started_at = now 저장
 ```
 
