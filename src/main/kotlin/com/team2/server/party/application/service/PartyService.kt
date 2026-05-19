@@ -119,14 +119,22 @@ class PartyService(
         val party =
             partyRepository.findPartyById(partyId)
                 ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
-        val realtimeParty = requireRealtimeParty(party)
+        val realtimeParty = requireRealtimePartyForChat(party)
         if (realtimeParty.status() != RealtimePartyStatus.LIVE_OPEN) {
             throw BusinessException(ErrorCode.CHAT_NOT_ACTIVE)
         }
         return realtimeParty
     }
 
-    private fun requireRealtimeParty(party: Party): RealtimeParty {
+    fun requireRealtimeParty(partyId: Long): RealtimeParty {
+        val party = findParty(partyId)
+        if (party.partyOption != PartyOption.REALTIME) {
+            throw BusinessException(ErrorCode.PARTY_NOT_REALTIME)
+        }
+        return Hibernate.unproxy(party) as RealtimeParty
+    }
+
+    private fun requireRealtimePartyForChat(party: Party): RealtimeParty {
         if (party.partyOption != PartyOption.REALTIME) {
             throw BusinessException(ErrorCode.CHAT_NOT_SUPPORTED)
         }
