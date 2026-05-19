@@ -6,6 +6,10 @@
 
 **Architecture:** 파티 상태/권한/복구 API는 `party/application/usecase` 중심으로 구현하고, SSE 발송과 polling은 기존 `chat/infrastructure/sse` 흐름을 확장한다. 실시간 세션 종료는 `Party.endedAt()`과 분리해 `RealtimeParty.liveEndingStartedAt`으로 관리한다.
 
+**Architecture Test Guardrails:** `*Controller`는 `..api..`, `*UseCase`는 `..application.usecase..`, `*Repository`는 `..infrastructure.persistence..`에 둔다. `@Transactional`은 UseCase에만 둔다. `chat` 인프라가 `party.infrastructure.persistence`를 직접 의존하지 않도록, DB 조회/조건부 update는 `party.application.usecase` 경유로 노출한다.
+
+**Test Guardrails:** MockMvc 통합 테스트는 `@SpringBootTest + @AutoConfigureMockMvc + @Import(TestcontainersConfiguration::class)` 조합을 사용한다. 단순 통합 테스트는 `IntegrationTestSupport`, JPA slice는 `JpaSliceTestSupport`를 상속한다. 새 테스트에서 `@MockBean`, `@SpyBean`, `@TestPropertySource`, 임의 `@ActiveProfiles`를 추가해 Spring context fingerprint를 늘리지 않는다.
+
 **Spec Reference:** `docs/superpowers/specs/2026-05-19-realtime-party-end-design.md`
 
 ---
@@ -38,7 +42,7 @@
 | `src/main/kotlin/com/team2/server/party/api/PartyController.kt` | 주최자 종료 조회/요청, 상태/다음 행동 조회 |
 | `src/main/kotlin/com/team2/server/party/api/dto/*Realtime*` | 종료 상태/요청/다음 행동 응답 DTO |
 | `src/main/kotlin/com/team2/server/party/application/usecase/*Realtime*` | 종료 가능 조회, 종료 요청, 상태 복구, 다음 행동 조회 |
-| `src/main/kotlin/com/team2/server/chat/infrastructure/sse/PartyEndScheduler.kt` | DB polling 기반 종료 이벤트 발송 |
+| `src/main/kotlin/com/team2/server/chat/infrastructure/sse/PartyEndScheduler.kt` | usecase 경유 DB polling 기반 종료 이벤트 발송 |
 | `src/main/kotlin/com/team2/server/chat/infrastructure/sse/SseEmitterRegistry.kt` | 주최자 단독 알림, grace cleanup 지원 |
 | `src/main/kotlin/com/team2/server/chat/usecase/EnterAndSubscribeChatUseCase.kt` | 연결 직후 `party-state` 발송, `LIVE_ENDING` 재연결 허용 |
 | `src/main/kotlin/com/team2/server/auth/config/SecurityConfig.kt` | participant token 기반 복구 API 공개 경로 조정 |
@@ -53,7 +57,8 @@
 **Files:**
 - Modify: `src/main/kotlin/com/team2/server/party/domain/entity/RealtimeParty.kt`
 - Create: `src/main/resources/db/migration/V4__add_realtime_party_end_state.sql`
-- Test: domain/entity or service test for realtime status
+- Test: domain/entity test for realtime status
+- Test: `src/test/kotlin/com/team2/server/db/FlywayMigrationTest.kt`
 
 - [ ] `realtime_party.live_ending_started_at DATETIME NULL` 컬럼을 추가한다.
 - [ ] `RealtimeParty.HOST_END_AVAILABLE_AFTER_MINUTES = 4`를 추가한다.
@@ -63,11 +68,13 @@
 - [ ] `effectiveLiveEndedAt()`은 `effectiveEndingStartedAt().plusSeconds(LIVE_END_COUNTDOWN_SECONDS)`로 계산한다.
 - [ ] `status(now)`는 `LIVE_OPEN`, `LIVE_ENDING`, `LIVE_CLOSED`, `ROLLING_PAPER_CLOSED` 순서를 정확히 반영한다.
 - [ ] `hostViewableAt()`은 `liveEndingStartedAt ?: startedAt.plusMinutes(LIVE_DURATION_MINUTES)`로 변경한다.
+- [ ] `FlywayMigrationTest`로 V4 migration이 clean DB에 적용되는지 검증한다.
 
 Run:
 
 ```bash
 ./gradlew test --tests '*RealtimeParty*'
+./gradlew test --tests com.team2.server.db.FlywayMigrationTest
 ```
 
 ## Task 2: 종료 시작 조건부 update와 조회 기반 추가
@@ -79,6 +86,7 @@ Run:
 - [ ] 수동 종료용 조건부 update를 추가한다: `live_ending_started_at = now` only when null.
 - [ ] 자동 종료용 조건부 update를 추가한다: `live_ending_started_at = startedAt + 10분` only when null and `startedAt + 10분 <= now`.
 - [ ] polling 대상 조회를 추가한다: `liveEndingStartedAt != null`인 realtime party 목록.
+- [ ] `PartyEndScheduler`가 repository를 직접 주입받지 않도록 polling용 UseCase를 제공한다.
 - [ ] 종료 가능 조회는 주최자 권한, `REALTIME` 타입, 4분 경과 또는 박터뜨리기 종료 여부를 검증한다.
 - [ ] 종료 가능 조회의 `canEnd`는 `liveEndingStartedAt == null && (now >= startedAt + 4분 || 박터뜨리기 종료)`일 때만 true다.
 - [ ] 박터뜨리기 완료 상태는 이벤트/상태 provider로 분리해 연결하고, 도메인이 없으면 false를 기본값으로 둔다.
@@ -114,6 +122,7 @@ Run:
 - [ ] 참가자 `inviteToken`은 `PartyInviteRepository.findByPartyIdAndExpiresAtAfter(partyId, now)`로 조회한다.
 - [ ] 참가자 `rollingPaperWritten`은 resolved participant의 `hasWrittenPaper`로 응답한다.
 - [ ] `REALTIME_PARTY_END_NOT_AVAILABLE(400)`, `REALTIME_PARTY_ALREADY_ENDED(409)`를 추가한다.
+- [ ] 컨트롤러 테스트는 기존 MockMvc 통합 테스트 패턴을 따라 `@Import(TestcontainersConfiguration::class)`를 포함한다.
 
 Run:
 
@@ -155,6 +164,7 @@ Run:
 - [ ] 기존 `WARN_BEFORE_END_MINUTES`와 `startedAt + 9분` 알림 예약을 제거한다.
 - [ ] `scheduleIfNeeded(...)` 기반 per-party 예약을 제거하거나 no-op로 대체한다.
 - [ ] 1초 주기 polling으로 자동 종료 시작 조건을 처리한다.
+- [ ] polling은 `party.application.usecase`의 polling용 UseCase를 호출하고, `party.infrastructure.persistence`를 직접 참조하지 않는다.
 - [ ] 자동 종료 시작 시 `liveEndingStartedAt = startedAt + 10분`으로 저장한다.
 - [ ] `endingNotifiedPartyIds` 메모리 Set으로 `party-ending` 중복 발송을 막는다.
 - [ ] `endedNotifiedPartyIds` 메모리 Set으로 `party-ended` 중복 발송을 막는다.
@@ -229,6 +239,8 @@ Run:
 ## Verification
 
 ```bash
+./gradlew test --tests 'com.team2.server.architecture.*'
+./gradlew test --tests com.team2.server.db.FlywayMigrationTest
 ./gradlew test --tests '*RealtimeParty*'
 ./gradlew test --tests '*RealtimePartyEnd*'
 ./gradlew test --tests '*PartyEndScheduler*'
