@@ -21,6 +21,7 @@ enum class ErrorCode(
     AUTH_USER_NOT_FOUND(HttpStatus.UNAUTHORIZED, "사용자를 찾을 수 없습니다"),
 
     PARTY_ENDED(HttpStatus.BAD_REQUEST, "이미 종료된 파티입니다"),
+    PARTY_NOT_REALTIME(HttpStatus.BAD_REQUEST, "실시간 파티가 아닙니다"),
     PARTY_ALREADY_STARTED(HttpStatus.CONFLICT, "이미 시작된 파티는 삭제할 수 없습니다"),
     ALREADY_JOINED(HttpStatus.CONFLICT, "이미 참여한 파티입니다"),
     CHARACTER_NOT_FOUND(HttpStatus.NOT_FOUND, "캐릭터를 찾을 수 없습니다"),

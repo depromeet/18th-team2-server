@@ -62,6 +62,7 @@ class SecurityConfig(
                         "/api/v1/party-invites/*/realtime-participants/stream",
                     ).permitAll()
                 auth.requestMatchers(HttpMethod.POST, "/api/v1/parties/*/chat-messages").permitAll()
+                auth.requestMatchers(HttpMethod.GET, "/api/v1/parties/*/participants").permitAll()
                 auth.anyRequest().authenticated()
             }.oauth2Login { oauth ->
                 oauth.userInfoEndpoint { it.userService(customOAuth2UserService) }

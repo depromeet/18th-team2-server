@@ -33,6 +33,7 @@ class RealtimeParty(
     companion object {
         const val LIVE_DURATION_MINUTES: Long = 10
         const val ENTERABLE_BEFORE_MINUTES: Long = 5
+        const val MAX_PARTICIPANTS: Int = 14
     }
 }
 
