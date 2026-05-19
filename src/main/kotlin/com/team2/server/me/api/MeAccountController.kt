@@ -17,5 +17,8 @@ class MeAccountController(
     @GetMapping("/account")
     fun getAccount(
         @AuthenticationPrincipal principal: UserPrincipal,
-    ): ApiResponse<MeAccountResponse> = ApiResponse.success(getMeAccountUseCase.invoke(principal.userId))
+    ): ApiResponse<MeAccountResponse> {
+        val result = getMeAccountUseCase.invoke(principal.userId)
+        return ApiResponse.success(MeAccountResponse.from(result))
+    }
 }

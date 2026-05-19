@@ -86,20 +86,22 @@
 
 ## 5. 패키지 구조 (Layered)
 
-```
+```text
 src/main/kotlin/com/team2/server/me/
 ├── api/
 │   ├── MeAccountController.kt
 │   └── dto/
 │       └── MeAccountResponse.kt
 └── application/
+    ├── dto/
+    │   └── MeAccountResult.kt
     └── usecase/
         └── GetMeAccountUseCase.kt
 ```
 
 추가로 설정 클래스 1개:
 
-```
+```text
 src/main/kotlin/com/team2/server/me/config/
 └── SupportProperties.kt          # support.chat-url 바인딩
 ```
@@ -108,21 +110,25 @@ src/main/kotlin/com/team2/server/me/config/
 
 **MeAccountController** (`me/api/`)
 - `@AuthenticationPrincipal UserPrincipal` 받음
-- `GetMeAccountUseCase.invoke(userId)` 호출
-- `ApiResponse.success(MeAccountResponse)` 반환
+- `GetMeAccountUseCase.invoke(userId)` 호출 → `MeAccountResult` 수신
+- `MeAccountResponse.from(result)` 로 API 응답 DTO 매핑 후 `ApiResponse.success(...)` 반환
 
 **GetMeAccountUseCase** (`me/application/usecase/`)
 - `@Transactional(readOnly = true)`
 - 생성자 의존성: `UserRepository`, `SupportProperties`
 - 흐름:
   1. `userRepository.findById(userId)` → 없으면 `BusinessException(AUTH_USER_NOT_FOUND)`
-  2. `User`와 `supportProperties.chatUrl`을 합쳐 `MeAccountResponse` 빌드
-  3. 반환
+  2. `User`와 `supportProperties.chatUrl`을 합쳐 `MeAccountResult` 빌드
+  3. 반환 (API DTO 의존 금지 — application 레이어 DTO 만 노출)
 - 60줄 이내, public 메서드 1개 (`invoke`)
 
-**MeAccountResponse** (`me/api/dto/`)
-- `data class`
+**MeAccountResult** (`me/application/dto/`)
+- application 레이어 DTO. UseCase 반환 타입
 - `companion object`에 `from(user: User, supportChatUrl: String)` 정적 팩토리
+
+**MeAccountResponse** (`me/api/dto/`)
+- API 응답 DTO (`data class`)
+- `companion object`에 `from(result: MeAccountResult)` 정적 팩토리
 
 **SupportProperties** (`me/config/`)
 - `@ConfigurationProperties(prefix = "support")`
@@ -136,7 +142,8 @@ src/main/kotlin/com/team2/server/me/config/
 - ✅ `@Transactional`은 UseCase에만
 - ✅ UseCase가 `UserRepository`를 직접 read-only로 호출 (쓰기 없음 → 규칙 위반 아님)
 - ✅ Service 없음 (read-only 단순 조회, 도메인 행위 없음)
-- ✅ Response DTO 변환은 UseCase 책임
+- ✅ UseCase 는 application 레이어 DTO(`MeAccountResult`)만 반환 — API DTO 의존 없음
+- ✅ Response DTO 변환은 Controller 책임 (`MeAccountResponse.from(result)`)
 
 ## 6. 설정 (application.yml)
 
@@ -183,10 +190,11 @@ support:
 ## 11. 작업 순서 (구현 계획용 힌트)
 
 1. `SupportProperties` + `application.yml` 키 추가
-2. `MeAccountResponse` DTO 정의
-3. `GetMeAccountUseCase` 구현 + 단위 테스트
-4. `MeAccountController` 구현 + MockMvc 테스트
-5. 빌드 + 전체 테스트 통과 확인
+2. `MeAccountResult` (application/dto) 정의
+3. `MeAccountResponse` (api/dto) 정의 — `from(result)` 팩토리
+4. `GetMeAccountUseCase` 구현 + 단위 테스트
+5. `MeAccountController` 구현 + MockMvc 테스트
+6. 빌드 + 전체 테스트 통과 확인
 6. PR 생성 (base: `develop`)
 
 상세 구현 계획은 `writing-plans` 스킬로 별도 plan 문서 작성 예정.

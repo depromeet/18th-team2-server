@@ -1,7 +1,7 @@
 package com.team2.server.me.api.dto
 
+import com.team2.server.me.application.dto.MeAccountResult
 import com.team2.server.user.entity.AuthProvider
-import com.team2.server.user.entity.User
 import java.time.LocalDate
 
 data class MeAccountResponse(
@@ -11,15 +11,12 @@ data class MeAccountResponse(
     val supportChatUrl: String,
 ) {
     companion object {
-        fun from(
-            user: User,
-            supportChatUrl: String,
-        ): MeAccountResponse =
+        fun from(result: MeAccountResult): MeAccountResponse =
             MeAccountResponse(
-                nickname = user.name,
-                provider = user.provider,
-                connectedAt = user.createdAt.toLocalDate(),
-                supportChatUrl = supportChatUrl,
+                nickname = result.nickname,
+                provider = result.provider,
+                connectedAt = result.connectedAt,
+                supportChatUrl = result.supportChatUrl,
             )
     }
 }

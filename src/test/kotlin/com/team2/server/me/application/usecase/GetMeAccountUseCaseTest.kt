@@ -15,7 +15,7 @@ class GetMeAccountUseCaseTest {
     private val supportProperties = SupportProperties(chatUrl = "https://open.kakao.com/o/test")
 
     @Test
-    fun `사용자 정보와 1대1 문의 URL을 묶어 응답 DTO로 반환한다`() {
+    fun `사용자 정보와 1대1 문의 URL을 묶어 application Result 로 반환한다`() {
         val repository = FakeUserRepository()
         val user =
             repository.save(
@@ -30,12 +30,12 @@ class GetMeAccountUseCaseTest {
         user.createdAt = LocalDateTime.of(2026, 2, 23, 10, 0)
         val useCase = GetMeAccountUseCase(repository, supportProperties)
 
-        val response = useCase.invoke(user.id)
+        val result = useCase.invoke(user.id)
 
-        assertThat(response.nickname).isEqualTo("김이라")
-        assertThat(response.provider).isEqualTo(AuthProvider.KAKAO)
-        assertThat(response.connectedAt).isEqualTo(LocalDateTime.of(2026, 2, 23, 10, 0).toLocalDate())
-        assertThat(response.supportChatUrl).isEqualTo("https://open.kakao.com/o/test")
+        assertThat(result.nickname).isEqualTo("김이라")
+        assertThat(result.provider).isEqualTo(AuthProvider.KAKAO)
+        assertThat(result.connectedAt).isEqualTo(LocalDateTime.of(2026, 2, 23, 10, 0).toLocalDate())
+        assertThat(result.supportChatUrl).isEqualTo("https://open.kakao.com/o/test")
     }
 
     @Test
