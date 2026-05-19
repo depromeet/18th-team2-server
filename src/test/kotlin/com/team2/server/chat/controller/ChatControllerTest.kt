@@ -76,7 +76,7 @@ class ChatControllerTest
             val character = characterRepository.save(Character(name = "cat"))
             val (_, invite) = savePartyWithInvite(LocalDateTime.now().minusMinutes(5))
 
-            enterAndSubscribe(invite.token, """{"nickname": "홍길동", "characterId": ${character.id}}""")
+            enterAndSubscribe(invite.token, enterRequestBody("홍길동", character.id))
         }
 
         @Test
@@ -86,7 +86,7 @@ class ChatControllerTest
             mockMvc
                 .post("/api/v1/party-invites/nonexistent0001/realtime-participants/stream") {
                     contentType = MediaType.APPLICATION_JSON
-                    content = """{"nickname": "홍길동", "characterId": ${character.id}}"""
+                    content = enterRequestBody("홍길동", character.id)
                 }.andExpect {
                     status { isNotFound() }
                 }
@@ -116,7 +116,7 @@ class ChatControllerTest
             mockMvc
                 .post("/api/v1/party-invites/${invite.token}/realtime-participants/stream") {
                     contentType = MediaType.APPLICATION_JSON
-                    content = """{"nickname": "홍길동", "characterId": ${character.id}}"""
+                    content = enterRequestBody("홍길동", character.id)
                 }.andExpect {
                     status { isBadRequest() }
                 }
@@ -133,14 +133,14 @@ class ChatControllerTest
 
             enterAndSubscribe(
                 invite.token,
-                """{"nickname": "테스터", "characterId": ${character.id}}""",
+                enterRequestBody("테스터", character.id),
                 token,
             )
 
             mockMvc
                 .post("/api/v1/parties/${party.id}/chat-messages") {
                     contentType = MediaType.APPLICATION_JSON
-                    content = """{"content": "안녕하세요"}"""
+                    content = messageRequestBody("안녕하세요")
                     header("Authorization", "Bearer $token")
                 }.andExpect {
                     status { isCreated() }
@@ -155,14 +155,14 @@ class ChatControllerTest
             val (party, invite) = savePartyWithInvite(LocalDateTime.now().minusMinutes(5))
 
             val enterResult =
-                enterAndSubscribe(invite.token, """{"nickname": "손님", "characterId": ${character.id}}""")
+                enterAndSubscribe(invite.token, enterRequestBody("손님", character.id))
 
             val participantToken = parseSseEnteredToken(enterResult.response.contentAsString)
 
             mockMvc
                 .post("/api/v1/parties/${party.id}/chat-messages") {
                     contentType = MediaType.APPLICATION_JSON
-                    content = """{"content": "반갑습니다"}"""
+                    content = messageRequestBody("반갑습니다")
                     header("X-Participant-Token", participantToken)
                 }.andExpect {
                     status { isCreated() }
@@ -177,14 +177,14 @@ class ChatControllerTest
             val (party, invite) = savePartyWithInvite(LocalDateTime.now().plusMinutes(3))
 
             val enterResult =
-                enterAndSubscribe(invite.token, """{"nickname": "손님2", "characterId": ${character.id}}""")
+                enterAndSubscribe(invite.token, enterRequestBody("손님2", character.id))
 
             val participantToken = parseSseEnteredToken(enterResult.response.contentAsString)
 
             mockMvc
                 .post("/api/v1/parties/${party.id}/chat-messages") {
                     contentType = MediaType.APPLICATION_JSON
-                    content = """{"content": "안녕"}"""
+                    content = messageRequestBody("안녕")
                     header("X-Participant-Token", participantToken)
                 }.andExpect {
                     status { isBadRequest() }
@@ -198,7 +198,7 @@ class ChatControllerTest
             mockMvc
                 .post("/api/v1/parties/${party.id}/chat-messages") {
                     contentType = MediaType.APPLICATION_JSON
-                    content = """{"content": "안녕"}"""
+                    content = messageRequestBody("안녕")
                 }.andExpect {
                     status { isUnauthorized() }
                 }
@@ -210,7 +210,7 @@ class ChatControllerTest
             val (party, invite) = savePartyWithInvite(LocalDateTime.now().minusMinutes(5))
 
             val firstEnterResult =
-                enterAndSubscribe(invite.token, """{"nickname": "먼저온사람", "characterId": ${character.id}}""")
+                enterAndSubscribe(invite.token, enterRequestBody("먼저온사람", character.id))
 
             val firstToken = parseSseEnteredToken(firstEnterResult.response.contentAsString)
             val profile = profileRepository.findByParticipantToken(firstToken)!!
@@ -225,7 +225,7 @@ class ChatControllerTest
 
             val character2 = characterRepository.save(Character(name = "dog2"))
             val secondEnterResult =
-                enterAndSubscribe(invite.token, """{"nickname": "나중에온사람", "characterId": ${character2.id}}""")
+                enterAndSubscribe(invite.token, enterRequestBody("나중에온사람", character2.id))
 
             val body = secondEnterResult.response.getContentAsString(Charsets.UTF_8)
             val enteredJson = parseSseEventData(body, "entered")
@@ -252,6 +252,24 @@ class ChatControllerTest
                     request { asyncStarted() }
                     header { string("Content-Type", org.hamcrest.Matchers.containsString("text/event-stream")) }
                 }.andReturn()
+
+        private fun enterRequestBody(
+            nickname: String,
+            characterId: Long,
+        ): String =
+            """
+            {
+              "nickname": "$nickname",
+              "characterId": $characterId
+            }
+            """.trimIndent()
+
+        private fun messageRequestBody(content: String): String =
+            """
+            {
+              "content": "$content"
+            }
+            """.trimIndent()
 
         private fun parseSseEventData(
             sseBody: String,

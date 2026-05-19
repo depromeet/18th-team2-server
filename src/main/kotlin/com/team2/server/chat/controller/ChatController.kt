@@ -5,12 +5,14 @@ import com.team2.server.chat.dto.ChatMessageResponse
 import com.team2.server.chat.dto.EnterRealtimePartyRequest
 import com.team2.server.chat.dto.SendChatMessageRequest
 import com.team2.server.chat.usecase.EnterAndSubscribeChatUseCase
+import com.team2.server.chat.usecase.LeaveChatUseCase
 import com.team2.server.chat.usecase.SendChatMessageUseCase
 import com.team2.server.common.web.ApiResponse
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.security.core.annotation.AuthenticationPrincipal
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -23,6 +25,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 class ChatController(
     private val enterAndSubscribeChatUseCase: EnterAndSubscribeChatUseCase,
     private val sendChatMessageUseCase: SendChatMessageUseCase,
+    private val leaveChatUseCase: LeaveChatUseCase,
 ) : ChatApi {
     @PostMapping(
         "/api/v1/party-invites/{inviteToken}/realtime-participants/stream",
@@ -46,4 +49,14 @@ class ChatController(
             HttpStatus.CREATED,
             sendChatMessageUseCase.send(partyId, principal?.userId, participantToken, request),
         )
+
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @DeleteMapping("/api/v1/parties/{partyId}/realtime-participants")
+    override fun leaveParty(
+        @PathVariable partyId: Long,
+        @AuthenticationPrincipal principal: UserPrincipal?,
+        @RequestHeader(value = "X-Participant-Token", required = false) participantToken: String?,
+    ) {
+        leaveChatUseCase.leave(partyId, principal?.userId, participantToken)
+    }
 }
