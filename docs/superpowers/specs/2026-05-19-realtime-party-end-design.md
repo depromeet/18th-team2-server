@@ -83,6 +83,12 @@ SSE 유실, 새로고침, 화면 재진입 시 주최자 화면 상태를 복구
 }
 ```
 
+`canEnd` 계산:
+
+- `liveEndingStartedAt != null`이면 이미 종료 절차가 시작된 상태이므로 `canEnd = false`
+- 그 외에는 `now >= startedAt + 4분` 또는 박터뜨리기 종료 상태이면 `canEnd = true`
+- 위 조건을 만족하지 않으면 `canEnd = false`
+
 ### 3-2. 주최자 종료 요청
 
 ```http
@@ -98,13 +104,16 @@ Authorization: Bearer {accessToken}
 }
 ```
 
-검증:
+처리 순서:
 
 1. 파티 존재
 2. `partyOption == REALTIME`
 3. 요청자가 주최자
-4. `LIVE_CLOSED`가 아님
-5. 수동 종료 가능 조건 충족
+4. `LIVE_CLOSED`이면 `REALTIME_PARTY_ALREADY_ENDED`
+5. `LIVE_ENDING`이면 수동 종료 가능 조건을 다시 검사하지 않고 기존 `endingStartedAt`, `endedAt` 반환
+6. `LIVE_OPEN`이면 수동 종료 가능 조건 검사
+7. 수동 종료 가능 조건을 만족하지 않으면 `REALTIME_PARTY_END_NOT_AVAILABLE`
+8. 조건부 update 실행 후 affected row 기준으로 신규 시작 또는 기존 카운트다운 반환
 
 동시성:
 

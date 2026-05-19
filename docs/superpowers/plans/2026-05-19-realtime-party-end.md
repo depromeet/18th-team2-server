@@ -80,9 +80,11 @@ Run:
 - [ ] 자동 종료용 조건부 update를 추가한다: `live_ending_started_at = startedAt + 10분` only when null and `startedAt + 10분 <= now`.
 - [ ] polling 대상 조회를 추가한다: `liveEndingStartedAt != null`인 realtime party 목록.
 - [ ] 종료 가능 조회는 주최자 권한, `REALTIME` 타입, 4분 경과 또는 박터뜨리기 종료 여부를 검증한다.
+- [ ] 종료 가능 조회의 `canEnd`는 `liveEndingStartedAt == null && (now >= startedAt + 4분 || 박터뜨리기 종료)`일 때만 true다.
 - [ ] 박터뜨리기 완료 상태는 이벤트/상태 provider로 분리해 연결하고, 도메인이 없으면 false를 기본값으로 둔다.
-- [ ] 종료 요청은 주최자만 허용하고 `REALTIME_PARTY_END_NOT_AVAILABLE`, `REALTIME_PARTY_ALREADY_ENDED`를 구분한다.
-- [ ] 이미 `LIVE_ENDING`이면 기존 `endingStartedAt`, `endedAt`을 반환한다.
+- [ ] 종료 요청은 `LIVE_CLOSED`를 먼저 거부하고 `REALTIME_PARTY_ALREADY_ENDED`를 반환한다.
+- [ ] 이미 `LIVE_ENDING`이면 수동 종료 가능 조건을 다시 검사하지 않고 기존 `endingStartedAt`, `endedAt`을 반환한다.
+- [ ] `LIVE_OPEN`일 때만 수동 종료 가능 조건을 검사하고, 실패하면 `REALTIME_PARTY_END_NOT_AVAILABLE`을 반환한다.
 
 Run:
 
@@ -200,7 +202,9 @@ Run:
   - 소유자가 아니면 403
   - `PAPER_ONLY`이면 `CHAT_NOT_SUPPORTED`
   - 이미 `LIVE_ENDING`이면 기존 종료 시각 반환
+  - `LIVE_ENDING` 재요청은 4분/박터뜨리기 조건을 다시 검사하지 않음
   - 이미 `LIVE_CLOSED`이면 `REALTIME_PARTY_ALREADY_ENDED`
+  - `liveEndingStartedAt`이 있으면 `realtime-end` 조회의 `canEnd = false`
   - 동시 요청에서 하나만 update 성공
 
 - 복구/다음 행동 API
