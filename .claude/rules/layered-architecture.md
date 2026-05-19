@@ -36,7 +36,9 @@ api → usecase → service → infrastructure
 - `@Transactional`은 UseCase에만 선언
 - 60줄 이내, 생성자 의존성 5개 이내
 - Repository 쓰기(save/delete) 직접 호출 금지 → Service 위임
-- Response DTO 변환은 UseCase 책임
+- UseCase 는 `application/dto` 의 출력 모델을 반환 (도메인 객체 노출 금지)
+- `api/dto` 의 Response DTO 는 외부 노출 형태가 application 출력과 달라야 할 때만 분리 (versioning, 필드 가공, 다중 채널 직렬화 등)
+- 1:1 매핑이면 `application/dto` 하나만 두고 Controller 는 `ApiResponse` wrapper 만 씌운다
 
 ## Service 규칙
 
