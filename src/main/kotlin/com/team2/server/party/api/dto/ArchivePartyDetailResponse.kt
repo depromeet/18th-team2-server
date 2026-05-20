@@ -1,5 +1,6 @@
 package com.team2.server.party.api.dto
 
+import com.team2.server.party.application.dto.ArchiveRole
 import com.team2.server.party.domain.entity.PartyOption
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
@@ -37,9 +38,3 @@ data class ArchivePartyDetailResponse(
     @Schema(description = "본인 롤페 wrapper 이미지 URL. 미작성이면 null")
     val myPaperWrapperImageUrl: String?,
 )
-
-@Schema(description = "보관함 조회자 역할")
-enum class ArchiveRole {
-    HOST,
-    PARTICIPANT,
-}
