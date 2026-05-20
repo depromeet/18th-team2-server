@@ -1,4 +1,4 @@
-package com.team2.server.chat.service
+package com.team2.server.chat.infrastructure.sse
 
 import org.springframework.stereotype.Component
 import org.springframework.transaction.event.TransactionPhase
@@ -11,6 +11,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 @Component
 class SseEmitterRegistry {
     private val emitters = ConcurrentHashMap<Long, CopyOnWriteArrayList<SseEmitter>>()
+    private val tokenToEmitter = ConcurrentHashMap<String, SseEmitter>()
 
     private fun isCompleted(emitter: SseEmitter): Boolean =
         try {
@@ -25,22 +26,43 @@ class SseEmitterRegistry {
     fun subscribe(
         partyId: Long,
         emitter: SseEmitter,
+        participantToken: String,
     ) {
+        tokenToEmitter.put(participantToken, emitter)?.also { oldEmitter ->
+            emitters[partyId]?.remove(oldEmitter)
+            oldEmitter.complete()
+        }
         emitters.computeIfAbsent(partyId) { CopyOnWriteArrayList() }.add(emitter)
 
-        val remove = Runnable { remove(partyId, emitter) }
+        val remove =
+            Runnable {
+                remove(partyId, emitter)
+                tokenToEmitter.remove(participantToken, emitter)
+            }
         emitter.onCompletion(remove)
         emitter.onTimeout(remove)
         emitter.onError { remove.run() }
     }
 
+    fun unsubscribeByToken(participantToken: String) {
+        tokenToEmitter.remove(participantToken)?.complete()
+    }
+
     fun broadcast(
         partyId: Long,
         event: Set<ResponseBodyEmitter.DataWithMediaType>,
+        excludeToken: String? = null,
     ) {
         val list = emitters[partyId] ?: return
-        val dead = list.filter { emitter -> !trySend(emitter, event) }
+        val excludedEmitter = excludeToken?.let { tokenToEmitter[it] }
+        val dead =
+            list
+                .asSequence()
+                .filter { emitter -> emitter !== excludedEmitter }
+                .filter { emitter -> !trySend(emitter, event) }
+                .toList()
         list.removeAll(dead)
+        removeTokenMappings(dead)
     }
 
     private fun trySend(
@@ -56,6 +78,15 @@ class SseEmitterRegistry {
             false
         }
 
+    private fun removeTokenMappings(dead: List<SseEmitter>) {
+        dead.forEach { deadEmitter ->
+            tokenToEmitter
+                .filterValues { emitter -> emitter === deadEmitter }
+                .keys
+                .forEach { token -> tokenToEmitter.remove(token, deadEmitter) }
+        }
+    }
+
     fun count(partyId: Long): Int {
         val list = emitters[partyId] ?: return 0
         val dead = list.filter { isCompleted(it) }
@@ -64,8 +95,12 @@ class SseEmitterRegistry {
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    fun onBroadcast(event: ChatMessageBroadcastEvent) {
-        broadcast(event.partyId, event.event)
+    fun onBroadcast(event: SseBroadcastEvent) {
+        broadcast(event.partyId, event.event, event.excludeToken)
+    }
+
+    fun completeAll(partyId: Long) {
+        emitters.remove(partyId)?.forEach { it.complete() }
     }
 
     private fun remove(
