@@ -6,6 +6,7 @@ import com.team2.server.party.domain.entity.Character
 import com.team2.server.party.domain.entity.PaperOnlyParty
 import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
+import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProfileRepository
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -23,6 +24,9 @@ import kotlin.test.assertSame
 
 @ExtendWith(MockitoExtension::class)
 class RealtimeParticipantProfileServiceTest {
+    @Mock
+    lateinit var participantRepository: ParticipantRepository
+
     @Mock
     lateinit var profileRepository: RealtimeParticipantProfileRepository
 

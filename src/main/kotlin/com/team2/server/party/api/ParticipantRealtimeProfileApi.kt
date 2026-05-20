@@ -5,8 +5,8 @@ import com.team2.server.common.web.ApiResponse
 import com.team2.server.common.web.ErrorResponse
 import com.team2.server.common.web.swagger.AuthErrorResponses
 import com.team2.server.common.web.swagger.InternalServerErrorResponse
-import com.team2.server.party.api.dto.ParticipantRealtimeProfileResponse
 import com.team2.server.party.api.dto.UpsertParticipantRealtimeProfileRequest
+import com.team2.server.party.application.dto.ParticipantRealtimeProfileResult
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Content
@@ -65,7 +65,7 @@ interface ParticipantRealtimeProfileApi {
     fun getMyRealtimeProfile(
         @Parameter(hidden = true) principal: UserPrincipal,
         @Parameter(description = "초대 토큰", example = "exampletoken0000") inviteToken: String,
-    ): ApiResponse<ParticipantRealtimeProfileResponse>
+    ): ApiResponse<ParticipantRealtimeProfileResult>
 
     @Operation(
         summary = "실시간 파티 입장 프로필 작성·수정",
@@ -115,5 +115,5 @@ interface ParticipantRealtimeProfileApi {
         @Parameter(hidden = true) principal: UserPrincipal,
         @Parameter(description = "초대 토큰", example = "exampletoken0000") inviteToken: String,
         request: UpsertParticipantRealtimeProfileRequest,
-    ): ApiResponse<ParticipantRealtimeProfileResponse>
+    ): ApiResponse<ParticipantRealtimeProfileResult>
 }
