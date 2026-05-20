@@ -13,6 +13,19 @@ interface RealtimeParticipantProfileRepository : JpaRepository<RealtimeParticipa
     @EntityGraph(attributePaths = ["participant", "participant.party"])
     fun findByParticipantToken(participantToken: String): RealtimeParticipantProfile?
 
+    @Query(
+        """
+        SELECT profile
+        FROM RealtimeParticipantProfile profile
+        JOIN FETCH profile.participant participant
+        WHERE participant.party.id = :partyId
+        ORDER BY profile.id ASC
+        """,
+    )
+    fun findAllByPartyIdOrderByIdAsc(partyId: Long): List<RealtimeParticipantProfile>
+
+    fun findAllByParticipantIdIn(participantIds: Collection<Long>): List<RealtimeParticipantProfile>
+
     @Modifying
     fun deleteAllByParticipantIdIn(participantIds: List<Long>)
 

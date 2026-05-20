@@ -11,6 +11,8 @@ import java.time.ZoneOffset
 data class ArchiveListItemResponse(
     @Schema(description = "항목 ID (participant.id)", example = "1024")
     val id: String,
+    @Schema(description = "파티 ID (상세 조회 API 호출용)", example = "42")
+    val partyId: Long,
     @Schema(description = "항목 타입", allowableValues = ["PARTY", "PAPER"], example = "PARTY")
     val type: ArchiveItemType,
     @Schema(description = "파티 이름. 없으면 빈 문자열", example = "김루카 생일 파티")
@@ -27,6 +29,7 @@ data class ArchiveListItemResponse(
             val party = participant.party
             return ArchiveListItemResponse(
                 id = participant.id.toString(),
+                partyId = party.id,
                 type = ArchiveItemType.from(party.partyOption),
                 title = party.name ?: "",
                 celebrantName = party.celebrantNickname,
