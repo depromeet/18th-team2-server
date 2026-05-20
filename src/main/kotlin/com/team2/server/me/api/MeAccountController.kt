@@ -2,7 +2,7 @@ package com.team2.server.me.api
 
 import com.team2.server.auth.principal.UserPrincipal
 import com.team2.server.common.web.ApiResponse
-import com.team2.server.me.api.dto.MeAccountResponse
+import com.team2.server.me.application.dto.MeAccountResult
 import com.team2.server.me.application.usecase.GetMeAccountUseCase
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.GetMapping
@@ -17,8 +17,5 @@ class MeAccountController(
     @GetMapping("/account")
     fun getAccount(
         @AuthenticationPrincipal principal: UserPrincipal,
-    ): ApiResponse<MeAccountResponse> {
-        val result = getMeAccountUseCase.invoke(principal.userId)
-        return ApiResponse.success(MeAccountResponse.from(result))
-    }
+    ): ApiResponse<MeAccountResult> = ApiResponse.success(getMeAccountUseCase.invoke(principal.userId))
 }

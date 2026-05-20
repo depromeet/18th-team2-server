@@ -89,15 +89,18 @@
 ```text
 src/main/kotlin/com/team2/server/me/
 ├── api/
-│   ├── MeAccountController.kt
-│   └── dto/
-│       └── MeAccountResponse.kt
+│   └── MeAccountController.kt
 └── application/
     ├── dto/
     │   └── MeAccountResult.kt
     └── usecase/
         └── GetMeAccountUseCase.kt
 ```
+
+> `MeAccountResult` 와 외부 응답 형태가 1:1 매핑(필드 동일, 직렬화 가공 없음)이므로
+> 별도 `api/dto/MeAccountResponse` 를 두지 않고 Controller 가 `MeAccountResult` 를
+> 그대로 `ApiResponse` 로 감싼다. (레이어드 룰: "1:1 매핑이면 application/dto 하나만 두고
+> Controller 는 ApiResponse wrapper 만 씌운다")
 
 추가로 설정 클래스 1개:
 
@@ -111,7 +114,7 @@ src/main/kotlin/com/team2/server/me/config/
 **MeAccountController** (`me/api/`)
 - `@AuthenticationPrincipal UserPrincipal` 받음
 - `GetMeAccountUseCase.invoke(userId)` 호출 → `MeAccountResult` 수신
-- `MeAccountResponse.from(result)` 로 API 응답 DTO 매핑 후 `ApiResponse.success(...)` 반환
+- `ApiResponse.success(result)` 로 그대로 wrap (1:1 매핑이라 별도 Response DTO 없음)
 
 **GetMeAccountUseCase** (`me/application/usecase/`)
 - `@Transactional(readOnly = true)`
@@ -126,10 +129,6 @@ src/main/kotlin/com/team2/server/me/config/
 - application 레이어 DTO. UseCase 반환 타입
 - `companion object`에 `from(user: User, supportChatUrl: String)` 정적 팩토리
 
-**MeAccountResponse** (`me/api/dto/`)
-- API 응답 DTO (`data class`)
-- `companion object`에 `from(result: MeAccountResult)` 정적 팩토리
-
 **SupportProperties** (`me/config/`)
 - `@ConfigurationProperties(prefix = "support")`
 - 필드: `chatUrl: String`
@@ -143,7 +142,7 @@ src/main/kotlin/com/team2/server/me/config/
 - ✅ UseCase가 `UserRepository`를 직접 read-only로 호출 (쓰기 없음 → 규칙 위반 아님)
 - ✅ Service 없음 (read-only 단순 조회, 도메인 행위 없음)
 - ✅ UseCase 는 application 레이어 DTO(`MeAccountResult`)만 반환 — API DTO 의존 없음
-- ✅ Response DTO 변환은 Controller 책임 (`MeAccountResponse.from(result)`)
+- ✅ Controller 는 `MeAccountResult` 를 `ApiResponse` 로만 wrap (1:1 매핑이라 별도 Response DTO 미사용)
 
 ## 6. 설정 (application.yml)
 
@@ -190,11 +189,10 @@ support:
 ## 11. 작업 순서 (구현 계획용 힌트)
 
 1. `SupportProperties` + `application.yml` 키 추가
-2. `MeAccountResult` (application/dto) 정의
-3. `MeAccountResponse` (api/dto) 정의 — `from(result)` 팩토리
-4. `GetMeAccountUseCase` 구현 + 단위 테스트
-5. `MeAccountController` 구현 + MockMvc 테스트
-6. 빌드 + 전체 테스트 통과 확인
+2. `MeAccountResult` (application/dto) 정의 — `from(user, supportChatUrl)` 팩토리
+3. `GetMeAccountUseCase` 구현 + 단위 테스트
+4. `MeAccountController` 구현 (`ApiResponse<MeAccountResult>` 직접 반환) + MockMvc 테스트
+5. 빌드 + 전체 테스트 통과 확인
 6. PR 생성 (base: `develop`)
 
 상세 구현 계획은 `writing-plans` 스킬로 별도 plan 문서 작성 예정.
