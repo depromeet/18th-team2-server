@@ -1,7 +1,9 @@
 package com.team2.server.burstgame.infrastructure.realtime
 
 import com.team2.server.burstgame.application.service.BurstGameEventBroadcaster
+import com.team2.server.burstgame.domain.BurstGameRankingEntry
 import com.team2.server.burstgame.domain.BurstGameSnapshot
+import com.team2.server.burstgame.domain.BurstGameWinner
 import com.team2.server.chat.infrastructure.sse.ChatSseGateway
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
@@ -201,7 +203,7 @@ class SseBurstGameEventBroadcaster(
         val tapCount: Int,
     ) {
         companion object {
-            fun from(entry: com.team2.server.burstgame.domain.BurstGameRankingEntry): RankingPayload =
+            fun from(entry: BurstGameRankingEntry): RankingPayload =
                 RankingPayload(
                     rank = entry.rank,
                     participantId = entry.participantId,
@@ -223,7 +225,7 @@ class SseBurstGameEventBroadcaster(
         val tapCount: Int,
     ) {
         companion object {
-            fun from(winner: com.team2.server.burstgame.domain.BurstGameWinner): WinnerPayload =
+            fun from(winner: BurstGameWinner): WinnerPayload =
                 WinnerPayload(
                     participantId = winner.participantId,
                     nickname = winner.nickname,

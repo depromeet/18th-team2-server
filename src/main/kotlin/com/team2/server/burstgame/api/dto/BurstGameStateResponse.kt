@@ -1,5 +1,6 @@
 package com.team2.server.burstgame.api.dto
 
+import com.team2.server.burstgame.domain.BurstGameRoundStatus
 import com.team2.server.burstgame.domain.BurstGameSnapshot
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
@@ -50,7 +51,6 @@ data class BurstGameStateResponse(
                 winners = snapshot.winners.map { BurstGameWinnerResponse.from(it) },
             )
 
-        private fun com.team2.server.burstgame.domain.BurstGameRoundStatus.isEnded(): Boolean =
-            this == com.team2.server.burstgame.domain.BurstGameRoundStatus.ENDED
+        private fun BurstGameRoundStatus.isEnded(): Boolean = this == BurstGameRoundStatus.ENDED
     }
 }
