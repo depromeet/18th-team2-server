@@ -35,14 +35,14 @@
 `POST /api/v1/parties/{partyId}/burst-game/start`
 
 - 인증: Bearer token 또는 `X-Participant-Token`
-- 성공: active session snapshot 반환
-- 이미 active session이 있으면 촛불끄기 상태를 재검증하지 않고 기존 active snapshot 반환
+- 성공: active session 상태 반환
+- 이미 active session이 있으면 촛불끄기 상태를 재검증하지 않고 기존 active 상태 반환
 - TTL 안의 ended session이 있으면 `BURST_GAME_ALREADY_ENDED`
 - 새 session 생성 시에만 `CandleBlowStatusReader`(가칭)로 촛불끄기 완료 상태 확인
 
 ### Submit Taps
 
-`POST /api/v1/burst-game/rounds/{roundId}/taps`
+`POST /api/v1/parties/{partyId}/burst-game/taps`
 
 Request:
 
@@ -58,18 +58,18 @@ Request:
 - 중복 sequence는 `200 OK`, `accepted = false`, `ignoredReason = "DUPLICATE_SEQUENCE"`
 - `clientSequence > maxAcceptedSequence + MAX_SEQUENCE_GAP`이면 `INVALID_INPUT`
 - `now >= endsAt`이거나 TTL 안의 ended session에 submit하면 batch는 반영하지 않고 `200 OK`, `accepted = false`, `ignoredReason = "ROUND_ENDED"`
-- TTL 만료 또는 존재하지 않는 `roundId`면 `BURST_GAME_NOT_FOUND`
+- TTL 만료 또는 해당 파티에 session이 없으면 `BURST_GAME_NOT_FOUND`
 
-### Snapshot
+### State / Result Lookup
 
 `GET /api/v1/parties/{partyId}/burst-game`
 
 - SSE 재연결, start 이벤트 유실, 종료 직후 결과 조회에 사용한다.
 - party 기준 API 하나만 제공한다.
-- active session이면 현재 aggregate snapshot 반환
-- ended session이면 TTL 안의 최종 snapshot 반환
-- `rankings`는 상위 3개 rank group의 모든 entry
-- `winners`는 ended snapshot에서만 최종 공동 1등 전체를 포함한다.
+- active session이면 현재 aggregate 상태 반환
+- ended session이면 TTL 안의 최종 결과 반환
+- active 상태에서는 `ended = false`, 상위 3개 rank group의 모든 `rankings`, `winners = []`를 반환한다.
+- ended 결과에서는 `ended = true`, `rankings = []`, 최종 공동 1등 전체 `winners`를 반환한다.
 
 ---
 
@@ -80,14 +80,14 @@ Request:
 | 경로 | 책임 |
 |---|---|
 | `src/main/kotlin/com/team2/server/burstgame/api/BurstGameApi.kt` | 박터뜨리기 Swagger 계약 |
-| `src/main/kotlin/com/team2/server/burstgame/api/BurstGameController.kt` | start/submit/snapshot HTTP API |
+| `src/main/kotlin/com/team2/server/burstgame/api/BurstGameController.kt` | start/submit/state-result HTTP API |
 | `src/main/kotlin/com/team2/server/burstgame/api/dto/StartBurstGameResponse.kt` | start 응답 |
 | `src/main/kotlin/com/team2/server/burstgame/api/dto/SubmitBurstGameTapRequest.kt` | tap batch 요청 |
 | `src/main/kotlin/com/team2/server/burstgame/api/dto/SubmitBurstGameTapResponse.kt` | tap batch 응답 |
-| `src/main/kotlin/com/team2/server/burstgame/api/dto/BurstGameSnapshotResponse.kt` | snapshot 응답 |
+| `src/main/kotlin/com/team2/server/burstgame/api/dto/BurstGameStateResponse.kt` | 상태/결과 조회 응답 |
 | `src/main/kotlin/com/team2/server/burstgame/application/usecase/StartBurstGameUseCase.kt` | 라운드 시작 |
 | `src/main/kotlin/com/team2/server/burstgame/application/usecase/SubmitBurstGameTapUseCase.kt` | tap batch 반영 |
-| `src/main/kotlin/com/team2/server/burstgame/application/usecase/GetBurstGameSnapshotUseCase.kt` | snapshot 조회 |
+| `src/main/kotlin/com/team2/server/burstgame/application/usecase/GetBurstGameSnapshotUseCase.kt` | 상태/결과 조회 |
 | `src/main/kotlin/com/team2/server/burstgame/application/service/BurstGameSessionService.kt` | session 생성/조회/종료 orchestration |
 | `src/main/kotlin/com/team2/server/burstgame/application/service/BurstGameParticipantReader.kt` | 실시간 파티 참여자 식별 인터페이스 |
 | `src/main/kotlin/com/team2/server/burstgame/application/service/CandleBlowStatusReader.kt` | 촛불끄기 완료 상태 조회 인터페이스 |
@@ -106,7 +106,7 @@ Request:
 | `src/test/kotlin/com/team2/server/burstgame/domain/BurstGameSessionTest.kt` | session 도메인 모델 테스트 |
 | `src/test/kotlin/com/team2/server/burstgame/application/usecase/StartBurstGameUseCaseTest.kt` | start UseCase 테스트 |
 | `src/test/kotlin/com/team2/server/burstgame/application/usecase/SubmitBurstGameTapUseCaseTest.kt` | submit UseCase 테스트 |
-| `src/test/kotlin/com/team2/server/burstgame/application/usecase/GetBurstGameSnapshotUseCaseTest.kt` | snapshot UseCase 테스트 |
+| `src/test/kotlin/com/team2/server/burstgame/application/usecase/GetBurstGameSnapshotUseCaseTest.kt` | 상태/결과 조회 UseCase 테스트 |
 | `src/test/kotlin/com/team2/server/burstgame/domain/policy/BurstGameRankingPolicyTest.kt` | ranking/winners 테스트 |
 | `src/test/kotlin/com/team2/server/burstgame/infrastructure/memory/InMemoryBurstGameSessionStoreTest.kt` | 동시성/TTL 테스트 |
 | `src/test/kotlin/com/team2/server/burstgame/infrastructure/scheduler/ScheduledBurstGameEndSchedulerTest.kt` | 종료 scheduler 테스트 |
@@ -142,7 +142,7 @@ Request:
 - [ ] `ENDED_SESSION_TTL = 5 minutes`를 정의한다.
 - [ ] 참가자별 rate limit 기본값을 token bucket refill 초당 20회, burst capacity 30회, 참가자별 라운드 누적 400회로 정의한다.
 - [ ] `MAX_SEQUENCE_GAP = 1000`을 정의한다.
-- [ ] `BurstGameSession`에 `roundId`, `partyId`, `startedAt`, `endsAt`, `status`, `stateVersion`, 참가자별 score map을 둔다.
+- [ ] `BurstGameSession`에 `partyId`, `startedAt`, `endsAt`, `status`, `stateVersion`, 참가자별 score map을 둔다.
 - [ ] 외부 응답에는 `endedAt`을 포함하지 않는 것을 DTO 설계 기준으로 둔다.
 
 Run:
@@ -182,11 +182,9 @@ Run:
 - Test: `src/test/kotlin/com/team2/server/burstgame/infrastructure/memory/InMemoryBurstGameSessionStoreTest.kt`
 
 - [ ] `partyId` 기준 active/ended session 조회를 지원한다.
-- [ ] `roundId` 기준 session 조회를 지원한다.
 - [ ] start는 `partyId` 단위 직렬화 구간에서 active 중복 생성을 막는다.
-- [ ] start는 session 생성과 `roundId` 등록을 같은 직렬화 구간에서 끝낸다.
-- [ ] submit/snapshot/end는 `roundId` 단위 직렬화 구간에서 session mutation을 처리한다.
-- [ ] 두 직렬화 구간을 함께 잡는 경우 lock 순서는 `partyId -> roundId`로 고정한다.
+- [ ] start는 session 생성을 같은 직렬화 구간에서 끝낸다.
+- [ ] submit/상태 조회/end는 `partyId` 단위 직렬화 구간에서 session mutation을 처리한다.
 - [ ] accepted batch 반영, ranking 재계산, `stateVersion` 증가, immutable broadcast snapshot 생성을 같은 원자 구간에서 처리한다.
 - [ ] ranking 재계산은 다른 Service 호출이 아니라 `BurstGameRankingPolicy` 도메인 정책 호출로 처리한다.
 - [ ] 중복 batch는 count와 `stateVersion`을 증가시키지 않는다.
@@ -242,10 +240,9 @@ Run:
 
 - [ ] `POST /api/v1/parties/{partyId}/burst-game/start`를 추가한다.
 - [ ] request body 없이 처리한다.
-- [ ] active session이 있으면 기존 active snapshot을 반환한다.
+- [ ] active session이 있으면 기존 active 상태를 반환한다.
 - [ ] TTL 안의 ended session이 있으면 `BURST_GAME_ALREADY_ENDED`.
 - [ ] active/ended session이 없을 때만 촛불 완료 상태를 검증한다.
-- [ ] 새 `roundId`는 UUID 문자열로 발급한다.
 - [ ] `startedAt`, `endsAt`, `stateVersion = 0`, `colorChanged = false`로 session을 생성한다.
 - [ ] `BurstGameEndScheduler` 인터페이스로 종료 scheduler를 등록한다.
 - [ ] `BurstGameEventBroadcaster` 인터페이스로 기존 파티 SSE 구독자에게 `burst-game-started`를 브로드캐스트한다.
@@ -267,12 +264,12 @@ Run:
 
 - [ ] start 시 `BurstGameEndScheduler` 인터페이스를 통해 `endsAt` 기준 종료 작업을 등록한다.
 - [ ] `ScheduledExecutorService` 기반 구현체로 종료 작업을 예약한다.
-- [ ] submit/snapshot은 `now >= endsAt`이면 lazy 종료를 시도한다.
+- [ ] submit/상태 조회는 `now >= endsAt`이면 lazy 종료를 시도한다.
 - [ ] scheduler와 lazy 종료 중 먼저 lock을 획득한 경로만 `ACTIVE -> ENDED`를 commit한다.
-- [ ] 종료 commit 시 최종 total/ranking/winners와 최종 `stateVersion`을 확정한다.
+- [ ] 종료 commit 시 최종 total/winners와 최종 `stateVersion`을 확정한다.
 - [ ] ended session은 TTL 동안 유지한다.
 - [ ] TTL 만료는 Caffeine `expireAfterWrite(5, MINUTES)` 또는 동등한 lazy 만료 메커니즘으로 처리한다.
-- [ ] TTL 만료 후 roundId/partyId 조회에서 제거한다.
+- [ ] TTL 만료 후 partyId 조회에서 제거한다.
 
 Run:
 
@@ -290,7 +287,7 @@ Run:
 - Test: `src/test/kotlin/com/team2/server/burstgame/application/usecase/SubmitBurstGameTapUseCaseTest.kt`
 - Test: `src/test/kotlin/com/team2/server/burstgame/api/BurstGameControllerTest.kt`
 
-- [ ] `POST /api/v1/burst-game/rounds/{roundId}/taps`를 추가한다.
+- [ ] `POST /api/v1/parties/{partyId}/burst-game/taps`를 추가한다.
 - [ ] `tapCount`는 1~30으로 검증한다.
 - [ ] `clientSequence`는 1 이상으로 검증한다.
 - [ ] 참가자별 처리 완료 `clientSequence` 집합을 기준으로 이미 처리한 sequence만 중복으로 본다.
@@ -311,11 +308,11 @@ Run:
 ./gradlew test --tests com.team2.server.burstgame.api.BurstGameControllerTest
 ```
 
-## Task 8: snapshot UseCase와 조회 API 추가
+## Task 8: 상태/결과 조회 UseCase와 API 추가
 
 **Files:**
 - Create: `src/main/kotlin/com/team2/server/burstgame/application/usecase/GetBurstGameSnapshotUseCase.kt`
-- Create: `src/main/kotlin/com/team2/server/burstgame/api/dto/BurstGameSnapshotResponse.kt`
+- Create: `src/main/kotlin/com/team2/server/burstgame/api/dto/BurstGameStateResponse.kt`
 - Test: `src/test/kotlin/com/team2/server/burstgame/application/usecase/GetBurstGameSnapshotUseCaseTest.kt`
 - Test: `src/test/kotlin/com/team2/server/burstgame/api/BurstGameControllerTest.kt`
 
@@ -323,9 +320,9 @@ Run:
 - [ ] `BurstGameParticipantReader`를 재사용해 호출자를 식별하고 `myTapCount`를 채운다.
 - [ ] party 기준으로 active 또는 TTL 안의 ended session을 조회한다.
 - [ ] session이 없으면 `BURST_GAME_NOT_FOUND`.
-- [ ] active session이고 `now >= endsAt`이면 lazy 종료를 수행한 뒤 ended snapshot을 반환한다.
-- [ ] active snapshot에는 현재 total/ranking/myTapCount를 포함한다.
-- [ ] ended snapshot에는 최종 total/ranking/winners/myTapCount를 포함한다.
+- [ ] active session이고 `now >= endsAt`이면 lazy 종료를 수행한 뒤 ended 결과를 반환한다.
+- [ ] active 상태에는 `ended = false`, 현재 total/ranking/myTapCount, `winners = []`를 포함한다.
+- [ ] ended 결과에는 `ended = true`, 최종 total/winners/myTapCount, `rankings = []`를 포함한다.
 - [ ] 응답에는 `endedAt`을 포함하지 않는다.
 
 Run:
@@ -375,7 +372,7 @@ Run:
 - [ ] `BURST_GAME_NOT_FOUND`, `BURST_GAME_ALREADY_ENDED`, `BURST_GAME_NOT_READY`, `BURST_GAME_RATE_LIMITED`를 추가한다.
 - [ ] start API의 200/400/401/404/409/500 예시를 문서화한다.
 - [ ] submit API의 200/400/401/404/429/500 예시를 문서화한다.
-- [ ] snapshot API의 200/401/404/500 예시를 문서화한다.
+- [ ] 상태/결과 조회 API의 200/401/404/500 예시를 문서화한다.
 - [ ] `X-Participant-Token` 헤더 사용 가능성을 API 문서에 명시한다.
 
 Run:
@@ -393,14 +390,13 @@ Run:
 - start: 실시간 파티가 아니면 `CHAT_NOT_SUPPORTED`
 - start: 프로필 없는 호출자는 `UNAUTHORIZED`
 - start: 촛불끄기가 완료되지 않았으면 `BURST_GAME_NOT_READY`
-- start: active round가 있으면 기존 round 반환
+- start: active round가 있으면 기존 party 상태 반환
 - start: ended round가 있으면 `BURST_GAME_ALREADY_ENDED`
 - start: 실시간 파티 참여자는 누구나 호출 가능
 - start: 동시에 여러 명이 호출해도 partyId 단위 직렬화로 active session은 1개만 생성됨
-- start: active round가 이미 있으면 촛불끄기 완료 상태를 재검증하지 않고 기존 active snapshot 반환
-- start: `roundId`는 UUID 형식
+- start: active round가 이미 있으면 촛불끄기 완료 상태를 재검증하지 않고 기존 active 상태 반환
 - submit: TTL 안의 ended session이면 `200 OK`, `accepted = false`, `ignoredReason = "ROUND_ENDED"`
-- submit: TTL 만료 또는 존재하지 않는 roundId면 `BURST_GAME_NOT_FOUND`
+- submit: TTL 만료 또는 해당 파티에 session이 없으면 `BURST_GAME_NOT_FOUND`
 - submit: 요청 `tapCount`가 0 또는 31이면 `INVALID_INPUT`
 - submit: 같은 `clientSequence` 재요청은 `200 OK`, `accepted = false`, count 증가 없음
 - submit: `MAX_SEQUENCE_GAP` 이하의 sequence gap은 허용하고 늦게 도착한 미처리 sequence도 반영
@@ -414,10 +410,12 @@ Run:
 - submit: 동시 요청에서도 total/ranking/stateVersion이 같은 session snapshot 기준으로 생성됨
 - submit: `now >= endsAt`이면 lazy 종료가 먼저 수행되고 tap batch는 반영되지 않음
 - submit: lazy 종료 응답은 `accepted = false`, `ignoredReason = "ROUND_ENDED"`를 반환하고 `winners`는 포함하지 않음
-- snapshot: active 라운드 현재 상태 조회 가능
-- snapshot: ended 라운드가 TTL 안에 있으면 최종 결과 조회 가능
-- snapshot: active session이지만 `now >= endsAt`이면 lazy 종료 후 ended snapshot 반환
-- snapshot: 외부 응답에 `endedAt`이 포함되지 않음
+- state/result: active 라운드 현재 상태 조회 가능
+- state/result: ended 라운드가 TTL 안에 있으면 최종 결과 조회 가능
+- state/result: active session이지만 `now >= endsAt`이면 lazy 종료 후 ended 결과 반환
+- state/result: 외부 응답에 `endedAt`이 포함되지 않음
+- state/result: active 상태는 `ended = false`, ended 결과는 `ended = true`로 구분
+- state/result: ended 결과에서는 `rankings = []`, `winners`에 공동 1등만 포함
 - end: 최종 결과가 ended session에 TTL 동안 유지됨
 - end: scheduler와 lazy 종료가 동시에 실행돼도 종료 처리는 한 번만 commit됨
 - SSE: progress 이벤트에 `stateVersion`, `serverTime` 포함
@@ -439,13 +437,13 @@ Run:
 - JWT 참여자 start 성공
 - participantToken 참여자 start 성공
 - start API는 요청 body 없이 성공
-- active round가 있을 때 start 재호출은 같은 `roundId` 반환
+- active round가 있을 때 start 재호출은 같은 party 상태 반환
 - tap batch 제출 후 submit response payload 형태 검증
 - tap batch 제출 후 SSE progress payload 형태 검증
 - 20초 종료는 테스트에서 clock/scheduler를 제어해 `burst-game-ended` 검증
-- snapshot API는 진행 중 현재 total/ranking 반환
-- snapshot API는 종료 후 TTL 안의 최종 winners, 상위 3개 rank group의 ranking entry, total count 반환
-- snapshot API는 `burst-game-started` 이벤트를 놓친 호출자가 partyId만으로 복구 가능
+- 상태/결과 조회 API는 진행 중 현재 total/ranking 반환
+- 상태/결과 조회 API는 종료 후 TTL 안의 최종 winners와 total count를 반환하고 `rankings = []`로 둠
+- 상태/결과 조회 API는 `burst-game-started` 이벤트를 놓친 호출자가 partyId만으로 복구 가능
 
 ---
 

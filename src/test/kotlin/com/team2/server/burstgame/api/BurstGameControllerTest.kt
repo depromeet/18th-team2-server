@@ -1,0 +1,257 @@
+package com.team2.server.burstgame.api
+
+import com.team2.server.burstgame.application.service.BurstGameSessionService
+import com.team2.server.common.DatabaseCleanup
+import com.team2.server.config.TestcontainersConfiguration
+import com.team2.server.party.domain.entity.Participant
+import com.team2.server.party.domain.entity.RealtimeParticipantProfile
+import com.team2.server.party.domain.entity.RealtimeParty
+import com.team2.server.party.infrastructure.persistence.ParticipantRepository
+import com.team2.server.party.infrastructure.persistence.PartyRepository
+import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProfileRepository
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
+import org.springframework.context.annotation.Import
+import org.springframework.http.MediaType
+import org.springframework.test.annotation.DirtiesContext
+import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.get
+import org.springframework.test.web.servlet.post
+import java.time.LocalDateTime
+
+@SpringBootTest
+@AutoConfigureMockMvc
+@Import(TestcontainersConfiguration::class)
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
+class BurstGameControllerTest
+    @Autowired
+    constructor(
+        private val mockMvc: MockMvc,
+        private val partyRepository: PartyRepository,
+        private val participantRepository: ParticipantRepository,
+        private val profileRepository: RealtimeParticipantProfileRepository,
+        private val sessionService: BurstGameSessionService,
+        private val databaseCleanup: DatabaseCleanup,
+    ) {
+        @BeforeEach
+        fun setUp() {
+            databaseCleanup.execute()
+        }
+
+        @Test
+        fun `participantToken으로 박터뜨리기 시작 성공`() {
+            val fixture = saveRealtimeParticipant()
+
+            mockMvc
+                .post("/api/v1/parties/${fixture.partyId}/burst-game/start") {
+                    header("X-Participant-Token", fixture.participantToken)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.status") { value(200) }
+                    jsonPath("$.data.partyId") { value(fixture.partyId) }
+                    jsonPath("$.data.myParticipantId") { value(fixture.participantId) }
+                    jsonPath("$.data.totalTapCount") { value(0) }
+                    jsonPath("$.data.colorChanged") { value(false) }
+                }
+        }
+
+        @Test
+        fun `active 라운드가 있으면 start 재호출은 같은 party 상태를 반환한다`() {
+            val fixture = saveRealtimeParticipant()
+
+            startGame(fixture)
+            startGame(fixture)
+
+            mockMvc
+                .get("/api/v1/parties/${fixture.partyId}/burst-game") {
+                    header("X-Participant-Token", fixture.participantToken)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.partyId") { value(fixture.partyId) }
+                    jsonPath("$.data.ended") { value(false) }
+                    jsonPath("$.data.totalTapCount") { value(0) }
+                }
+        }
+
+        @Test
+        fun `터치 batch 제출 후 진행 상태에 rankings를 반환한다`() {
+            val fixture = saveRealtimeParticipant()
+            startGame(fixture)
+
+            mockMvc
+                .post("/api/v1/parties/${fixture.partyId}/burst-game/taps") {
+                    contentType = MediaType.APPLICATION_JSON
+                    header("X-Participant-Token", fixture.participantToken)
+                    content = """{"tapCount":7,"clientSequence":1}"""
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.accepted") { value(true) }
+                    jsonPath("$.data.ignoredReason") { doesNotExist() }
+                    jsonPath("$.data.totalTapCount") { value(7) }
+                    jsonPath("$.data.myTapCount") { value(7) }
+                    jsonPath("$.data.rankings[0].rank") { value(1) }
+                    jsonPath("$.data.rankings[0].participantId") { value(fixture.participantId) }
+                }
+        }
+
+        @Test
+        fun `중복 clientSequence는 200 응답에서 DUPLICATE_SEQUENCE로 무시한다`() {
+            val fixture = saveRealtimeParticipant()
+            startGame(fixture)
+            submitTap(fixture, clientSequence = 1)
+
+            mockMvc
+                .post("/api/v1/parties/${fixture.partyId}/burst-game/taps") {
+                    contentType = MediaType.APPLICATION_JSON
+                    header("X-Participant-Token", fixture.participantToken)
+                    content = """{"tapCount":7,"clientSequence":1}"""
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.accepted") { value(false) }
+                    jsonPath("$.data.ignoredReason") { value("DUPLICATE_SEQUENCE") }
+                    jsonPath("$.data.totalTapCount") { value(7) }
+                }
+        }
+
+        @Test
+        fun `종료 상태 조회는 rankings 없이 winners만 반환한다`() {
+            val fixture = saveRealtimeParticipant()
+            startGame(fixture)
+            submitTap(fixture, clientSequence = 1)
+
+            sessionService.end(fixture.partyId, LocalDateTime.now().plusSeconds(21))
+
+            mockMvc
+                .get("/api/v1/parties/${fixture.partyId}/burst-game") {
+                    header("X-Participant-Token", fixture.participantToken)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.ended") { value(true) }
+                    jsonPath("$.data.rankings") { isEmpty() }
+                    jsonPath("$.data.winners.length()") { value(1) }
+                    jsonPath("$.data.winners[0].participantId") { value(fixture.participantId) }
+                    jsonPath("$.data.winners[0].tapCount") { value(7) }
+                }
+        }
+
+        @Test
+        fun `여러 참여자가 탭한 뒤 종료 결과는 1등 winners만 반환한다`() {
+            val fixtures = saveRealtimeParticipants()
+            val firstParticipant = fixtures[0]
+            val secondParticipant = fixtures[1]
+            startGame(firstParticipant)
+            submitTap(firstParticipant, tapCount = 7, clientSequence = 1)
+            submitTap(secondParticipant, tapCount = 14, clientSequence = 1)
+
+            sessionService.end(firstParticipant.partyId, LocalDateTime.now().plusSeconds(21))
+
+            mockMvc
+                .get("/api/v1/parties/${firstParticipant.partyId}/burst-game") {
+                    header("X-Participant-Token", firstParticipant.participantToken)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.ended") { value(true) }
+                    jsonPath("$.data.totalTapCount") { value(21) }
+                    jsonPath("$.data.rankings") { isEmpty() }
+                    jsonPath("$.data.winners.length()") { value(1) }
+                    jsonPath("$.data.winners[0].participantId") { value(secondParticipant.participantId) }
+                    jsonPath("$.data.winners[0].tapCount") { value(14) }
+                }
+        }
+
+        private fun startGame(fixture: BurstGameFixture) {
+            mockMvc
+                .post("/api/v1/parties/${fixture.partyId}/burst-game/start") {
+                    header("X-Participant-Token", fixture.participantToken)
+                }.andExpect {
+                    status { isOk() }
+                }
+        }
+
+        private fun submitTap(
+            fixture: BurstGameFixture,
+            tapCount: Int = 7,
+            clientSequence: Long,
+        ) {
+            mockMvc
+                .post("/api/v1/parties/${fixture.partyId}/burst-game/taps") {
+                    contentType = MediaType.APPLICATION_JSON
+                    header("X-Participant-Token", fixture.participantToken)
+                    content = """{"tapCount":$tapCount,"clientSequence":$clientSequence}"""
+                }.andExpect {
+                    status { isOk() }
+                }
+        }
+
+        private fun saveRealtimeParticipant(): BurstGameFixture {
+            val party =
+                partyRepository.saveAndFlush(
+                    RealtimeParty(
+                        ownerId = 1L,
+                        name = "실시간 파티",
+                        celebrantNickname = "주인공",
+                        startedAt = LocalDateTime.now().minusMinutes(1),
+                    ),
+                )
+            val participant = participantRepository.saveAndFlush(Participant(party = party, isCelebrant = true))
+            val profile =
+                profileRepository.saveAndFlush(
+                    RealtimeParticipantProfile(
+                        participant = participant,
+                        nickname = "토끼왕",
+                        participantToken = "tokn0001",
+                    ),
+                )
+            return BurstGameFixture(
+                partyId = party.id,
+                participantId = participant.id,
+                participantToken = profile.participantToken,
+            )
+        }
+
+        private fun saveRealtimeParticipants(): List<BurstGameFixture> {
+            val party =
+                partyRepository.saveAndFlush(
+                    RealtimeParty(
+                        ownerId = 1L,
+                        name = "실시간 파티",
+                        celebrantNickname = "주인공",
+                        startedAt = LocalDateTime.now().minusMinutes(1),
+                    ),
+                )
+            return listOf(
+                saveParticipant(party, nickname = "토끼왕", participantToken = "tokn0001"),
+                saveParticipant(party, nickname = "곰돌이", participantToken = "tokn0002"),
+            )
+        }
+
+        private fun saveParticipant(
+            party: RealtimeParty,
+            nickname: String,
+            participantToken: String,
+        ): BurstGameFixture {
+            val participant = participantRepository.saveAndFlush(Participant(party = party))
+            val profile =
+                profileRepository.saveAndFlush(
+                    RealtimeParticipantProfile(
+                        participant = participant,
+                        nickname = nickname,
+                        participantToken = participantToken,
+                    ),
+                )
+            return BurstGameFixture(
+                partyId = party.id,
+                participantId = participant.id,
+                participantToken = profile.participantToken,
+            )
+        }
+
+        private data class BurstGameFixture(
+            val partyId: Long,
+            val participantId: Long,
+            val participantToken: String,
+        )
+    }
