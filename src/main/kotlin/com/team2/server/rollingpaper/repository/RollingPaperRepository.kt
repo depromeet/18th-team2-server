@@ -1,5 +1,6 @@
 package com.team2.server.rollingpaper.repository
 
+import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.rollingpaper.entity.RollingPaper
 import org.springframework.data.domain.Page
@@ -30,6 +31,8 @@ interface RollingPaperRepository : JpaRepository<RollingPaper, Long> {
     ): RollingPaper?
 
     fun countByParty(party: Party): Long
+
+    fun findByWriter(writer: Participant): RollingPaper?
 
     @Query(
         """

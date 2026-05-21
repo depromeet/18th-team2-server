@@ -2,7 +2,7 @@ package com.team2.server.party.api
 
 import com.team2.server.common.web.ApiResponse
 import com.team2.server.common.web.swagger.InternalServerErrorResponse
-import com.team2.server.party.api.dto.CharacterResponse
+import com.team2.server.party.application.dto.CharacterResult
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import io.swagger.v3.oas.annotations.responses.ApiResponse as SwaggerApiResponse
@@ -18,5 +18,5 @@ interface CharacterApi {
         description = "캐릭터 목록 조회 성공",
     )
     @InternalServerErrorResponse
-    fun getCharacters(): ApiResponse<List<CharacterResponse>>
+    fun getCharacters(): ApiResponse<List<CharacterResult>>
 }

@@ -2,6 +2,8 @@ package com.team2.server.party.application.service
 
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
+import com.team2.server.party.domain.entity.Character
+import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProfileRepository
@@ -12,6 +14,33 @@ class RealtimeParticipantProfileService(
     private val participantRepository: ParticipantRepository,
     private val profileRepository: RealtimeParticipantProfileRepository,
 ) {
+    fun findByParticipant(participant: Participant): RealtimeParticipantProfile? =
+        profileRepository.findByParticipant(participant)
+
+    fun upsert(
+        participant: Participant,
+        nickname: String,
+        character: Character,
+        isHostNicknameLocked: Boolean,
+    ): RealtimeParticipantProfile {
+        val existing = profileRepository.findByParticipant(participant)
+        if (existing == null) {
+            return profileRepository.save(
+                RealtimeParticipantProfile(
+                    participant = participant,
+                    nickname = nickname,
+                    character = character,
+                ),
+            )
+        }
+        if (isHostNicknameLocked && existing.nickname != nickname) {
+            throw BusinessException(ErrorCode.PARTY_HOST_NICKNAME_NOT_EDITABLE)
+        }
+        existing.nickname = nickname
+        existing.character = character
+        return existing
+    }
+
     fun resolveProfile(
         partyId: Long,
         userId: Long?,

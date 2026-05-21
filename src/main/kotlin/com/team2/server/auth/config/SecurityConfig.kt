@@ -65,6 +65,7 @@ class SecurityConfig(
                 auth.requestMatchers(HttpMethod.POST, "/api/v1/parties/*/burst-game/start").permitAll()
                 auth.requestMatchers(HttpMethod.POST, "/api/v1/parties/*/burst-game/taps").permitAll()
                 auth.requestMatchers(HttpMethod.GET, "/api/v1/parties/*/burst-game").permitAll()
+                auth.requestMatchers(HttpMethod.GET, "/api/v1/parties/*/participants").permitAll()
                 auth.anyRequest().authenticated()
             }.oauth2Login { oauth ->
                 oauth.userInfoEndpoint { it.userService(customOAuth2UserService) }

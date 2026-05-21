@@ -94,6 +94,21 @@ class PartyInviteService(
         return invite
     }
 
+    fun findUsableRealtimeInvite(
+        inviteToken: String,
+        now: LocalDateTime,
+    ): PartyInvite {
+        val invite = findUsableInvite(inviteToken, now)
+        val party = invite.party
+        if (party.isEnded(now)) {
+            throw BusinessException(ErrorCode.PARTY_ENDED)
+        }
+        if (party.partyOption != PartyOption.REALTIME) {
+            throw BusinessException(ErrorCode.PARTY_NOT_REALTIME)
+        }
+        return invite
+    }
+
     private fun canActivateInviteLink(
         party: Party,
         userId: Long,
