@@ -1,6 +1,6 @@
-package com.team2.server.burstgame.application.usecase
+package com.team2.server.burstgame.application.support
 
-import com.team2.server.burstgame.application.service.BurstGameEventBroadcaster
+import com.team2.server.burstgame.application.port.BurstGameEventBroadcaster
 import com.team2.server.burstgame.application.service.BurstGameSessionService
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode

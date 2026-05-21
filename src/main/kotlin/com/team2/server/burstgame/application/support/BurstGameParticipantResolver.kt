@@ -1,6 +1,5 @@
-package com.team2.server.burstgame.infrastructure.party
+package com.team2.server.burstgame.application.support
 
-import com.team2.server.burstgame.application.service.BurstGameParticipantReader
 import com.team2.server.burstgame.domain.BurstGameParticipantInfo
 import com.team2.server.chat.domain.vo.ParticipantRole
 import com.team2.server.common.image.entity.ImageTargetType
@@ -10,12 +9,12 @@ import com.team2.server.party.application.usecase.ResolveRealtimeParticipantProf
 import org.springframework.stereotype.Component
 
 @Component
-class PartyBurstGameParticipantReader(
+class BurstGameParticipantResolver(
     private val resolveLiveOpenRealtimePartyUseCase: ResolveLiveOpenRealtimePartyUseCase,
     private val resolveRealtimeParticipantProfileUseCase: ResolveRealtimeParticipantProfileUseCase,
     private val imageUrlReader: ImageUrlReader,
-) : BurstGameParticipantReader {
-    override fun resolve(
+) {
+    fun resolve(
         partyId: Long,
         userId: Long?,
         participantToken: String?,

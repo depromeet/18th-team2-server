@@ -1,6 +1,6 @@
 package com.team2.server.burstgame.infrastructure.scheduler
 
-import com.team2.server.burstgame.application.service.BurstGameSessionStore
+import com.team2.server.burstgame.application.port.BurstGameSessionStore
 import com.team2.server.burstgame.domain.policy.BurstGamePolicy
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy

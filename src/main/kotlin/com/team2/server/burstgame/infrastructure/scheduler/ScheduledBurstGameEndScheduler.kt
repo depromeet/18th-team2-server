@@ -1,6 +1,6 @@
 package com.team2.server.burstgame.infrastructure.scheduler
 
-import com.team2.server.burstgame.application.service.BurstGameEndScheduler
+import com.team2.server.burstgame.application.port.BurstGameEndScheduler
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component

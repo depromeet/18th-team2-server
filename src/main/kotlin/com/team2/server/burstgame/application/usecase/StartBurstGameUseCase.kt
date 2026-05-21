@@ -1,10 +1,13 @@
 package com.team2.server.burstgame.application.usecase
 
 import com.team2.server.burstgame.application.dto.StartBurstGameResponse
-import com.team2.server.burstgame.application.service.BurstGameEndScheduler
-import com.team2.server.burstgame.application.service.BurstGameEventBroadcaster
-import com.team2.server.burstgame.application.service.BurstGameParticipantReader
+import com.team2.server.burstgame.application.port.BurstGameEndScheduler
+import com.team2.server.burstgame.application.port.BurstGameEventBroadcaster
 import com.team2.server.burstgame.application.service.BurstGameSessionService
+import com.team2.server.burstgame.application.support.BurstGameParticipantResolver
+import com.team2.server.burstgame.application.support.endScheduledParty
+import com.team2.server.burstgame.application.support.removeStartedSession
+import com.team2.server.burstgame.application.support.throwAlreadyEndedAfterBroadcast
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -12,7 +15,7 @@ import java.time.LocalDateTime
 
 @Service
 class StartBurstGameUseCase(
-    private val participantReader: BurstGameParticipantReader,
+    private val participantResolver: BurstGameParticipantResolver,
     private val sessionService: BurstGameSessionService,
     private val eventBroadcaster: BurstGameEventBroadcaster,
     private val endScheduler: BurstGameEndScheduler,
@@ -25,7 +28,7 @@ class StartBurstGameUseCase(
         userId: Long?,
         participantToken: String?,
     ): StartBurstGameResponse {
-        val participant = participantReader.resolve(partyId, userId, participantToken)
+        val participant = participantResolver.resolve(partyId, userId, participantToken)
         val result =
             when (val startResult = sessionService.start(partyId, participant, LocalDateTime.now())) {
                 is BurstGameSessionService.StartResult.Started -> startResult

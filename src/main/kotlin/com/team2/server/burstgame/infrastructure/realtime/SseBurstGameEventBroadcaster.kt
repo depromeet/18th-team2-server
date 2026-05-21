@@ -1,6 +1,6 @@
 package com.team2.server.burstgame.infrastructure.realtime
 
-import com.team2.server.burstgame.application.service.BurstGameEventBroadcaster
+import com.team2.server.burstgame.application.port.BurstGameEventBroadcaster
 import com.team2.server.burstgame.domain.BurstGameRankingEntry
 import com.team2.server.burstgame.domain.BurstGameSnapshot
 import com.team2.server.burstgame.domain.BurstGameWinner
@@ -88,9 +88,7 @@ class SseBurstGameEventBroadcaster(
         executor.schedule(
             {
                 synchronized(lock) {
-                    if (endedRounds.remove(partyId, startedAt)) {
-                        roundLocks.remove(partyId, lock)
-                    }
+                    endedRounds.remove(partyId, startedAt)
                 }
             },
             PROGRESS_THROTTLE_MILLIS,

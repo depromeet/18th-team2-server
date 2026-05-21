@@ -1,6 +1,6 @@
 package com.team2.server.burstgame.infrastructure.memory
 
-import com.team2.server.burstgame.application.service.BurstGameSessionStore
+import com.team2.server.burstgame.application.port.BurstGameSessionStore
 import com.team2.server.burstgame.domain.BurstGameRoundStatus
 import com.team2.server.burstgame.domain.BurstGameSession
 import org.springframework.stereotype.Component

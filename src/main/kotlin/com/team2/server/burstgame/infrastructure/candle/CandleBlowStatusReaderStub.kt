@@ -1,6 +1,6 @@
 package com.team2.server.burstgame.infrastructure.candle
 
-import com.team2.server.burstgame.application.service.CandleBlowStatusReader
+import com.team2.server.burstgame.application.port.CandleBlowStatusReader
 import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Component

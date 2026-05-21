@@ -1,9 +1,9 @@
 package com.team2.server.burstgame.application.usecase
 
 import com.team2.server.burstgame.application.dto.BurstGameStateResponse
-import com.team2.server.burstgame.application.service.BurstGameEventBroadcaster
-import com.team2.server.burstgame.application.service.BurstGameParticipantReader
+import com.team2.server.burstgame.application.port.BurstGameEventBroadcaster
 import com.team2.server.burstgame.application.service.BurstGameSessionService
+import com.team2.server.burstgame.application.support.BurstGameParticipantResolver
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -11,7 +11,7 @@ import java.time.LocalDateTime
 
 @Service
 class GetBurstGameSnapshotUseCase(
-    private val participantReader: BurstGameParticipantReader,
+    private val participantResolver: BurstGameParticipantResolver,
     private val sessionService: BurstGameSessionService,
     private val eventBroadcaster: BurstGameEventBroadcaster,
 ) {
@@ -23,7 +23,7 @@ class GetBurstGameSnapshotUseCase(
         userId: Long?,
         participantToken: String?,
     ): BurstGameStateResponse {
-        val participant = participantReader.resolve(partyId, userId, participantToken)
+        val participant = participantResolver.resolve(partyId, userId, participantToken)
         val result = sessionService.snapshot(partyId, participant, LocalDateTime.now())
         if (result.endedNow) {
             runCatching {

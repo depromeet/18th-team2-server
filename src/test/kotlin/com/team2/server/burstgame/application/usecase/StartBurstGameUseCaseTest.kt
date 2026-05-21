@@ -1,9 +1,9 @@
 package com.team2.server.burstgame.application.usecase
 
-import com.team2.server.burstgame.application.service.BurstGameEndScheduler
-import com.team2.server.burstgame.application.service.BurstGameEventBroadcaster
-import com.team2.server.burstgame.application.service.BurstGameParticipantReader
+import com.team2.server.burstgame.application.port.BurstGameEndScheduler
+import com.team2.server.burstgame.application.port.BurstGameEventBroadcaster
 import com.team2.server.burstgame.application.service.BurstGameSessionService
+import com.team2.server.burstgame.application.support.BurstGameParticipantResolver
 import com.team2.server.burstgame.domain.BurstGameParticipantInfo
 import com.team2.server.burstgame.domain.BurstGameRoundStatus
 import com.team2.server.burstgame.domain.BurstGameSnapshot
@@ -23,13 +23,13 @@ import kotlin.test.assertEquals
 
 @ExtendWith(MockitoExtension::class)
 class StartBurstGameUseCaseTest {
-    private val participantReader: BurstGameParticipantReader = mock()
+    private val participantResolver: BurstGameParticipantResolver = mock()
     private val sessionService: BurstGameSessionService = mock()
     private val eventBroadcaster: BurstGameEventBroadcaster = mock()
     private val endScheduler: BurstGameEndScheduler = mock()
     private val useCase =
         StartBurstGameUseCase(
-            participantReader = participantReader,
+            participantResolver = participantResolver,
             sessionService = sessionService,
             eventBroadcaster = eventBroadcaster,
             endScheduler = endScheduler,
@@ -39,7 +39,7 @@ class StartBurstGameUseCaseTest {
     fun `start 재시도에서 lazy 종료가 발생하면 종료 이벤트를 발행한 뒤 이미 종료 예외를 던진다`() {
         val participant = participant(10L)
         val snapshot = endedSnapshot()
-        whenever(participantReader.resolve(1L, null, "tok")).thenReturn(participant)
+        whenever(participantResolver.resolve(1L, null, "tok")).thenReturn(participant)
         whenever(sessionService.start(eq(1L), eq(participant), any()))
             .thenReturn(BurstGameSessionService.StartResult.AlreadyEnded(snapshot, endedNow = true))
 

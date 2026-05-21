@@ -1,6 +1,6 @@
 package com.team2.server.burstgame.infrastructure.scheduler
 
-import com.team2.server.burstgame.application.service.BurstGameSessionStore
+import com.team2.server.burstgame.application.port.BurstGameSessionStore
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 import java.time.LocalDateTime

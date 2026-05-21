@@ -1,5 +1,7 @@
 package com.team2.server.burstgame.application.service
 
+import com.team2.server.burstgame.application.port.BurstGameSessionStore
+import com.team2.server.burstgame.application.port.CandleBlowStatusReader
 import com.team2.server.burstgame.domain.BurstGameParticipantInfo
 import com.team2.server.burstgame.domain.BurstGameRoundStatus
 import com.team2.server.burstgame.domain.BurstGameSession
