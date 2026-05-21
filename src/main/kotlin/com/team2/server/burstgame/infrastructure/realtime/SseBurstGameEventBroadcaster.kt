@@ -23,7 +23,7 @@ class SseBurstGameEventBroadcaster(
     private val executor = Executors.newSingleThreadScheduledExecutor()
     private val pendingProgress = ConcurrentHashMap<Long, BurstGameSnapshot>()
     private val scheduledProgress = ConcurrentHashMap<Long, ScheduledFuture<*>>()
-    private val roundLocks = ConcurrentHashMap<Long, Any>()
+    private val roundLocks = Array(LOCK_STRIPE_COUNT) { Any() }
     private val endedRounds = ConcurrentHashMap<Long, LocalDateTime>()
 
     override fun broadcastStarted(snapshot: BurstGameSnapshot) {
@@ -116,7 +116,7 @@ class SseBurstGameEventBroadcaster(
         executor.shutdownNow()
     }
 
-    private fun lockFor(partyId: Long): Any = roundLocks.computeIfAbsent(partyId) { Any() }
+    private fun lockFor(partyId: Long): Any = roundLocks[Math.floorMod(partyId.hashCode(), LOCK_STRIPE_COUNT)]
 
     data class BurstGameStartedPayload(
         val partyId: Long,
@@ -240,5 +240,6 @@ class SseBurstGameEventBroadcaster(
         private const val EVENT_PROGRESS = "burst-game-progress"
         private const val EVENT_ENDED = "burst-game-ended"
         private const val PROGRESS_THROTTLE_MILLIS = 250L
+        private const val LOCK_STRIPE_COUNT = 64
     }
 }

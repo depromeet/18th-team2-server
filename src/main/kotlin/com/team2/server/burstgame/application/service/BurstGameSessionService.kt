@@ -134,8 +134,9 @@ class BurstGameSessionService(
     fun removeStarted(
         partyId: Long,
         startedAt: LocalDateTime,
+        now: LocalDateTime,
     ): Boolean {
-        val session = sessionStore.findByPartyId(partyId, LocalDateTime.now()) ?: return false
+        val session = sessionStore.findByPartyId(partyId, now) ?: return false
         return synchronized(session) {
             check(session.status == BurstGameRoundStatus.ACTIVE && session.startedAt == startedAt) {
                 "Only the just-started active burst game session can be removed. partyId=$partyId"

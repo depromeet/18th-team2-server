@@ -12,9 +12,10 @@ internal fun removeStartedSession(
     log: Logger,
     partyId: Long,
     startedAt: LocalDateTime,
+    now: LocalDateTime,
 ) {
     runCatching {
-        sessionService.removeStarted(partyId, startedAt)
+        sessionService.removeStarted(partyId, startedAt, now)
     }.onFailure { ex ->
         log.error("Failed to rollback started burst game session. partyId={} startedAt={}", partyId, startedAt, ex)
     }
@@ -40,7 +41,13 @@ internal fun throwAlreadyEndedAfterBroadcast(
         runCatching {
             eventBroadcaster.broadcastEnded(result.snapshot)
         }.onFailure { ex ->
-            log.error("Failed to broadcast burst game end after start retry. snapshot={}", result.snapshot, ex)
+            log.error(
+                "Failed to broadcast burst game end after start retry. partyId={} startedAt={} stateVersion={}",
+                result.snapshot.partyId,
+                result.snapshot.startedAt,
+                result.snapshot.stateVersion,
+                ex,
+            )
         }
     }
     throw BusinessException(ErrorCode.BURST_GAME_ALREADY_ENDED)

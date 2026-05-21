@@ -7,6 +7,7 @@ import com.team2.server.burstgame.application.support.BurstGameParticipantResolv
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Clock
 import java.time.LocalDateTime
 
 @Service
@@ -14,10 +15,11 @@ class SubmitBurstGameTapUseCase(
     private val participantResolver: BurstGameParticipantResolver,
     private val sessionService: BurstGameSessionService,
     private val eventBroadcaster: BurstGameEventBroadcaster,
+    private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    @Transactional(readOnly = true)
+    @Transactional
     operator fun invoke(
         partyId: Long,
         userId: Long?,
@@ -25,7 +27,7 @@ class SubmitBurstGameTapUseCase(
         tapCount: Int,
         clientSequence: Long,
     ): SubmitBurstGameTapResponse {
-        val now = LocalDateTime.now()
+        val now = LocalDateTime.now(clock)
         val participant = participantResolver.resolve(partyId, userId, participantToken)
         val result = sessionService.submit(partyId, participant, tapCount, clientSequence, now)
         if (result.accepted) {

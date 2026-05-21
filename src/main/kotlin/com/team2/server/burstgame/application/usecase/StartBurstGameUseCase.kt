@@ -22,15 +22,16 @@ class StartBurstGameUseCase(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    @Transactional(readOnly = true)
+    @Transactional
     operator fun invoke(
         partyId: Long,
         userId: Long?,
         participantToken: String?,
     ): StartBurstGameResponse {
         val participant = participantResolver.resolve(partyId, userId, participantToken)
+        val now = LocalDateTime.now()
         val result =
-            when (val startResult = sessionService.start(partyId, participant, LocalDateTime.now())) {
+            when (val startResult = sessionService.start(partyId, participant, now)) {
                 is BurstGameSessionService.StartResult.Started -> startResult
                 is BurstGameSessionService.StartResult.AlreadyEnded ->
                     throwAlreadyEndedAfterBroadcast(eventBroadcaster, log, startResult)
@@ -41,19 +42,32 @@ class StartBurstGameUseCase(
                     endScheduledParty(sessionService, eventBroadcaster, it)
                 }
             }.onFailure { ex ->
-                removeStartedSession(sessionService, log, partyId, result.snapshot.startedAt)
-                log.error("Failed to complete burst game start. snapshot={}", result.snapshot, ex)
+                removeStartedSession(sessionService, log, partyId, result.snapshot.startedAt, now)
+                logStartFailure(result, ex)
                 throw ex
             }
             runCatching {
                 eventBroadcaster.broadcastStarted(result.snapshot)
             }.onFailure { ex ->
                 endScheduler.cancel(partyId)
-                removeStartedSession(sessionService, log, partyId, result.snapshot.startedAt)
-                log.error("Failed to complete burst game start. snapshot={}", result.snapshot, ex)
+                removeStartedSession(sessionService, log, partyId, result.snapshot.startedAt, now)
+                logStartFailure(result, ex)
                 throw ex
             }
         }
         return StartBurstGameResponse.from(result.snapshot)
+    }
+
+    private fun logStartFailure(
+        result: BurstGameSessionService.StartResult.Started,
+        ex: Throwable,
+    ) {
+        log.error(
+            "Failed to complete burst game start. partyId={} startedAt={} stateVersion={}",
+            result.snapshot.partyId,
+            result.snapshot.startedAt,
+            result.snapshot.stateVersion,
+            ex,
+        )
     }
 }

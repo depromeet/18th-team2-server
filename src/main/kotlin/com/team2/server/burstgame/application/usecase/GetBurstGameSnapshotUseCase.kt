@@ -17,7 +17,7 @@ class GetBurstGameSnapshotUseCase(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    @Transactional(readOnly = true)
+    @Transactional
     operator fun invoke(
         partyId: Long,
         userId: Long?,
@@ -29,7 +29,13 @@ class GetBurstGameSnapshotUseCase(
             runCatching {
                 eventBroadcaster.broadcastEnded(result.snapshot)
             }.onFailure { ex ->
-                log.error("Failed to broadcast burst game end after snapshot. snapshot={}", result.snapshot, ex)
+                log.error(
+                    "Failed to broadcast burst game end after snapshot. partyId={} startedAt={} stateVersion={}",
+                    result.snapshot.partyId,
+                    result.snapshot.startedAt,
+                    result.snapshot.stateVersion,
+                    ex,
+                )
             }
         }
         return BurstGameStateResponse.from(result.snapshot)

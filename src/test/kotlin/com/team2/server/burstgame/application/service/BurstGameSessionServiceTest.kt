@@ -28,27 +28,31 @@ class BurstGameSessionServiceTest {
         val start = CountDownLatch(1)
         sessionService.start(partyId = 1L, participant = participant(0), now = startedAt)
 
-        val futures =
-            (1..submitCount).map { participantId ->
-                executor.submit<Boolean> {
-                    ready.countDown()
-                    start.await()
-                    sessionService
-                        .submit(
-                            partyId = 1L,
-                            participant = participant(participantId.toLong()),
-                            tapCount = 1,
-                            clientSequence = 1,
-                            now = startedAt.plusSeconds(1),
-                        ).accepted
+        try {
+            val futures =
+                (1..submitCount).map { participantId ->
+                    executor.submit<Boolean> {
+                        ready.countDown()
+                        start.await()
+                        sessionService
+                            .submit(
+                                partyId = 1L,
+                                participant = participant(participantId.toLong()),
+                                tapCount = 1,
+                                clientSequence = 1,
+                                now = startedAt.plusSeconds(1),
+                            ).accepted
+                    }
                 }
-            }
 
-        assertTrue(ready.await(1, TimeUnit.SECONDS))
-        start.countDown()
-        assertTrue(futures.all { it.get(1, TimeUnit.SECONDS) })
-        executor.shutdown()
-        assertTrue(executor.awaitTermination(1, TimeUnit.SECONDS))
+            assertTrue(ready.await(1, TimeUnit.SECONDS))
+            start.countDown()
+            assertTrue(futures.all { it.get(1, TimeUnit.SECONDS) })
+        } finally {
+            start.countDown()
+            executor.shutdown()
+            assertTrue(executor.awaitTermination(1, TimeUnit.SECONDS))
+        }
 
         val snapshot = sessionService.snapshot(1L, participant(1), startedAt.plusSeconds(2)).snapshot
 
