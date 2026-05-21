@@ -1,6 +1,6 @@
 package com.team2.server.burstgame.application.usecase
 
-import com.team2.server.burstgame.api.dto.BurstGameStateResponse
+import com.team2.server.burstgame.application.dto.BurstGameStateResponse
 import com.team2.server.burstgame.application.service.BurstGameEventBroadcaster
 import com.team2.server.burstgame.application.service.BurstGameParticipantReader
 import com.team2.server.burstgame.application.service.BurstGameSessionService

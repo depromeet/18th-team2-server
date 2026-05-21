@@ -1,6 +1,7 @@
 package com.team2.server.burstgame.application.service
 
 import com.team2.server.burstgame.domain.BurstGameParticipantInfo
+import com.team2.server.burstgame.domain.BurstGameRoundStatus
 import com.team2.server.burstgame.infrastructure.memory.InMemoryBurstGameSessionStore
 import java.time.LocalDateTime
 import java.util.concurrent.CountDownLatch
@@ -52,6 +53,17 @@ class BurstGameSessionServiceTest {
 
         assertEquals(submitCount, snapshot.totalTapCount)
         assertEquals(submitCount.toLong(), snapshot.stateVersion)
+    }
+
+    @Test
+    fun `종료 시간이 지난 active session start 재호출은 종료 상태와 endedNow를 반환한다`() {
+        sessionService.start(partyId = 1L, participant = participant(1), now = startedAt)
+
+        val result = sessionService.start(partyId = 1L, participant = participant(1), now = startedAt.plusSeconds(20))
+
+        assertTrue(result is BurstGameSessionService.StartResult.AlreadyEnded)
+        assertTrue(result.endedNow)
+        assertEquals(BurstGameRoundStatus.ENDED, result.snapshot.status)
     }
 
     private fun participant(participantId: Long): BurstGameParticipantInfo =

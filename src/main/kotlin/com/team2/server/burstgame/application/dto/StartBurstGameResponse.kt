@@ -1,4 +1,4 @@
-package com.team2.server.burstgame.api.dto
+package com.team2.server.burstgame.application.dto
 
 import com.team2.server.burstgame.domain.BurstGameSnapshot
 import io.swagger.v3.oas.annotations.media.Schema

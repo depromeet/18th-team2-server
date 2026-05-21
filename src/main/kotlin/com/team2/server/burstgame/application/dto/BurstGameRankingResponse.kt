@@ -1,4 +1,4 @@
-package com.team2.server.burstgame.api.dto
+package com.team2.server.burstgame.application.dto
 
 import com.team2.server.burstgame.domain.BurstGameRankingEntry
 import com.team2.server.burstgame.domain.BurstGameWinner

@@ -3,10 +3,10 @@
 package com.team2.server.burstgame.api
 
 import com.team2.server.auth.principal.UserPrincipal
-import com.team2.server.burstgame.api.dto.BurstGameStateResponse
-import com.team2.server.burstgame.api.dto.StartBurstGameResponse
 import com.team2.server.burstgame.api.dto.SubmitBurstGameTapRequest
-import com.team2.server.burstgame.api.dto.SubmitBurstGameTapResponse
+import com.team2.server.burstgame.application.dto.BurstGameStateResponse
+import com.team2.server.burstgame.application.dto.StartBurstGameResponse
+import com.team2.server.burstgame.application.dto.SubmitBurstGameTapResponse
 import com.team2.server.common.web.ApiResponse
 import com.team2.server.common.web.ErrorResponse
 import com.team2.server.common.web.swagger.AuthErrorResponses

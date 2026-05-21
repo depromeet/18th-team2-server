@@ -1,6 +1,6 @@
 package com.team2.server.burstgame.application.usecase
 
-import com.team2.server.burstgame.api.dto.StartBurstGameResponse
+import com.team2.server.burstgame.application.dto.StartBurstGameResponse
 import com.team2.server.burstgame.application.service.BurstGameEndScheduler
 import com.team2.server.burstgame.application.service.BurstGameEventBroadcaster
 import com.team2.server.burstgame.application.service.BurstGameParticipantReader
@@ -26,12 +26,19 @@ class StartBurstGameUseCase(
         participantToken: String?,
     ): StartBurstGameResponse {
         val participant = participantReader.resolve(partyId, userId, participantToken)
-        val result = sessionService.start(partyId, participant, LocalDateTime.now())
+        val result =
+            when (val startResult = sessionService.start(partyId, participant, LocalDateTime.now())) {
+                is BurstGameSessionService.StartResult.Started -> startResult
+                is BurstGameSessionService.StartResult.AlreadyEnded ->
+                    throwAlreadyEndedAfterBroadcast(eventBroadcaster, log, startResult)
+            }
         if (result.created) {
             runCatching {
-                endScheduler.schedule(partyId, result.snapshot.endsAt, ::endScheduledParty)
+                endScheduler.schedule(partyId, result.snapshot.endsAt) {
+                    endScheduledParty(sessionService, eventBroadcaster, it)
+                }
             }.onFailure { ex ->
-                removeStartedSession(partyId, result.snapshot.startedAt)
+                removeStartedSession(sessionService, log, partyId, result.snapshot.startedAt)
                 log.error("Failed to complete burst game start. snapshot={}", result.snapshot, ex)
                 throw ex
             }
@@ -39,29 +46,11 @@ class StartBurstGameUseCase(
                 eventBroadcaster.broadcastStarted(result.snapshot)
             }.onFailure { ex ->
                 endScheduler.cancel(partyId)
-                removeStartedSession(partyId, result.snapshot.startedAt)
+                removeStartedSession(sessionService, log, partyId, result.snapshot.startedAt)
                 log.error("Failed to complete burst game start. snapshot={}", result.snapshot, ex)
                 throw ex
             }
         }
         return StartBurstGameResponse.from(result.snapshot)
-    }
-
-    private fun endScheduledParty(partyId: Long) {
-        val result = sessionService.end(partyId, LocalDateTime.now()) ?: return
-        if (result.endedNow) {
-            eventBroadcaster.broadcastEnded(result.snapshot)
-        }
-    }
-
-    private fun removeStartedSession(
-        partyId: Long,
-        startedAt: LocalDateTime,
-    ) {
-        runCatching {
-            sessionService.removeStarted(partyId, startedAt)
-        }.onFailure { ex ->
-            log.error("Failed to rollback started burst game session. partyId={} startedAt={}", partyId, startedAt, ex)
-        }
     }
 }

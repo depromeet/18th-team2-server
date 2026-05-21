@@ -17,10 +17,19 @@ class BurstGameSessionService(
     private val sessionStore: BurstGameSessionStore,
     private val candleBlowStatusReader: CandleBlowStatusReader,
 ) {
-    data class StartResult(
-        val snapshot: BurstGameSnapshot,
-        val created: Boolean,
-    )
+    sealed interface StartResult {
+        val snapshot: BurstGameSnapshot
+
+        data class Started(
+            override val snapshot: BurstGameSnapshot,
+            val created: Boolean,
+        ) : StartResult
+
+        data class AlreadyEnded(
+            override val snapshot: BurstGameSnapshot,
+            val endedNow: Boolean,
+        ) : StartResult
+    }
 
     data class SnapshotResult(
         val snapshot: BurstGameSnapshot,
@@ -49,11 +58,15 @@ class BurstGameSessionService(
 
         return synchronized(session) {
             if (session.status == BurstGameRoundStatus.ENDED || session.isPastEndsAt(now)) {
+                val endedNow = session.status == BurstGameRoundStatus.ACTIVE
                 session.end(now)
-                throw BusinessException(ErrorCode.BURST_GAME_ALREADY_ENDED)
+                return@synchronized StartResult.AlreadyEnded(
+                    snapshot = session.snapshotFor(participant.participantId, now),
+                    endedNow = endedNow,
+                )
             }
 
-            StartResult(
+            StartResult.Started(
                 snapshot = session.snapshotFor(participant.participantId, now),
                 created = result is BurstGameSessionStore.StartResult.Created,
             )
