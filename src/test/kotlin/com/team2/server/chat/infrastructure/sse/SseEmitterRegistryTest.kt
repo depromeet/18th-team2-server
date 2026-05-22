@@ -27,12 +27,12 @@ class SseEmitterRegistryTest {
     }
 
     @Test
-    fun `subscribe 후 complete하면 registry에서 제거됨`() {
+    fun `completeAll 호출 시 registry에서 제거됨`() {
         val emitter = SseEmitter(1000L)
         registry.subscribe(1L, emitter, "tok")
         assertEquals(1, registry.count(1L))
 
-        emitter.complete()
+        registry.completeAll(1L)
         assertEquals(0, registry.count(1L))
     }
 
@@ -64,8 +64,6 @@ class SseEmitterRegistryTest {
         registry.subscribe(1L, newEmitter, "tok")
 
         assertEquals(1, registry.count(1L))
-
-        oldEmitter.complete()
         assertEquals(1, registry.count(1L))
 
         registry.unsubscribeByToken("tok")

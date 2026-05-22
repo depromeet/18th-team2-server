@@ -15,8 +15,9 @@ class ChatSseGateway(
         partyId: Long,
         emitter: SseEmitter,
         participantToken: String,
+        isHost: Boolean = false,
     ) {
-        sseEmitterRegistry.subscribe(partyId, emitter, participantToken)
+        sseEmitterRegistry.subscribe(partyId, emitter, participantToken, isHost)
     }
 
     fun broadcastAfterCommit(

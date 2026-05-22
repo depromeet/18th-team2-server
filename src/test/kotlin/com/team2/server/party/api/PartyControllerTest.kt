@@ -6,9 +6,15 @@ import com.team2.server.auth.jwt.JwtTokenProvider
 import com.team2.server.common.DatabaseCleanup
 import com.team2.server.config.TestcontainersConfiguration
 import com.team2.server.party.domain.entity.Character
+import com.team2.server.party.domain.entity.Participant
+import com.team2.server.party.domain.entity.PartyInvite
+import com.team2.server.party.domain.entity.RealtimeParticipantProfile
+import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.infrastructure.persistence.CharacterRepository
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
+import com.team2.server.party.infrastructure.persistence.PartyInviteRepository
 import com.team2.server.party.infrastructure.persistence.PartyRepository
+import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProfileRepository
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
 import com.team2.server.user.repository.UserRepository
@@ -21,7 +27,9 @@ import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.delete
+import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
+import java.time.LocalDateTime
 import kotlin.test.assertEquals
 
 @SpringBootTest
@@ -33,6 +41,8 @@ class PartyControllerTest
         private val mockMvc: MockMvc,
         private val partyRepository: PartyRepository,
         private val participantRepository: ParticipantRepository,
+        private val partyInviteRepository: PartyInviteRepository,
+        private val realtimeParticipantProfileRepository: RealtimeParticipantProfileRepository,
         private val userRepository: UserRepository,
         private val characterRepository: CharacterRepository,
         private val databaseCleanup: DatabaseCleanup,
@@ -210,6 +220,103 @@ class PartyControllerTest
             assertEquals(0, participantRepository.findAllByPartyId(partyId).size)
         }
 
+        @Test
+        fun `주최자는 실시간 파티 종료 가능 상태를 조회할 수 있다`() {
+            val owner = saveUser("kakao-realtime-end-status", "end-status@kakao.local")
+            val party = saveRealtimeParty(owner, LocalDateTime.now().minusMinutes(5))
+
+            mockMvc
+                .get("/api/v1/parties/${party.id}/realtime-end") {
+                    header("Authorization", "Bearer ${tokenProvider.issue(owner)}")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.canEnd") { value(true) }
+                    jsonPath("$.data.availableAt") { exists() }
+                }
+        }
+
+        @Test
+        fun `주최자는 실시간 파티 종료를 시작할 수 있다`() {
+            val owner = saveUser("kakao-realtime-end-start", "end-start@kakao.local")
+            val party = saveRealtimeParty(owner, LocalDateTime.now().minusMinutes(5))
+
+            mockMvc
+                .post("/api/v1/parties/${party.id}/realtime-end") {
+                    header("Authorization", "Bearer ${tokenProvider.issue(owner)}")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.partyId") { value(party.id.toInt()) }
+                    jsonPath("$.data.endingStartedAt") { exists() }
+                    jsonPath("$.data.endedAt") { exists() }
+                }
+        }
+
+        @Test
+        fun `회원과 게스트 참가자는 실시간 파티 상태를 조회할 수 있다`() {
+            val owner = saveUser("kakao-realtime-state-owner", "state-owner@kakao.local")
+            val member = saveUser("kakao-realtime-state-member", "state-member@kakao.local")
+            val party = saveRealtimeParty(owner, LocalDateTime.now().minusMinutes(1))
+            val memberParticipant = participantRepository.save(Participant(party = party, user = member))
+            val guestParticipant = participantRepository.save(Participant(party = party))
+            val guestProfile =
+                realtimeParticipantProfileRepository.save(
+                    RealtimeParticipantProfile(
+                        participant = guestParticipant,
+                        nickname = "게스트",
+                        participantToken = "guest001",
+                    ),
+                )
+
+            mockMvc
+                .get("/api/v1/parties/${party.id}/realtime-state") {
+                    header("Authorization", "Bearer ${tokenProvider.issue(member)}")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.partyId") { value(party.id.toInt()) }
+                    jsonPath("$.data.status") { value("LIVE_OPEN") }
+                }
+
+            mockMvc
+                .get("/api/v1/parties/${party.id}/realtime-state") {
+                    header("X-Participant-Token", guestProfile.participantToken)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.partyId") { value(party.id.toInt()) }
+                    jsonPath("$.data.status") { value("LIVE_OPEN") }
+                }
+
+            assertEquals(party.id, memberParticipant.party.id)
+        }
+
+        @Test
+        fun `LIVE_OPEN 상태에서는 다음 행동 조회가 실패한다`() {
+            val owner = saveUser("kakao-next-open", "next-open@kakao.local")
+            val party = saveRealtimeParty(owner, LocalDateTime.now().minusMinutes(1))
+
+            mockMvc
+                .get("/api/v1/parties/${party.id}/realtime-next-action") {
+                    header("Authorization", "Bearer ${tokenProvider.issue(owner)}")
+                }.andExpect {
+                    status { isBadRequest() }
+                    jsonPath("$.error.code") { value("REALTIME_PARTY_END_NOT_AVAILABLE") }
+                }
+        }
+
+        @Test
+        fun `LIVE_CLOSED 상태에서는 주최자 다음 행동을 조회할 수 있다`() {
+            val owner = saveUser("kakao-next-closed", "next-closed@kakao.local")
+            val party = saveRealtimeParty(owner, LocalDateTime.now().minusMinutes(12))
+
+            mockMvc
+                .get("/api/v1/parties/${party.id}/realtime-next-action") {
+                    header("Authorization", "Bearer ${tokenProvider.issue(owner)}")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.type") { value("HOST_ROLLING_PAPER_LIST") }
+                    jsonPath("$.data.partyId") { value(party.id.toInt()) }
+                }
+        }
+
         private fun saveUser(
             providerId: String,
             email: String,
@@ -244,5 +351,20 @@ class PartyControllerTest
             val body = result.response.contentAsString
             val node = objectMapper.readTree(body)
             return node["data"]["partyId"].asLong()
+        }
+
+        private fun saveRealtimeParty(
+            owner: User,
+            startedAt: LocalDateTime,
+        ): RealtimeParty {
+            val party = partyRepository.save(RealtimeParty(ownerId = owner.id, startedAt = startedAt))
+            partyInviteRepository.save(
+                PartyInvite(
+                    party = party,
+                    token = "invite${party.id.toString().padStart(10, '0')}",
+                    expiresAt = LocalDateTime.now().plusDays(7),
+                ),
+            )
+            return party
         }
     }

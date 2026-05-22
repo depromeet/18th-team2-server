@@ -6,7 +6,9 @@ import com.team2.server.auth.jwt.JwtTokenProvider
 import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.config.TestcontainersConfiguration
 import com.team2.server.party.domain.entity.Character
+import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.PartyInvite
+import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.infrastructure.persistence.CharacterRepository
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
@@ -173,19 +175,22 @@ class ChatControllerTest
 
         @Test
         fun `LIVE_OPEN이 아닌 파티에 메시지 전송 시 400`() {
-            val character = characterRepository.save(Character(name = "lion"))
-            val (party, invite) = savePartyWithInvite(LocalDateTime.now().plusMinutes(3))
-
-            val enterResult =
-                enterAndSubscribe(invite.token, enterRequestBody("손님2", character.id))
-
-            val participantToken = parseSseEnteredToken(enterResult.response.contentAsString)
+            val (party, _) = savePartyWithInvite(LocalDateTime.now().minusMinutes(11))
+            val participant = participantRepository.save(Participant(party = party))
+            val profile =
+                profileRepository.save(
+                    RealtimeParticipantProfile(
+                        participant = participant,
+                        nickname = "손님2",
+                        participantToken = "closed01",
+                    ),
+                )
 
             mockMvc
                 .post("/api/v1/parties/${party.id}/chat-messages") {
                     contentType = MediaType.APPLICATION_JSON
                     content = messageRequestBody("안녕")
-                    header("X-Participant-Token", participantToken)
+                    header("X-Participant-Token", profile.participantToken)
                 }.andExpect {
                     status { isBadRequest() }
                 }

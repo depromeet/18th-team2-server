@@ -32,10 +32,10 @@ interface ChatApi {
 
 **입장 가능 조건**
 - 초대 링크가 만료되지 않아야 합니다
-- 파티 시작 5분 전부터 입장할 수 있습니다
+- 신규 입장은 실시간 파티가 LIVE_OPEN 상태일 때만 가능합니다
 
 **재입장**
-동일한 초대 토큰으로 다시 호출하면 닉네임·캐릭터가 덮어씌워지고, SSE 스트림이 새로 연결됩니다.
+기존 participantToken으로 다시 호출하면 LIVE_ENDING 상태에서도 SSE 스트림을 복구할 수 있습니다.
 
 ---
 
@@ -43,6 +43,7 @@ interface ChatApi {
 
 | 이벤트 이름 | 설명 |
 |---|---|
+| `party-state` | 현재 실시간 파티 상태 |
 | `entered` | 입장 완료 정보 (participantToken + 기존 채팅 내역) |
 
 **이후 실시간으로 수신되는 이벤트**
@@ -52,8 +53,9 @@ interface ChatApi {
 | `message` | 새로 전송된 메시지 1건 |
 | `user-entered` | 참여자 입장 알림 |
 | `user-left` | 참여자 퇴장 알림 |
-| `party-ending` | 파티 종료 1분 전 알림 |
-| `party-ended` | 파티 종료 및 스트림 종료 알림 |
+| `host-end-available` | 주최자 수동 종료 가능 알림 |
+| `party-ending` | 60초 종료 카운트다운 시작 알림 |
+| `party-ended` | 실시간 파티 종료 알림 |
 
 ---
 

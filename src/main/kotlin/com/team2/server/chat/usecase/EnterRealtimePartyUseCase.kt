@@ -3,12 +3,14 @@ package com.team2.server.chat.usecase
 import com.team2.server.chat.dto.EnterRealtimePartyRequest
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
+import com.team2.server.party.application.dto.RealtimePartyStateResult
 import com.team2.server.party.domain.entity.Character
 import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.PartyOption
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
+import com.team2.server.party.domain.entity.RealtimePartyStatus
 import com.team2.server.party.infrastructure.persistence.CharacterRepository
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.PartyInviteRepository
@@ -18,6 +20,7 @@ import org.hibernate.Hibernate
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Clock
 import java.time.LocalDateTime
 
 @Service
@@ -27,6 +30,7 @@ class EnterRealtimePartyUseCase(
     private val realtimeParticipantProfileRepository: RealtimeParticipantProfileRepository,
     private val characterRepository: CharacterRepository,
     private val userRepository: UserRepository,
+    private val clock: Clock,
 ) {
     data class EnterResult(
         val participantToken: String,
@@ -35,6 +39,7 @@ class EnterRealtimePartyUseCase(
         val isCelebrant: Boolean,
         val nickname: String,
         val characterId: Long?,
+        val partyState: RealtimePartyStateResult,
     )
 
     @Transactional
@@ -46,15 +51,24 @@ class EnterRealtimePartyUseCase(
         val invite =
             partyInviteRepository.findByToken(inviteToken)
                 ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
-        validateInvite(invite.party, invite.expiresAt)
+        val realtimeParty = validateInvite(invite.party, invite.expiresAt)
+        val reentry = request.participantToken != null
+        if (!reentry) {
+            validateNewEnterable(realtimeParty)
+        }
 
         val character =
             characterRepository.findByIdOrNull(request.characterId)
                 ?: throw BusinessException(ErrorCode.CHARACTER_NOT_FOUND)
 
         val profile =
-            if (userId == null && request.participantToken != null) {
-                reenterAsGuestProfile(invite.party, request.participantToken, request.nickname, character)
+            if (reentry) {
+                reenterByParticipantToken(
+                    party = realtimeParty,
+                    participantToken = requireNotNull(request.participantToken),
+                    nickname = request.nickname,
+                    character = character,
+                )
             } else {
                 val participant = findOrCreateParticipant(invite.party.id, userId, invite.party)
                 upsertProfile(participant, request.nickname, character)
@@ -67,48 +81,59 @@ class EnterRealtimePartyUseCase(
             isCelebrant = profile.participant.isCelebrant,
             nickname = profile.nickname,
             characterId = character.id,
+            partyState = RealtimePartyStateResult.from(realtimeParty, LocalDateTime.now(clock)),
         )
     }
 
     private fun validateInvite(
         party: Party,
         expiresAt: LocalDateTime,
-    ) {
+    ): RealtimeParty {
         if (party.partyOption != PartyOption.REALTIME) {
             throw BusinessException(ErrorCode.CHAT_NOT_SUPPORTED)
         }
-        if (!expiresAt.isAfter(LocalDateTime.now())) {
+        if (!expiresAt.isAfter(LocalDateTime.now(clock))) {
             throw BusinessException(ErrorCode.INVITE_LINK_EXPIRED)
         }
-        validateEnterable(party)
+        return Hibernate.unproxy(party) as RealtimeParty
     }
 
-    private fun validateEnterable(party: Party) {
-        val realtimeParty = Hibernate.unproxy(party) as RealtimeParty
-        val now = LocalDateTime.now()
-        val enterableFrom = realtimeParty.startedAt.minusMinutes(RealtimeParty.ENTERABLE_BEFORE_MINUTES)
-        val enterableTo = realtimeParty.startedAt.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES)
-        if (now.isBefore(enterableFrom) || !now.isBefore(enterableTo)) {
+    private fun validateNewEnterable(realtimeParty: RealtimeParty) {
+        if (realtimeParty.status(LocalDateTime.now(clock)) != RealtimePartyStatus.LIVE_OPEN) {
             throw BusinessException(ErrorCode.CHAT_NOT_ACTIVE)
         }
     }
 
-    private fun reenterAsGuestProfile(
-        party: Party,
+    private fun reenterByParticipantToken(
+        party: RealtimeParty,
         participantToken: String,
         nickname: String,
         character: Character,
     ): RealtimeParticipantProfile {
         val profile =
             realtimeParticipantProfileRepository.findByParticipantToken(participantToken)
-                ?: throw BusinessException(ErrorCode.UNAUTHORIZED)
+                ?: throwUnauthorized()
         if (profile.participant.party.id != party.id) {
-            throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
+            throwForbidden()
+        }
+        val reconnectableStatuses =
+            listOf(
+                RealtimePartyStatus.LIVE_OPEN,
+                RealtimePartyStatus.LIVE_ENDING,
+            )
+        if (party.status(LocalDateTime.now(clock)) !in reconnectableStatuses) {
+            throwChatNotActive()
         }
         profile.nickname = nickname
         profile.character = character
         return profile
     }
+
+    private fun throwUnauthorized(): Nothing = throw BusinessException(ErrorCode.UNAUTHORIZED)
+
+    private fun throwForbidden(): Nothing = throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
+
+    private fun throwChatNotActive(): Nothing = throw BusinessException(ErrorCode.CHAT_NOT_ACTIVE)
 
     private fun upsertProfile(
         participant: Participant,
