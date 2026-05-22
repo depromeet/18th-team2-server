@@ -1,9 +1,9 @@
 package com.team2.server.party.application.usecase
 
+import com.team2.server.burstgame.application.port.BurstGameCompletionReader
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.event.RealtimePartyEndingEventPublisher
-import com.team2.server.party.application.service.RealtimePartyEndAvailabilityService
 import com.team2.server.party.application.service.RealtimePartyEndService
 import com.team2.server.party.application.service.RealtimePartyEndStartResult
 import com.team2.server.party.domain.entity.Party
@@ -24,7 +24,7 @@ import kotlin.test.assertEquals
 class StartRealtimePartyEndUseCaseTest {
     private val resolveRealtimePartyUseCase: ResolveRealtimePartyUseCase = mock()
     private val realtimePartyEndService: RealtimePartyEndService = mock()
-    private val realtimePartyEndAvailabilityService: RealtimePartyEndAvailabilityService = mock()
+    private val burstGameCompletionReader: BurstGameCompletionReader = mock()
     private val eventPublisher: RealtimePartyEndingEventPublisher = mock()
     private val zone = ZoneId.of("Asia/Seoul")
     private val now = LocalDateTime.of(2026, 5, 23, 10, 0)
@@ -33,7 +33,7 @@ class StartRealtimePartyEndUseCaseTest {
         StartRealtimePartyEndUseCase(
             resolveRealtimePartyUseCase,
             realtimePartyEndService,
-            realtimePartyEndAvailabilityService,
+            burstGameCompletionReader,
             eventPublisher,
             clock,
         )
@@ -94,7 +94,7 @@ class StartRealtimePartyEndUseCaseTest {
                 liveEndingStartedAt = now,
             )
         whenever(resolveRealtimePartyUseCase.invoke(1L)).thenReturn(party)
-        whenever(realtimePartyEndAvailabilityService.canEndByBurstGame(1L)).thenReturn(true)
+        whenever(burstGameCompletionReader.isEnded(1L)).thenReturn(true)
         whenever(realtimePartyEndService.startIfNotStarted(1L, now))
             .thenReturn(RealtimePartyEndStartResult(affected = 1, party = endedParty))
 
@@ -159,5 +159,6 @@ class StartRealtimePartyEndUseCaseTest {
             }.onSuccess { return }
             type = type.superclass
         }
+        throw IllegalStateException("Failed to set id=$id on party class ${party.javaClass.name}.")
     }
 }

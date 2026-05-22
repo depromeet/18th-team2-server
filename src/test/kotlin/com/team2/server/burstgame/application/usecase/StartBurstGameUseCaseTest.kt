@@ -17,7 +17,10 @@ import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import java.time.Clock
+import java.time.Instant
 import java.time.LocalDateTime
+import java.time.ZoneId
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -27,12 +30,14 @@ class StartBurstGameUseCaseTest {
     private val sessionService: BurstGameSessionService = mock()
     private val eventBroadcaster: BurstGameEventBroadcaster = mock()
     private val endScheduler: BurstGameEndScheduler = mock()
+    private val clock: Clock = Clock.fixed(Instant.parse("2026-05-21T11:10:00Z"), ZoneId.of("Asia/Seoul"))
     private val useCase =
         StartBurstGameUseCase(
             participantResolver = participantResolver,
             sessionService = sessionService,
             eventBroadcaster = eventBroadcaster,
             endScheduler = endScheduler,
+            clock = clock,
         )
 
     @Test

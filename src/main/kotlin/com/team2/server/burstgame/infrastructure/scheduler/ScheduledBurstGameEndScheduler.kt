@@ -4,6 +4,7 @@ import com.team2.server.burstgame.application.port.BurstGameEndScheduler
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import java.time.Clock
 import java.time.Duration
 import java.time.LocalDateTime
 import java.util.concurrent.ConcurrentHashMap
@@ -12,9 +13,14 @@ import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 
 @Component
-class ScheduledBurstGameEndScheduler : BurstGameEndScheduler {
+class ScheduledBurstGameEndScheduler(
+    private val clock: Clock,
+) : BurstGameEndScheduler {
     private val log = LoggerFactory.getLogger(javaClass)
-    private val executor = Executors.newSingleThreadScheduledExecutor()
+    private val executor =
+        Executors.newSingleThreadScheduledExecutor { runnable ->
+            Thread(runnable, "burst-game-end-scheduler")
+        }
     private val scheduled = ConcurrentHashMap<Long, ScheduledFuture<*>>()
     private val scheduledLock = Any()
 
@@ -51,7 +57,7 @@ class ScheduledBurstGameEndScheduler : BurstGameEndScheduler {
         }
 
     private fun delayMillisUntil(endsAt: LocalDateTime): Long {
-        val duration = Duration.between(LocalDateTime.now(), endsAt)
+        val duration = Duration.between(LocalDateTime.now(clock), endsAt)
         if (!duration.isPositive) return 0
         return (duration.toNanos() + NANOS_PER_MILLI - 1) / NANOS_PER_MILLI
     }

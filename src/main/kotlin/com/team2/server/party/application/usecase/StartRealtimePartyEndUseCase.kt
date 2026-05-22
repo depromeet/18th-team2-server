@@ -1,10 +1,10 @@
 package com.team2.server.party.application.usecase
 
+import com.team2.server.burstgame.application.port.BurstGameCompletionReader
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.dto.RealtimePartyEndResult
 import com.team2.server.party.application.event.RealtimePartyEndingEventPublisher
-import com.team2.server.party.application.service.RealtimePartyEndAvailabilityService
 import com.team2.server.party.application.service.RealtimePartyEndService
 import com.team2.server.party.application.service.RealtimePartyEndStartResult
 import com.team2.server.party.domain.entity.RealtimeParty
@@ -18,7 +18,7 @@ import java.time.LocalDateTime
 class StartRealtimePartyEndUseCase(
     private val resolveRealtimePartyUseCase: ResolveRealtimePartyUseCase,
     private val realtimePartyEndService: RealtimePartyEndService,
-    private val realtimePartyEndAvailabilityService: RealtimePartyEndAvailabilityService,
+    private val burstGameCompletionReader: BurstGameCompletionReader,
     private val realtimePartyEndingEventPublisher: RealtimePartyEndingEventPublisher,
     private val clock: Clock,
 ) {
@@ -53,7 +53,7 @@ class StartRealtimePartyEndUseCase(
         now: LocalDateTime,
     ): Boolean =
         !now.isBefore(party.hostEndAvailableAt()) ||
-            realtimePartyEndAvailabilityService.canEndByBurstGame(party.id)
+            burstGameCompletionReader.isEnded(party.id)
 
     private fun existingOrPersistedAutomaticEnding(party: RealtimeParty): RealtimePartyEndResult =
         party.liveEndingStartedAt?.let { RealtimePartyEndResult.from(party) }

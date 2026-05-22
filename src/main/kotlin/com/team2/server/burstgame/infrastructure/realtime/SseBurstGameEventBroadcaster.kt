@@ -23,7 +23,10 @@ class SseBurstGameEventBroadcaster(
     private val applicationEventPublisher: ApplicationEventPublisher,
 ) : BurstGameEventBroadcaster {
     private val log = LoggerFactory.getLogger(javaClass)
-    private val executor = Executors.newSingleThreadScheduledExecutor()
+    private val executor =
+        Executors.newSingleThreadScheduledExecutor { runnable ->
+            Thread(runnable, "burst-game-broadcaster")
+        }
     private val pendingProgress = ConcurrentHashMap<Long, BurstGameSnapshot>()
     private val scheduledProgress = ConcurrentHashMap<Long, ScheduledFuture<*>>()
     private val roundLocks = Array(LOCK_STRIPE_COUNT) { Any() }
@@ -57,8 +60,8 @@ class SseBurstGameEventBroadcaster(
             pendingProgress.remove(snapshot.partyId)
             scheduledProgress.remove(snapshot.partyId)?.cancel(false)
             emit(snapshot.partyId, EVENT_ENDED, BurstGameEndedPayload.from(snapshot))
-            applicationEventPublisher.publishEvent(BurstGameEndedEvent(snapshot.partyId, snapshot.serverTime))
         }
+        applicationEventPublisher.publishEvent(BurstGameEndedEvent(snapshot.partyId, snapshot.serverTime))
         scheduleEndedRoundCleanup(snapshot.partyId, snapshot.startedAt, lock)
     }
 

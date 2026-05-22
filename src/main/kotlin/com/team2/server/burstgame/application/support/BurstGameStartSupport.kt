@@ -25,8 +25,9 @@ internal fun endScheduledParty(
     sessionService: BurstGameSessionService,
     eventBroadcaster: BurstGameEventBroadcaster,
     partyId: Long,
+    now: LocalDateTime,
 ) {
-    val result = sessionService.end(partyId, LocalDateTime.now()) ?: return
+    val result = sessionService.end(partyId, now) ?: return
     if (result.endedNow) {
         eventBroadcaster.broadcastEnded(result.snapshot)
     }

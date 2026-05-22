@@ -7,6 +7,7 @@ import com.team2.server.burstgame.application.support.BurstGameParticipantResolv
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Clock
 import java.time.LocalDateTime
 
 @Service
@@ -14,6 +15,7 @@ class GetBurstGameSnapshotUseCase(
     private val participantResolver: BurstGameParticipantResolver,
     private val sessionService: BurstGameSessionService,
     private val eventBroadcaster: BurstGameEventBroadcaster,
+    private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -24,7 +26,7 @@ class GetBurstGameSnapshotUseCase(
         participantToken: String?,
     ): BurstGameStateResponse {
         val participant = participantResolver.resolve(partyId, userId, participantToken)
-        val result = sessionService.snapshot(partyId, participant, LocalDateTime.now())
+        val result = sessionService.snapshot(partyId, participant, LocalDateTime.now(clock))
         if (result.endedNow) {
             runCatching {
                 eventBroadcaster.broadcastEnded(result.snapshot)

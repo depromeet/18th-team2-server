@@ -1,9 +1,9 @@
 package com.team2.server.party.application.usecase
 
+import com.team2.server.burstgame.application.port.BurstGameCompletionReader
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.dto.RealtimePartyEndStatusResult
-import com.team2.server.party.application.service.RealtimePartyEndAvailabilityService
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.domain.entity.RealtimePartyStatus
 import org.springframework.stereotype.Service
@@ -14,7 +14,7 @@ import java.time.LocalDateTime
 @Service
 class GetRealtimePartyEndStatusUseCase(
     private val resolveRealtimePartyUseCase: ResolveRealtimePartyUseCase,
-    private val realtimePartyEndAvailabilityService: RealtimePartyEndAvailabilityService,
+    private val burstGameCompletionReader: BurstGameCompletionReader,
     private val clock: Clock,
 ) {
     @Transactional(readOnly = true)
@@ -54,8 +54,5 @@ class GetRealtimePartyEndStatusUseCase(
     ): Boolean =
         party.liveEndingStartedAt == null &&
             party.status(now) == RealtimePartyStatus.LIVE_OPEN &&
-            (
-                !now.isBefore(party.hostEndAvailableAt()) ||
-                    realtimePartyEndAvailabilityService.canEndByBurstGame(party.id)
-            )
+            (!now.isBefore(party.hostEndAvailableAt()) || burstGameCompletionReader.isEnded(party.id))
 }
