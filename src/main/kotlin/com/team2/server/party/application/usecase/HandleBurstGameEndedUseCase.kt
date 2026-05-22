@@ -1,6 +1,5 @@
 package com.team2.server.party.application.usecase
 
-import com.team2.server.party.application.service.RealtimePartyEndAvailabilityService
 import com.team2.server.party.domain.entity.PartyOption
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.domain.entity.RealtimePartyStatus
@@ -14,15 +13,12 @@ import java.time.LocalDateTime
 @Service
 class HandleBurstGameEndedUseCase(
     private val partyRepository: PartyRepository,
-    private val realtimePartyEndAvailabilityService: RealtimePartyEndAvailabilityService,
     private val clock: Clock,
 ) {
     @Transactional(readOnly = true)
     operator fun invoke(partyId: Long): Boolean {
         val realtimeParty = findRealtimeParty(partyId)
-        val canNotify = realtimeParty?.canNotifyHostEndAvailable(LocalDateTime.now(clock)) == true
-        if (canNotify) realtimePartyEndAvailabilityService.markBurstGameEnded(partyId)
-        return canNotify
+        return realtimeParty?.canNotifyHostEndAvailable(LocalDateTime.now(clock)) == true
     }
 
     private fun findRealtimeParty(partyId: Long): RealtimeParty? {
