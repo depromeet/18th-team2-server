@@ -75,6 +75,18 @@ class GetRealtimePartyNextActionUseCaseTest {
         assertEquals(RealtimePartyNextActionResult.Participant("invite-token", rollingPaperWritten = true), result)
     }
 
+    @Test
+    fun `host participant token gets host rolling paper list action`() {
+        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(12))
+        val hostParticipant = Participant(party = party, isCelebrant = true)
+        whenever(resolveRealtimePartyUseCase.invoke(1L)).thenReturn(party)
+        whenever(participantService.requireCallerParticipant(1L, null, "host-token")).thenReturn(hostParticipant)
+
+        val result = useCase(1L, userId = null, participantToken = "host-token")
+
+        assertEquals(RealtimePartyNextActionResult.Host(1L), result)
+    }
+
     private fun realtimeParty(
         id: Long,
         ownerId: Long,

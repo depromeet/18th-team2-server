@@ -32,16 +32,21 @@ class GetRealtimePartyNextActionUseCase(
         if (party.status(now) != RealtimePartyStatus.LIVE_CLOSED) {
             throwRealtimePartyEndNotAvailable()
         }
-        if (userId == party.ownerId) {
-            return RealtimePartyNextActionResult.Host(partyId = party.id)
+        return when {
+            userId == party.ownerId -> RealtimePartyNextActionResult.Host(partyId = party.id)
+            else -> participantNextAction(party.id, userId, participantToken, now)
         }
-        val participant =
-            participantService.requireCallerParticipant(
-                partyId = party.id,
-                userId = userId,
-                participantToken = participantToken,
-            )
-        val inviteToken = partyInviteService.findLatestUsableInviteToken(party.id, now)
+    }
+
+    private fun participantNextAction(
+        partyId: Long,
+        userId: Long?,
+        participantToken: String?,
+        now: LocalDateTime,
+    ): RealtimePartyNextActionResult {
+        val participant = participantService.requireCallerParticipant(partyId, userId, participantToken)
+        if (participant.isCelebrant) return RealtimePartyNextActionResult.Host(partyId = partyId)
+        val inviteToken = partyInviteService.findLatestUsableInviteToken(partyId, now)
         return RealtimePartyNextActionResult.Participant(
             inviteToken = inviteToken,
             rollingPaperWritten = participant.hasWrittenPaper,

@@ -279,6 +279,25 @@ class PartyServiceTest {
         verify(realtimeParticipantProfileRepository, never()).save(any())
     }
 
+    @Test
+    fun `createRealtimeParty ownerId와 user id가 다르면 저장하지 않는다`() {
+        val user = newUser(id = 2L)
+        val request =
+            CreateRealtimePartyCommand(
+                celebrantNickname = "홍길동",
+                startedDate = LocalDate.of(2026, 4, 29),
+                startTime = LocalTime.of(14, 30),
+                characterId = 1L,
+            )
+
+        assertThrows<IllegalArgumentException> {
+            partyService.createRealtimeParty(userId = 1L, user = user, command = request)
+        }
+
+        verify(partyRepository, never()).save(any())
+        verify(participantRepository, never()).save(any())
+    }
+
     // --- 파티 삭제 ---
 
     @Test

@@ -14,6 +14,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
+import org.mockito.kotlin.verifyNoInteractions
 import org.mockito.kotlin.whenever
 import java.time.Clock
 import java.time.LocalDateTime
@@ -112,7 +113,7 @@ class StartRealtimePartyEndUseCaseTest {
 
         assertEquals(endingStartedAt, result.endingStartedAt)
         verify(realtimePartyEndService, never()).startIfNotStarted(any(), any())
-        verify(eventPublisher, never()).publish(result)
+        verifyNoInteractions(eventPublisher)
     }
 
     @Test
@@ -132,7 +133,7 @@ class StartRealtimePartyEndUseCaseTest {
         val result = useCase(1L, userId = 1L)
 
         assertEquals(party.automaticEndingStartedAt(), result.endingStartedAt)
-        verify(eventPublisher, never()).publish(result)
+        verifyNoInteractions(eventPublisher)
     }
 
     private fun realtimeParty(

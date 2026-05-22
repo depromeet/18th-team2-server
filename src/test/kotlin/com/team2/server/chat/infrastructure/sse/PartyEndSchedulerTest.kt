@@ -164,6 +164,29 @@ class PartyEndSchedulerTest {
     }
 
     @Test
+    fun `late party-ending is skipped when party-ended was already sent`() {
+        val target = RealtimeEndingScheduleTarget(1L, now.minusSeconds(70), now.minusSeconds(10))
+        whenever(recoverRealtimePartyEndScheduleUseCase()).thenReturn(
+            RealtimePartyEndRecoveryResult(
+                automaticEndSchedules = emptyList(),
+                endingTargets = listOf(target),
+            ),
+        )
+
+        scheduler.recoverSchedules()
+        scheduledTasks[0].run()
+        scheduler.onRealtimePartyEndingStarted(
+            RealtimePartyEndingStartedEvent(
+                partyId = 1L,
+                endingStartedAt = target.endingStartedAt,
+                endedAt = target.endedAt,
+            ),
+        )
+
+        verify(sseEmitterRegistry, times(1)).broadcast(eq(1L), anyEvent(), anyOrNull())
+    }
+
+    @Test
     fun `cancelSchedules cancels stored tasks`() {
         scheduler.scheduleIfNeeded(partyId = 1L, startedAt = now.minusMinutes(1))
         scheduler.onRealtimePartyCreated(RealtimePartyCreatedEvent(1L, now.minusMinutes(10)))

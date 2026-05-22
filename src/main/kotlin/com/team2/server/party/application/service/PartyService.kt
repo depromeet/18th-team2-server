@@ -38,6 +38,7 @@ class PartyService(
         user: User,
         command: CreateRealtimePartyCommand,
     ): Long {
+        requireOwnerUserMatches(userId, user)
         val party =
             RealtimeParty(
                 ownerId = userId,
@@ -72,6 +73,7 @@ class PartyService(
         user: User,
         command: CreatePaperOnlyPartyCommand,
     ): Long {
+        requireOwnerUserMatches(userId, user)
         val party =
             PaperOnlyParty(
                 ownerId = userId,
@@ -143,4 +145,13 @@ class PartyService(
     private fun findParty(partyId: Long) =
         partyRepository.findPartyById(partyId)
             ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
+
+    private fun requireOwnerUserMatches(
+        userId: Long,
+        user: User,
+    ) {
+        require(userId == user.id) {
+            "Party ownerId and host user must match. ownerId=$userId userId=${user.id}"
+        }
+    }
 }

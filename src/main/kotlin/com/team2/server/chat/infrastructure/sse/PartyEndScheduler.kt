@@ -242,7 +242,7 @@ class PartyEndScheduler(
         val state = stateFor(target.partyId)
         val shouldSend =
             synchronized(state) {
-                if (state.endingNotified) {
+                if (state.endingNotified || state.endedNotified) {
                     false
                 } else {
                     state.endingNotified = true
