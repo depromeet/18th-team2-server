@@ -33,27 +33,19 @@ class StartRealtimePartyEndUseCase(
         return when (party.status(now)) {
             RealtimePartyStatus.LIVE_CLOSED -> throwBusiness(ErrorCode.REALTIME_PARTY_ALREADY_ENDED)
             RealtimePartyStatus.LIVE_ENDING -> existingOrPersistedAutomaticEnding(party)
-            RealtimePartyStatus.LIVE_OPEN -> startIfAvailable(party, now)
+            RealtimePartyStatus.LIVE_OPEN ->
+                if (party.canStartManually(now)) {
+                    toResultAndPublish(realtimePartyEndService.startIfNotStarted(party.id, now))
+                } else {
+                    throwBusiness(ErrorCode.REALTIME_PARTY_END_NOT_AVAILABLE)
+                }
             else -> throwBusiness(ErrorCode.REALTIME_PARTY_END_NOT_AVAILABLE)
         }
     }
 
-    private fun startIfAvailable(
-        party: RealtimeParty,
-        now: LocalDateTime,
-    ): RealtimePartyEndResult =
-        when {
-            party.liveEndingStartedAt != null || !canEndLiveOpenParty(party, now) ->
-                throwBusiness(ErrorCode.REALTIME_PARTY_END_NOT_AVAILABLE)
-            else -> toResultAndPublish(realtimePartyEndService.startIfNotStarted(party.id, now))
-        }
-
-    private fun canEndLiveOpenParty(
-        party: RealtimeParty,
-        now: LocalDateTime,
-    ): Boolean =
-        !now.isBefore(party.hostEndAvailableAt()) ||
-            burstGameCompletionReader.isEnded(party.id)
+    private fun RealtimeParty.canStartManually(now: LocalDateTime): Boolean =
+        liveEndingStartedAt == null &&
+            (!now.isBefore(hostEndAvailableAt()) || burstGameCompletionReader.isEnded(id))
 
     private fun existingOrPersistedAutomaticEnding(party: RealtimeParty): RealtimePartyEndResult =
         party.liveEndingStartedAt?.let { RealtimePartyEndResult.from(party) }
