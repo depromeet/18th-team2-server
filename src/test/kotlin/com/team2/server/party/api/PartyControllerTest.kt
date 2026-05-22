@@ -3,9 +3,10 @@ package com.team2.server.party.api
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
+import com.team2.server.burstgame.application.port.BurstGameSessionStore
+import com.team2.server.burstgame.domain.BurstGameSession
 import com.team2.server.common.DatabaseCleanup
 import com.team2.server.config.TestcontainersConfiguration
-import com.team2.server.party.application.service.RealtimePartyEndAvailabilityService
 import com.team2.server.party.domain.entity.Character
 import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.PartyInvite
@@ -19,6 +20,7 @@ import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProf
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
 import com.team2.server.user.repository.UserRepository
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -48,16 +50,23 @@ class PartyControllerTest
         private val characterRepository: CharacterRepository,
         private val databaseCleanup: DatabaseCleanup,
         private val jwtProperties: JwtProperties,
-        private val realtimePartyEndAvailabilityService: RealtimePartyEndAvailabilityService,
+        private val burstGameSessionStore: BurstGameSessionStore,
     ) {
         private val tokenProvider = JwtTokenProvider(jwtProperties)
         private val objectMapper = ObjectMapper()
+        private val burstGameSessionPartyIds = mutableListOf<Long>()
         private var defaultCharacterId: Long = 1L
 
         @BeforeEach
         fun setUp() {
             databaseCleanup.execute()
             defaultCharacterId = characterRepository.save(Character(name = "Default")).id
+        }
+
+        @AfterEach
+        fun tearDown() {
+            burstGameSessionPartyIds.forEach { burstGameSessionStore.removeByPartyId(it) }
+            burstGameSessionPartyIds.clear()
         }
 
         @Test
@@ -240,8 +249,12 @@ class PartyControllerTest
         @Test
         fun `박터뜨리기가 종료되면 4분 전에도 실시간 파티를 종료할 수 있다`() {
             val owner = saveUser("kakao-realtime-end-burst", "end-burst@kakao.local")
-            val party = saveRealtimeParty(owner, LocalDateTime.now().minusMinutes(1))
-            realtimePartyEndAvailabilityService.markBurstGameEnded(party.id)
+            val startedAt = LocalDateTime.now().minusMinutes(1)
+            val party = saveRealtimeParty(owner, startedAt)
+            burstGameSessionStore.start(party.id, startedAt) {
+                BurstGameSession(partyId = party.id, startedAt = startedAt, endsAt = startedAt.plusSeconds(20))
+            }
+            burstGameSessionPartyIds.add(party.id)
 
             mockMvc
                 .get("/api/v1/parties/${party.id}/realtime-end") {
