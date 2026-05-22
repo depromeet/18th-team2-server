@@ -89,6 +89,7 @@ ktlint {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    systemProperty("user.timezone", "Asia/Seoul")
     environment("TESTCONTAINERS_RYUK_DISABLED", "true")
     finalizedBy(tasks.jacocoTestReport)
 }
