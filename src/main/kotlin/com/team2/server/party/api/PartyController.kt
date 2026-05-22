@@ -29,7 +29,6 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 
@@ -123,11 +122,10 @@ class PartyController(
     override fun getRealtimeNextAction(
         @AuthenticationPrincipal principal: UserPrincipal?,
         @RequestHeader(value = "X-Participant-Token", required = false) participantToken: String?,
-        @RequestParam(value = "inviteToken", required = false) inviteToken: String?,
         @PathVariable partyId: Long,
     ): ApiResponse<RealtimePartyNextActionResult> =
         ApiResponse.success(
             HttpStatus.OK,
-            getRealtimePartyNextActionUseCase(partyId, principal?.userId, participantToken, inviteToken),
+            getRealtimePartyNextActionUseCase(partyId, principal?.userId, participantToken),
         )
 }

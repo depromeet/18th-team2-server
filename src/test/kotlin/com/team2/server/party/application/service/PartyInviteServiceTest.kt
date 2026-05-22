@@ -248,40 +248,4 @@ class PartyInviteServiceTest {
 
         assertEquals(ErrorCode.PARTY_INVITE_NOT_FOUND, e.errorCode)
     }
-
-    @Test
-    fun `findNextActionInviteToken 요청 초대 토큰이 있으면 그 값을 우선 사용한다`() {
-        val party = makeParty(id = 1L)
-        val invite = makeInvite(party = party, token = "requesttoken1234")
-        whenever(partyInviteRepository.findByToken("requesttoken1234")).thenReturn(invite)
-
-        val result =
-            service.findNextActionInviteToken(
-                partyId = 1L,
-                now = LocalDateTime.now(),
-                requestedInviteToken = "requesttoken1234",
-            )
-
-        assertEquals("requesttoken1234", result)
-        verify(partyInviteRepository, never())
-            .findFirstByPartyIdAndExpiresAtAfterOrderByCreatedAtDescIdDesc(any(), any())
-    }
-
-    @Test
-    fun `findNextActionInviteToken 요청 초대 토큰이 다른 파티면 PARTY_INVITE_NOT_FOUND`() {
-        val otherParty = makeParty(id = 2L)
-        val invite = makeInvite(party = otherParty, token = "othertoken123456")
-        whenever(partyInviteRepository.findByToken("othertoken123456")).thenReturn(invite)
-
-        val e =
-            assertThrows<BusinessException> {
-                service.findNextActionInviteToken(
-                    partyId = 1L,
-                    now = LocalDateTime.now(),
-                    requestedInviteToken = "othertoken123456",
-                )
-            }
-
-        assertEquals(ErrorCode.PARTY_INVITE_NOT_FOUND, e.errorCode)
-    }
 }

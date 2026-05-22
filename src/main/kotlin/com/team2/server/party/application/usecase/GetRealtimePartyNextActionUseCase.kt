@@ -25,7 +25,6 @@ class GetRealtimePartyNextActionUseCase(
         partyId: Long,
         userId: Long?,
         participantToken: String?,
-        inviteToken: String?,
     ): RealtimePartyNextActionResult {
         val now = LocalDateTime.now(clock)
         partyCallerAccessService.validateCallerCanAccessParty(partyId, userId, participantToken)
@@ -42,9 +41,9 @@ class GetRealtimePartyNextActionUseCase(
                 userId = userId,
                 participantToken = participantToken,
             )
-        val nextInviteToken = partyInviteService.findNextActionInviteToken(party.id, now, inviteToken)
+        val inviteToken = partyInviteService.findLatestUsableInviteToken(party.id, now)
         return RealtimePartyNextActionResult.Participant(
-            inviteToken = nextInviteToken,
+            inviteToken = inviteToken,
             rollingPaperWritten = participant.hasWrittenPaper,
         )
     }

@@ -45,7 +45,7 @@ class GetRealtimePartyNextActionUseCaseTest {
 
         val ex =
             assertThrows<BusinessException> {
-                useCase(1L, userId = 1L, participantToken = null, inviteToken = null)
+                useCase(1L, userId = 1L, participantToken = null)
             }
 
         verify(partyCallerAccessService).validateCallerCanAccessParty(1L, 1L, null)
@@ -57,7 +57,7 @@ class GetRealtimePartyNextActionUseCaseTest {
         val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(12))
         whenever(resolveRealtimePartyUseCase.invoke(1L)).thenReturn(party)
 
-        val result = useCase(1L, userId = 1L, participantToken = null, inviteToken = null)
+        val result = useCase(1L, userId = 1L, participantToken = null)
 
         assertEquals(RealtimePartyNextActionResult.Host(1L), result)
     }
@@ -68,25 +68,11 @@ class GetRealtimePartyNextActionUseCaseTest {
         val participant = Participant(party = party).apply { hasWrittenPaper = true }
         whenever(resolveRealtimePartyUseCase.invoke(1L)).thenReturn(party)
         whenever(participantService.requireCallerParticipant(1L, null, "tok")).thenReturn(participant)
-        whenever(partyInviteService.findNextActionInviteToken(eq(1L), any(), eq(null))).thenReturn("invite-token")
+        whenever(partyInviteService.findLatestUsableInviteToken(eq(1L), any())).thenReturn("invite-token")
 
-        val result = useCase(1L, userId = null, participantToken = "tok", inviteToken = null)
+        val result = useCase(1L, userId = null, participantToken = "tok")
 
         assertEquals(RealtimePartyNextActionResult.Participant("invite-token", rollingPaperWritten = true), result)
-    }
-
-    @Test
-    fun `participant request invite token is preferred for next action`() {
-        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(12))
-        val participant = Participant(party = party)
-        whenever(resolveRealtimePartyUseCase.invoke(1L)).thenReturn(party)
-        whenever(participantService.requireCallerParticipant(1L, null, "tok")).thenReturn(participant)
-        whenever(partyInviteService.findNextActionInviteToken(eq(1L), any(), eq("request-invite")))
-            .thenReturn("request-invite")
-
-        val result = useCase(1L, userId = null, participantToken = "tok", inviteToken = "request-invite")
-
-        assertEquals(RealtimePartyNextActionResult.Participant("request-invite", rollingPaperWritten = false), result)
     }
 
     private fun realtimeParty(
