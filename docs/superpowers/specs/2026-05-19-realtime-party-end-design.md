@@ -228,14 +228,31 @@ data: {"partyId":1,"endedAt":"2026-05-19T20:11:00"}
 
 ## 5. 스케줄링
 
-`PartyEndScheduler`는 개별 파티별 `party-ended` 예약을 잡지 않고, DB 상태를 기준으로 짧은 주기(예: 1초)로 polling한다. SSE 발송은 트랜잭션 안에서 직접 수행하지 않는다.
+`PartyEndScheduler`는 1초 반복 polling을 사용하지 않는다. DB는 source of truth로 두고, 평상시에는 `TaskScheduler` 예약과 트랜잭션 commit 이후 이벤트로 동작한다. SSE 발송은 트랜잭션 안에서 직접 수행하지 않는다.
 
-자동 종료 시작:
+앱 시작 시 1회 복구:
 
 ```text
 live_ending_started_at IS NULL
 AND started_at + 10분 <= now
   -> 조건부 update로 live_ending_started_at = started_at + 10분 저장
+
+live_ending_started_at IS NULL
+AND started_at + 10분 > now
+  -> started_at + 10분에 자동 종료 시작 예약
+
+live_ending_started_at != null
+  -> live_ending_started_at + 60초에 party-ended 예약
+```
+
+이미 `live_ending_started_at + 60초 <= now`인 경우에는 즉시 `party-ended` 처리 대상으로 본다.
+
+자동 종료 시작:
+
+```text
+TaskScheduler 예약 시각 도달
+  -> 조건부 update로 live_ending_started_at = started_at + 10분 저장
+  -> commit 이후 RealtimePartyEndingStartedEvent 발행
 ```
 
 수동 종료 시작:
@@ -243,30 +260,32 @@ AND started_at + 10분 <= now
 ```text
 POST /api/v1/parties/{partyId}/realtime-end
   -> 조건부 update로 live_ending_started_at = now 저장
+  -> commit 이후 RealtimePartyEndingStartedEvent 발행
 ```
 
-SSE polling:
+신규 실시간 파티 생성:
 
 ```text
-live_ending_started_at != null
-AND live_ending_started_at + 60초 > now
-AND partyId not in endingNotifiedPartyIds
-  -> party-ending 전송
-
-live_ending_started_at + 60초 <= now
-AND partyId not in endedNotifiedPartyIds
-  -> party-ended 전송
-  -> grace time 이후 남은 SSE emitter 정리
+CreateRealtimePartyUseCase
+  -> commit 이후 RealtimePartyCreatedEvent 발행
+  -> started_at + 10분에 자동 종료 시작 예약
 ```
 
-자동 종료 조건부 update는 현재 시각이 아니라 `startedAt + 10분`을 저장한다.
-`endingNotifiedPartyIds`, `endedNotifiedPartyIds`는 단일 인스턴스 메모리 Set으로 중복 발송을 막는다.
+종료 시작 이벤트 처리:
+
+```text
+RealtimePartyEndingStartedEvent
+  -> party-ending 전송
+  -> live_ending_started_at + 60초에 party-ended 예약
+  -> party-ended 이후 grace time 뒤 남은 SSE emitter 정리
+```
 
 재시작 복구:
 
-- `live_ending_started_at != null && live_ending_started_at + 60초 > now`: polling으로 `party-ending`, `party-ended` 복구
-- `live_ending_started_at + 60초 <= now`: `LIVE_CLOSED`로 계산
-- 누락된 `party-ending`은 별도 보장하지 않고, 클라이언트는 재연결 시 `party-state`로 카운트다운 상태를 복구한다.
+- `live_ending_started_at == null && started_at + 10분 > now`: 자동 종료 시작 예약 복구
+- `live_ending_started_at == null && started_at + 10분 <= now`: 조건부 update 후 종료 시작 이벤트 처리
+- `live_ending_started_at != null`: `party-ended` 예약 복구
+- 누락된 `party-ending`은 클라이언트가 재연결 시 `party-state`로 카운트다운 상태를 복구한다.
 
 ## 6. 입장/채팅 검증
 
@@ -309,7 +328,7 @@ REALTIME_PARTY_ALREADY_ENDED(HttpStatus.CONFLICT, "이미 종료된 실시간 �
 7. 실시간 상태 복구 API 추가
 8. 종료 후 다음 행동 조회 API 추가
 9. `host-end-available`, `party-state`, `party-ending`, `party-ended` SSE 처리
-10. `PartyEndScheduler`를 DB polling 기반 `party-ending`, `party-ended` 발송 구조로 변경
+10. `PartyEndScheduler`를 startup recovery + event 기반 예약 구조로 변경
 11. 기존 `WARN_BEFORE_END_MINUTES`와 9분 트리거 제거
 12. 종료 시작 조건부 update 구현
 13. `party-ended` 후 grace cleanup 적용

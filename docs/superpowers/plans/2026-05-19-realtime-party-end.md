@@ -4,7 +4,7 @@
 
 **Goal:** 실시간 파티의 주최자 수동 종료, 10분 자동 종료, 60초 종료 카운트다운, SSE 종료 이벤트, 종료 후 롤링페이퍼 이동 정보를 구현한다.
 
-**Architecture:** 파티 상태/권한/복구 API는 `party/application/usecase` 중심으로 구현하고, SSE 발송과 polling은 기존 `chat/infrastructure/sse` 흐름을 확장한다. 실시간 세션 종료는 `Party.endedAt()`과 분리해 `RealtimeParty.liveEndingStartedAt`으로 관리한다.
+**Architecture:** 파티 상태/권한/복구 API는 `party/application/usecase` 중심으로 구현하고, SSE 발송과 예약 실행은 기존 `chat/infrastructure/sse` 흐름을 확장한다. 실시간 세션 종료는 `Party.endedAt()`과 분리해 `RealtimeParty.liveEndingStartedAt`으로 관리한다.
 
 **Architecture Test Guardrails:** `*Controller`는 `..api..`, `*UseCase`는 `..application.usecase..`, `*Repository`는 `..infrastructure.persistence..`에 둔다. `@Transactional`은 UseCase에만 둔다. `chat` 인프라가 `party.infrastructure.persistence`를 직접 의존하지 않도록, DB 조회/조건부 update는 `party.application.usecase` 경유로 노출한다.
 
@@ -22,7 +22,7 @@
 - 자동 종료는 `startedAt + 10분`을 `liveEndingStartedAt`에 저장한다. 스케줄러 실행 시각 `now`를 저장하지 않는다.
 - 주최자 롤링페이퍼 열람 가능 시점은 `liveEndingStartedAt ?: startedAt + 10분`이다.
 - `party-ended`는 공통 payload만 보내고, 개인화 이동 정보는 `GET /api/v1/parties/{partyId}/realtime-next-action`에서 조회한다.
-- `PartyEndScheduler`는 per-party 예약을 잡지 않고 DB polling으로 `party-ending`, `party-ended`를 발송한다.
+- `PartyEndScheduler`는 1초 반복 polling을 사용하지 않고, startup recovery + after-commit event + `TaskScheduler` 예약으로 `party-ending`, `party-ended`를 발송한다.
 - 비회원 참가자의 `rollingPaperWritten`은 `participantToken -> RealtimeParticipantProfile -> Participant.hasWrittenPaper`로 계산한다.
 - 참가자용 `inviteToken`은 해당 party의 만료되지 않은 초대 토큰을 `PartyInviteRepository.findByPartyIdAndExpiresAtAfter(partyId, now)`로 조회한다.
 - 박터뜨리기 종료는 수동 종료 가능 상태만 열고 자동 종료는 시작하지 않는다.
@@ -37,12 +37,12 @@
 |---|---|
 | `src/main/resources/db/migration/V4__add_realtime_party_end_state.sql` | `realtime_party.live_ending_started_at` 추가 |
 | `src/main/kotlin/com/team2/server/party/domain/entity/RealtimeParty.kt` | 종료 상수, 상태 계산, `hostViewableAt()` 수정 |
-| `src/main/kotlin/com/team2/server/party/infrastructure/persistence/PartyRepository.kt` | 종료 polling/조건부 update 쿼리 |
+| `src/main/kotlin/com/team2/server/party/infrastructure/persistence/PartyRepository.kt` | 종료 복구 조회/조건부 update 쿼리 |
 | `src/main/kotlin/com/team2/server/party/api/PartyApi.kt` | 실시간 종료 API Swagger 계약 |
 | `src/main/kotlin/com/team2/server/party/api/PartyController.kt` | 주최자 종료 조회/요청, 상태/다음 행동 조회 |
 | `src/main/kotlin/com/team2/server/party/api/dto/*Realtime*` | 종료 상태/요청/다음 행동 응답 DTO |
 | `src/main/kotlin/com/team2/server/party/application/usecase/*Realtime*` | 종료 가능 조회, 종료 요청, 상태 복구, 다음 행동 조회 |
-| `src/main/kotlin/com/team2/server/chat/infrastructure/sse/PartyEndScheduler.kt` | usecase 경유 DB polling 기반 종료 이벤트 발송 |
+| `src/main/kotlin/com/team2/server/chat/infrastructure/sse/PartyEndScheduler.kt` | startup recovery + event 기반 종료 이벤트 발송 |
 | `src/main/kotlin/com/team2/server/chat/infrastructure/sse/SseEmitterRegistry.kt` | 주최자 단독 알림, grace cleanup 지원 |
 | `src/main/kotlin/com/team2/server/chat/usecase/EnterAndSubscribeChatUseCase.kt` | 연결 직후 `party-state` 발송, `LIVE_ENDING` 재연결 허용 |
 | `src/main/kotlin/com/team2/server/auth/config/SecurityConfig.kt` | participant token 기반 복구 API 공개 경로 조정 |
@@ -85,8 +85,8 @@ Run:
 
 - [ ] 수동 종료용 조건부 update를 추가한다: `live_ending_started_at = now` only when null.
 - [ ] 자동 종료용 조건부 update를 추가한다: `live_ending_started_at = startedAt + 10분` only when null and `startedAt + 10분 <= now`.
-- [ ] polling 대상 조회를 추가한다: `liveEndingStartedAt != null`인 realtime party 목록.
-- [ ] `PartyEndScheduler`가 repository를 직접 주입받지 않도록 polling용 UseCase를 제공한다.
+- [ ] startup recovery용 조회를 추가한다: 자동 종료 예약 대상과 이미 종료 countdown이 시작된 realtime party 목록.
+- [ ] `PartyEndScheduler`가 repository를 직접 주입받지 않도록 복구/조건부 종료 UseCase를 제공한다.
 - [ ] 종료 가능 조회는 주최자 권한, `REALTIME` 타입, 4분 경과 또는 박터뜨리기 종료 여부를 검증한다.
 - [ ] 종료 가능 조회의 `canEnd`는 `status(now) == LIVE_OPEN && liveEndingStartedAt == null && (now >= startedAt + 4분 || 박터뜨리기 종료)`일 때만 true다.
 - [ ] 박터뜨리기 완료 상태는 이벤트/상태 provider로 분리해 연결하고, 도메인이 없으면 false를 기본값으로 둔다.
@@ -153,7 +153,7 @@ Run:
 ./gradlew test --tests '*Chat*'
 ```
 
-## Task 5: PartyEndScheduler를 DB polling으로 변경
+## Task 5: PartyEndScheduler를 startup recovery + event 기반으로 변경
 
 **Files:**
 - Modify: `src/main/kotlin/com/team2/server/chat/infrastructure/sse/PartyEndScheduler.kt`
@@ -162,14 +162,16 @@ Run:
 - Test: scheduler/usecase tests
 
 - [ ] 기존 `WARN_BEFORE_END_MINUTES`와 `startedAt + 9분` 알림 예약을 제거한다.
-- [ ] `scheduleIfNeeded(...)` 기반 per-party 예약을 제거하거나 no-op로 대체한다.
-- [ ] 1초 주기 polling으로 자동 종료 시작 조건을 처리한다.
-- [ ] polling은 `party.application.usecase`의 polling용 UseCase를 호출하고, `party.infrastructure.persistence`를 직접 참조하지 않는다.
+- [ ] 앱 시작 시 DB 상태를 1회 조회해 자동 종료 시작 예약과 `party-ended` 예약을 복구한다.
+- [ ] 신규 실시간 파티 생성 commit 이후 `RealtimePartyCreatedEvent`로 자동 종료 시작 예약을 잡는다.
+- [ ] 자동 종료 예약 task는 조건부 update로 `liveEndingStartedAt = startedAt + 10분`을 저장한다.
+- [ ] 수동/자동 종료 시작 commit 이후 `RealtimePartyEndingStartedEvent`로 `party-ending`을 전송하고 `party-ended`를 예약한다.
+- [ ] `PartyEndScheduler`는 `party.application.usecase`만 호출하고, `party.infrastructure.persistence`를 직접 참조하지 않는다.
 - [ ] 자동 종료 시작 시 `liveEndingStartedAt = startedAt + 10분`으로 저장한다.
 - [ ] `endingNotifiedPartyIds` 메모리 Set으로 `party-ending` 중복 발송을 막는다.
 - [ ] `endedNotifiedPartyIds` 메모리 Set으로 `party-ended` 중복 발송을 막는다.
 - [ ] `liveEndingStartedAt + 60초 <= now`이면 `party-ended`를 발송하고 grace cleanup을 예약한다.
-- [ ] 재시작 후 `party-ending` 누락은 재연결 `party-state`로 복구하고, polling은 현재 DB 상태 기준으로 계속 동작한다.
+- [ ] 재시작 후 `party-ending` 누락은 재연결 `party-state`로 복구하고, scheduler는 복구된 DB 상태 기준으로 예약을 다시 잡는다.
 
 Run:
 
@@ -230,7 +232,7 @@ Run:
   - 연결 직후 `party-state` 전송
   - 4분 도달 시 주최자에게 `host-end-available`
   - 자동 종료 시작 시 `party-ending`
-  - 자동 종료 저장값은 polling 실행 시각이 아니라 `startedAt + 10분`
+  - 자동 종료 저장값은 scheduler 실행 시각이 아니라 `startedAt + 10분`
   - 60초 경과 후 `party-ended`
   - `party-ended` 후 grace cleanup
   - `LIVE_ENDING`에서 기존 participantToken 재연결 허용
