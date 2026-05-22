@@ -61,8 +61,11 @@ class SseBurstGameEventBroadcaster(
             scheduledProgress.remove(snapshot.partyId)?.cancel(false)
             emit(snapshot.partyId, EVENT_ENDED, BurstGameEndedPayload.from(snapshot))
         }
-        applicationEventPublisher.publishEvent(BurstGameEndedEvent(snapshot.partyId, snapshot.serverTime))
-        scheduleEndedRoundCleanup(snapshot.partyId, snapshot.startedAt, lock)
+        try {
+            applicationEventPublisher.publishEvent(BurstGameEndedEvent(snapshot.partyId, snapshot.serverTime))
+        } finally {
+            scheduleEndedRoundCleanup(snapshot.partyId, snapshot.startedAt, lock)
+        }
     }
 
     private fun scheduleProgress(
