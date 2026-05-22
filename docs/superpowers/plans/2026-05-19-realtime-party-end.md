@@ -24,7 +24,7 @@
 - `party-ended`는 공통 payload만 보내고, 개인화 이동 정보는 `GET /api/v1/parties/{partyId}/realtime-next-action`에서 조회한다.
 - `PartyEndScheduler`는 1초 반복 polling을 사용하지 않고, startup recovery + after-commit event + `TaskScheduler` 예약으로 `party-ending`, `party-ended`를 발송한다.
 - 비회원 참가자의 `rollingPaperWritten`은 `participantToken -> RealtimeParticipantProfile -> Participant.hasWrittenPaper`로 계산한다.
-- 참가자용 `inviteToken`은 해당 party의 만료되지 않은 초대 토큰을 `PartyInviteRepository.findByPartyIdAndExpiresAtAfter(partyId, now)`로 조회한다.
+- 참가자용 `inviteToken`은 `PartyInviteService`를 통해 조회한다. 요청 초대 토큰이 없으면 해당 party의 만료되지 않은 초대 토큰 중 최신 1개를 선택한다.
 - 박터뜨리기 종료는 수동 종료 가능 상태만 열고 자동 종료는 시작하지 않는다.
 
 ---
@@ -117,9 +117,9 @@ Run:
 - [ ] `realtime-state`, `realtime-next-action`은 participant token 사용을 위해 path-specific permitAll로 열고, invalid Bearer token은 기존 JWT 정책대로 401을 유지한다.
 - [ ] 주최자 next action은 `{ type: "HOST_ROLLING_PAPER_LIST", partyId }`로 응답한다.
 - [ ] 참가자 next action은 `{ type: "PARTICIPANT_ROLLING_PAPER_WRITE", inviteToken, rollingPaperWritten }`로 응답한다.
-- [ ] 회원 참가자는 `ParticipantRepository.findByPartyIdAndUserId(...)`로 participant를 찾는다.
-- [ ] 비회원 참가자는 `RealtimeParticipantProfileRepository.findByParticipantToken(...)`로 profile과 participant를 찾는다.
-- [ ] 참가자 `inviteToken`은 `PartyInviteRepository.findByPartyIdAndExpiresAtAfter(partyId, now)`로 조회한다.
+- [ ] 회원 참가자는 `ParticipantService`를 통해 party 소속 participant를 찾는다.
+- [ ] 비회원 참가자는 `ParticipantService` 또는 `RealtimeParticipantProfileService`를 통해 participant token에 연결된 profile과 participant를 찾는다.
+- [ ] 참가자 `inviteToken`은 `PartyInviteService`를 통해 조회한다. 요청 초대 토큰이 있으면 그 값을 우선 사용하고, 없으면 해당 party의 유효 초대 토큰 중 최신 1개를 선택한다.
 - [ ] 참가자 `rollingPaperWritten`은 resolved participant의 `hasWrittenPaper`로 응답한다.
 - [ ] `REALTIME_PARTY_END_NOT_AVAILABLE(400)`, `REALTIME_PARTY_ALREADY_ENDED(409)`를 추가한다.
 - [ ] 컨트롤러 테스트는 기존 MockMvc 통합 테스트 패턴을 따라 `@Import(TestcontainersConfiguration::class)`를 포함한다.

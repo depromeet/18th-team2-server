@@ -340,4 +340,7 @@ REALTIME_PARTY_ALREADY_ENDED(HttpStatus.CONFLICT, "이미 종료된 실시간 �
 ## 9. 참가자 next action 계산 기준
 
 - 비회원 참가자의 `rollingPaperWritten`은 `participantToken -> RealtimeParticipantProfile -> Participant.hasWrittenPaper`로 계산한다.
-- 참가자용 `inviteToken`은 해당 party의 만료되지 않은 초대 토큰을 `PartyInviteRepository.findByPartyIdAndExpiresAtAfter(partyId, now)`로 조회한다.
+- 참가자용 `inviteToken`은 참가자가 현재 요청에서 사용한 초대 토큰이 있으면 그 값을 우선 사용한다.
+- 요청 초대 토큰이 없으면 해당 party의 만료되지 않은 초대 토큰 중 가장 최근 생성된 토큰을 사용한다.
+  - 구현 시 `PartyInviteService`가 유효 초대 토큰 조회와 선택 기준을 캡슐화한다.
+  - 유효 초대 토큰이 여러 개면 `createdAt DESC`, `id DESC` 기준으로 1개를 선택한다.
