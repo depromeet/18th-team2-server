@@ -4,13 +4,13 @@ import com.team2.server.burstgame.application.event.BurstGameEndedEvent
 import com.team2.server.party.application.dto.RealtimeEndingScheduleTarget
 import com.team2.server.party.application.event.RealtimePartyCreatedEvent
 import com.team2.server.party.application.event.RealtimePartyEndingStartedEvent
+import com.team2.server.party.application.usecase.HandleBurstGameEndedUseCase
 import com.team2.server.party.application.usecase.RecoverRealtimePartyEndScheduleUseCase
 import com.team2.server.party.application.usecase.StartAutomaticRealtimePartyEndUseCase
 import com.team2.server.party.domain.entity.RealtimeParty
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
-import org.springframework.context.event.EventListener
 import org.springframework.dao.DataAccessException
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.stereotype.Component
@@ -30,6 +30,7 @@ class PartyEndScheduler(
     private val sseEmitterRegistry: SseEmitterRegistry,
     private val recoverRealtimePartyEndScheduleUseCase: RecoverRealtimePartyEndScheduleUseCase,
     private val startAutomaticRealtimePartyEndUseCase: StartAutomaticRealtimePartyEndUseCase,
+    private val handleBurstGameEndedUseCase: HandleBurstGameEndedUseCase,
     private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -95,9 +96,11 @@ class PartyEndScheduler(
         )
     }
 
-    @EventListener
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     fun onBurstGameEnded(event: BurstGameEndedEvent) {
-        sendHostEndAvailableIfNeeded(event.partyId, event.endedAt)
+        if (handleBurstGameEndedUseCase(event.partyId)) {
+            sendHostEndAvailableIfNeeded(event.partyId, event.endedAt)
+        }
     }
 
     fun sendHostEndAvailable(

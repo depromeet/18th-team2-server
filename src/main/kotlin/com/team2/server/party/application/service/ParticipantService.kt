@@ -10,16 +10,13 @@ import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProfileRepository
 import com.team2.server.user.entity.User
-import com.team2.server.user.repository.UserRepository
 import org.springframework.dao.DataIntegrityViolationException
-import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 
 @Service
 class ParticipantService(
     private val participantRepository: ParticipantRepository,
     private val realtimeParticipantProfileRepository: RealtimeParticipantProfileRepository,
-    private val userRepository: UserRepository,
 ) {
     fun joinMember(
         party: Party,
@@ -32,12 +29,9 @@ class ParticipantService(
 
     fun joinAnonymousOrMember(
         party: Party,
-        userId: Long?,
+        user: User?,
     ): Participant {
-        if (userId == null) return joinAnonymous(party)
-        val user =
-            userRepository.findByIdOrNull(userId)
-                ?: throw BusinessException(ErrorCode.AUTH_USER_NOT_FOUND)
+        if (user == null) return joinAnonymous(party)
         return joinMember(party, user)
     }
 

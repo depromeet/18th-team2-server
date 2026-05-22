@@ -94,6 +94,7 @@ interface PartyApi {
     fun getRealtimeNextAction(
         @Parameter(hidden = true) principal: UserPrincipal?,
         @Parameter(hidden = true) participantToken: String?,
+        @Parameter(description = "현재 요청에서 사용한 초대 토큰", example = "exampletoken0000") inviteToken: String?,
         @Parameter(description = "파티 ID", example = "1") partyId: Long,
     ): ApiResponse<RealtimePartyNextActionResult>
 }

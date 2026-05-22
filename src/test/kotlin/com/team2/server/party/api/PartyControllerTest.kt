@@ -241,12 +241,7 @@ class PartyControllerTest
         fun `박터뜨리기가 종료되면 4분 전에도 실시간 파티를 종료할 수 있다`() {
             val owner = saveUser("kakao-realtime-end-burst", "end-burst@kakao.local")
             val party = saveRealtimeParty(owner, LocalDateTime.now().minusMinutes(1))
-            realtimePartyEndAvailabilityService.onBurstGameEnded(
-                com.team2.server.burstgame.application.event.BurstGameEndedEvent(
-                    partyId = party.id,
-                    endedAt = LocalDateTime.now(),
-                ),
-            )
+            realtimePartyEndAvailabilityService.markBurstGameEnded(party.id)
 
             mockMvc
                 .get("/api/v1/parties/${party.id}/realtime-end") {

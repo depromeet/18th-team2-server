@@ -6,6 +6,7 @@ import com.team2.server.party.application.dto.RealtimeEndingScheduleTarget
 import com.team2.server.party.application.dto.RealtimePartyEndRecoveryResult
 import com.team2.server.party.application.event.RealtimePartyCreatedEvent
 import com.team2.server.party.application.event.RealtimePartyEndingStartedEvent
+import com.team2.server.party.application.usecase.HandleBurstGameEndedUseCase
 import com.team2.server.party.application.usecase.RecoverRealtimePartyEndScheduleUseCase
 import com.team2.server.party.application.usecase.StartAutomaticRealtimePartyEndUseCase
 import org.junit.jupiter.api.BeforeEach
@@ -32,6 +33,7 @@ class PartyEndSchedulerTest {
     private val sseEmitterRegistry: SseEmitterRegistry = mock()
     private val recoverRealtimePartyEndScheduleUseCase: RecoverRealtimePartyEndScheduleUseCase = mock()
     private val startAutomaticRealtimePartyEndUseCase: StartAutomaticRealtimePartyEndUseCase = mock()
+    private val handleBurstGameEndedUseCase: HandleBurstGameEndedUseCase = mock()
     private val zone = ZoneId.of("Asia/Seoul")
     private val now = LocalDateTime.of(2026, 5, 18, 14, 20)
     private val clock = Clock.fixed(now.atZone(zone).toInstant(), zone)
@@ -48,6 +50,7 @@ class PartyEndSchedulerTest {
                 sseEmitterRegistry = sseEmitterRegistry,
                 recoverRealtimePartyEndScheduleUseCase = recoverRealtimePartyEndScheduleUseCase,
                 startAutomaticRealtimePartyEndUseCase = startAutomaticRealtimePartyEndUseCase,
+                handleBurstGameEndedUseCase = handleBurstGameEndedUseCase,
                 clock = clock,
             )
         whenever(taskScheduler.schedule(any<Runnable>(), any<Instant>())).thenAnswer { invocation ->
@@ -90,11 +93,23 @@ class PartyEndSchedulerTest {
     @Test
     fun `burst game ended event sends host-end-available immediately`() {
         scheduler.scheduleIfNeeded(partyId = 1L, startedAt = now.minusMinutes(1))
+        whenever(handleBurstGameEndedUseCase(1L)).thenReturn(true)
 
         scheduler.onBurstGameEnded(BurstGameEndedEvent(1L, now))
 
         verify(scheduledFutures.first()).cancel(false)
         verify(sseEmitterRegistry).broadcastHost(eq(1L), anyEvent())
+    }
+
+    @Test
+    fun `burst game ended event does not send host-end-available when party cannot handle it`() {
+        scheduler.scheduleIfNeeded(partyId = 1L, startedAt = now.minusMinutes(1))
+        whenever(handleBurstGameEndedUseCase(1L)).thenReturn(false)
+
+        scheduler.onBurstGameEnded(BurstGameEndedEvent(1L, now))
+
+        verify(scheduledFutures.first(), never()).cancel(false)
+        verify(sseEmitterRegistry, never()).broadcastHost(eq(1L), anyEvent())
     }
 
     @Test

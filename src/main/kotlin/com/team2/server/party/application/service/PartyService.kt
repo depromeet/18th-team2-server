@@ -18,7 +18,7 @@ import com.team2.server.party.infrastructure.persistence.PartyInviteRepository
 import com.team2.server.party.infrastructure.persistence.PartyRepository
 import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProfileRepository
 import com.team2.server.rollingpaper.repository.RollingPaperRepository
-import com.team2.server.user.repository.UserRepository
+import com.team2.server.user.entity.User
 import org.hibernate.Hibernate
 import org.springframework.stereotype.Service
 import java.time.LocalDateTime
@@ -32,13 +32,12 @@ class PartyService(
     private val partyInviteRepository: PartyInviteRepository,
     private val chatMessageRepository: ChatMessageRepository,
     private val rollingPaperRepository: RollingPaperRepository,
-    private val userRepository: UserRepository,
 ) {
     fun createRealtimeParty(
         userId: Long,
+        user: User,
         command: CreateRealtimePartyCommand,
     ): Long {
-        val user = findUser(userId)
         val party =
             RealtimeParty(
                 ownerId = userId,
@@ -70,9 +69,9 @@ class PartyService(
 
     fun createPaperOnlyParty(
         userId: Long,
+        user: User,
         command: CreatePaperOnlyPartyCommand,
     ): Long {
-        val user = findUser(userId)
         val party =
             PaperOnlyParty(
                 ownerId = userId,
@@ -144,9 +143,4 @@ class PartyService(
     private fun findParty(partyId: Long) =
         partyRepository.findPartyById(partyId)
             ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
-
-    private fun findUser(userId: Long) =
-        userRepository
-            .findById(userId)
-            .orElseThrow { BusinessException(ErrorCode.AUTH_USER_NOT_FOUND) }
 }

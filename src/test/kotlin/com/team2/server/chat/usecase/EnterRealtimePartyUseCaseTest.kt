@@ -13,6 +13,9 @@ import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.PartyInvite
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
+import com.team2.server.user.entity.AuthProvider
+import com.team2.server.user.entity.User
+import com.team2.server.user.repository.UserRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -25,6 +28,7 @@ import org.mockito.kotlin.whenever
 import java.time.Clock
 import java.time.LocalDateTime
 import java.time.ZoneId
+import java.util.Optional
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 
@@ -37,6 +41,8 @@ class EnterRealtimePartyUseCaseTest {
     @Mock lateinit var realtimeParticipantProfileService: RealtimeParticipantProfileService
 
     @Mock lateinit var characterService: CharacterService
+
+    @Mock lateinit var userRepository: UserRepository
 
     lateinit var useCase: EnterRealtimePartyUseCase
 
@@ -53,6 +59,7 @@ class EnterRealtimePartyUseCaseTest {
                 participantService = participantService,
                 realtimeParticipantProfileService = realtimeParticipantProfileService,
                 characterService = characterService,
+                userRepository = userRepository,
                 clock = clock,
             )
     }
@@ -138,10 +145,12 @@ class EnterRealtimePartyUseCaseTest {
         val character = Character(name = "토끼")
         val participant = Participant(party = party, isCelebrant = true)
         val profile = RealtimeParticipantProfile(participant = participant, nickname = "주최자", character = character)
+        val user = user()
 
         whenever(partyInviteService.findUsableInvite(any(), any())).thenReturn(invite)
         whenever(characterService.requireCharacter(1L)).thenReturn(character)
-        whenever(participantService.joinAnonymousOrMember(party, 1L)).thenReturn(participant)
+        whenever(userRepository.findById(1L)).thenReturn(Optional.of(user))
+        whenever(participantService.joinAnonymousOrMember(party, user)).thenReturn(participant)
         whenever(
             realtimeParticipantProfileService.upsert(
                 participant = participant,
@@ -262,4 +271,13 @@ class EnterRealtimePartyUseCaseTest {
         assertEquals(ErrorCode.PARTY_HOST_NICKNAME_NOT_EDITABLE, ex.errorCode)
         assertEquals("기존닉네임", existingProfile.nickname)
     }
+
+    private fun user(): User =
+        User(
+            name = "회원",
+            birthDay = "01-01",
+            provider = AuthProvider.KAKAO,
+            providerId = "member-1",
+            email = "member@example.com",
+        )
 }

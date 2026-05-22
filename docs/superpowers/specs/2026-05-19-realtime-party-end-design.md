@@ -152,11 +152,12 @@ Authorization: Bearer {accessToken} 또는 X-Participant-Token: {participantToke
 ### 3-4. 종료 후 다음 행동 조회
 
 ```http
-GET /api/v1/parties/{partyId}/realtime-next-action
+GET /api/v1/parties/{partyId}/realtime-next-action?inviteToken={inviteToken}
 Authorization: Bearer {accessToken} 또는 X-Participant-Token: {participantToken}
 ```
 
 `LIVE_CLOSED` 진입 후 호출한다. `party-ended`를 못 받은 클라이언트도 `realtime-state`로 `LIVE_CLOSED`를 확인한 뒤 호출할 수 있다.
+`inviteToken` query는 선택값이며, 현재 요청에서 사용한 초대 토큰이 있을 때 전달한다.
 
 권한:
 

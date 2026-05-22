@@ -106,6 +106,22 @@ class PartyInviteService(
             ?.token ?: throw BusinessException(ErrorCode.PARTY_INVITE_NOT_FOUND)
     }
 
+    fun findNextActionInviteToken(
+        partyId: Long,
+        now: LocalDateTime,
+        requestedInviteToken: String?,
+    ): String {
+        val token = requestedInviteToken?.takeUnless { it.isBlank() }
+        if (token != null) {
+            val invite = findUsableInvite(token, now)
+            if (invite.party.id != partyId) {
+                throw BusinessException(ErrorCode.PARTY_INVITE_NOT_FOUND)
+            }
+            return invite.token
+        }
+        return findLatestUsableInviteToken(partyId, now)
+    }
+
     fun findUsableRealtimeInvite(
         inviteToken: String,
         now: LocalDateTime,

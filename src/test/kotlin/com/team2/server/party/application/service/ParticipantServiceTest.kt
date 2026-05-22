@@ -11,7 +11,6 @@ import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProfileRepository
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
-import com.team2.server.user.repository.UserRepository
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
@@ -24,12 +23,10 @@ import kotlin.test.assertFailsWith
 class ParticipantServiceTest {
     private val participantRepository: ParticipantRepository = mock()
     private val realtimeParticipantProfileRepository: RealtimeParticipantProfileRepository = mock()
-    private val userRepository: UserRepository = mock()
     private val service =
         ParticipantService(
             participantRepository,
             realtimeParticipantProfileRepository,
-            userRepository,
         )
 
     private fun makeUser(): User =
