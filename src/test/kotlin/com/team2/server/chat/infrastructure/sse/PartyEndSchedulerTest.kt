@@ -18,6 +18,7 @@ import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.util.concurrent.ScheduledFuture
+import kotlin.test.assertEquals
 
 class PartyEndSchedulerTest {
     private val taskScheduler: TaskScheduler = mock()
@@ -65,6 +66,18 @@ class PartyEndSchedulerTest {
 
         verify(scheduledFutures.first()).cancel(false)
         verify(sseEmitterRegistry, never()).broadcastHost(eq(1L), anyEvent())
+    }
+
+    @Test
+    fun `host-end-available은 한 번 발송된 뒤 재예약하지 않는다`() {
+        val startedAt = now.minusMinutes(5)
+
+        scheduler.scheduleIfNeeded(partyId = 1L, startedAt = startedAt)
+        scheduledTasks.first().run()
+        scheduler.scheduleIfNeeded(partyId = 1L, startedAt = startedAt)
+
+        assertEquals(1, scheduledTasks.size)
+        verify(sseEmitterRegistry).broadcastHost(eq(1L), anyEvent())
     }
 
     private fun anyEvent(): Set<ResponseBodyEmitter.DataWithMediaType> = any()

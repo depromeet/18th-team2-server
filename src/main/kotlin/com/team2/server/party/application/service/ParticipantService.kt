@@ -6,16 +6,20 @@ import com.team2.server.common.exception.isConstraintViolation
 import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
+import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProfileRepository
 import com.team2.server.user.entity.User
+import com.team2.server.user.repository.UserRepository
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 
 @Service
 class ParticipantService(
     private val participantRepository: ParticipantRepository,
     private val realtimeParticipantProfileRepository: RealtimeParticipantProfileRepository,
+    private val userRepository: UserRepository,
 ) {
     fun joinMember(
         party: Party,
@@ -25,6 +29,17 @@ class ParticipantService(
             ?: createMemberParticipant(party, user)
 
     fun joinAnonymous(party: Party): Participant = participantRepository.save(Participant(party = party))
+
+    fun joinAnonymousOrMember(
+        party: Party,
+        userId: Long?,
+    ): Participant {
+        if (userId == null) return joinAnonymous(party)
+        val user =
+            userRepository.findByIdOrNull(userId)
+                ?: throw BusinessException(ErrorCode.AUTH_USER_NOT_FOUND)
+        return joinMember(party, user)
+    }
 
     fun findOrCreate(
         party: Party,
@@ -55,6 +70,19 @@ class ParticipantService(
             participantToken != null -> resolveCallerByToken(partyId, participantToken)
             else -> throw BusinessException(ErrorCode.UNAUTHORIZED)
         }
+
+    fun validatePartyMember(
+        party: RealtimeParty,
+        userId: Long?,
+        participantToken: String?,
+    ) {
+        if (party.ownerId == userId) return
+        requireCallerParticipant(
+            partyId = party.id,
+            userId = userId,
+            participantToken = participantToken,
+        )
+    }
 
     private fun resolveCallerByUser(
         partyId: Long,

@@ -27,48 +27,33 @@ class StartRealtimePartyEndUseCase(
     ): RealtimePartyEndResult {
         val now = LocalDateTime.now(clock)
         val party = resolveRealtimePartyUseCase.invoke(partyId)
-        validateHost(party, userId)
+        if (party.ownerId != userId) throwBusiness(ErrorCode.PARTY_FORBIDDEN)
         return when (party.status(now)) {
-            RealtimePartyStatus.LIVE_CLOSED -> throwRealtimePartyAlreadyEnded()
+            RealtimePartyStatus.LIVE_CLOSED -> throwBusiness(ErrorCode.REALTIME_PARTY_ALREADY_ENDED)
             RealtimePartyStatus.LIVE_ENDING -> existingOrPersistedAutomaticEnding(party)
             RealtimePartyStatus.LIVE_OPEN -> startIfAvailable(party, now)
-            else -> throwRealtimePartyEndNotAvailable()
+            else -> throwBusiness(ErrorCode.REALTIME_PARTY_END_NOT_AVAILABLE)
         }
-    }
-
-    private fun validateHost(
-        party: RealtimeParty,
-        userId: Long,
-    ) {
-        if (party.ownerId != userId) throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
     }
 
     private fun startIfAvailable(
         party: RealtimeParty,
         now: LocalDateTime,
-    ): RealtimePartyEndResult {
-        if (party.liveEndingStartedAt != null || now.isBefore(party.hostEndAvailableAt())) {
-            throwRealtimePartyEndNotAvailable()
+    ): RealtimePartyEndResult =
+        when {
+            party.liveEndingStartedAt != null || now.isBefore(party.hostEndAvailableAt()) ->
+                throwBusiness(ErrorCode.REALTIME_PARTY_END_NOT_AVAILABLE)
+            else -> toResultAndPublish(realtimePartyEndService.startIfNotStarted(party.id, now))
         }
-        return toResultAndPublish(realtimePartyEndService.startIfNotStarted(party.id, now))
-    }
 
     private fun existingOrPersistedAutomaticEnding(party: RealtimeParty): RealtimePartyEndResult =
-        if (party.liveEndingStartedAt == null) {
-            toResultAndPublish(realtimePartyEndService.startIfNotStarted(party.id, party.automaticEndingStartedAt()))
-        } else {
-            RealtimePartyEndResult.from(party)
+        party.liveEndingStartedAt?.let { RealtimePartyEndResult.from(party) }
+            ?: toResultAndPublish(realtimePartyEndService.startIfNotStarted(party.id, party.automaticEndingStartedAt()))
+
+    private fun toResultAndPublish(startResult: RealtimePartyEndStartResult): RealtimePartyEndResult =
+        RealtimePartyEndResult.from(startResult.party).also {
+            if (startResult.affected == 1) realtimePartyEndingEventPublisher.publish(it)
         }
 
-    private fun toResultAndPublish(startResult: RealtimePartyEndStartResult): RealtimePartyEndResult {
-        val result = RealtimePartyEndResult.from(startResult.party)
-        if (startResult.affected == 1) realtimePartyEndingEventPublisher.publish(result)
-        return result
-    }
-
-    private fun throwRealtimePartyAlreadyEnded(): Nothing =
-        throw BusinessException(ErrorCode.REALTIME_PARTY_ALREADY_ENDED)
-
-    private fun throwRealtimePartyEndNotAvailable(): Nothing =
-        throw BusinessException(ErrorCode.REALTIME_PARTY_END_NOT_AVAILABLE)
+    private fun throwBusiness(errorCode: ErrorCode): Nothing = throw BusinessException(errorCode)
 }

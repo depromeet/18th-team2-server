@@ -113,7 +113,7 @@ class PartyEndScheduler(
     ) {
         val state = stateFor(partyId)
         synchronized(state) {
-            if (state.hostAvailableScheduled) return
+            if (state.hostAvailableScheduled || state.hostAvailableNotified) return
             state.hostAvailableScheduled = true
         }
 
@@ -136,6 +136,7 @@ class PartyEndScheduler(
                         } else {
                             state.hostAvailableTask = null
                             state.hostAvailableScheduled = false
+                            state.hostAvailableNotified = true
                             true
                         }
                     }
@@ -317,6 +318,7 @@ class PartyEndScheduler(
 
     private class PartyEndScheduleState {
         var hostAvailableScheduled: Boolean = false
+        var hostAvailableNotified: Boolean = false
         var hostAvailableTask: ScheduledFuture<*>? = null
         var automaticEndTask: ScheduledFuture<*>? = null
         var endedTask: ScheduledFuture<*>? = null
