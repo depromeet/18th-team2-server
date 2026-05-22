@@ -1,5 +1,6 @@
 package com.team2.server.chat.infrastructure.sse
 
+import com.team2.server.burstgame.application.event.BurstGameEndedEvent
 import com.team2.server.party.application.dto.RealtimeEndingScheduleTarget
 import com.team2.server.party.application.event.RealtimePartyCreatedEvent
 import com.team2.server.party.application.event.RealtimePartyEndingStartedEvent
@@ -9,6 +10,7 @@ import com.team2.server.party.domain.entity.RealtimeParty
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
+import org.springframework.context.event.EventListener
 import org.springframework.dao.DataAccessException
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.stereotype.Component
@@ -93,6 +95,11 @@ class PartyEndScheduler(
         )
     }
 
+    @EventListener
+    fun onBurstGameEnded(event: BurstGameEndedEvent) {
+        sendHostEndAvailableIfNeeded(event.partyId, event.endedAt)
+    }
+
     fun sendHostEndAvailable(
         partyId: Long,
         availableAt: LocalDateTime,
@@ -120,6 +127,24 @@ class PartyEndScheduler(
         val availableAt = startedAt.plusMinutes(RealtimeParty.HOST_END_AVAILABLE_AFTER_MINUTES)
         val task = scheduleHostEndAvailableTask(state, partyId, availableAt)
         storeHostEndAvailableTask(state, task)
+    }
+
+    private fun sendHostEndAvailableIfNeeded(
+        partyId: Long,
+        availableAt: LocalDateTime,
+    ) {
+        val state = stateFor(partyId)
+        val shouldSend =
+            synchronized(state) {
+                if (state.hostAvailableNotified || state.endingNotified || state.endedNotified) {
+                    false
+                } else {
+                    cancelHostEndAvailable(state)
+                    state.hostAvailableNotified = true
+                    true
+                }
+            }
+        if (shouldSend) sendHostEndAvailable(partyId, availableAt)
     }
 
     private fun scheduleHostEndAvailableTask(
@@ -211,9 +236,9 @@ class PartyEndScheduler(
     }
 
     private fun sendPartyEnding(target: RealtimeEndingScheduleTarget) {
+        val state = stateFor(target.partyId)
         val shouldSend =
-            synchronized(stateFor(target.partyId)) {
-                val state = stateFor(target.partyId)
+            synchronized(state) {
                 if (state.endingNotified) {
                     false
                 } else {

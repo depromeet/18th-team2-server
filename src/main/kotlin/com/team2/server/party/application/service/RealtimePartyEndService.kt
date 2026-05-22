@@ -75,7 +75,7 @@ class RealtimePartyEndService(
         val party =
             partyRepository.findPartyById(partyId)
                 ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
-        if (party.partyOption != PartyOption.REALTIME) throw BusinessException(ErrorCode.CHAT_NOT_SUPPORTED)
+        if (party.partyOption != PartyOption.REALTIME) throw BusinessException(ErrorCode.PARTY_NOT_REALTIME)
         return Hibernate.unproxy(party) as RealtimeParty
     }
 }

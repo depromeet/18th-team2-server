@@ -10,6 +10,7 @@ import com.team2.server.chat.infrastructure.sse.PartyEndScheduler
 import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.common.image.entity.ImageTargetType
 import com.team2.server.common.image.persistence.ImageUrlReader
+import com.team2.server.party.application.dto.RealtimePartyStateResult
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.domain.entity.RealtimePartyStatus
 import org.springframework.stereotype.Service
@@ -78,7 +79,7 @@ class EnterAndSubscribeChatUseCase(
 
     private fun sendPartyState(
         emitter: SseEmitter,
-        partyState: Any,
+        partyState: RealtimePartyStateResult,
     ) {
         try {
             emitter.send(

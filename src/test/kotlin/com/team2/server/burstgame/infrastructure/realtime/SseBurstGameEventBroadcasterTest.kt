@@ -1,5 +1,6 @@
 package com.team2.server.burstgame.infrastructure.realtime
 
+import com.team2.server.burstgame.application.event.BurstGameEndedEvent
 import com.team2.server.burstgame.domain.BurstGameRankingEntry
 import com.team2.server.burstgame.domain.BurstGameRoundStatus
 import com.team2.server.burstgame.domain.BurstGameSnapshot
@@ -12,6 +13,7 @@ import org.mockito.kotlin.isNull
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter
 import java.time.LocalDateTime
 import kotlin.test.AfterTest
@@ -19,7 +21,8 @@ import kotlin.test.Test
 
 class SseBurstGameEventBroadcasterTest {
     private val chatSseGateway: ChatSseGateway = mock()
-    private val broadcaster = SseBurstGameEventBroadcaster(chatSseGateway)
+    private val applicationEventPublisher: ApplicationEventPublisher = mock()
+    private val broadcaster = SseBurstGameEventBroadcaster(chatSseGateway, applicationEventPublisher)
 
     @AfterTest
     fun tearDown() {
@@ -44,9 +47,13 @@ class SseBurstGameEventBroadcasterTest {
     @Test
     fun `ended 이후 pending progress는 전송하지 않는다`() {
         broadcaster.broadcastProgress(snapshot(totalTapCount = 1, stateVersion = 1))
-        broadcaster.broadcastEnded(snapshot(status = BurstGameRoundStatus.ENDED, totalTapCount = 1, stateVersion = 2))
+        val endedSnapshot = snapshot(status = BurstGameRoundStatus.ENDED, totalTapCount = 1, stateVersion = 2)
+        broadcaster.broadcastEnded(endedSnapshot)
 
         verify(chatSseGateway, timeout(400).times(1)).broadcastAfterCommit(eq(1L), anyEvent(), isNull())
+        verify(applicationEventPublisher).publishEvent(
+            BurstGameEndedEvent(1L, endedSnapshot.serverTime),
+        )
     }
 
     @Test

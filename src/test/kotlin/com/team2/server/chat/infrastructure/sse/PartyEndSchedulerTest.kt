@@ -1,14 +1,21 @@
 package com.team2.server.chat.infrastructure.sse
 
+import com.team2.server.burstgame.application.event.BurstGameEndedEvent
+import com.team2.server.party.application.dto.RealtimeAutomaticEndSchedule
+import com.team2.server.party.application.dto.RealtimeEndingScheduleTarget
+import com.team2.server.party.application.dto.RealtimePartyEndRecoveryResult
+import com.team2.server.party.application.event.RealtimePartyCreatedEvent
 import com.team2.server.party.application.event.RealtimePartyEndingStartedEvent
 import com.team2.server.party.application.usecase.RecoverRealtimePartyEndScheduleUseCase
 import com.team2.server.party.application.usecase.StartAutomaticRealtimePartyEndUseCase
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
+import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.scheduling.TaskScheduler
@@ -78,6 +85,84 @@ class PartyEndSchedulerTest {
 
         assertEquals(1, scheduledTasks.size)
         verify(sseEmitterRegistry).broadcastHost(eq(1L), anyEvent())
+    }
+
+    @Test
+    fun `burst game ended event sends host-end-available immediately`() {
+        scheduler.scheduleIfNeeded(partyId = 1L, startedAt = now.minusMinutes(1))
+
+        scheduler.onBurstGameEnded(BurstGameEndedEvent(1L, now))
+
+        verify(scheduledFutures.first()).cancel(false)
+        verify(sseEmitterRegistry).broadcastHost(eq(1L), anyEvent())
+    }
+
+    @Test
+    fun `created event schedules automatic ending and sends ending events`() {
+        val startedAt = now.minusMinutes(10)
+        val endingStartedAt = startedAt.plusMinutes(10)
+        val target =
+            RealtimeEndingScheduleTarget(
+                partyId = 1L,
+                endingStartedAt = endingStartedAt,
+                endedAt = endingStartedAt.plusSeconds(60),
+                startedNow = true,
+            )
+        whenever(startAutomaticRealtimePartyEndUseCase(1L, endingStartedAt)).thenReturn(target)
+
+        scheduler.onRealtimePartyCreated(RealtimePartyCreatedEvent(1L, startedAt))
+        scheduledTasks[0].run()
+        scheduledTasks[1].run()
+        scheduledTasks[2].run()
+
+        verify(sseEmitterRegistry, times(2)).broadcast(eq(1L), anyEvent(), anyOrNull())
+        verify(sseEmitterRegistry).completeAll(1L)
+    }
+
+    @Test
+    fun `automatic ending returning null does not schedule ending events`() {
+        val startedAt = now.minusMinutes(10)
+        val endingStartedAt = startedAt.plusMinutes(10)
+        whenever(startAutomaticRealtimePartyEndUseCase(1L, endingStartedAt)).thenReturn(null)
+
+        scheduler.onRealtimePartyCreated(RealtimePartyCreatedEvent(1L, startedAt))
+        scheduledTasks[0].run()
+
+        assertEquals(1, scheduledTasks.size)
+        verify(sseEmitterRegistry, never()).broadcast(eq(1L), anyEvent(), anyOrNull())
+    }
+
+    @Test
+    fun `recovery schedules automatic and ending targets without immediate ending broadcast`() {
+        val endingStartedAt = now.plusMinutes(1)
+        whenever(recoverRealtimePartyEndScheduleUseCase()).thenReturn(
+            RealtimePartyEndRecoveryResult(
+                automaticEndSchedules = listOf(RealtimeAutomaticEndSchedule(1L, endingStartedAt)),
+                endingTargets = listOf(RealtimeEndingScheduleTarget(2L, now.minusSeconds(10), now.plusSeconds(50))),
+            ),
+        )
+
+        scheduler.recoverSchedules()
+
+        assertEquals(2, scheduledTasks.size)
+        verify(sseEmitterRegistry, never()).broadcast(eq(2L), anyEvent(), anyOrNull())
+    }
+
+    @Test
+    fun `cancelSchedules cancels stored tasks`() {
+        scheduler.scheduleIfNeeded(partyId = 1L, startedAt = now.minusMinutes(1))
+        scheduler.onRealtimePartyCreated(RealtimePartyCreatedEvent(1L, now.minusMinutes(10)))
+        scheduler.onRealtimePartyEndingStarted(
+            RealtimePartyEndingStartedEvent(
+                partyId = 1L,
+                endingStartedAt = now,
+                endedAt = now.plusSeconds(60),
+            ),
+        )
+
+        scheduler.cancelSchedules()
+
+        scheduledFutures.forEach { verify(it).cancel(false) }
     }
 
     private fun anyEvent(): Set<ResponseBodyEmitter.DataWithMediaType> = any()

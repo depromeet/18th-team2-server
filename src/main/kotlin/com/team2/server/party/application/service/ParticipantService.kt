@@ -66,8 +66,19 @@ class ParticipantService(
         participantToken: String?,
     ): Participant =
         when {
+            participantToken != null -> {
+                val tokenParticipant =
+                    try {
+                        resolveCallerByToken(partyId, participantToken)
+                    } catch (e: BusinessException) {
+                        if (e.errorCode != ErrorCode.PARTY_FORBIDDEN) throw e
+                        null
+                    }
+                tokenParticipant
+                    ?: userId?.let { resolveCallerByUser(partyId, it) }
+                    ?: throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
+            }
             userId != null -> resolveCallerByUser(partyId, userId)
-            participantToken != null -> resolveCallerByToken(partyId, participantToken)
             else -> throw BusinessException(ErrorCode.UNAUTHORIZED)
         }
 

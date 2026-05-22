@@ -49,7 +49,7 @@ class EnterRealtimePartyUseCase(
         val realtimeParty = validateInvite(invite.party)
         val reentry = request.participantToken != null
         if (!reentry) {
-            validateNewEnterable(realtimeParty)
+            validateNewEnterable(realtimeParty, now)
         }
 
         val character = characterService.requireCharacter(request.characterId)
@@ -61,6 +61,7 @@ class EnterRealtimePartyUseCase(
                     participantToken = requireNotNull(request.participantToken),
                     nickname = request.nickname,
                     character = character,
+                    now = now,
                 )
             } else {
                 val participant = participantService.joinAnonymousOrMember(invite.party, userId)
@@ -68,7 +69,7 @@ class EnterRealtimePartyUseCase(
                     participant = participant,
                     nickname = request.nickname,
                     character = character,
-                    isHostNicknameLocked = false,
+                    isHostNicknameLocked = participant.isCelebrant,
                 )
             }
 
@@ -90,8 +91,11 @@ class EnterRealtimePartyUseCase(
         return Hibernate.unproxy(party) as RealtimeParty
     }
 
-    private fun validateNewEnterable(realtimeParty: RealtimeParty) {
-        if (realtimeParty.status(LocalDateTime.now(clock)) != RealtimePartyStatus.LIVE_OPEN) {
+    private fun validateNewEnterable(
+        realtimeParty: RealtimeParty,
+        now: LocalDateTime,
+    ) {
+        if (realtimeParty.status(now) != RealtimePartyStatus.LIVE_OPEN) {
             throw BusinessException(ErrorCode.CHAT_NOT_ACTIVE)
         }
     }
@@ -101,6 +105,7 @@ class EnterRealtimePartyUseCase(
         participantToken: String,
         nickname: String,
         character: Character,
+        now: LocalDateTime,
     ): RealtimeParticipantProfile {
         val profile =
             realtimeParticipantProfileService.requireByParticipantToken(participantToken, party.id)
@@ -109,8 +114,11 @@ class EnterRealtimePartyUseCase(
                 RealtimePartyStatus.LIVE_OPEN,
                 RealtimePartyStatus.LIVE_ENDING,
             )
-        if (party.status(LocalDateTime.now(clock)) !in reconnectableStatuses) {
+        if (party.status(now) !in reconnectableStatuses) {
             throwChatNotActive()
+        }
+        if (profile.participant.isCelebrant && profile.nickname != nickname) {
+            throw BusinessException(ErrorCode.PARTY_HOST_NICKNAME_NOT_EDITABLE)
         }
         profile.nickname = nickname
         profile.character = character

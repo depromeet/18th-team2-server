@@ -11,6 +11,11 @@ interface PartyRepository : JpaRepository<Party, Long> {
     @Query("SELECT p FROM Party p WHERE p.id = :id")
     fun findPartyById(id: Long): Party?
 
+    fun existsByIdAndOwnerId(
+        id: Long,
+        ownerId: Long,
+    ): Boolean
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(
         """

@@ -150,8 +150,8 @@ class PartyStatusTest {
 
     @Test
     fun `RealtimeParty - Party 종료가 LIVE_CLOSED보다 우선한다`() {
-        val party = realtimeParty()
         val now = liveStart.plusDays(7)
+        val party = realtimeParty().apply { liveEndingStartedAt = now.minusSeconds(60) }
         assertEquals(RealtimePartyStatus.ROLLING_PAPER_CLOSED, party.status(now))
     }
 }

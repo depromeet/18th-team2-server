@@ -20,9 +20,11 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.Clock
 import java.time.LocalDateTime
+import java.time.ZoneId
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 
@@ -39,6 +41,9 @@ class EnterRealtimePartyUseCaseTest {
     lateinit var useCase: EnterRealtimePartyUseCase
 
     private val request = EnterRealtimePartyRequest(nickname = "토끼왕", characterId = 1L)
+    private val zone = ZoneId.of("Asia/Seoul")
+    private val now = LocalDateTime.of(2026, 5, 23, 10, 0)
+    private val clock = Clock.fixed(now.atZone(zone).toInstant(), zone)
 
     @BeforeEach
     fun setUp() {
@@ -48,7 +53,7 @@ class EnterRealtimePartyUseCaseTest {
                 participantService = participantService,
                 realtimeParticipantProfileService = realtimeParticipantProfileService,
                 characterService = characterService,
-                clock = Clock.systemDefaultZone(),
+                clock = clock,
             )
     }
 
@@ -63,8 +68,8 @@ class EnterRealtimePartyUseCaseTest {
 
     @Test
     fun `PAPER_ONLY 파티면 CHAT_NOT_SUPPORTED`() {
-        val party = PaperOnlyParty(ownerId = 1L, startedAt = LocalDateTime.now())
-        val invite = PartyInvite(party = party, token = "tok", expiresAt = LocalDateTime.now().plusDays(7))
+        val party = PaperOnlyParty(ownerId = 1L, startedAt = now)
+        val invite = PartyInvite(party = party, token = "tok", expiresAt = now.plusDays(7))
         whenever(partyInviteService.findUsableInvite(any(), any())).thenReturn(invite)
 
         val ex = assertThrows<BusinessException> { useCase.enter("tok", userId = null, request) }
@@ -73,8 +78,8 @@ class EnterRealtimePartyUseCaseTest {
 
     @Test
     fun `입장 가능 시간 이전이면 CHAT_NOT_ACTIVE`() {
-        val party = RealtimeParty(ownerId = 1L, startedAt = LocalDateTime.now().plusHours(1))
-        val invite = PartyInvite(party = party, token = "tok", expiresAt = LocalDateTime.now().plusDays(7))
+        val party = RealtimeParty(ownerId = 1L, startedAt = now.plusHours(1))
+        val invite = PartyInvite(party = party, token = "tok", expiresAt = now.plusDays(7))
         whenever(partyInviteService.findUsableInvite(any(), any())).thenReturn(invite)
 
         val ex = assertThrows<BusinessException> { useCase.enter("tok", userId = null, request) }
@@ -92,8 +97,8 @@ class EnterRealtimePartyUseCaseTest {
 
     @Test
     fun `존재하지 않는 캐릭터면 CHARACTER_NOT_FOUND`() {
-        val party = RealtimeParty(ownerId = 1L, startedAt = LocalDateTime.now().minusMinutes(1))
-        val invite = PartyInvite(party = party, token = "tok", expiresAt = LocalDateTime.now().plusDays(7))
+        val party = RealtimeParty(ownerId = 1L, startedAt = now.minusMinutes(1))
+        val invite = PartyInvite(party = party, token = "tok", expiresAt = now.plusDays(7))
         whenever(partyInviteService.findUsableInvite(any(), any())).thenReturn(invite)
         whenever(characterService.requireCharacter(1L)).thenThrow(BusinessException(ErrorCode.CHARACTER_NOT_FOUND))
 
@@ -103,8 +108,8 @@ class EnterRealtimePartyUseCaseTest {
 
     @Test
     fun `비로그인 사용자 첫 입장 - 익명 Participant + Profile 생성 후 token 반환`() {
-        val party = RealtimeParty(ownerId = 1L, startedAt = LocalDateTime.now().minusMinutes(1))
-        val invite = PartyInvite(party = party, token = "tok", expiresAt = LocalDateTime.now().plusDays(7))
+        val party = RealtimeParty(ownerId = 1L, startedAt = now.minusMinutes(1))
+        val invite = PartyInvite(party = party, token = "tok", expiresAt = now.plusDays(7))
         val character = Character(name = "토끼")
         val participant = Participant(party = party)
         val profile = RealtimeParticipantProfile(participant = participant, nickname = "토끼왕", character = character)
@@ -127,9 +132,39 @@ class EnterRealtimePartyUseCaseTest {
     }
 
     @Test
+    fun `주최자 첫 채팅 입장은 닉네임 잠금 옵션을 적용한다`() {
+        val party = RealtimeParty(ownerId = 1L, startedAt = now.minusMinutes(1))
+        val invite = PartyInvite(party = party, token = "tok", expiresAt = now.plusDays(7))
+        val character = Character(name = "토끼")
+        val participant = Participant(party = party, isCelebrant = true)
+        val profile = RealtimeParticipantProfile(participant = participant, nickname = "주최자", character = character)
+
+        whenever(partyInviteService.findUsableInvite(any(), any())).thenReturn(invite)
+        whenever(characterService.requireCharacter(1L)).thenReturn(character)
+        whenever(participantService.joinAnonymousOrMember(party, 1L)).thenReturn(participant)
+        whenever(
+            realtimeParticipantProfileService.upsert(
+                participant = participant,
+                nickname = "토끼왕",
+                character = character,
+                isHostNicknameLocked = true,
+            ),
+        ).thenReturn(profile)
+
+        useCase.enter("tok", userId = 1L, request)
+
+        verify(realtimeParticipantProfileService).upsert(
+            participant = participant,
+            nickname = "토끼왕",
+            character = character,
+            isHostNicknameLocked = true,
+        )
+    }
+
+    @Test
     fun `이미 프로필이 있는 사용자 재입장 - 기존 token 반환`() {
-        val party = RealtimeParty(ownerId = 1L, startedAt = LocalDateTime.now().minusMinutes(1))
-        val invite = PartyInvite(party = party, token = "tok", expiresAt = LocalDateTime.now().plusDays(7))
+        val party = RealtimeParty(ownerId = 1L, startedAt = now.minusMinutes(1))
+        val invite = PartyInvite(party = party, token = "tok", expiresAt = now.plusDays(7))
         val character = Character(name = "토끼")
         val participant = Participant(party = party)
         val existingProfile =
@@ -159,8 +194,8 @@ class EnterRealtimePartyUseCaseTest {
 
     @Test
     fun `회원도 participantToken이 있으면 LIVE_ENDING에서 재입장할 수 있다`() {
-        val party = RealtimeParty(ownerId = 1L, startedAt = LocalDateTime.now().minusMinutes(10).minusSeconds(1))
-        val invite = PartyInvite(party = party, token = "tok", expiresAt = LocalDateTime.now().plusDays(7))
+        val party = RealtimeParty(ownerId = 1L, startedAt = now.minusMinutes(10).minusSeconds(1))
+        val invite = PartyInvite(party = party, token = "tok", expiresAt = now.plusDays(7))
         val character = Character(name = "토끼")
         val participant = Participant(party = party)
         val existingProfile =
@@ -191,5 +226,40 @@ class EnterRealtimePartyUseCaseTest {
         assertEquals("existing-uuid", result.participantToken)
         assertEquals("새닉네임", existingProfile.nickname)
         assertEquals(character, existingProfile.character)
+    }
+
+    @Test
+    fun `주최자는 participantToken 재입장으로 닉네임을 변경할 수 없다`() {
+        val party = RealtimeParty(ownerId = 1L, startedAt = now.minusMinutes(1))
+        val invite = PartyInvite(party = party, token = "tok", expiresAt = now.plusDays(7))
+        val character = Character(name = "토끼")
+        val participant = Participant(party = party, isCelebrant = true)
+        val existingProfile =
+            RealtimeParticipantProfile(
+                participant = participant,
+                nickname = "기존닉네임",
+                character = null,
+                participantToken = "existing-uuid",
+            )
+        val reenterRequest =
+            EnterRealtimePartyRequest(
+                nickname = "새닉네임",
+                characterId = 1L,
+                participantToken = existingProfile.participantToken,
+            )
+
+        whenever(partyInviteService.findUsableInvite(any(), any())).thenReturn(invite)
+        whenever(characterService.requireCharacter(1L)).thenReturn(character)
+        whenever(
+            realtimeParticipantProfileService.requireByParticipantToken(
+                participantToken = existingProfile.participantToken,
+                partyId = party.id,
+            ),
+        ).thenReturn(existingProfile)
+
+        val ex = assertThrows<BusinessException> { useCase.enter("tok", userId = 1L, reenterRequest) }
+
+        assertEquals(ErrorCode.PARTY_HOST_NICKNAME_NOT_EDITABLE, ex.errorCode)
+        assertEquals("기존닉네임", existingProfile.nickname)
     }
 }

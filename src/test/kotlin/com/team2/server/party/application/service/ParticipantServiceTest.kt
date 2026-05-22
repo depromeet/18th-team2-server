@@ -116,6 +116,20 @@ class ParticipantServiceTest {
     }
 
     @Test
+    fun `requireCallerParticipantId prefers participant token over JWT user`() {
+        val party = makeRealtimeParty()
+        val tokenParticipant = Participant(party = party, user = null)
+        val userParticipant = Participant(party = party, user = makeUser())
+        val profile = RealtimeParticipantProfile(participant = tokenParticipant, nickname = "익명")
+        whenever(realtimeParticipantProfileRepository.findByParticipantToken("tok")).thenReturn(profile)
+        whenever(participantRepository.findByPartyIdAndUserId(party.id, 42L)).thenReturn(userParticipant)
+
+        val result = service.requireCallerParticipantId(party.id, userId = 42L, participantToken = "tok")
+
+        assertEquals(tokenParticipant.id, result)
+    }
+
+    @Test
     fun `requireCallerParticipantId throws PARTY_FORBIDDEN when token belongs to a different party`() {
         val otherParty: Party = mock()
         whenever(otherParty.id).thenReturn(99L)
