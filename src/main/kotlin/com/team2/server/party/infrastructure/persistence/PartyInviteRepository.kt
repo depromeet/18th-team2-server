@@ -14,6 +14,11 @@ interface PartyInviteRepository : JpaRepository<PartyInvite, Long> {
         now: LocalDateTime,
     ): PartyInvite?
 
+    fun findFirstByPartyIdAndExpiresAtAfterOrderByCreatedAtDescIdDesc(
+        partyId: Long,
+        now: LocalDateTime,
+    ): PartyInvite?
+
     @Query(
         """
         SELECT invite

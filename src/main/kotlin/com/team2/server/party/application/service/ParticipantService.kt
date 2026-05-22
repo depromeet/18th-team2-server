@@ -39,6 +39,17 @@ class ParticipantService(
         userId: Long?,
         participantToken: String?,
     ): Long =
+        requireCallerParticipant(
+            partyId = partyId,
+            userId = userId,
+            participantToken = participantToken,
+        ).id
+
+    fun requireCallerParticipant(
+        partyId: Long,
+        userId: Long?,
+        participantToken: String?,
+    ): Participant =
         when {
             userId != null -> resolveCallerByUser(partyId, userId)
             participantToken != null -> resolveCallerByToken(partyId, participantToken)
@@ -48,21 +59,21 @@ class ParticipantService(
     private fun resolveCallerByUser(
         partyId: Long,
         userId: Long,
-    ): Long =
-        participantRepository.findByPartyIdAndUserId(partyId, userId)?.id
+    ): Participant =
+        participantRepository.findByPartyIdAndUserId(partyId, userId)
             ?: throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
 
     private fun resolveCallerByToken(
         partyId: Long,
         participantToken: String,
-    ): Long {
+    ): Participant {
         val profile =
             realtimeParticipantProfileRepository.findByParticipantToken(participantToken)
                 ?: throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
         if (profile.participant.party.id != partyId) {
             throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
         }
-        return profile.participant.id
+        return profile.participant
     }
 
     fun findOrderedProfiles(partyId: Long): List<RealtimeParticipantProfile> =

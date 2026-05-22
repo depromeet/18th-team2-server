@@ -94,6 +94,14 @@ class PartyInviteService(
         return invite
     }
 
+    fun findLatestUsableInviteToken(
+        partyId: Long,
+        now: LocalDateTime,
+    ): String =
+        partyInviteRepository
+            .findFirstByPartyIdAndExpiresAtAfterOrderByCreatedAtDescIdDesc(partyId, now)
+            ?.token ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
+
     fun findUsableRealtimeInvite(
         inviteToken: String,
         now: LocalDateTime,
