@@ -108,6 +108,11 @@ sealed interface RealtimePartyNextActionResult {
     }
 }
 
+data class RealtimePartyEndStartResult(
+    val affected: Int,
+    val party: RealtimeParty,
+)
+
 data class RealtimeEndingScheduleTarget(
     val partyId: Long,
     val endingStartedAt: LocalDateTime,

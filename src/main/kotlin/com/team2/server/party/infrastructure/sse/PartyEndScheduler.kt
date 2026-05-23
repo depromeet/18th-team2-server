@@ -1,6 +1,7 @@
-package com.team2.server.chat.infrastructure.sse
+package com.team2.server.party.infrastructure.sse
 
 import com.team2.server.burstgame.application.event.BurstGameEndedEvent
+import com.team2.server.chat.infrastructure.sse.SseEmitterRegistry
 import com.team2.server.party.application.dto.RealtimeEndingScheduleTarget
 import com.team2.server.party.application.event.RealtimePartyCreatedEvent
 import com.team2.server.party.application.event.RealtimePartyEndingStartedEvent

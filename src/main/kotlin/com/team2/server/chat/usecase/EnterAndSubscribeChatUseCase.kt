@@ -6,13 +6,13 @@ import com.team2.server.chat.dto.EnterRealtimePartyRequest
 import com.team2.server.chat.dto.EnterRealtimePartyResponse
 import com.team2.server.chat.dto.UserEnteredEventPayload
 import com.team2.server.chat.infrastructure.sse.ChatSseGateway
-import com.team2.server.chat.infrastructure.sse.PartyEndScheduler
 import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.common.image.entity.ImageTargetType
 import com.team2.server.common.image.persistence.ImageUrlReader
 import com.team2.server.party.application.dto.RealtimePartyStateResult
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.domain.entity.RealtimePartyStatus
+import com.team2.server.party.infrastructure.sse.PartyEndScheduler
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter

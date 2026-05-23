@@ -4,7 +4,6 @@ import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.dto.RealtimePartyNextActionResult
 import com.team2.server.party.application.service.ParticipantService
-import com.team2.server.party.application.service.PartyCallerAccessService
 import com.team2.server.party.application.service.PartyInviteService
 import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.Party
@@ -14,7 +13,6 @@ import org.junit.jupiter.api.assertThrows
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
-import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.Clock
 import java.time.LocalDateTime
@@ -23,7 +21,6 @@ import kotlin.test.assertEquals
 
 class GetRealtimePartyNextActionUseCaseTest {
     private val resolveRealtimePartyUseCase: ResolveRealtimePartyUseCase = mock()
-    private val partyCallerAccessService: PartyCallerAccessService = mock()
     private val participantService: ParticipantService = mock()
     private val partyInviteService: PartyInviteService = mock()
     private val zone = ZoneId.of("Asia/Seoul")
@@ -32,14 +29,13 @@ class GetRealtimePartyNextActionUseCaseTest {
     private val useCase =
         GetRealtimePartyNextActionUseCase(
             resolveRealtimePartyUseCase,
-            partyCallerAccessService,
             participantService,
             partyInviteService,
             clock,
         )
 
     @Test
-    fun `LIVE_OPEN party throws REALTIME_PARTY_END_NOT_AVAILABLE after access validation`() {
+    fun `LIVE_OPEN party throws REALTIME_PARTY_END_NOT_AVAILABLE`() {
         val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(1))
         whenever(resolveRealtimePartyUseCase.invoke(1L)).thenReturn(party)
 
@@ -48,8 +44,22 @@ class GetRealtimePartyNextActionUseCaseTest {
                 useCase(1L, userId = 1L, participantToken = null)
             }
 
-        verify(partyCallerAccessService).validateCallerCanAccessParty(1L, 1L, null)
         assertEquals(ErrorCode.REALTIME_PARTY_END_NOT_AVAILABLE, ex.errorCode)
+    }
+
+    @Test
+    fun `invalid participant token throws PARTY_FORBIDDEN before state validation`() {
+        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(1))
+        whenever(resolveRealtimePartyUseCase.invoke(1L)).thenReturn(party)
+        whenever(participantService.requireCallerParticipant(1L, null, "bad-token"))
+            .thenThrow(BusinessException(ErrorCode.PARTY_FORBIDDEN))
+
+        val ex =
+            assertThrows<BusinessException> {
+                useCase(1L, userId = null, participantToken = "bad-token")
+            }
+
+        assertEquals(ErrorCode.PARTY_FORBIDDEN, ex.errorCode)
     }
 
     @Test

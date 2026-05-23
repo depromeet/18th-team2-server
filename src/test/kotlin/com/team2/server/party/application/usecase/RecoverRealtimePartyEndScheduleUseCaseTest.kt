@@ -1,8 +1,8 @@
 package com.team2.server.party.application.usecase
 
-import com.team2.server.party.application.service.RealtimePartyAutomaticEndSchedule
+import com.team2.server.party.application.dto.RealtimeAutomaticEndSchedule
+import com.team2.server.party.application.dto.RealtimeEndingScheduleTarget
 import com.team2.server.party.application.service.RealtimePartyEndService
-import com.team2.server.party.application.service.RealtimePartyEndingSchedule
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
@@ -22,9 +22,9 @@ class RecoverRealtimePartyEndScheduleUseCaseTest {
     @Test
     fun `starts due automatic endings and maps recovery schedules`() {
         whenever(realtimePartyEndService.findAutomaticEndSchedules(now))
-            .thenReturn(listOf(RealtimePartyAutomaticEndSchedule(1L, now.plusMinutes(1))))
+            .thenReturn(listOf(RealtimeAutomaticEndSchedule(1L, now.plusMinutes(1))))
         whenever(realtimePartyEndService.findEndingTargets(now))
-            .thenReturn(listOf(RealtimePartyEndingSchedule(2L, now.minusMinutes(1), now, startedNow = true)))
+            .thenReturn(listOf(RealtimeEndingScheduleTarget(2L, now.minusMinutes(1), now, startedNow = true)))
 
         val result = useCase()
 

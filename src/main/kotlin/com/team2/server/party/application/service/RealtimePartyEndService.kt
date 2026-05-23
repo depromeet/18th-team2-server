@@ -2,6 +2,9 @@ package com.team2.server.party.application.service
 
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
+import com.team2.server.party.application.dto.RealtimeAutomaticEndSchedule
+import com.team2.server.party.application.dto.RealtimeEndingScheduleTarget
+import com.team2.server.party.application.dto.RealtimePartyEndStartResult
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.PartyOption
 import com.team2.server.party.domain.entity.RealtimeParty
@@ -29,11 +32,11 @@ class RealtimePartyEndService(
     fun startIfNotStartedOrNull(
         partyId: Long,
         endingStartedAt: LocalDateTime,
-    ): RealtimePartyEndingSchedule? {
+    ): RealtimeEndingScheduleTarget? {
         val affected = partyRepository.startRealtimeEndingIfNotStarted(partyId, endingStartedAt)
         val party = findRealtimeParty(partyId)
         val actualEndingStartedAt = party.liveEndingStartedAt ?: return null
-        return RealtimePartyEndingSchedule(
+        return RealtimeEndingScheduleTarget(
             partyId = party.id,
             endingStartedAt = actualEndingStartedAt,
             endedAt = requireNotNull(party.liveEndedAt()),
@@ -49,21 +52,21 @@ class RealtimePartyEndService(
         )
     }
 
-    fun findAutomaticEndSchedules(now: LocalDateTime): List<RealtimePartyAutomaticEndSchedule> =
+    fun findAutomaticEndSchedules(now: LocalDateTime): List<RealtimeAutomaticEndSchedule> =
         partyRepository
             .findRealtimePartiesWaitingAutomaticEnding(now.minusMinutes(RealtimeParty.LIVE_DURATION_MINUTES))
             .map { party ->
-                RealtimePartyAutomaticEndSchedule(
+                RealtimeAutomaticEndSchedule(
                     partyId = party.id,
                     endingStartedAt = party.automaticEndingStartedAt(),
                 )
             }
 
-    fun findEndingTargets(now: LocalDateTime): List<RealtimePartyEndingSchedule> =
+    fun findEndingTargets(now: LocalDateTime): List<RealtimeEndingScheduleTarget> =
         partyRepository
             .findRealtimePartiesWithEndingStarted(now.minusDays(Party.ENDED_AFTER_DAYS))
             .map { party ->
-                RealtimePartyEndingSchedule(
+                RealtimeEndingScheduleTarget(
                     partyId = party.id,
                     endingStartedAt = requireNotNull(party.liveEndingStartedAt),
                     endedAt = requireNotNull(party.liveEndedAt()),
@@ -79,20 +82,3 @@ class RealtimePartyEndService(
         return Hibernate.unproxy(party) as RealtimeParty
     }
 }
-
-data class RealtimePartyEndStartResult(
-    val affected: Int,
-    val party: RealtimeParty,
-)
-
-data class RealtimePartyEndingSchedule(
-    val partyId: Long,
-    val endingStartedAt: LocalDateTime,
-    val endedAt: LocalDateTime,
-    val startedNow: Boolean = false,
-)
-
-data class RealtimePartyAutomaticEndSchedule(
-    val partyId: Long,
-    val endingStartedAt: LocalDateTime,
-)

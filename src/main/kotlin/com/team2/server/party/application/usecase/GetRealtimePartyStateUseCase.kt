@@ -1,7 +1,8 @@
 package com.team2.server.party.application.usecase
 
 import com.team2.server.party.application.dto.RealtimePartyStateResult
-import com.team2.server.party.application.service.PartyCallerAccessService
+import com.team2.server.party.application.service.ParticipantService
+import com.team2.server.party.application.service.PartyService
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
@@ -9,8 +10,8 @@ import java.time.LocalDateTime
 
 @Service
 class GetRealtimePartyStateUseCase(
-    private val resolveRealtimePartyUseCase: ResolveRealtimePartyUseCase,
-    private val partyCallerAccessService: PartyCallerAccessService,
+    private val partyService: PartyService,
+    private val participantService: ParticipantService,
     private val clock: Clock,
 ) {
     @Transactional(readOnly = true)
@@ -19,8 +20,8 @@ class GetRealtimePartyStateUseCase(
         userId: Long?,
         participantToken: String?,
     ): RealtimePartyStateResult {
-        partyCallerAccessService.validateCallerCanAccessParty(partyId, userId, participantToken)
-        val party = resolveRealtimePartyUseCase.invoke(partyId)
+        val party = partyService.requireRealtimeParty(partyId)
+        participantService.validatePartyMember(party, userId, participantToken)
         return RealtimePartyStateResult.from(party, LocalDateTime.now(clock))
     }
 }

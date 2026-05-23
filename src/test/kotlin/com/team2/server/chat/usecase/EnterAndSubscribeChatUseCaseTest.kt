@@ -3,7 +3,6 @@ package com.team2.server.chat.usecase
 import com.team2.server.chat.dto.EnterRealtimePartyRequest
 import com.team2.server.chat.entity.ChatMessage
 import com.team2.server.chat.infrastructure.sse.ChatSseGateway
-import com.team2.server.chat.infrastructure.sse.PartyEndScheduler
 import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.common.image.persistence.ImageUrlReader
 import com.team2.server.party.application.dto.RealtimePartyStateResult
@@ -11,6 +10,7 @@ import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.domain.entity.RealtimePartyStatus
+import com.team2.server.party.infrastructure.sse.PartyEndScheduler
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks
