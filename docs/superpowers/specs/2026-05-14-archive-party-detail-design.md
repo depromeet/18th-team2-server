@@ -67,7 +67,7 @@ Authorization: Bearer <jwt>          # 필수
   "myPaperWritten": true,
   "myPaperContent": "생일 축하해!!! 이 글자의 최대 길이는 여기까지...",
   "myPaperWriterNickname": "해파리",
-  "myPaperWrapperImageUrl": "/images/rolling-paper-wrappers/Topping_Candle.svg"
+  "myPaperToppingImageUrl": "/images/rolling-paper-wrappers/Topping_Candle.svg"
 }
 ```
 
@@ -98,7 +98,7 @@ Authorization: Bearer <jwt>          # 필수
   "myPaperWritten": false,
   "myPaperContent": null,
   "myPaperWriterNickname": null,
-  "myPaperWrapperImageUrl": null
+  "myPaperToppingImageUrl": null
 }
 ```
 
@@ -120,7 +120,7 @@ Authorization: Bearer <jwt>          # 필수
   "myPaperWritten": true,
   "myPaperContent": "생축!",
   "myPaperWriterNickname": "해파리",
-  "myPaperWrapperImageUrl": "/images/rolling-paper-wrappers/Topping_Candle.svg"
+  "myPaperToppingImageUrl": "/images/rolling-paper-wrappers/Topping_Candle.svg"
 }
 ```
 
@@ -146,7 +146,7 @@ Authorization: Bearer <jwt>          # 필수
 | `myPaperWritten` | `Boolean` | 내 `Participant.id`로 `RollingPaper` exists 여부 |
 | `myPaperContent` | `String?` | `myPaperWritten=true`이면 `RollingPaper.content`, 아니면 `null` |
 | `myPaperWriterNickname` | `String?` | `myPaperWritten=true`이면 `RollingPaper.writerNickname` (스냅샷), 아니면 `null` |
-| `myPaperWrapperImageUrl` | `String?` | `myPaperWritten=true`이면 wrapper의 `ROLLING_PAPER_WRAPPER` 첫 이미지, 아니면 `null` |
+| `myPaperToppingImageUrl` | `String?` | `myPaperWritten=true`이면 토핑의 `ROLLING_PAPER_WRAPPER` 첫 이미지, 아니면 `null` |
 
 PAPER_ONLY 정책:
 
@@ -236,7 +236,7 @@ class GetArchivedPartyDetailUseCase(
 3. `role = if (party.ownerId == userId) ArchiveRole.HOST else ArchiveRole.PARTICIPANT`
 4. `paperCount = rollingPaperRepository.countByPartyId(partyId)`
 5. `myPaper = rollingPaperRepository.findByWriterId(myParticipant.id)`
-6. `myPaperWrapperImageUrl = myPaper?.let { imageQueryService.findFirstImageUrl(ROLLING_PAPER_WRAPPER, it.wrapper.id) }`
+6. `myPaperToppingImageUrl = myPaper?.let { imageQueryService.findFirstImageUrl(ROLLING_PAPER_WRAPPER, it.topping.id) }`
 7. when (`party.partyOption`):
    - `REALTIME`:
      - `profiles = realtimeParticipantProfileRepository.findAllByPartyIdOrderByIdAsc(partyId)`
@@ -326,7 +326,7 @@ UseCase에서 `PageRequest.of(0, CHAT_RECENT_LIMIT)`로 호출한다.
 
 ### 5-5. `ImageQueryService`
 
-이미 존재. `findFirstImageUrl(ImageTargetType.ROLLING_PAPER_WRAPPER, wrapperId)` 그대로 활용한다.
+이미 존재. `findFirstImageUrl(ImageTargetType.ROLLING_PAPER_WRAPPER, toppingId)` 그대로 활용한다.
 
 ---
 
@@ -394,7 +394,7 @@ data class ArchivePartyDetailResponse(
     val myPaperWritten: Boolean,
     val myPaperContent: String?,
     val myPaperWriterNickname: String?,
-    val myPaperWrapperImageUrl: String?,
+    val myPaperToppingImageUrl: String?,
 )
 
 enum class ArchiveRole { HOST, PARTICIPANT }
@@ -440,7 +440,7 @@ data class ArchiveChatMessageResponse(
 검증:
 
 - REALTIME 참가자, 본인 미작성:
-  - 200, `role="PARTICIPANT"`, `participants.size == participantCount`, `myPaperWritten=false`, `myPaperContent/WriterNickname/WrapperImageUrl=null`
+  - 200, `role="PARTICIPANT"`, `participants.size == participantCount`, `myPaperWritten=false`, `myPaperContent/WriterNickname/ToppingImageUrl=null`
 - REALTIME 참가자, 본인 작성:
   - `myPaperWritten=true`, 3개 필드가 본인 `RollingPaper` 값과 일치
 - REALTIME 주최자:
@@ -461,7 +461,7 @@ data class ArchiveChatMessageResponse(
 
 ### 9-2. UseCase 단위 테스트 (선택)
 
-- `myPaperWritten=false` 분기에서 wrapper 이미지 조회 호출이 없음(불필요 쿼리 방지)
+- `myPaperWritten=false` 분기에서 토핑 이미지 조회 호출이 없음(불필요 쿼리 방지)
 - `chatHasMore` 경계: `chatTotal == 50`이면 `false`, `chatTotal == 51`이면 `true`
 
 ### 9-3. Security 테스트

@@ -317,6 +317,7 @@ image.target_id = rolling_paper_wrapper.id
 
 - 캐릭터 기본 이미지와 같은 방식으로 `src/main/resources/static/images/rolling-paper-wrappers/` 아래 정적 이미지를 둔다.
 - 기본 토핑은 Flyway seed migration에서 `rolling_paper_wrapper`와 `image(target_type = ROLLING_PAPER_WRAPPER)`를 보장한다.
+- `FlywayMigrationTest`는 빈 DB migration 후 모든 기본 토핑에 `ROLLING_PAPER_WRAPPER` 이미지 row가 존재하는지 검증한다.
 - 기본 토핑 이미지 파일과 seed migration은 같은 배포 단위에 포함한다.
 - 후속 토핑 이미지 변경은 정적 파일 추가/교체 후 새 Flyway migration으로 `image` row를 추가하거나 갱신한다.
 - 초기 migration은 빈 DB에서 한 번 실행되는 기준이므로 멱등 SQL을 사용하지 않는다. 재실행이 필요한 환경은 DB를 drop/recreate한 뒤 다시 migration을 적용한다.

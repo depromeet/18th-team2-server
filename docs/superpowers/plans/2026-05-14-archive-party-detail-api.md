@@ -291,7 +291,7 @@ import com.team2.server.party.entity.RealtimeParty
 import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyRepository
 import com.team2.server.rollingpaper.entity.RollingPaper
-import com.team2.server.rollingpaper.entity.RollingPaperWrapper
+import com.team2.server.rollingpaper.entity.RollingPaperTopping
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
 import com.team2.server.user.repository.UserRepository
@@ -307,7 +307,7 @@ class RollingPaperRepositoryTest
     @Autowired
     constructor(
         private val rollingPaperRepository: RollingPaperRepository,
-        private val rollingPaperWrapperRepository: RollingPaperWrapperRepository,
+        private val rollingPaperToppingRepository: RollingPaperToppingRepository,
         private val participantRepository: ParticipantRepository,
         private val partyRepository: PartyRepository,
         private val userRepository: UserRepository,
@@ -326,10 +326,10 @@ class RollingPaperRepositoryTest
                 )
             val user = userRepository.save(User(email = "a@a", provider = AuthProvider.KAKAO, providerId = "1"))
             val participant = participantRepository.save(Participant(party = party, user = user))
-            val wrapper = rollingPaperWrapperRepository.save(RollingPaperWrapper(name = "Topping_Candle"))
+            val topping = rollingPaperToppingRepository.save(RollingPaperTopping(name = "Topping_Candle"))
             rollingPaperRepository.save(
                 RollingPaper(
-                    wrapper = wrapper,
+                    topping = topping,
                     writer = participant,
                     party = party,
                     writerNickname = "해파리",
@@ -625,7 +625,7 @@ data class ArchivePartyDetailResponse(
     @Schema(description = "본인 롤페 본문. 미작성이면 null") val myPaperContent: String?,
     @Schema(description = "본인 롤페 작성 시 닉네임 스냅샷. 미작성이면 null")
     val myPaperWriterNickname: String?,
-    @Schema(description = "본인 롤페 wrapper 이미지 URL. 미작성이면 null") val myPaperWrapperImageUrl: String?,
+    @Schema(description = "본인 롤페 토핑 이미지 URL. 미작성이면 null") val myPaperToppingImageUrl: String?,
 )
 
 @Schema(description = "보관함 조회자 역할")
@@ -711,9 +711,9 @@ class GetArchivedPartyDetailUseCase(
 
         val myPaper = rollingPaperRepository.findByWriter(myParticipant)
         val myPaperWritten = myPaper != null
-        val myPaperWrapperImageUrl: String? = myPaper?.let {
+        val myPaperToppingImageUrl: String? = myPaper?.let {
             imageQueryService
-                .findFirstImageUrlByTargetIds(ImageTargetType.ROLLING_PAPER_WRAPPER, listOf(it.wrapper.id))[it.wrapper.id]
+                .findFirstImageUrlByTargetIds(ImageTargetType.ROLLING_PAPER_WRAPPER, listOf(it.topping.id))[it.topping.id]
         }
 
         val (participants, chatMessages, chatHasMore) =
@@ -737,7 +737,7 @@ class GetArchivedPartyDetailUseCase(
             myPaperWritten = myPaperWritten,
             myPaperContent = myPaper?.content,
             myPaperWriterNickname = myPaper?.writerNickname,
-            myPaperWrapperImageUrl = myPaperWrapperImageUrl,
+            myPaperToppingImageUrl = myPaperToppingImageUrl,
         )
     }
 
@@ -934,9 +934,9 @@ import com.team2.server.party.repository.ParticipantRepository
 import com.team2.server.party.repository.PartyRepository
 import com.team2.server.party.repository.RealtimeParticipantProfileRepository
 import com.team2.server.rollingpaper.entity.RollingPaper
-import com.team2.server.rollingpaper.entity.RollingPaperWrapper
+import com.team2.server.rollingpaper.entity.RollingPaperTopping
 import com.team2.server.rollingpaper.repository.RollingPaperRepository
-import com.team2.server.rollingpaper.repository.RollingPaperWrapperRepository
+import com.team2.server.rollingpaper.repository.RollingPaperToppingRepository
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
 import com.team2.server.user.repository.UserRepository
@@ -959,7 +959,7 @@ class ArchivePartyDetailControllerTest
         private val participantRepository: ParticipantRepository,
         private val profileRepository: RealtimeParticipantProfileRepository,
         private val rollingPaperRepository: RollingPaperRepository,
-        private val rollingPaperWrapperRepository: RollingPaperWrapperRepository,
+        private val rollingPaperToppingRepository: RollingPaperToppingRepository,
         private val chatMessageRepository: ChatMessageRepository,
         private val userRepository: UserRepository,
         private val databaseCleanup: DatabaseCleanup,
@@ -1001,10 +1001,10 @@ fun `REALTIME 파티 참가자가 본인이 작성한 경우 상세 응답`() {
     val myParticipant = participantRepository.save(Participant(party = party, user = me))
     profileRepository.save(RealtimeParticipantProfile(participant = ownerParticipant, nickname = "주최자"))
     profileRepository.save(RealtimeParticipantProfile(participant = myParticipant, nickname = "해파리"))
-    val wrapper = rollingPaperWrapperRepository.save(RollingPaperWrapper(name = "Topping_Candle"))
+    val topping = rollingPaperToppingRepository.save(RollingPaperTopping(name = "Topping_Candle"))
     rollingPaperRepository.save(
         RollingPaper(
-            wrapper = wrapper,
+            topping = topping,
             writer = myParticipant,
             party = party,
             writerNickname = "해파리",
@@ -1292,7 +1292,7 @@ git commit -m "test: 보관함 파티 상세 인증과 권한 케이스 추가"
 이 plan을 spec과 대조해 검증한 항목:
 
 - [x] `GET /api/v1/archive/party/{partyId}` 단일 API → Task 6
-- [x] 응답 모든 필드 (`partyId`/`partyName`/`partyOption`/`role`/`partyStartedAt`/`partyEndedAt`/`participantCount`/`paperCount`/`participants[]`/`chatMessages[]`/`chatHasMore`/`myPaperWritten`/`myPaperContent`/`myPaperWriterNickname`/`myPaperWrapperImageUrl`) → Task 4 DTO + Task 5 매핑 + Task 7 검증
+- [x] 응답 모든 필드 (`partyId`/`partyName`/`partyOption`/`role`/`partyStartedAt`/`partyEndedAt`/`participantCount`/`paperCount`/`participants[]`/`chatMessages[]`/`chatHasMore`/`myPaperWritten`/`myPaperContent`/`myPaperWriterNickname`/`myPaperToppingImageUrl`) → Task 4 DTO + Task 5 매핑 + Task 7 검증
 - [x] 권한 401/403/404 → Task 8
 - [x] PAPER_ONLY는 participants=[], participantCount=0, chatMessages=[], chatHasMore=false → Task 5 분기 + Task 7.4
 - [x] 채팅 cap 50 + chatHasMore → Task 5 상수 + Task 7.5
