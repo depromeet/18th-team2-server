@@ -65,7 +65,7 @@ class RollingPaperListControllerTest
         }
 
         @Test
-        fun `참가자용 목록은 인증 없이 최신순 7개씩 조회된다`() {
+        fun `참가자용 목록은 인증 없이 content와 position 없이 최신순 7개씩 조회된다`() {
             val party = saveRealtimeParty(startedAt = DEFAULT_NOW.withHour(22).withMinute(0))
             val invite = saveInvite(party, "listtoken000001")
             val wrapper = saveWrapperWithImages()
@@ -91,13 +91,13 @@ class RollingPaperListControllerTest
                     jsonPath("$.data.totalPages") { value(2) }
                     jsonPath("$.data.hasNext") { value(true) }
                     jsonPath("$.data.items.length()") { value(7) }
-                    jsonPath("$.data.items[0].position") { value(1) }
+                    jsonPath("$.data.items[0].position") { doesNotExist() }
                     jsonPath("$.data.items[0].writerNickname") { value("작성자8") }
-                    jsonPath("$.data.items[0].content") { value("축하해요8") }
+                    jsonPath("$.data.items[0].content") { doesNotExist() }
                     jsonPath("$.data.items[0].wrapperImageUrl") { value("/images/rolling-paper-wrappers/first.svg") }
-                    jsonPath("$.data.items[6].position") { value(7) }
+                    jsonPath("$.data.items[6].position") { doesNotExist() }
                     jsonPath("$.data.items[6].writerNickname") { value("작성자2") }
-                    jsonPath("$.data.items[6].content") { value("축하해요2") }
+                    jsonPath("$.data.items[6].content") { doesNotExist() }
                 }
 
             mockMvc
@@ -109,9 +109,9 @@ class RollingPaperListControllerTest
                     jsonPath("$.data.totalCount") { value(8) }
                     jsonPath("$.data.hasNext") { value(false) }
                     jsonPath("$.data.items.length()") { value(1) }
-                    jsonPath("$.data.items[0].position") { value(8) }
+                    jsonPath("$.data.items[0].position") { doesNotExist() }
                     jsonPath("$.data.items[0].writerNickname") { value("작성자1") }
-                    jsonPath("$.data.items[0].content") { value("축하해요1") }
+                    jsonPath("$.data.items[0].content") { doesNotExist() }
                 }
         }
 
@@ -412,21 +412,6 @@ class RollingPaperListControllerTest
                     jsonPath("$.data.totalPages") { value(1) }
                     jsonPath("$.data.hasNext") { value(false) }
                     jsonPath("$.data.items.length()") { value(0) }
-                }
-        }
-
-        @Test
-        fun `wrapper 이미지가 없으면 wrapperImageUrl은 null이다`() {
-            val party = savePaperOnlyParty()
-            val invite = saveInvite(party, "noimagelist0001")
-            val wrapper = saveWrapper()
-            saveRollingPaper(party, wrapper, "이미지없음", DEFAULT_NOW)
-
-            mockMvc
-                .get("/api/v1/party-invites/${invite.token}/rolling-papers")
-                .andExpect {
-                    status { isOk() }
-                    jsonPath("$.data.items[0].wrapperImageUrl") { value(nullValue()) }
                 }
         }
 

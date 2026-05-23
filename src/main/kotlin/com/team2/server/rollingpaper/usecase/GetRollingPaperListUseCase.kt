@@ -8,9 +8,10 @@ import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.PartyOption
 import com.team2.server.party.infrastructure.persistence.PartyInviteRepository
 import com.team2.server.party.infrastructure.persistence.PartyRepository
+import com.team2.server.rollingpaper.dto.OwnerRollingPaperListItemResponse
 import com.team2.server.rollingpaper.dto.OwnerRollingPaperListResponse
+import com.team2.server.rollingpaper.dto.ParticipantRollingPaperListItemResponse
 import com.team2.server.rollingpaper.dto.ParticipantRollingPaperListResponse
-import com.team2.server.rollingpaper.dto.RollingPaperListItemResponse
 import com.team2.server.rollingpaper.entity.RollingPaper
 import com.team2.server.rollingpaper.repository.RollingPaperRepository
 import org.springframework.data.domain.PageRequest
@@ -48,7 +49,14 @@ class GetRollingPaperListUseCase(
             totalCount = pageResult.totalCount,
             totalPages = pageResult.totalPages,
             hasNext = pageResult.hasNext,
-            items = pageResult.items,
+            items =
+                pageResult.items.map { item ->
+                    ParticipantRollingPaperListItemResponse(
+                        rollingPaperId = item.rollingPaperId,
+                        writerNickname = item.writerNickname,
+                        wrapperImageUrl = item.wrapperImageUrl,
+                    )
+                },
         )
     }
 
@@ -76,7 +84,16 @@ class GetRollingPaperListUseCase(
             totalCount = pageResult.totalCount,
             totalPages = pageResult.totalPages,
             hasNext = pageResult.hasNext,
-            items = pageResult.items,
+            items =
+                pageResult.items.map { item ->
+                    OwnerRollingPaperListItemResponse(
+                        rollingPaperId = item.rollingPaperId,
+                        position = item.position,
+                        writerNickname = item.writerNickname,
+                        content = item.content,
+                        wrapperImageUrl = item.wrapperImageUrl,
+                    )
+                },
         )
     }
 
@@ -115,12 +132,12 @@ class GetRollingPaperListUseCase(
             hasNext = rollingPaperPage.hasNext(),
             items =
                 rollingPapers.mapIndexed { index, rollingPaper ->
-                    RollingPaperListItemResponse(
+                    RollingPaperPageItem(
                         rollingPaperId = rollingPaper.id,
                         position = calculatePosition(page, index),
                         writerNickname = rollingPaper.writerNickname,
                         content = rollingPaper.content,
-                        wrapperImageUrl = imageUrlByWrapperId[rollingPaper.wrapper.id],
+                        wrapperImageUrl = imageUrlByWrapperId.getValue(rollingPaper.wrapper.id),
                     )
                 },
         )
@@ -142,7 +159,15 @@ class GetRollingPaperListUseCase(
         val totalCount: Long,
         val totalPages: Int,
         val hasNext: Boolean,
-        val items: List<RollingPaperListItemResponse>,
+        val items: List<RollingPaperPageItem>,
+    )
+
+    private data class RollingPaperPageItem(
+        val rollingPaperId: Long,
+        val position: Long,
+        val writerNickname: String,
+        val content: String,
+        val wrapperImageUrl: String,
     )
 
     companion object {

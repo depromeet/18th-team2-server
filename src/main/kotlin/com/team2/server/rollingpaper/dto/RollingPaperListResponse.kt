@@ -25,7 +25,7 @@ data class ParticipantRollingPaperListResponse(
     @Schema(description = "다음 페이지 존재 여부", example = "true")
     val hasNext: Boolean,
     @Schema(description = "롤링페이퍼 목록")
-    val items: List<RollingPaperListItemResponse>,
+    val items: List<ParticipantRollingPaperListItemResponse>,
 )
 
 @JsonInclude(JsonInclude.Include.ALWAYS)
@@ -44,12 +44,26 @@ data class OwnerRollingPaperListResponse(
     @Schema(description = "다음 페이지 존재 여부", example = "true")
     val hasNext: Boolean,
     @Schema(description = "롤링페이퍼 목록")
-    val items: List<RollingPaperListItemResponse>,
+    val items: List<OwnerRollingPaperListItemResponse>,
 )
 
 @JsonInclude(JsonInclude.Include.ALWAYS)
-@Schema(description = "롤링페이퍼 목록 item")
-data class RollingPaperListItemResponse(
+@Schema(description = "참가자용 롤링페이퍼 목록 item")
+data class ParticipantRollingPaperListItemResponse(
+    @Schema(description = "롤링페이퍼 ID", example = "10")
+    val rollingPaperId: Long,
+    @Schema(description = "롤링페이퍼 작성자 닉네임", example = "축하요정")
+    val writerNickname: String,
+    @Schema(
+        description = "롤링페이퍼 래퍼 이미지 URL.",
+        example = "/images/rolling-paper-wrappers/Topping_Candle.svg",
+    )
+    val wrapperImageUrl: String,
+)
+
+@JsonInclude(JsonInclude.Include.ALWAYS)
+@Schema(description = "주최자용 롤링페이퍼 목록 item")
+data class OwnerRollingPaperListItemResponse(
     @Schema(description = "롤링페이퍼 ID", example = "10")
     val rollingPaperId: Long,
     @Schema(description = "최신순 기준 현재 롤링페이퍼 순번. 1부터 시작합니다.", example = "1")
@@ -59,9 +73,8 @@ data class RollingPaperListItemResponse(
     @Schema(description = "롤링페이퍼 내용. 최대 100자입니다.", example = "생일 축하해요!")
     val content: String,
     @Schema(
-        description = "롤링페이퍼 래퍼 이미지 URL. 이미지가 없으면 null",
-        nullable = true,
+        description = "롤링페이퍼 래퍼 이미지 URL.",
         example = "/images/rolling-paper-wrappers/Topping_Candle.svg",
     )
-    val wrapperImageUrl: String?,
+    val wrapperImageUrl: String,
 )
