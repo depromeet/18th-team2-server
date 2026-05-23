@@ -216,7 +216,7 @@ UseCase 진입 이후:
 3. 초대 토큰이 만료됐으면 `INVITE_LINK_EXPIRED`.
 4. 파티 시작 시각 기준 7일이 지나 파티가 종료됐으면 `PARTY_ENDED`.
 5. `toppingId`로 `RollingPaperTopping`를 조회한다.
-6. 토핑이 없으면 `ROLLING_PAPER_WRAPPER_NOT_FOUND`.
+6. 토핑이 없으면 `ROLLING_PAPER_TOPPING_NOT_FOUND`.
 7. 회원이면 파티 내 회원 participant를 조회하고, 아직 없으면 생성한다.
 8. 비회원이면 새 participant를 생성한다.
 9. 회원 participant가 이미 `hasWrittenPaper = true`이면 `ROLLING_PAPER_ALREADY_WRITTEN`.
@@ -391,7 +391,7 @@ controller -> usecase -> repository/entity/dto
 ## 7. ErrorCode 추가안
 
 ```kotlin
-ROLLING_PAPER_WRAPPER_NOT_FOUND(HttpStatus.NOT_FOUND, "롤링페이퍼 토핑을 찾을 수 없습니다")
+ROLLING_PAPER_TOPPING_NOT_FOUND(HttpStatus.NOT_FOUND, "롤링페이퍼 토핑을 찾을 수 없습니다")
 ROLLING_PAPER_NICKNAME_DUPLICATED(HttpStatus.CONFLICT, "이미 사용 중인 롤링페이퍼 닉네임입니다")
 ROLLING_PAPER_ALREADY_WRITTEN(HttpStatus.CONFLICT, "이미 롤링페이퍼를 작성했습니다")
 ```
