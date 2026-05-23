@@ -8,11 +8,11 @@ import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.PartyOption
 import com.team2.server.party.infrastructure.persistence.PartyInviteRepository
 import com.team2.server.party.infrastructure.persistence.PartyRepository
-import com.team2.server.rollingpaper.dto.OwnerRollingPaperListItemResponse
-import com.team2.server.rollingpaper.dto.OwnerRollingPaperListResponse
-import com.team2.server.rollingpaper.dto.ParticipantRollingPaperListItemResponse
-import com.team2.server.rollingpaper.dto.ParticipantRollingPaperListResponse
-import com.team2.server.rollingpaper.dto.RollingPaperPageInfoResponse
+import com.team2.server.rollingpaper.application.dto.OwnerRollingPaperListItemResult
+import com.team2.server.rollingpaper.application.dto.OwnerRollingPaperListResult
+import com.team2.server.rollingpaper.application.dto.ParticipantRollingPaperListItemResult
+import com.team2.server.rollingpaper.application.dto.ParticipantRollingPaperListResult
+import com.team2.server.rollingpaper.application.dto.RollingPaperPageInfoResult
 import com.team2.server.rollingpaper.entity.RollingPaper
 import com.team2.server.rollingpaper.repository.RollingPaperRepository
 import org.springframework.data.domain.PageRequest
@@ -33,12 +33,12 @@ class GetRollingPaperListUseCase(
     fun getParticipantList(
         inviteToken: String,
         page: Int,
-    ): ParticipantRollingPaperListResponse {
+    ): ParticipantRollingPaperListResult {
         val party =
             partyInviteRepository.findByToken(inviteToken)?.party
                 ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
         val pageResult = getPageResult(party, page)
-        return ParticipantRollingPaperListResponse(
+        return ParticipantRollingPaperListResult(
             partyOption = party.partyOption,
             liveEndAt =
                 if (party.partyOption == PartyOption.REALTIME) {
@@ -48,13 +48,13 @@ class GetRollingPaperListUseCase(
                 },
             items =
                 pageResult.items.map { item ->
-                    ParticipantRollingPaperListItemResponse(
+                    ParticipantRollingPaperListItemResult(
                         rollingPaperId = item.rollingPaperId,
                         writerNickname = item.writerNickname,
                         toppingImageUrl = item.toppingImageUrl,
                     )
                 },
-            pageInfo = pageResult.toPageInfoResponse(),
+            pageInfo = pageResult.toPageInfoResult(),
         )
     }
 
@@ -63,7 +63,7 @@ class GetRollingPaperListUseCase(
         partyId: Long,
         userId: Long,
         page: Int,
-    ): OwnerRollingPaperListResponse {
+    ): OwnerRollingPaperListResult {
         val party =
             partyRepository.findByIdOrNull(partyId)
                 ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
@@ -75,12 +75,12 @@ class GetRollingPaperListUseCase(
         }
 
         val pageResult = getPageResult(party, page)
-        return OwnerRollingPaperListResponse(
+        return OwnerRollingPaperListResult(
             celebrantNickname = party.celebrantNickname,
             partyEndAt = party.endedAt(),
             items =
                 pageResult.items.map { item ->
-                    OwnerRollingPaperListItemResponse(
+                    OwnerRollingPaperListItemResult(
                         rollingPaperId = item.rollingPaperId,
                         position = item.position,
                         writerNickname = item.writerNickname,
@@ -88,7 +88,7 @@ class GetRollingPaperListUseCase(
                         toppingImageUrl = item.toppingImageUrl,
                     )
                 },
-            pageInfo = pageResult.toPageInfoResponse(),
+            pageInfo = pageResult.toPageInfoResult(),
         )
     }
 
@@ -163,8 +163,8 @@ class GetRollingPaperListUseCase(
         val hasNext: Boolean,
         val items: List<RollingPaperPageItem>,
     ) {
-        fun toPageInfoResponse(): RollingPaperPageInfoResponse =
-            RollingPaperPageInfoResponse(
+        fun toPageInfoResult(): RollingPaperPageInfoResult =
+            RollingPaperPageInfoResult(
                 page = page,
                 totalCount = totalCount,
                 totalPages = totalPages,

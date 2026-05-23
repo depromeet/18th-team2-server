@@ -4,7 +4,7 @@ import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.common.image.entity.ImageTargetType
 import com.team2.server.common.image.persistence.ImageUrlReader
-import com.team2.server.rollingpaper.dto.RollingPaperToppingResult
+import com.team2.server.rollingpaper.application.dto.RollingPaperToppingResult
 import com.team2.server.rollingpaper.repository.RollingPaperToppingRepository
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service

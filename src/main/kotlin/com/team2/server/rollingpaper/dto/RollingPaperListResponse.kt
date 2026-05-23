@@ -2,6 +2,11 @@ package com.team2.server.rollingpaper.dto
 
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.team2.server.party.domain.entity.PartyOption
+import com.team2.server.rollingpaper.application.dto.OwnerRollingPaperListItemResult
+import com.team2.server.rollingpaper.application.dto.OwnerRollingPaperListResult
+import com.team2.server.rollingpaper.application.dto.ParticipantRollingPaperListItemResult
+import com.team2.server.rollingpaper.application.dto.ParticipantRollingPaperListResult
+import com.team2.server.rollingpaper.application.dto.RollingPaperPageInfoResult
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 
@@ -20,7 +25,17 @@ data class ParticipantRollingPaperListResponse(
     val items: List<ParticipantRollingPaperListItemResponse>,
     @Schema(description = "페이지네이션 정보")
     val pageInfo: RollingPaperPageInfoResponse,
-)
+) {
+    companion object {
+        fun from(result: ParticipantRollingPaperListResult): ParticipantRollingPaperListResponse =
+            ParticipantRollingPaperListResponse(
+                partyOption = result.partyOption,
+                liveEndAt = result.liveEndAt,
+                items = result.items.map(ParticipantRollingPaperListItemResponse::from),
+                pageInfo = RollingPaperPageInfoResponse.from(result.pageInfo),
+            )
+    }
+}
 
 @JsonInclude(JsonInclude.Include.ALWAYS)
 @Schema(description = "주최자용 롤링페이퍼 목록 조회 응답")
@@ -33,7 +48,17 @@ data class OwnerRollingPaperListResponse(
     val items: List<OwnerRollingPaperListItemResponse>,
     @Schema(description = "페이지네이션 정보")
     val pageInfo: RollingPaperPageInfoResponse,
-)
+) {
+    companion object {
+        fun from(result: OwnerRollingPaperListResult): OwnerRollingPaperListResponse =
+            OwnerRollingPaperListResponse(
+                celebrantNickname = result.celebrantNickname,
+                partyEndAt = result.partyEndAt,
+                items = result.items.map(OwnerRollingPaperListItemResponse::from),
+                pageInfo = RollingPaperPageInfoResponse.from(result.pageInfo),
+            )
+    }
+}
 
 @JsonInclude(JsonInclude.Include.ALWAYS)
 @Schema(description = "롤링페이퍼 목록 페이지네이션 정보")
@@ -46,7 +71,17 @@ data class RollingPaperPageInfoResponse(
     val totalPages: Int,
     @Schema(description = "다음 페이지 존재 여부", example = "true")
     val hasNext: Boolean,
-)
+) {
+    companion object {
+        fun from(result: RollingPaperPageInfoResult): RollingPaperPageInfoResponse =
+            RollingPaperPageInfoResponse(
+                page = result.page,
+                totalCount = result.totalCount,
+                totalPages = result.totalPages,
+                hasNext = result.hasNext,
+            )
+    }
+}
 
 @JsonInclude(JsonInclude.Include.ALWAYS)
 @Schema(description = "참가자용 롤링페이퍼 목록 item")
@@ -60,7 +95,16 @@ data class ParticipantRollingPaperListItemResponse(
         example = "/images/rolling-paper-wrappers/Topping_Candle.svg",
     )
     val toppingImageUrl: String,
-)
+) {
+    companion object {
+        fun from(result: ParticipantRollingPaperListItemResult): ParticipantRollingPaperListItemResponse =
+            ParticipantRollingPaperListItemResponse(
+                rollingPaperId = result.rollingPaperId,
+                writerNickname = result.writerNickname,
+                toppingImageUrl = result.toppingImageUrl,
+            )
+    }
+}
 
 @JsonInclude(JsonInclude.Include.ALWAYS)
 @Schema(description = "주최자용 롤링페이퍼 목록 item")
@@ -78,4 +122,15 @@ data class OwnerRollingPaperListItemResponse(
         example = "/images/rolling-paper-wrappers/Topping_Candle.svg",
     )
     val toppingImageUrl: String,
-)
+) {
+    companion object {
+        fun from(result: OwnerRollingPaperListItemResult): OwnerRollingPaperListItemResponse =
+            OwnerRollingPaperListItemResponse(
+                rollingPaperId = result.rollingPaperId,
+                position = result.position,
+                writerNickname = result.writerNickname,
+                content = result.content,
+                toppingImageUrl = result.toppingImageUrl,
+            )
+    }
+}
