@@ -34,6 +34,7 @@ enum class ErrorCode(
     ROLLING_PAPER_NOT_FOUND(HttpStatus.NOT_FOUND, "롤링페이퍼를 찾을 수 없습니다"),
     PARTY_HOST_NICKNAME_NOT_EDITABLE(HttpStatus.BAD_REQUEST, "주최자 닉네임은 변경할 수 없습니다"),
     PARTY_NOT_REALTIME(HttpStatus.BAD_REQUEST, "실시간 파티가 아닙니다"),
+    PARTY_NICKNAME_DUPLICATED(HttpStatus.CONFLICT, "이미 사용 중인 닉네임입니다"),
     CHAT_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, "채팅을 지원하지 않는 파티입니다"),
     CHAT_NOT_ACTIVE(HttpStatus.BAD_REQUEST, "현재 채팅이 활성화된 시간이 아닙니다"),
     REALTIME_PARTY_END_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "아직 실시간 파티를 종료할 수 없습니다"),
