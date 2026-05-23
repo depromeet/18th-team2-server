@@ -16,6 +16,7 @@ import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -49,6 +50,13 @@ class RealtimeParticipantProfileServiceTest {
     fun `기존 프로필이 없으면 새로 생성한다`() {
         val participant = newParticipant(isCelebrant = false)
         whenever(profileRepository.findByParticipant(participant)).thenReturn(null)
+        whenever(
+            profileRepository.existsByPartyIdAndNicknameIgnoreCaseExcludingParticipant(
+                partyId = eq(party.id),
+                nickname = eq("안녕"),
+                excludingParticipantId = eq(participant.id),
+            ),
+        ).thenReturn(false)
         whenever(profileRepository.save(any<RealtimeParticipantProfile>())).thenAnswer { it.arguments[0] }
 
         val result = service.upsert(participant, "안녕", character, isHostNicknameLocked = false)
@@ -68,6 +76,13 @@ class RealtimeParticipantProfileServiceTest {
         val existing =
             RealtimeParticipantProfile(participant = participant, nickname = "old", character = character)
         whenever(profileRepository.findByParticipant(participant)).thenReturn(existing)
+        whenever(
+            profileRepository.existsByPartyIdAndNicknameIgnoreCaseExcludingParticipant(
+                partyId = eq(party.id),
+                nickname = eq("new"),
+                excludingParticipantId = eq(participant.id),
+            ),
+        ).thenReturn(false)
 
         val result = service.upsert(participant, "new", anotherCharacter, isHostNicknameLocked = false)
 
@@ -106,5 +121,65 @@ class RealtimeParticipantProfileServiceTest {
         assertEquals(ErrorCode.PARTY_HOST_NICKNAME_NOT_EDITABLE, e.errorCode)
         assertEquals("host", existing.nickname)
         assertSame(character, existing.character)
+    }
+
+    @Test
+    fun `새 프로필 생성 시 같은 파티에 동일 nickname이 있으면 PARTY_NICKNAME_DUPLICATED`() {
+        val participant = newParticipant(isCelebrant = false)
+        whenever(profileRepository.findByParticipant(participant)).thenReturn(null)
+        whenever(
+            profileRepository.existsByPartyIdAndNicknameIgnoreCaseExcludingParticipant(
+                partyId = eq(party.id),
+                nickname = eq("dupe"),
+                excludingParticipantId = eq(participant.id),
+            ),
+        ).thenReturn(true)
+
+        val e =
+            assertThrows<BusinessException> {
+                service.upsert(participant, "dupe", character, isHostNicknameLocked = false)
+            }
+        assertEquals(ErrorCode.PARTY_NICKNAME_DUPLICATED, e.errorCode)
+        verify(profileRepository, never()).save(any<RealtimeParticipantProfile>())
+    }
+
+    @Test
+    fun `기존 프로필 갱신 시 nickname이 변경되고 중복이면 PARTY_NICKNAME_DUPLICATED`() {
+        val participant = newParticipant(isCelebrant = false)
+        val existing =
+            RealtimeParticipantProfile(participant = participant, nickname = "old", character = character)
+        whenever(profileRepository.findByParticipant(participant)).thenReturn(existing)
+        whenever(
+            profileRepository.existsByPartyIdAndNicknameIgnoreCaseExcludingParticipant(
+                partyId = eq(party.id),
+                nickname = eq("new"),
+                excludingParticipantId = eq(participant.id),
+            ),
+        ).thenReturn(true)
+
+        val e =
+            assertThrows<BusinessException> {
+                service.upsert(participant, "new", anotherCharacter, isHostNicknameLocked = false)
+            }
+        assertEquals(ErrorCode.PARTY_NICKNAME_DUPLICATED, e.errorCode)
+        assertEquals("old", existing.nickname)
+        assertSame(character, existing.character)
+    }
+
+    @Test
+    fun `nickname이 변경되지 않으면 중복 검사를 수행하지 않는다`() {
+        val participant = newParticipant(isCelebrant = false)
+        val existing =
+            RealtimeParticipantProfile(participant = participant, nickname = "same", character = character)
+        whenever(profileRepository.findByParticipant(participant)).thenReturn(existing)
+
+        service.upsert(participant, "same", anotherCharacter, isHostNicknameLocked = false)
+
+        verify(profileRepository, never()).existsByPartyIdAndNicknameIgnoreCaseExcludingParticipant(
+            any(),
+            any(),
+            any(),
+        )
+        assertSame(anotherCharacter, existing.character)
     }
 }
