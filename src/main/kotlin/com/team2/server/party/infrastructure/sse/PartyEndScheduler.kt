@@ -1,9 +1,11 @@
-package com.team2.server.chat.infrastructure.sse
+package com.team2.server.party.infrastructure.sse
 
-import com.team2.server.burstgame.application.event.BurstGameEndedEvent
 import com.team2.server.party.application.dto.RealtimeEndingScheduleTarget
+import com.team2.server.party.application.event.RealtimePartyBurstGameEndedEvent
 import com.team2.server.party.application.event.RealtimePartyCreatedEvent
 import com.team2.server.party.application.event.RealtimePartyEndingStartedEvent
+import com.team2.server.party.application.event.RealtimePartyHostEndAvailableScheduleRequestedEvent
+import com.team2.server.party.application.port.RealtimePartyEventBroadcaster
 import com.team2.server.party.application.usecase.HandleBurstGameEndedUseCase
 import com.team2.server.party.application.usecase.RecoverRealtimePartyEndScheduleUseCase
 import com.team2.server.party.application.usecase.StartAutomaticRealtimePartyEndUseCase
@@ -16,7 +18,6 @@ import org.springframework.scheduling.TaskScheduler
 import org.springframework.stereotype.Component
 import org.springframework.transaction.event.TransactionPhase
 import org.springframework.transaction.event.TransactionalEventListener
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDateTime
@@ -27,7 +28,7 @@ import java.util.concurrent.ScheduledFuture
 @Suppress("TooManyFunctions")
 class PartyEndScheduler(
     private val taskScheduler: TaskScheduler,
-    private val sseEmitterRegistry: SseEmitterRegistry,
+    private val realtimePartyEventBroadcaster: RealtimePartyEventBroadcaster,
     private val recoverRealtimePartyEndScheduleUseCase: RecoverRealtimePartyEndScheduleUseCase,
     private val startAutomaticRealtimePartyEndUseCase: StartAutomaticRealtimePartyEndUseCase,
     private val handleBurstGameEndedUseCase: HandleBurstGameEndedUseCase,
@@ -59,6 +60,7 @@ class PartyEndScheduler(
 
     private fun recoverSchedulesOnce() {
         val result = recoverRealtimePartyEndScheduleUseCase()
+        result.hostEndAvailableSchedules.forEach { scheduleHostEndAvailable(it.partyId, it.startedAt) }
         result.automaticEndSchedules.forEach { scheduleAutomaticEnd(it.partyId, it.endingStartedAt) }
         result.endingTargets.forEach { scheduleEndingEvents(it, emitEnding = false) }
     }
@@ -72,11 +74,9 @@ class PartyEndScheduler(
         }
     }
 
-    fun scheduleIfNeeded(
-        partyId: Long,
-        startedAt: LocalDateTime,
-    ) {
-        scheduleHostEndAvailable(partyId, startedAt)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    fun onHostEndAvailableScheduleRequested(event: RealtimePartyHostEndAvailableScheduleRequestedEvent) {
+        scheduleHostEndAvailable(event.partyId, event.startedAt)
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -97,7 +97,7 @@ class PartyEndScheduler(
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
-    fun onBurstGameEnded(event: BurstGameEndedEvent) {
+    fun onBurstGameEnded(event: RealtimePartyBurstGameEndedEvent) {
         if (handleBurstGameEndedUseCase(event.partyId)) {
             sendHostEndAvailableIfNeeded(event.partyId, event.endedAt)
         }
@@ -107,14 +107,7 @@ class PartyEndScheduler(
         partyId: Long,
         availableAt: LocalDateTime,
     ) {
-        sseEmitterRegistry.broadcastHost(
-            partyId,
-            SseEmitter
-                .event()
-                .name("host-end-available")
-                .data(HostEndAvailablePayload(partyId = partyId, availableAt = availableAt))
-                .build(),
-        )
+        realtimePartyEventBroadcaster.broadcastHostEndAvailable(partyId, availableAt)
     }
 
     private fun scheduleHostEndAvailable(
@@ -123,7 +116,7 @@ class PartyEndScheduler(
     ) {
         val state = stateFor(partyId)
         synchronized(state) {
-            if (state.hostAvailableScheduled || state.hostAvailableNotified) return
+            if (!state.canScheduleHostEndAvailable()) return
             state.hostAvailableScheduled = true
         }
 
@@ -159,7 +152,9 @@ class PartyEndScheduler(
             {
                 val shouldSend =
                     synchronized(state) {
-                        if (!state.hostAvailableScheduled) {
+                        if (!state.canSendScheduledHostEndAvailable()) {
+                            state.hostAvailableTask = null
+                            state.hostAvailableScheduled = false
                             false
                         } else {
                             state.hostAvailableTask = null
@@ -178,7 +173,7 @@ class PartyEndScheduler(
         task: ScheduledFuture<*>,
     ) {
         synchronized(state) {
-            if (state.hostAvailableScheduled) {
+            if (state.canStoreHostEndAvailableTask()) {
                 state.hostAvailableTask = task
             } else {
                 task.cancel(false)
@@ -191,12 +186,17 @@ class PartyEndScheduler(
         endingStartedAt: LocalDateTime,
     ) {
         val state = stateFor(partyId)
+        if (synchronized(state) { state.isPartyEndingHandled() }) return
         val task =
             taskScheduler.schedule(
                 { startAutomaticEnding(partyId, endingStartedAt) },
                 endingStartedAt.toInstant(),
             )
         synchronized(state) {
+            if (state.isPartyEndingHandled()) {
+                task.cancel(false)
+                return
+            }
             state.automaticEndTask?.cancel(false)
             state.automaticEndTask = task
         }
@@ -250,18 +250,10 @@ class PartyEndScheduler(
                 }
             }
         if (!shouldSend) return
-        sseEmitterRegistry.broadcast(
-            target.partyId,
-            SseEmitter
-                .event()
-                .name("party-ending")
-                .data(
-                    PartyEndingPayload(
-                        partyId = target.partyId,
-                        endingStartedAt = target.endingStartedAt,
-                        endedAt = target.endedAt,
-                    ),
-                ).build(),
+        realtimePartyEventBroadcaster.broadcastPartyEnding(
+            partyId = target.partyId,
+            endingStartedAt = target.endingStartedAt,
+            endedAt = target.endedAt,
         )
     }
 
@@ -281,17 +273,10 @@ class PartyEndScheduler(
                 }
             }
         if (!shouldSend) return
-        sseEmitterRegistry.broadcast(
-            target.partyId,
-            SseEmitter
-                .event()
-                .name("party-ended")
-                .data(PartyEndedPayload(partyId = target.partyId, endedAt = target.endedAt))
-                .build(),
-        )
+        realtimePartyEventBroadcaster.broadcastPartyEnded(target.partyId, target.endedAt)
         taskScheduler.schedule(
             {
-                sseEmitterRegistry.completeAll(target.partyId)
+                realtimePartyEventBroadcaster.completeParty(target.partyId)
                 partyStates.remove(target.partyId, state)
             },
             Instant
@@ -309,6 +294,20 @@ class PartyEndScheduler(
     private fun stateFor(partyId: Long): PartyEndScheduleState =
         partyStates.computeIfAbsent(partyId) { PartyEndScheduleState() }
 
+    private fun PartyEndScheduleState.canScheduleHostEndAvailable(): Boolean =
+        !isHostEndAvailableHandled() && !isPartyEndingHandled()
+
+    private fun PartyEndScheduleState.canSendScheduledHostEndAvailable(): Boolean =
+        hostAvailableScheduled && !isPartyEndingHandled()
+
+    private fun PartyEndScheduleState.canStoreHostEndAvailableTask(): Boolean =
+        hostAvailableScheduled && !isPartyEndingHandled()
+
+    private fun PartyEndScheduleState.isHostEndAvailableHandled(): Boolean =
+        hostAvailableScheduled || hostAvailableNotified
+
+    private fun PartyEndScheduleState.isPartyEndingHandled(): Boolean = endingNotified || endedNotified
+
     private fun LocalDateTime.toInstant(): Instant = atZone(clock.zone).toInstant()
 
     @PreDestroy
@@ -322,24 +321,8 @@ class PartyEndScheduler(
         }
     }
 
-    data class HostEndAvailablePayload(
-        val partyId: Long,
-        val availableAt: LocalDateTime,
-    )
-
-    data class PartyEndingPayload(
-        val partyId: Long,
-        val endingStartedAt: LocalDateTime,
-        val endedAt: LocalDateTime,
-    )
-
-    data class PartyEndedPayload(
-        val partyId: Long,
-        val endedAt: LocalDateTime,
-    )
-
     companion object {
-        private const val GRACE_CLEANUP_SECONDS = 2L
+        private const val GRACE_CLEANUP_SECONDS = 5L
         private const val RECOVERY_MAX_ATTEMPTS = 3
         private const val RECOVERY_RETRY_DELAY_MILLIS = 1_000L
     }

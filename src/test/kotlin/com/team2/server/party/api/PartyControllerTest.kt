@@ -249,10 +249,14 @@ class PartyControllerTest
         @Test
         fun `박터뜨리기가 종료되면 4분 전에도 실시간 파티를 종료할 수 있다`() {
             val owner = saveUser("kakao-realtime-end-burst", "end-burst@kakao.local")
-            val startedAt = LocalDateTime.now().minusMinutes(1)
-            val party = saveRealtimeParty(owner, startedAt)
-            burstGameSessionStore.start(party.id, startedAt) {
-                BurstGameSession(partyId = party.id, startedAt = startedAt, endsAt = startedAt.plusSeconds(20))
+            val now = LocalDateTime.now()
+            val party = saveRealtimeParty(owner, now.minusMinutes(1))
+            burstGameSessionStore.start(party.id, now) {
+                BurstGameSession(
+                    partyId = party.id,
+                    startedAt = now.minusMinutes(1),
+                    endsAt = now.minusSeconds(1),
+                )
             }
             burstGameSessionPartyIds.add(party.id)
 

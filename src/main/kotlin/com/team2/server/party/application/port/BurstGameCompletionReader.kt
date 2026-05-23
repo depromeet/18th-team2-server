@@ -1,5 +1,10 @@
 package com.team2.server.party.application.port
 
+import java.time.LocalDateTime
+
 interface BurstGameCompletionReader {
-    fun isEnded(partyId: Long): Boolean
+    fun isCompleted(
+        partyId: Long,
+        now: LocalDateTime,
+    ): Boolean
 }

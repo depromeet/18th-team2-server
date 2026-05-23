@@ -4,8 +4,9 @@ import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.dto.RealtimePartyNextActionResult
 import com.team2.server.party.application.service.ParticipantService
-import com.team2.server.party.application.service.PartyCallerAccessService
 import com.team2.server.party.application.service.PartyInviteService
+import com.team2.server.party.application.service.PartyService
+import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.RealtimePartyStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -14,8 +15,7 @@ import java.time.LocalDateTime
 
 @Service
 class GetRealtimePartyNextActionUseCase(
-    private val resolveRealtimePartyUseCase: ResolveRealtimePartyUseCase,
-    private val partyCallerAccessService: PartyCallerAccessService,
+    private val partyService: PartyService,
     private val participantService: ParticipantService,
     private val partyInviteService: PartyInviteService,
     private val clock: Clock,
@@ -27,24 +27,27 @@ class GetRealtimePartyNextActionUseCase(
         participantToken: String?,
     ): RealtimePartyNextActionResult {
         val now = LocalDateTime.now(clock)
-        partyCallerAccessService.validateCallerCanAccessParty(partyId, userId, participantToken)
-        val party = resolveRealtimePartyUseCase.invoke(partyId)
+        val party = partyService.requireRealtimeParty(partyId)
         if (party.status(now) != RealtimePartyStatus.LIVE_CLOSED) {
             throwRealtimePartyEndNotAvailable()
         }
+        val participant =
+            if (userId == party.ownerId) {
+                null
+            } else {
+                participantService.requireCallerParticipant(party.id, userId, participantToken)
+            }
         return when {
             userId == party.ownerId -> RealtimePartyNextActionResult.Host(partyId = party.id)
-            else -> participantNextAction(party.id, userId, participantToken, now)
+            else -> participantNextAction(party.id, requireNotNull(participant), now)
         }
     }
 
     private fun participantNextAction(
         partyId: Long,
-        userId: Long?,
-        participantToken: String?,
+        participant: Participant,
         now: LocalDateTime,
     ): RealtimePartyNextActionResult {
-        val participant = participantService.requireCallerParticipant(partyId, userId, participantToken)
         if (participant.isCelebrant) return RealtimePartyNextActionResult.Host(partyId = partyId)
         val inviteToken = partyInviteService.findLatestUsableInviteToken(partyId, now)
         return RealtimePartyNextActionResult.Participant(

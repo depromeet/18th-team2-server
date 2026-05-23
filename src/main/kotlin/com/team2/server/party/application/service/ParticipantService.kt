@@ -10,13 +10,16 @@ import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProfileRepository
 import com.team2.server.user.entity.User
+import com.team2.server.user.repository.UserRepository
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 
 @Service
 class ParticipantService(
     private val participantRepository: ParticipantRepository,
     private val realtimeParticipantProfileRepository: RealtimeParticipantProfileRepository,
+    private val userRepository: UserRepository,
 ) {
     fun joinMember(
         party: Party,
@@ -43,17 +46,6 @@ class ParticipantService(
         participantRepository.findByPartyIdAndUserId(party.id, userId)
             ?: participantRepository.save(Participant(party = party, user = user))
 
-    fun requireCallerParticipantId(
-        partyId: Long,
-        userId: Long?,
-        participantToken: String?,
-    ): Long =
-        requireCallerParticipant(
-            partyId = partyId,
-            userId = userId,
-            participantToken = participantToken,
-        ).id
-
     fun requireCallerParticipant(
         partyId: Long,
         userId: Long?,
@@ -61,14 +53,7 @@ class ParticipantService(
     ): Participant =
         when {
             participantToken != null -> {
-                val tokenParticipant =
-                    try {
-                        resolveCallerByToken(partyId, participantToken)
-                    } catch (e: BusinessException) {
-                        if (e.errorCode != ErrorCode.PARTY_FORBIDDEN) throw e
-                        null
-                    }
-                tokenParticipant
+                resolveCallerByTokenOrNull(partyId, participantToken)
                     ?: userId?.let { resolveCallerByUser(partyId, it) }
                     ?: throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
             }
@@ -89,6 +74,12 @@ class ParticipantService(
         )
     }
 
+    fun resolveUser(userId: Long?): User? {
+        if (userId == null) return null
+        return userRepository.findByIdOrNull(userId)
+            ?: throw BusinessException(ErrorCode.AUTH_USER_NOT_FOUND)
+    }
+
     private fun resolveCallerByUser(
         partyId: Long,
         userId: Long,
@@ -96,13 +87,13 @@ class ParticipantService(
         participantRepository.findByPartyIdAndUserId(partyId, userId)
             ?: throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
 
-    private fun resolveCallerByToken(
+    private fun resolveCallerByTokenOrNull(
         partyId: Long,
         participantToken: String,
-    ): Participant {
+    ): Participant? {
         val profile =
             realtimeParticipantProfileRepository.findByParticipantToken(participantToken)
-                ?: throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
+                ?: return null
         if (profile.participant.party.id != partyId) {
             throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
         }

@@ -14,6 +14,7 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
 import org.springframework.context.annotation.Import
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 @DataJpaTest
@@ -142,5 +143,118 @@ class RealtimeParticipantProfileRepositoryTest
         fun `findAllByParticipantIdIn - 빈 컬렉션이면 빈 리스트`() {
             val result = profileRepository.findAllByParticipantIdIn(emptyList())
             assertTrue(result.isEmpty())
+        }
+
+        @Test
+        fun `existsByPartyIdAndNicknameIgnoreCaseExcludingParticipant - 대소문자 무시하고 같은 파티 내 중복을 감지`() {
+            val party =
+                partyRepository.save(
+                    RealtimeParty(ownerId = 1L, name = "p", celebrantNickname = "홍", startedAt = LocalDateTime.now()),
+                )
+            val userA =
+                userRepository.save(
+                    User(
+                        name = "A",
+                        birthDay = "01-01",
+                        email = "a@x",
+                        provider = AuthProvider.KAKAO,
+                        providerId = "a",
+                    ),
+                )
+            val userB =
+                userRepository.save(
+                    User(
+                        name = "B",
+                        birthDay = "02-02",
+                        email = "b@x",
+                        provider = AuthProvider.KAKAO,
+                        providerId = "b",
+                    ),
+                )
+            val pA = participantRepository.save(Participant(party = party, user = userA))
+            val pB = participantRepository.save(Participant(party = party, user = userB))
+            profileRepository.save(RealtimeParticipantProfile(participant = pA, nickname = "Alpha"))
+
+            val duplicated =
+                profileRepository.existsByPartyIdAndNicknameIgnoreCaseExcludingParticipant(
+                    partyId = party.id,
+                    nickname = "alpha",
+                    excludingParticipantId = pB.id,
+                )
+
+            assertTrue(duplicated)
+        }
+
+        @Test
+        fun `existsByPartyIdAndNicknameIgnoreCaseExcludingParticipant - 자기 자신의 nickname은 중복으로 보지 않는다`() {
+            val party =
+                partyRepository.save(
+                    RealtimeParty(ownerId = 1L, name = "p", celebrantNickname = "홍", startedAt = LocalDateTime.now()),
+                )
+            val user =
+                userRepository.save(
+                    User(
+                        name = "U",
+                        birthDay = "01-01",
+                        email = "u@x",
+                        provider = AuthProvider.KAKAO,
+                        providerId = "u",
+                    ),
+                )
+            val participant = participantRepository.save(Participant(party = party, user = user))
+            profileRepository.save(RealtimeParticipantProfile(participant = participant, nickname = "Same"))
+
+            val duplicated =
+                profileRepository.existsByPartyIdAndNicknameIgnoreCaseExcludingParticipant(
+                    partyId = party.id,
+                    nickname = "same",
+                    excludingParticipantId = participant.id,
+                )
+
+            assertFalse(duplicated)
+        }
+
+        @Test
+        fun `existsByPartyIdAndNicknameIgnoreCaseExcludingParticipant - 다른 파티의 동일 nickname은 무시`() {
+            val party1 =
+                partyRepository.save(
+                    RealtimeParty(ownerId = 1L, name = "p1", celebrantNickname = "홍", startedAt = LocalDateTime.now()),
+                )
+            val party2 =
+                partyRepository.save(
+                    RealtimeParty(ownerId = 1L, name = "p2", celebrantNickname = "홍", startedAt = LocalDateTime.now()),
+                )
+            val userA =
+                userRepository.save(
+                    User(
+                        name = "A",
+                        birthDay = "01-01",
+                        email = "aa@x",
+                        provider = AuthProvider.KAKAO,
+                        providerId = "aa",
+                    ),
+                )
+            val userB =
+                userRepository.save(
+                    User(
+                        name = "B",
+                        birthDay = "02-02",
+                        email = "bb@x",
+                        provider = AuthProvider.KAKAO,
+                        providerId = "bb",
+                    ),
+                )
+            val pInParty1 = participantRepository.save(Participant(party = party1, user = userA))
+            val pInParty2 = participantRepository.save(Participant(party = party2, user = userB))
+            profileRepository.save(RealtimeParticipantProfile(participant = pInParty1, nickname = "Same"))
+
+            val duplicated =
+                profileRepository.existsByPartyIdAndNicknameIgnoreCaseExcludingParticipant(
+                    partyId = party2.id,
+                    nickname = "same",
+                    excludingParticipantId = pInParty2.id,
+                )
+
+            assertFalse(duplicated)
         }
     }

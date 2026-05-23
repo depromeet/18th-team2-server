@@ -11,22 +11,26 @@ import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProfileRepository
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
+import com.team2.server.user.repository.UserRepository
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.LocalDateTime
+import java.util.Optional
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 class ParticipantServiceTest {
     private val participantRepository: ParticipantRepository = mock()
     private val realtimeParticipantProfileRepository: RealtimeParticipantProfileRepository = mock()
+    private val userRepository: UserRepository = mock()
     private val service =
         ParticipantService(
             participantRepository,
             realtimeParticipantProfileRepository,
+            userRepository,
         )
 
     private fun makeUser(): User =
@@ -77,43 +81,43 @@ class ParticipantServiceTest {
     }
 
     @Test
-    fun `requireCallerParticipantId returns participant id when JWT user is a participant`() {
+    fun `requireCallerParticipant returns participant when JWT user is a participant`() {
         val party = makeRealtimeParty()
         val user = makeUser()
         val participant = Participant(party = party, user = user)
         whenever(participantRepository.findByPartyIdAndUserId(party.id, 42L)).thenReturn(participant)
 
-        val result = service.requireCallerParticipantId(party.id, userId = 42L, participantToken = null)
+        val result = service.requireCallerParticipant(party.id, userId = 42L, participantToken = null)
 
-        assertEquals(participant.id, result)
+        assertEquals(participant, result)
     }
 
     @Test
-    fun `requireCallerParticipantId throws PARTY_FORBIDDEN when JWT user is not a participant`() {
+    fun `requireCallerParticipant throws PARTY_FORBIDDEN when JWT user is not a participant`() {
         val party = makeRealtimeParty()
         whenever(participantRepository.findByPartyIdAndUserId(party.id, 42L)).thenReturn(null)
 
         val ex =
             assertFailsWith<BusinessException> {
-                service.requireCallerParticipantId(party.id, userId = 42L, participantToken = null)
+                service.requireCallerParticipant(party.id, userId = 42L, participantToken = null)
             }
         assertEquals(ErrorCode.PARTY_FORBIDDEN, ex.errorCode)
     }
 
     @Test
-    fun `requireCallerParticipantId returns participant id when participant token matches the party`() {
+    fun `requireCallerParticipant returns participant when participant token matches the party`() {
         val party = makeRealtimeParty()
         val participant = Participant(party = party, user = null)
         val profile = RealtimeParticipantProfile(participant = participant, nickname = "익명")
         whenever(realtimeParticipantProfileRepository.findByParticipantToken("tok")).thenReturn(profile)
 
-        val result = service.requireCallerParticipantId(party.id, userId = null, participantToken = "tok")
+        val result = service.requireCallerParticipant(party.id, userId = null, participantToken = "tok")
 
-        assertEquals(participant.id, result)
+        assertEquals(participant, result)
     }
 
     @Test
-    fun `requireCallerParticipantId prefers participant token over JWT user`() {
+    fun `requireCallerParticipant prefers participant token over JWT user`() {
         val party = makeRealtimeParty()
         val tokenParticipant = Participant(party = party, user = null)
         val userParticipant = Participant(party = party, user = makeUser())
@@ -121,13 +125,13 @@ class ParticipantServiceTest {
         whenever(realtimeParticipantProfileRepository.findByParticipantToken("tok")).thenReturn(profile)
         whenever(participantRepository.findByPartyIdAndUserId(party.id, 42L)).thenReturn(userParticipant)
 
-        val result = service.requireCallerParticipantId(party.id, userId = 42L, participantToken = "tok")
+        val result = service.requireCallerParticipant(party.id, userId = 42L, participantToken = "tok")
 
-        assertEquals(tokenParticipant.id, result)
+        assertEquals(tokenParticipant, result)
     }
 
     @Test
-    fun `requireCallerParticipantId throws PARTY_FORBIDDEN when token belongs to a different party`() {
+    fun `requireCallerParticipant throws PARTY_FORBIDDEN when token belongs to a different party`() {
         val otherParty: Party = mock()
         whenever(otherParty.id).thenReturn(99L)
         val participant: Participant = mock()
@@ -138,31 +142,73 @@ class ParticipantServiceTest {
 
         val ex =
             assertFailsWith<BusinessException> {
-                service.requireCallerParticipantId(partyId = 1L, userId = null, participantToken = "tok")
+                service.requireCallerParticipant(partyId = 1L, userId = null, participantToken = "tok")
             }
         assertEquals(ErrorCode.PARTY_FORBIDDEN, ex.errorCode)
     }
 
     @Test
-    fun `requireCallerParticipantId throws PARTY_FORBIDDEN when participant token does not exist`() {
+    fun `requireCallerParticipant does not fallback to JWT user when token belongs to a different party`() {
+        val party = makeRealtimeParty()
+        val userParticipant = Participant(party = party, user = makeUser())
+        val otherParty: Party = mock()
+        whenever(otherParty.id).thenReturn(99L)
+        val tokenParticipant: Participant = mock()
+        whenever(tokenParticipant.party).thenReturn(otherParty)
+        val profile: RealtimeParticipantProfile = mock()
+        whenever(profile.participant).thenReturn(tokenParticipant)
+        whenever(realtimeParticipantProfileRepository.findByParticipantToken("tok")).thenReturn(profile)
+        whenever(participantRepository.findByPartyIdAndUserId(party.id, 42L)).thenReturn(userParticipant)
+
+        val ex =
+            assertFailsWith<BusinessException> {
+                service.requireCallerParticipant(party.id, userId = 42L, participantToken = "tok")
+            }
+        assertEquals(ErrorCode.PARTY_FORBIDDEN, ex.errorCode)
+    }
+
+    @Test
+    fun `requireCallerParticipant throws PARTY_FORBIDDEN when participant token does not exist`() {
         val party = makeRealtimeParty()
         whenever(realtimeParticipantProfileRepository.findByParticipantToken("tok")).thenReturn(null)
 
         val ex =
             assertFailsWith<BusinessException> {
-                service.requireCallerParticipantId(party.id, userId = null, participantToken = "tok")
+                service.requireCallerParticipant(party.id, userId = null, participantToken = "tok")
             }
         assertEquals(ErrorCode.PARTY_FORBIDDEN, ex.errorCode)
     }
 
     @Test
-    fun `requireCallerParticipantId throws UNAUTHORIZED when both userId and token are null`() {
+    fun `requireCallerParticipant throws UNAUTHORIZED when both userId and token are null`() {
         val party = makeRealtimeParty()
 
         val ex =
             assertFailsWith<BusinessException> {
-                service.requireCallerParticipantId(party.id, userId = null, participantToken = null)
+                service.requireCallerParticipant(party.id, userId = null, participantToken = null)
             }
         assertEquals(ErrorCode.UNAUTHORIZED, ex.errorCode)
+    }
+
+    @Test
+    fun `resolveUser returns null when userId is null`() {
+        assertEquals(null, service.resolveUser(null))
+    }
+
+    @Test
+    fun `resolveUser returns user when found`() {
+        val user = makeUser()
+        whenever(userRepository.findById(42L)).thenReturn(Optional.of(user))
+
+        assertEquals(user, service.resolveUser(42L))
+    }
+
+    @Test
+    fun `resolveUser throws AUTH_USER_NOT_FOUND when missing`() {
+        whenever(userRepository.findById(42L)).thenReturn(Optional.empty())
+
+        val ex = assertFailsWith<BusinessException> { service.resolveUser(42L) }
+
+        assertEquals(ErrorCode.AUTH_USER_NOT_FOUND, ex.errorCode)
     }
 }

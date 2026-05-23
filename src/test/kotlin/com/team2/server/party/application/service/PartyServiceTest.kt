@@ -290,10 +290,12 @@ class PartyServiceTest {
                 characterId = 1L,
             )
 
-        assertThrows<IllegalArgumentException> {
-            partyService.createRealtimeParty(userId = 1L, user = user, command = request)
-        }
+        val ex =
+            assertThrows<BusinessException> {
+                partyService.createRealtimeParty(userId = 1L, user = user, command = request)
+            }
 
+        assertEquals(ErrorCode.PARTY_FORBIDDEN, ex.errorCode)
         verify(partyRepository, never()).save(any())
         verify(participantRepository, never()).save(any())
     }

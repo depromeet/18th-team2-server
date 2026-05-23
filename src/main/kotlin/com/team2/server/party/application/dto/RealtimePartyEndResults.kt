@@ -107,20 +107,3 @@ sealed interface RealtimePartyNextActionResult {
         override val type: String = "PARTICIPANT_ROLLING_PAPER_WRITE"
     }
 }
-
-data class RealtimeEndingScheduleTarget(
-    val partyId: Long,
-    val endingStartedAt: LocalDateTime,
-    val endedAt: LocalDateTime,
-    val startedNow: Boolean = false,
-)
-
-data class RealtimeAutomaticEndSchedule(
-    val partyId: Long,
-    val endingStartedAt: LocalDateTime,
-)
-
-data class RealtimePartyEndRecoveryResult(
-    val automaticEndSchedules: List<RealtimeAutomaticEndSchedule>,
-    val endingTargets: List<RealtimeEndingScheduleTarget>,
-)

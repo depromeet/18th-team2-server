@@ -21,11 +21,6 @@ class StartAutomaticRealtimePartyEndUseCase(
         if (target.startedNow) {
             realtimePartyEndingEventPublisher.publish(target.partyId, target.endingStartedAt, target.endedAt)
         }
-        return RealtimeEndingScheduleTarget(
-            partyId = target.partyId,
-            endingStartedAt = target.endingStartedAt,
-            endedAt = target.endedAt,
-            startedNow = target.startedNow,
-        )
+        return target
     }
 }

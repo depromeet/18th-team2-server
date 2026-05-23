@@ -14,10 +14,7 @@ import com.team2.server.party.domain.entity.PartyOption
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.domain.entity.RealtimePartyStatus
-import com.team2.server.user.entity.User
-import com.team2.server.user.repository.UserRepository
 import org.hibernate.Hibernate
-import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
@@ -29,7 +26,6 @@ class EnterRealtimePartyUseCase(
     private val participantService: ParticipantService,
     private val realtimeParticipantProfileService: RealtimeParticipantProfileService,
     private val characterService: CharacterService,
-    private val userRepository: UserRepository,
     private val clock: Clock,
 ) {
     data class EnterResult(
@@ -68,7 +64,7 @@ class EnterRealtimePartyUseCase(
                     now = now,
                 )
             } else {
-                val user = resolveUser(userId)
+                val user = participantService.resolveUser(userId)
                 val participant = participantService.joinAnonymousOrMember(invite.party, user)
                 realtimeParticipantProfileService.upsert(
                     participant = participant,
@@ -94,12 +90,6 @@ class EnterRealtimePartyUseCase(
             throw BusinessException(ErrorCode.CHAT_NOT_SUPPORTED)
         }
         return Hibernate.unproxy(party) as RealtimeParty
-    }
-
-    private fun resolveUser(userId: Long?): User? {
-        if (userId == null) return null
-        return userRepository.findByIdOrNull(userId)
-            ?: throw BusinessException(ErrorCode.AUTH_USER_NOT_FOUND)
     }
 
     private fun validateNewEnterable(

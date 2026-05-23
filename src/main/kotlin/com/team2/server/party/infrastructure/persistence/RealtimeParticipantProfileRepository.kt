@@ -26,6 +26,21 @@ interface RealtimeParticipantProfileRepository : JpaRepository<RealtimeParticipa
 
     fun findAllByParticipantIdIn(participantIds: Collection<Long>): List<RealtimeParticipantProfile>
 
+    @Query(
+        """
+        SELECT (COUNT(profile) > 0)
+        FROM RealtimeParticipantProfile profile
+        WHERE profile.participant.party.id = :partyId
+          AND LOWER(profile.nickname) = LOWER(:nickname)
+          AND profile.participant.id <> :excludingParticipantId
+        """,
+    )
+    fun existsByPartyIdAndNicknameIgnoreCaseExcludingParticipant(
+        partyId: Long,
+        nickname: String,
+        excludingParticipantId: Long,
+    ): Boolean
+
     @Modifying
     fun deleteAllByParticipantIdIn(participantIds: List<Long>)
 

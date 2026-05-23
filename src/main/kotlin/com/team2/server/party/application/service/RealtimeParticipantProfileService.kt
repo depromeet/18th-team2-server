@@ -25,6 +25,7 @@ class RealtimeParticipantProfileService(
     ): RealtimeParticipantProfile {
         val existing = profileRepository.findByParticipant(participant)
         if (existing == null) {
+            validateNicknameUnique(participant, nickname)
             return profileRepository.save(
                 RealtimeParticipantProfile(
                     participant = participant,
@@ -33,12 +34,30 @@ class RealtimeParticipantProfileService(
                 ),
             )
         }
-        if (isHostNicknameLocked && existing.nickname != nickname) {
-            throw BusinessException(ErrorCode.PARTY_HOST_NICKNAME_NOT_EDITABLE)
+        if (existing.nickname != nickname) {
+            if (isHostNicknameLocked) {
+                throw BusinessException(ErrorCode.PARTY_HOST_NICKNAME_NOT_EDITABLE)
+            }
+            validateNicknameUnique(participant, nickname)
         }
         existing.nickname = nickname
         existing.character = character
         return existing
+    }
+
+    private fun validateNicknameUnique(
+        participant: Participant,
+        nickname: String,
+    ) {
+        val duplicated =
+            profileRepository.existsByPartyIdAndNicknameIgnoreCaseExcludingParticipant(
+                partyId = participant.party.id,
+                nickname = nickname,
+                excludingParticipantId = participant.id,
+            )
+        if (duplicated) {
+            throw BusinessException(ErrorCode.PARTY_NICKNAME_DUPLICATED)
+        }
     }
 
     fun resolveProfile(
