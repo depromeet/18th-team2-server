@@ -341,7 +341,7 @@ SSE 재연결, `burst-game-started` 이벤트 유실, 종료 직후 재조회에
 - `ended = true`이면 종료 결과이며, 최종 `totalTapCount`와 전체 참가자 순위를 `rankings`에 내려준다.
   - 종료 결과의 `rankings`는 상위 3명 제한을 적용하지 않는다.
   - 최종 1등은 `rankings`에서 `rank = 1`인 entry로 판단한다.
-  - 전원 0회로 종료된 경우에는 `winners = []`, `rankings = []`로 내려준다.
+  - 전원 0회로 종료된 경우에는 `rankings = []`로 내려준다.
 - 외부 응답에서는 `endedAt`을 내려주지 않는다.
   - 게임 종료 기준은 항상 `endsAt`이다.
   - scheduler 지연이나 lazy 종료로 실제 종료 commit 시각이 늦어져도, 그 시간은 사용자가 플레이한 시간으로 보이지 않도록 서버 내부 로그/메트릭에서만 다룬다.
@@ -515,7 +515,6 @@ batch 단위 전송 구조에서는 "특정 tap 수에 정확히 먼저 도달�
 
 전원 0회로 종료되면 유효한 최종 순위가 없는 것으로 본다.
 
-- `winners = []`
 - `rankings = []`
 - `totalTapCount = 0`
 - `colorChanged = false`
@@ -552,7 +551,7 @@ batch 단위 전송 구조에서는 "특정 tap 수에 정확히 먼저 도달�
 | `role` | 역할 |
 | `tapCount` | 누적 터치 수 |
 
-`winners` 필드는 최종 표시 계약에서 제거한다. 최종 1등은 `rankings`에서 `rank = 1`인 entry로 판단한다.
+최종 표시 계약에는 별도 `winners` 필드를 두지 않는다. 최종 1등은 `rankings`에서 `rank = 1`인 entry로 판단한다.
 
 ---
 
@@ -693,8 +692,7 @@ burstgame/
 │   ├── BurstGameRoundStatus.kt
 │   ├── BurstGameSession.kt
 │   ├── BurstGameSnapshot.kt
-│   ├── BurstGameRankingEntry.kt
-│   └── BurstGameWinner.kt
+│   └── BurstGameRankingEntry.kt
 └── infrastructure/
     ├── candle/
     ├── memory/
@@ -830,7 +828,7 @@ cross-feature 의존:
 - 공동 순위가 있어도 진행 중에는 최대 3명까지만 표시한다.
 - 진행 중 합산 터치 수는 표시하지 않고, 개인 터치 수는 `myTapCount`로 표시한다.
 - 종료 이벤트와 ended 상태/결과 조회에는 최종 총 터치 수와 전체 참가자 순위를 포함한다.
-- 전원 0회면 `winners = []`, `rankings = []`로 내려준다.
+- 전원 0회면 `rankings = []`로 내려준다.
 - 현재 기획에서는 파티 종료 후 박터뜨리기 결과를 다른 기능에서 재사용하지 않는다.
 
 ### 12-3. 기본값으로 진행 가능한 기술 정책

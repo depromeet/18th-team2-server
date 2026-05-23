@@ -21,7 +21,7 @@
 - 진행 중에는 합산 터치 수를 표시하지 않고, entry 기준 상위 3명의 ranking entry만 SSE로 브로드캐스트한다.
 - 진행 중 개인 터치 수는 `submit taps` 응답과 상태 조회 응답의 `myTapCount`로 제공한다.
 - 동점은 공동 순위로 처리한다. 진행 중 `rankings`는 공동 순위 규모와 무관하게 최대 3명만 포함하고, 최종 결과는 전체 참가자 순위를 포함한다.
-- 전원 0회로 종료되면 `winners = []`, `rankings = []`로 응답한다.
+- 전원 0회로 종료되면 `rankings = []`로 응답한다.
 - 외부 응답에는 `endedAt`을 내려주지 않는다. 종료 기준은 항상 `endsAt`이다.
 - active 집계와 종료 결과는 1차 구현에서 DB 저장 없이 in-memory session으로 유지한다.
 - ended session TTL은 5분으로 둔다.
@@ -137,7 +137,6 @@ Request:
 - Create: `src/main/kotlin/com/team2/server/burstgame/domain/BurstGamePolicy.kt`
 - Create: `src/main/kotlin/com/team2/server/burstgame/domain/BurstGameRoundStatus.kt`
 - Create: `src/main/kotlin/com/team2/server/burstgame/domain/BurstGameRankingEntry.kt`
-- Create: `src/main/kotlin/com/team2/server/burstgame/domain/BurstGameWinner.kt`
 - Create: `src/main/kotlin/com/team2/server/burstgame/domain/BurstGameSession.kt`
 - Test: `src/test/kotlin/com/team2/server/burstgame/domain/BurstGameSessionTest.kt`
 
@@ -170,7 +169,7 @@ Run:
 - [ ] 공동 rank에 속한 참가자가 3명을 초과해도 진행 중 `rankings`는 표시 순서상 앞선 3명만 포함한다.
 - [ ] 공동 1등이 5명이면 진행 중 `rankings`에는 공동 1등 3명만 포함한다.
 - [ ] 종료 결과 `rankings`는 상위 3명 제한 없이 전체 참가자를 반환한다.
-- [ ] 전원 0회면 `winners = []`, `rankings = []`를 반환한다.
+- [ ] 전원 0회면 `rankings = []`를 반환한다.
 
 Run:
 
@@ -434,7 +433,7 @@ Run:
 - ranking: 진행 중 1등 2명, 2등 4명이면 `rankings`는 rank 1 참가자 2명과 rank 2 참가자 1명만 포함
 - ranking: 진행 중 1등 3명, 다음 rank group이 2등이면 `rankings`는 rank 1 참가자 3명만 포함
 - ranking: 종료 결과는 상위 제한 없이 전체 참가자 순위를 포함
-- ranking: 전원 0회면 `winners = []`, `rankings = []`
+- ranking: 전원 0회면 `rankings = []`
 - policy: `BurstGamePolicy.COLOR_CHANGE_TAP_COUNT = 100` 상수 기준으로 `colorChanged` 테스트
 - SSE: 실제 emit은 lock 밖 비동기 executor에서 수행되고 실패해도 session 상태는 유지됨
 
