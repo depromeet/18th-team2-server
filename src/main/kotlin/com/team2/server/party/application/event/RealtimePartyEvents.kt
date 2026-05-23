@@ -12,6 +12,11 @@ data class RealtimePartyHostEndAvailableScheduleRequestedEvent(
     val startedAt: LocalDateTime,
 )
 
+data class RealtimePartyBurstGameEndedEvent(
+    val partyId: Long,
+    val endedAt: LocalDateTime,
+)
+
 data class RealtimePartyEndingStartedEvent(
     val partyId: Long,
     val endingStartedAt: LocalDateTime,

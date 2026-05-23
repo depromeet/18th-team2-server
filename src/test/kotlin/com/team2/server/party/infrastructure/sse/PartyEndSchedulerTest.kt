@@ -1,20 +1,19 @@
 package com.team2.server.party.infrastructure.sse
 
-import com.team2.server.burstgame.application.event.BurstGameEndedEvent
-import com.team2.server.chat.infrastructure.sse.SseEmitterRegistry
 import com.team2.server.party.application.dto.RealtimeAutomaticEndSchedule
 import com.team2.server.party.application.dto.RealtimeEndingScheduleTarget
 import com.team2.server.party.application.dto.RealtimePartyEndRecoveryResult
+import com.team2.server.party.application.event.RealtimePartyBurstGameEndedEvent
 import com.team2.server.party.application.event.RealtimePartyCreatedEvent
 import com.team2.server.party.application.event.RealtimePartyEndingStartedEvent
 import com.team2.server.party.application.event.RealtimePartyHostEndAvailableScheduleRequestedEvent
+import com.team2.server.party.application.port.RealtimePartyEventBroadcaster
 import com.team2.server.party.application.usecase.HandleBurstGameEndedUseCase
 import com.team2.server.party.application.usecase.RecoverRealtimePartyEndScheduleUseCase
 import com.team2.server.party.application.usecase.StartAutomaticRealtimePartyEndUseCase
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
-import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
@@ -22,7 +21,6 @@ import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.springframework.scheduling.TaskScheduler
-import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDateTime
@@ -32,7 +30,7 @@ import kotlin.test.assertEquals
 
 class PartyEndSchedulerTest {
     private val taskScheduler: TaskScheduler = mock()
-    private val sseEmitterRegistry: SseEmitterRegistry = mock()
+    private val realtimePartyEventBroadcaster: RealtimePartyEventBroadcaster = mock()
     private val recoverRealtimePartyEndScheduleUseCase: RecoverRealtimePartyEndScheduleUseCase = mock()
     private val startAutomaticRealtimePartyEndUseCase: StartAutomaticRealtimePartyEndUseCase = mock()
     private val handleBurstGameEndedUseCase: HandleBurstGameEndedUseCase = mock()
@@ -49,7 +47,7 @@ class PartyEndSchedulerTest {
         scheduler =
             PartyEndScheduler(
                 taskScheduler = taskScheduler,
-                sseEmitterRegistry = sseEmitterRegistry,
+                realtimePartyEventBroadcaster = realtimePartyEventBroadcaster,
                 recoverRealtimePartyEndScheduleUseCase = recoverRealtimePartyEndScheduleUseCase,
                 startAutomaticRealtimePartyEndUseCase = startAutomaticRealtimePartyEndUseCase,
                 handleBurstGameEndedUseCase = handleBurstGameEndedUseCase,
@@ -79,7 +77,7 @@ class PartyEndSchedulerTest {
         scheduledTasks.first().run()
 
         verify(scheduledFutures.first()).cancel(false)
-        verify(sseEmitterRegistry, never()).broadcastHost(eq(1L), anyEvent())
+        verify(realtimePartyEventBroadcaster, never()).broadcastHostEndAvailable(eq(1L), any())
     }
 
     @Test
@@ -95,7 +93,7 @@ class PartyEndSchedulerTest {
         )
 
         assertEquals(1, scheduledTasks.size)
-        verify(sseEmitterRegistry).broadcastHost(eq(1L), anyEvent())
+        verify(realtimePartyEventBroadcaster).broadcastHostEndAvailable(eq(1L), any())
     }
 
     @Test
@@ -105,10 +103,10 @@ class PartyEndSchedulerTest {
         )
         whenever(handleBurstGameEndedUseCase(1L)).thenReturn(true)
 
-        scheduler.onBurstGameEnded(BurstGameEndedEvent(1L, now))
+        scheduler.onBurstGameEnded(RealtimePartyBurstGameEndedEvent(1L, now))
 
         verify(scheduledFutures.first()).cancel(false)
-        verify(sseEmitterRegistry).broadcastHost(eq(1L), anyEvent())
+        verify(realtimePartyEventBroadcaster).broadcastHostEndAvailable(1L, now)
     }
 
     @Test
@@ -118,10 +116,10 @@ class PartyEndSchedulerTest {
         )
         whenever(handleBurstGameEndedUseCase(1L)).thenReturn(false)
 
-        scheduler.onBurstGameEnded(BurstGameEndedEvent(1L, now))
+        scheduler.onBurstGameEnded(RealtimePartyBurstGameEndedEvent(1L, now))
 
         verify(scheduledFutures.first(), never()).cancel(false)
-        verify(sseEmitterRegistry, never()).broadcastHost(eq(1L), anyEvent())
+        verify(realtimePartyEventBroadcaster, never()).broadcastHostEndAvailable(eq(1L), any())
     }
 
     @Test
@@ -142,8 +140,13 @@ class PartyEndSchedulerTest {
         scheduledTasks[1].run()
         scheduledTasks[2].run()
 
-        verify(sseEmitterRegistry, times(2)).broadcast(eq(1L), anyEvent(), anyOrNull())
-        verify(sseEmitterRegistry).completeAll(1L)
+        verify(realtimePartyEventBroadcaster).broadcastPartyEnding(
+            partyId = eq(1L),
+            endingStartedAt = eq(endingStartedAt),
+            endedAt = eq(endingStartedAt.plusSeconds(60)),
+        )
+        verify(realtimePartyEventBroadcaster).broadcastPartyEnded(1L, endingStartedAt.plusSeconds(60))
+        verify(realtimePartyEventBroadcaster).completeParty(1L)
     }
 
     @Test
@@ -156,7 +159,7 @@ class PartyEndSchedulerTest {
         scheduledTasks[0].run()
 
         assertEquals(1, scheduledTasks.size)
-        verify(sseEmitterRegistry, never()).broadcast(eq(1L), anyEvent(), anyOrNull())
+        verify(realtimePartyEventBroadcaster, never()).broadcastPartyEnding(any(), any(), any())
     }
 
     @Test
@@ -172,7 +175,7 @@ class PartyEndSchedulerTest {
         scheduler.recoverSchedules()
 
         assertEquals(2, scheduledTasks.size)
-        verify(sseEmitterRegistry, never()).broadcast(eq(2L), anyEvent(), anyOrNull())
+        verify(realtimePartyEventBroadcaster, never()).broadcastPartyEnding(eq(2L), any(), any())
     }
 
     @Test
@@ -195,7 +198,7 @@ class PartyEndSchedulerTest {
             ),
         )
 
-        verify(sseEmitterRegistry, times(1)).broadcast(eq(1L), anyEvent(), anyOrNull())
+        verify(realtimePartyEventBroadcaster, times(1)).broadcastPartyEnded(eq(1L), any())
     }
 
     @Test
@@ -216,6 +219,4 @@ class PartyEndSchedulerTest {
 
         scheduledFutures.forEach { verify(it).cancel(false) }
     }
-
-    private fun anyEvent(): Set<ResponseBodyEmitter.DataWithMediaType> = any()
 }
