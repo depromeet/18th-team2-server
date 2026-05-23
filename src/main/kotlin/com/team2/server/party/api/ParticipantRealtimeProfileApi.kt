@@ -110,6 +110,30 @@ interface ParticipantRealtimeProfileApi {
             ),
         ],
     )
+    @SwaggerApiResponse(
+        responseCode = "409",
+        description = "같은 파티 내 닉네임 중복 (대소문자 무시)",
+        content = [
+            Content(
+                mediaType = "application/json",
+                schema = Schema(implementation = ErrorResponse::class),
+                examples = [
+                    ExampleObject(
+                        name = "닉네임 중복",
+                        value = """
+                            {
+                              "status": 409,
+                              "error": {
+                                "code": "PARTY_NICKNAME_DUPLICATED",
+                                "message": "이미 사용 중인 닉네임입니다"
+                              }
+                            }
+                        """,
+                    ),
+                ],
+            ),
+        ],
+    )
     @InternalServerErrorResponse
     fun upsertMyRealtimeProfile(
         @Parameter(hidden = true) principal: UserPrincipal,
