@@ -19,6 +19,8 @@ interface BurstGameSessionStore {
 
     fun removeByPartyId(partyId: Long): Boolean
 
+    fun clear()
+
     sealed interface StartResult {
         data class Created(
             val session: BurstGameSession,

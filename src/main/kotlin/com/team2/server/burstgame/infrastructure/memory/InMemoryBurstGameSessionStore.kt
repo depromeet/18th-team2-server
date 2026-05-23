@@ -61,6 +61,10 @@ class InMemoryBurstGameSessionStore : BurstGameSessionStore {
         }
     }
 
+    override fun clear() {
+        sessionsByPartyId.clear()
+    }
+
     private fun pruneExpiredLocked(
         partyId: Long,
         now: LocalDateTime,

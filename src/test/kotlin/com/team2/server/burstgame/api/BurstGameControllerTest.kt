@@ -1,5 +1,6 @@
 package com.team2.server.burstgame.api
 
+import com.team2.server.burstgame.application.port.BurstGameSessionStore
 import com.team2.server.burstgame.application.service.BurstGameSessionService
 import com.team2.server.common.DatabaseCleanup
 import com.team2.server.config.TestcontainersConfiguration
@@ -16,7 +17,6 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
-import org.springframework.test.annotation.DirtiesContext
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
@@ -25,7 +25,6 @@ import java.time.LocalDateTime
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration::class)
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class BurstGameControllerTest
     @Autowired
     constructor(
@@ -34,11 +33,13 @@ class BurstGameControllerTest
         private val participantRepository: ParticipantRepository,
         private val profileRepository: RealtimeParticipantProfileRepository,
         private val sessionService: BurstGameSessionService,
+        private val sessionStore: BurstGameSessionStore,
         private val databaseCleanup: DatabaseCleanup,
     ) {
         @BeforeEach
         fun setUp() {
             databaseCleanup.execute()
+            sessionStore.clear()
         }
 
         @Test
