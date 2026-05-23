@@ -1,5 +1,6 @@
 package com.team2.server.rollingpaper.controller
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.team2.server.common.DatabaseCleanup
 import com.team2.server.common.image.entity.Image
 import com.team2.server.common.image.entity.ImageTargetType
@@ -15,6 +16,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.context.annotation.Import
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
+import kotlin.test.assertEquals
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -27,6 +29,8 @@ class RollingPaperToppingControllerTest
         private val imageRepository: ImageRepository,
         private val databaseCleanup: DatabaseCleanup,
     ) {
+        private val objectMapper = ObjectMapper()
+
         @BeforeEach
         fun setUp() {
             databaseCleanup.execute()
@@ -51,21 +55,32 @@ class RollingPaperToppingControllerTest
                 ),
             )
 
-            mockMvc.get("/api/v1/rolling-paper-toppings").andExpect {
-                status { isOk() }
-                jsonPath("$.status") { value(200) }
-                jsonPath("$.data.length()") { value(2) }
-                jsonPath("$.data[0].toppingId") { value(topping1.id) }
-                jsonPath("$.data[0].name") { value("Topping_Candle") }
-                jsonPath("$.data[0].toppingImageUrl") {
-                    value("/images/rolling-paper-wrappers/Topping_Candle.svg")
-                }
-                jsonPath("$.data[1].toppingId") { value(topping2.id) }
-                jsonPath("$.data[1].name") { value("Topping_Cherry") }
-                jsonPath("$.data[1].toppingImageUrl") {
-                    value("/images/rolling-paper-wrappers/Topping_Cherry.svg")
-                }
-            }
+            val resultActions =
+                mockMvc
+                    .get("/api/v1/rolling-paper-toppings")
+                    .andExpect {
+                        status { isOk() }
+                        jsonPath("$.status") { value(200) }
+                        jsonPath("$.data.length()") { value(2) }
+                    }
+            val result = resultActions.andReturn()
+
+            val toppingsById =
+                objectMapper
+                    .readTree(result.response.contentAsString)
+                    .get("data")
+                    .associateBy { it.get("toppingId").asLong() }
+            assertEquals(setOf(topping1.id, topping2.id), toppingsById.keys)
+            assertEquals("Topping_Candle", toppingsById.getValue(topping1.id).get("name").asText())
+            assertEquals(
+                "/images/rolling-paper-wrappers/Topping_Candle.svg",
+                toppingsById.getValue(topping1.id).get("toppingImageUrl").asText(),
+            )
+            assertEquals("Topping_Cherry", toppingsById.getValue(topping2.id).get("name").asText())
+            assertEquals(
+                "/images/rolling-paper-wrappers/Topping_Cherry.svg",
+                toppingsById.getValue(topping2.id).get("toppingImageUrl").asText(),
+            )
         }
 
         @Test

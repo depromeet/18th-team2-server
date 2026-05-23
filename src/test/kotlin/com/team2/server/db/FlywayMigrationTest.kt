@@ -53,6 +53,7 @@ class FlywayMigrationTest {
                         from image i
                         where i.target_type = 'ROLLING_PAPER_WRAPPER'
                           and i.target_id = rpw.id
+                          and i.image_url is not null
                     )
                     """.trimIndent(),
                 ).use { resultSet ->

@@ -16,7 +16,7 @@
 - `PartyInvite.expiresAt`은 `Party.endedAt()`으로 계산한다.
 - 성공 응답은 기존 `ApiResponse` 래퍼를 유지한다.
 - 기본 토핑 이미지는 `src/main/resources/static/images/rolling-paper-wrappers/` 아래 정적 파일을 사용한다.
-- `RollingPaper.theme` / `theme_id`는 `topping` / `wrapper_id`로 변경한다.
+- `RollingPaper.topping`은 도메인/API명으로 사용하고, 물리 컬럼은 기존 `wrapper_id`를 사용한다.
 - 주최자/주인공 participant도 롤링페이퍼를 작성할 수 있다.
 - 요청 DTO는 `@NotBlank`, `@Size` 기준으로 검증하고, 저장 전 `writerNickname`, `content`를 trim한다.
 - 닉네임 대소문자는 같은 값으로 취급한다.
@@ -48,7 +48,7 @@
 
 | 경로 | 변경 내용 |
 |---|---|
-| `src/main/kotlin/com/team2/server/rollingpaper/entity/RollingPaper.kt` | `theme` -> `topping`, `theme_id` -> `wrapper_id`, 길이/nullable/unique 제약 |
+| `src/main/kotlin/com/team2/server/rollingpaper/entity/RollingPaper.kt` | `topping` 도메인 필드와 `wrapper_id` 물리 컬럼 매핑, 길이/nullable/unique 제약 |
 | `src/main/kotlin/com/team2/server/common/entity/ImageTargetType.kt` | `ROLLING_PAPER_WRAPPER` 기존 값 재사용 확인 |
 | `src/main/kotlin/com/team2/server/common/repository/ImageRepository.kt` | 토핑 ID 목록 기준 bulk image 조회 메서드 추가 |
 | `src/main/kotlin/com/team2/server/common/exception/ErrorCode.kt` | 롤링페이퍼 토핑 없음, 닉네임 중복, 이미 작성 에러 추가 |
@@ -76,7 +76,7 @@
 - Create: `src/main/kotlin/com/team2/server/rollingpaper/repository/RollingPaperToppingRepository.kt`
 - Modify: `src/main/kotlin/com/team2/server/common/repository/ImageRepository.kt`
 
-- [ ] `RollingPaper.theme`을 `topping`로, `theme_id`를 `wrapper_id`로 변경한다.
+- [ ] `RollingPaper.topping` 도메인 필드를 `wrapper_id` 물리 컬럼에 매핑한다.
 - [ ] `writerNickname`을 nullable false, length 10으로 변경한다.
 - [ ] 대소문자 무시 중복 제약용 `writerNicknameKey`를 추가한다.
 - [ ] `content` length를 100으로 변경한다.
@@ -84,7 +84,7 @@
 - [ ] `RollingPaperRepository`에 `existsByPartyAndWriterNicknameKey(...)`와 `saveAndFlush(...)` 사용 경로를 준비한다.
 - [ ] `RollingPaperToppingRepository`를 추가한다.
 - [ ] `ImageRepository`에 `findByTargetTypeAndTargetIdInOrderByTargetIdAscSortOrderAsc(...)` 형태의 bulk 조회 메서드를 추가한다.
-- [ ] 기존 테스트의 `RollingPaper(theme = ...)` 생성자를 `topping = ...`로 갱신한다.
+- [ ] 기존 테스트의 `RollingPaper(topping = ...)` 생성자가 `wrapper_id` 매핑을 사용하는지 확인한다.
 
 Run:
 
