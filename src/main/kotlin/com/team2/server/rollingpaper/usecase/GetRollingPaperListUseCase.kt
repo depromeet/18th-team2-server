@@ -8,11 +8,11 @@ import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.PartyOption
 import com.team2.server.party.infrastructure.persistence.PartyInviteRepository
 import com.team2.server.party.infrastructure.persistence.PartyRepository
-import com.team2.server.rollingpaper.application.dto.OwnerRollingPaperListItemResult
-import com.team2.server.rollingpaper.application.dto.OwnerRollingPaperListResult
-import com.team2.server.rollingpaper.application.dto.ParticipantRollingPaperListItemResult
-import com.team2.server.rollingpaper.application.dto.ParticipantRollingPaperListResult
-import com.team2.server.rollingpaper.application.dto.RollingPaperPageInfoResult
+import com.team2.server.rollingpaper.dto.OwnerRollingPaperListItemResult
+import com.team2.server.rollingpaper.dto.OwnerRollingPaperListResult
+import com.team2.server.rollingpaper.dto.ParticipantRollingPaperListItemResult
+import com.team2.server.rollingpaper.dto.ParticipantRollingPaperListResult
+import com.team2.server.rollingpaper.dto.RollingPaperPageInfoResult
 import com.team2.server.rollingpaper.entity.RollingPaper
 import com.team2.server.rollingpaper.repository.RollingPaperRepository
 import org.springframework.data.domain.PageRequest

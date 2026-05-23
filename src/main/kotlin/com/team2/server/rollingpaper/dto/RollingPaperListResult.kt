@@ -1,4 +1,4 @@
-package com.team2.server.rollingpaper.application.dto
+package com.team2.server.rollingpaper.dto
 
 import com.team2.server.party.domain.entity.PartyOption
 import java.time.LocalDateTime

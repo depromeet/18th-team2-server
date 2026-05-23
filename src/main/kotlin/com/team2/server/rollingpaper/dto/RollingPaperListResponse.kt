@@ -2,11 +2,6 @@ package com.team2.server.rollingpaper.dto
 
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.team2.server.party.domain.entity.PartyOption
-import com.team2.server.rollingpaper.application.dto.OwnerRollingPaperListItemResult
-import com.team2.server.rollingpaper.application.dto.OwnerRollingPaperListResult
-import com.team2.server.rollingpaper.application.dto.ParticipantRollingPaperListItemResult
-import com.team2.server.rollingpaper.application.dto.ParticipantRollingPaperListResult
-import com.team2.server.rollingpaper.application.dto.RollingPaperPageInfoResult
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 
