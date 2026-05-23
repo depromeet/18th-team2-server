@@ -55,10 +55,10 @@ data class ParticipantRollingPaperListItemResponse(
     @Schema(description = "롤링페이퍼 작성자 닉네임", example = "축하요정")
     val writerNickname: String,
     @Schema(
-        description = "롤링페이퍼 래퍼 이미지 URL.",
+        description = "롤링페이퍼 토핑 이미지 URL.",
         example = "/images/rolling-paper-wrappers/Topping_Candle.svg",
     )
-    val wrapperImageUrl: String,
+    val toppingImageUrl: String,
 )
 
 @JsonInclude(JsonInclude.Include.ALWAYS)
@@ -73,8 +73,8 @@ data class OwnerRollingPaperListItemResponse(
     @Schema(description = "롤링페이퍼 내용. 최대 100자입니다.", example = "생일 축하해요!")
     val content: String,
     @Schema(
-        description = "롤링페이퍼 래퍼 이미지 URL.",
+        description = "롤링페이퍼 토핑 이미지 URL.",
         example = "/images/rolling-paper-wrappers/Topping_Candle.svg",
     )
-    val wrapperImageUrl: String,
+    val toppingImageUrl: String,
 )

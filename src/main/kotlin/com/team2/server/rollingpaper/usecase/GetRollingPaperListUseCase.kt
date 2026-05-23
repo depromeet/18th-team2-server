@@ -54,7 +54,7 @@ class GetRollingPaperListUseCase(
                     ParticipantRollingPaperListItemResponse(
                         rollingPaperId = item.rollingPaperId,
                         writerNickname = item.writerNickname,
-                        wrapperImageUrl = item.wrapperImageUrl,
+                        toppingImageUrl = item.toppingImageUrl,
                     )
                 },
         )
@@ -91,7 +91,7 @@ class GetRollingPaperListUseCase(
                         position = item.position,
                         writerNickname = item.writerNickname,
                         content = item.content,
-                        wrapperImageUrl = item.wrapperImageUrl,
+                        toppingImageUrl = item.toppingImageUrl,
                     )
                 },
         )
@@ -124,7 +124,7 @@ class GetRollingPaperListUseCase(
                 ),
             )
         val rollingPapers = rollingPaperPage.content
-        val imageUrlByWrapperId = findImageUrlByWrapperId(rollingPapers)
+        val imageUrlByToppingId = findImageUrlByToppingId(rollingPapers)
         return RollingPaperPageResult(
             page = page,
             totalCount = rollingPaperPage.totalElements,
@@ -137,7 +137,7 @@ class GetRollingPaperListUseCase(
                         position = calculatePosition(page, index),
                         writerNickname = rollingPaper.writerNickname,
                         content = rollingPaper.content,
-                        wrapperImageUrl = imageUrlByWrapperId.getValue(rollingPaper.wrapper.id),
+                        toppingImageUrl = imageUrlByToppingId.getValue(rollingPaper.topping.id),
                     )
                 },
         )
@@ -148,10 +148,10 @@ class GetRollingPaperListUseCase(
         index: Int,
     ): Long = ((page - 1) * PAGE_SIZE + index + 1).toLong()
 
-    private fun findImageUrlByWrapperId(rollingPapers: List<RollingPaper>): Map<Long, String> =
+    private fun findImageUrlByToppingId(rollingPapers: List<RollingPaper>): Map<Long, String> =
         imageUrlReader.findFirstImageUrlByTargetIds(
             ImageTargetType.ROLLING_PAPER_WRAPPER,
-            rollingPapers.map { it.wrapper.id },
+            rollingPapers.map { it.topping.id },
         )
 
     private data class RollingPaperPageResult(
@@ -167,7 +167,7 @@ class GetRollingPaperListUseCase(
         val position: Long,
         val writerNickname: String,
         val content: String,
-        val wrapperImageUrl: String,
+        val toppingImageUrl: String,
     )
 
     companion object {

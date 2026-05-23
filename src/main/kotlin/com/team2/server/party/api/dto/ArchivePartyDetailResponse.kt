@@ -35,6 +35,6 @@ data class ArchivePartyDetailResponse(
     val myPaperContent: String?,
     @Schema(description = "본인 롤페 작성 시 닉네임 스냅샷. 미작성이면 null")
     val myPaperWriterNickname: String?,
-    @Schema(description = "본인 롤페 wrapper 이미지 URL. 미작성이면 null")
-    val myPaperWrapperImageUrl: String?,
+    @Schema(description = "본인 롤페 토핑 이미지 URL. 미작성이면 null")
+    val myPaperToppingImageUrl: String?,
 )

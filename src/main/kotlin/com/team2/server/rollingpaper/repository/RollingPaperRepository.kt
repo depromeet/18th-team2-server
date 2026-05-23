@@ -19,7 +19,7 @@ interface RollingPaperRepository : JpaRepository<RollingPaper, Long> {
         writerNicknameKey: String,
     ): Boolean
 
-    @EntityGraph(attributePaths = ["wrapper"])
+    @EntityGraph(attributePaths = ["topping"])
     fun findAllByParty(
         party: Party,
         pageable: Pageable,

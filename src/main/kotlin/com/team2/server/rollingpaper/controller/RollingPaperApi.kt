@@ -130,7 +130,7 @@ interface RollingPaperApi {
     )
     @SwaggerApiResponse(
         responseCode = "404",
-        description = "파티 또는 래퍼 없음",
+        description = "파티 또는 토핑 없음",
         content = [
             Content(
                 mediaType = "application/json",
@@ -149,13 +149,13 @@ interface RollingPaperApi {
                         """,
                     ),
                     ExampleObject(
-                        name = "래퍼 없음",
+                        name = "토핑 없음",
                         value = """
                             {
                               "status": 404,
                               "error": {
-                                "code": "ROLLING_PAPER_WRAPPER_NOT_FOUND",
-                                "message": "롤링페이퍼 래퍼를 찾을 수 없습니다"
+                                "code": "ROLLING_PAPER_TOPPING_NOT_FOUND",
+                                "message": "롤링페이퍼 토핑을 찾을 수 없습니다"
                               }
                             }
                         """,
