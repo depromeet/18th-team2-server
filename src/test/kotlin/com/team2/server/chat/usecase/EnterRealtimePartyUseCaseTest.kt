@@ -15,7 +15,6 @@ import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
-import com.team2.server.user.repository.UserRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -28,7 +27,6 @@ import org.mockito.kotlin.whenever
 import java.time.Clock
 import java.time.LocalDateTime
 import java.time.ZoneId
-import java.util.Optional
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 
@@ -41,8 +39,6 @@ class EnterRealtimePartyUseCaseTest {
     @Mock lateinit var realtimeParticipantProfileService: RealtimeParticipantProfileService
 
     @Mock lateinit var characterService: CharacterService
-
-    @Mock lateinit var userRepository: UserRepository
 
     lateinit var useCase: EnterRealtimePartyUseCase
 
@@ -59,7 +55,6 @@ class EnterRealtimePartyUseCaseTest {
                 participantService = participantService,
                 realtimeParticipantProfileService = realtimeParticipantProfileService,
                 characterService = characterService,
-                userRepository = userRepository,
                 clock = clock,
             )
     }
@@ -149,7 +144,7 @@ class EnterRealtimePartyUseCaseTest {
 
         whenever(partyInviteService.findUsableInvite(any(), any())).thenReturn(invite)
         whenever(characterService.requireCharacter(1L)).thenReturn(character)
-        whenever(userRepository.findById(1L)).thenReturn(Optional.of(user))
+        whenever(participantService.resolveUser(1L)).thenReturn(user)
         whenever(participantService.joinAnonymousOrMember(party, user)).thenReturn(participant)
         whenever(
             realtimeParticipantProfileService.upsert(

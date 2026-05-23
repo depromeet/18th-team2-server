@@ -77,26 +77,17 @@ class RealtimePartyEndServiceTest {
     }
 
     @Test
-    fun `findAutomaticEndSchedules maps waiting parties`() {
+    fun `findRecoverySchedules maps automatic and host end available schedules from one waiting party query`() {
         val party = realtimeParty(id = 2L)
         whenever(partyRepository.findRealtimePartiesWaitingAutomaticEnding(any())).thenReturn(listOf(party))
 
-        val result = service.findAutomaticEndSchedules(startedAt.plusMinutes(20))
+        val result = service.findRecoverySchedules(startedAt.plusMinutes(1))
 
-        assertEquals(2L, result.single().partyId)
-        assertEquals(party.automaticEndingStartedAt(), result.single().endingStartedAt)
-    }
-
-    @Test
-    fun `findHostEndAvailableSchedules maps live open parties`() {
-        val now = startedAt.plusMinutes(1)
-        val party = realtimeParty(id = 4L)
-        whenever(partyRepository.findRealtimePartiesWaitingAutomaticEnding(any())).thenReturn(listOf(party))
-
-        val result = service.findHostEndAvailableSchedules(now)
-
-        assertEquals(4L, result.single().partyId)
-        assertEquals(startedAt, result.single().startedAt)
+        assertEquals(2L, result.automaticEndSchedules.single().partyId)
+        assertEquals(party.automaticEndingStartedAt(), result.automaticEndSchedules.single().endingStartedAt)
+        assertEquals(2L, result.hostEndAvailableSchedules.single().partyId)
+        assertEquals(startedAt, result.hostEndAvailableSchedules.single().startedAt)
+        verify(partyRepository).findRealtimePartiesWaitingAutomaticEnding(any())
     }
 
     @Test

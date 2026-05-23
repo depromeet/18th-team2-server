@@ -10,13 +10,16 @@ import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProfileRepository
 import com.team2.server.user.entity.User
+import com.team2.server.user.repository.UserRepository
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 
 @Service
 class ParticipantService(
     private val participantRepository: ParticipantRepository,
     private val realtimeParticipantProfileRepository: RealtimeParticipantProfileRepository,
+    private val userRepository: UserRepository,
 ) {
     fun joinMember(
         party: Party,
@@ -42,17 +45,6 @@ class ParticipantService(
     ): Participant =
         participantRepository.findByPartyIdAndUserId(party.id, userId)
             ?: participantRepository.save(Participant(party = party, user = user))
-
-    fun requireCallerParticipantId(
-        partyId: Long,
-        userId: Long?,
-        participantToken: String?,
-    ): Long =
-        requireCallerParticipant(
-            partyId = partyId,
-            userId = userId,
-            participantToken = participantToken,
-        ).id
 
     fun requireCallerParticipant(
         partyId: Long,
@@ -87,6 +79,12 @@ class ParticipantService(
             userId = userId,
             participantToken = participantToken,
         )
+    }
+
+    fun resolveUser(userId: Long?): User? {
+        if (userId == null) return null
+        return userRepository.findByIdOrNull(userId)
+            ?: throw BusinessException(ErrorCode.AUTH_USER_NOT_FOUND)
     }
 
     private fun resolveCallerByUser(

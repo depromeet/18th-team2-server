@@ -49,8 +49,8 @@ class GetRealtimePartyNextActionUseCaseTest {
     }
 
     @Test
-    fun `invalid participant token throws PARTY_FORBIDDEN before state validation`() {
-        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(1))
+    fun `invalid participant token throws PARTY_FORBIDDEN after state validation`() {
+        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(12))
         whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
         whenever(participantService.requireCallerParticipant(1L, null, "bad-token"))
             .thenThrow(BusinessException(ErrorCode.PARTY_FORBIDDEN))

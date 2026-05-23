@@ -16,9 +16,10 @@ class RecoverRealtimePartyEndScheduleUseCase(
     operator fun invoke(): RealtimePartyEndRecoveryResult {
         val now = LocalDateTime.now(clock)
         realtimePartyEndService.startDueAutomaticEndings(now)
+        val recoverySchedules = realtimePartyEndService.findRecoverySchedules(now)
         return RealtimePartyEndRecoveryResult(
-            hostEndAvailableSchedules = realtimePartyEndService.findHostEndAvailableSchedules(now),
-            automaticEndSchedules = realtimePartyEndService.findAutomaticEndSchedules(now),
+            hostEndAvailableSchedules = recoverySchedules.hostEndAvailableSchedules,
+            automaticEndSchedules = recoverySchedules.automaticEndSchedules,
             endingTargets = realtimePartyEndService.findEndingTargets(now),
         )
     }

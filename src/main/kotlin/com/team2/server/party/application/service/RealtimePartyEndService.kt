@@ -5,6 +5,7 @@ import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.dto.RealtimeAutomaticEndSchedule
 import com.team2.server.party.application.dto.RealtimeEndingScheduleTarget
 import com.team2.server.party.application.dto.RealtimeHostEndAvailableSchedule
+import com.team2.server.party.application.dto.RealtimePartyEndRecoverySchedules
 import com.team2.server.party.application.dto.RealtimePartyEndStartResult
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.PartyOption
@@ -54,26 +55,30 @@ class RealtimePartyEndService(
         )
     }
 
-    fun findAutomaticEndSchedules(now: LocalDateTime): List<RealtimeAutomaticEndSchedule> =
-        partyRepository
-            .findRealtimePartiesWaitingAutomaticEnding(now.minusMinutes(RealtimeParty.LIVE_DURATION_MINUTES))
-            .map { party ->
-                RealtimeAutomaticEndSchedule(
-                    partyId = party.id,
-                    endingStartedAt = party.automaticEndingStartedAt(),
-                )
-            }
-
-    fun findHostEndAvailableSchedules(now: LocalDateTime): List<RealtimeHostEndAvailableSchedule> =
-        partyRepository
-            .findRealtimePartiesWaitingAutomaticEnding(now.minusMinutes(RealtimeParty.LIVE_DURATION_MINUTES))
-            .filter { party -> party.status(now) == RealtimePartyStatus.LIVE_OPEN }
-            .map { party ->
-                RealtimeHostEndAvailableSchedule(
-                    partyId = party.id,
-                    startedAt = party.startedAt,
-                )
-            }
+    fun findRecoverySchedules(now: LocalDateTime): RealtimePartyEndRecoverySchedules {
+        val waitingParties =
+            partyRepository.findRealtimePartiesWaitingAutomaticEnding(
+                now.minusMinutes(RealtimeParty.LIVE_DURATION_MINUTES),
+            )
+        return RealtimePartyEndRecoverySchedules(
+            hostEndAvailableSchedules =
+                waitingParties
+                    .filter { party -> party.status(now) == RealtimePartyStatus.LIVE_OPEN }
+                    .map { party ->
+                        RealtimeHostEndAvailableSchedule(
+                            partyId = party.id,
+                            startedAt = party.startedAt,
+                        )
+                    },
+            automaticEndSchedules =
+                waitingParties.map { party ->
+                    RealtimeAutomaticEndSchedule(
+                        partyId = party.id,
+                        endingStartedAt = party.automaticEndingStartedAt(),
+                    )
+                },
+        )
+    }
 
     fun findEndingTargets(now: LocalDateTime): List<RealtimeEndingScheduleTarget> =
         partyRepository

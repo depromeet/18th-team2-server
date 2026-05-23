@@ -28,15 +28,15 @@ class GetRealtimePartyNextActionUseCase(
     ): RealtimePartyNextActionResult {
         val now = LocalDateTime.now(clock)
         val party = partyService.requireRealtimeParty(partyId)
+        if (party.status(now) != RealtimePartyStatus.LIVE_CLOSED) {
+            throwRealtimePartyEndNotAvailable()
+        }
         val participant =
             if (userId == party.ownerId) {
                 null
             } else {
                 participantService.requireCallerParticipant(party.id, userId, participantToken)
             }
-        if (party.status(now) != RealtimePartyStatus.LIVE_CLOSED) {
-            throwRealtimePartyEndNotAvailable()
-        }
         return when {
             userId == party.ownerId -> RealtimePartyNextActionResult.Host(partyId = party.id)
             else -> participantNextAction(party.id, requireNotNull(participant), now)
