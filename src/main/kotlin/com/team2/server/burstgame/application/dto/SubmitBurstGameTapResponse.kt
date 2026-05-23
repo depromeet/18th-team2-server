@@ -41,7 +41,12 @@ data class SubmitBurstGameTapResponse(
                 colorChanged = snapshot.colorChanged,
                 stateVersion = snapshot.stateVersion,
                 serverTime = snapshot.serverTime,
-                rankings = snapshot.rankings.map { BurstGameRankingResponse.from(it) },
+                rankings =
+                    if (result.ignoredReason == BurstGameTapIgnoredReason.ROUND_ENDED) {
+                        emptyList()
+                    } else {
+                        snapshot.rankings.map { BurstGameRankingResponse.from(it) }
+                    },
             )
         }
     }

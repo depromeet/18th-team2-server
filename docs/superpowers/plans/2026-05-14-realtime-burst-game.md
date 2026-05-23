@@ -20,7 +20,7 @@
 - 총 터치 수가 100회 이상이면 `colorChanged = true`가 되지만, 라운드는 계속 진행된다.
 - 진행 중에는 합산 터치 수를 표시하지 않고, entry 기준 상위 3명의 ranking entry만 SSE로 브로드캐스트한다.
 - 진행 중 개인 터치 수는 `submit taps` 응답과 상태 조회 응답의 `myTapCount`로 제공한다.
-- 동점은 공동 순위로 처리한다. 진행 중 `rankings`는 공동 순위 규모와 무관하게 최대 3명만 포함하고, 최종 결과는 전체 참가자 순위를 포함한다.
+- 동점은 공동 순위로 처리한다. 진행 중 `rankings`는 공동 순위 규모와 무관하게 최대 3명만 포함하고, 최종 결과는 1회 이상 터치한 참가자 전체 순위를 포함한다.
 - 전원 0회로 종료되면 `rankings = []`로 응답한다.
 - 외부 응답에는 `endedAt`을 내려주지 않는다. 종료 기준은 항상 `endsAt`이다.
 - active 집계와 종료 결과는 1차 구현에서 DB 저장 없이 in-memory session으로 유지한다.
@@ -70,7 +70,7 @@ Request:
 - active session이면 현재 aggregate 상태 반환
 - ended session이면 TTL 안의 최종 결과 반환
 - active 상태에서는 `ended = false`, entry 기준 상위 3명의 `rankings`, 호출자 기준 `myTapCount`를 반환한다.
-- ended 결과에서는 `ended = true`, 최종 `totalTapCount`, 전체 참가자 최종 `rankings`, 호출자 기준 `myTapCount`를 반환한다.
+- ended 결과에서는 `ended = true`, 최종 `totalTapCount`, 1회 이상 터치한 참가자 전체 최종 `rankings`, 호출자 기준 `myTapCount`를 반환한다.
 
 ---
 
@@ -168,7 +168,7 @@ Run:
 - [ ] 진행 중/summary `rankings`는 정렬된 entry 기준 상위 3명까지만 반환한다.
 - [ ] 공동 rank에 속한 참가자가 3명을 초과해도 진행 중 `rankings`는 표시 순서상 앞선 3명만 포함한다.
 - [ ] 공동 1등이 5명이면 진행 중 `rankings`에는 공동 1등 3명만 포함한다.
-- [ ] 종료 결과 `rankings`는 상위 3명 제한 없이 전체 참가자를 반환한다.
+- [ ] 종료 결과 `rankings`는 상위 3명 제한 없이 1회 이상 터치한 참가자 전체를 반환한다.
 - [ ] 전원 0회면 `rankings = []`를 반환한다.
 
 Run:
@@ -326,7 +326,7 @@ Run:
 - [ ] session이 없으면 `BURST_GAME_NOT_FOUND`.
 - [ ] active session이고 `now >= endsAt`이면 lazy 종료를 수행한 뒤 ended 결과를 반환한다.
 - [ ] active 상태에는 `ended = false`, entry 기준 상위 3명 ranking, `myTapCount`를 포함한다.
-- [ ] ended 결과에는 `ended = true`, 최종 total, 전체 rankings, `myTapCount`를 포함한다.
+- [ ] ended 결과에는 `ended = true`, 최종 total, 1회 이상 터치한 참가자 전체 rankings, `myTapCount`를 포함한다.
 - [ ] 응답에는 `endedAt`을 포함하지 않는다.
 
 Run:
@@ -414,13 +414,13 @@ Run:
 - submit: 공동 rank 내에서는 participant id asc로 표시 순서를 결정
 - submit: 동시 요청에서도 total/ranking/stateVersion이 같은 session snapshot 기준으로 생성됨
 - submit: `now >= endsAt`이면 lazy 종료가 먼저 수행되고 tap batch는 반영되지 않음
-- submit: lazy 종료 응답은 `accepted = false`, `ignoredReason = "ROUND_ENDED"`를 반환하고 최종 전체 순위는 상태/결과 조회 또는 종료 이벤트에서 확인
+- submit: lazy 종료 응답은 `accepted = false`, `ignoredReason = "ROUND_ENDED"`, `rankings = []`를 반환하고 최종 순위는 상태/결과 조회 또는 종료 이벤트에서 확인
 - state/result: active 라운드 현재 상태 조회 가능
 - state/result: ended 라운드가 TTL 안에 있으면 최종 결과 조회 가능
 - state/result: active session이지만 `now >= endsAt`이면 lazy 종료 후 ended 결과 반환
 - state/result: 외부 응답에 `endedAt`이 포함되지 않음
 - state/result: active 상태는 `ended = false`, ended 결과는 `ended = true`로 구분
-- state/result: ended 결과에서는 최종 total과 전체 참가자 `rankings`를 포함함
+- state/result: ended 결과에서는 최종 total과 1회 이상 터치한 참가자 전체 `rankings`를 포함함
 - end: 최종 결과가 ended session에 TTL 동안 유지됨
 - end: scheduler와 lazy 종료가 동시에 실행돼도 종료 처리는 한 번만 commit됨
 - SSE: progress 이벤트에 `stateVersion`, `serverTime` 포함
@@ -432,7 +432,7 @@ Run:
 - ranking: 진행 중 1등 5명이면 `rankings`는 공동 1등 3명만 포함
 - ranking: 진행 중 1등 2명, 2등 4명이면 `rankings`는 rank 1 참가자 2명과 rank 2 참가자 1명만 포함
 - ranking: 진행 중 1등 3명, 다음 rank group이 2등이면 `rankings`는 rank 1 참가자 3명만 포함
-- ranking: 종료 결과는 상위 제한 없이 전체 참가자 순위를 포함
+- ranking: 종료 결과는 상위 제한 없이 1회 이상 터치한 참가자 전체 순위를 포함
 - ranking: 전원 0회면 `rankings = []`
 - policy: `BurstGamePolicy.COLOR_CHANGE_TAP_COUNT = 100` 상수 기준으로 `colorChanged` 테스트
 - SSE: 실제 emit은 lock 밖 비동기 executor에서 수행되고 실패해도 session 상태는 유지됨
@@ -447,7 +447,7 @@ Run:
 - tap batch 제출 후 SSE progress payload 형태 검증
 - 20초 종료는 테스트에서 clock/scheduler를 제어해 `burst-game-ended` 검증
 - 상태/결과 조회 API는 진행 중 현재 total/ranking 반환
-- 상태/결과 조회 API는 종료 후 TTL 안의 최종 total count와 전체 rankings를 반환함
+- 상태/결과 조회 API는 종료 후 TTL 안의 최종 total count와 1회 이상 터치한 참가자 전체 rankings를 반환함
 - 상태/결과 조회 API는 `burst-game-started` 이벤트를 놓친 호출자가 partyId만으로 복구 가능
 
 ---

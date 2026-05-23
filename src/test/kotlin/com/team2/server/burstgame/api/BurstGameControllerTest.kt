@@ -119,7 +119,28 @@ class BurstGameControllerTest
         }
 
         @Test
-        fun `종료 상태 조회는 전체 rankings와 totalTapCount를 반환한다`() {
+        fun `종료 라운드 submit은 ROUND_ENDED와 빈 rankings를 반환한다`() {
+            val fixture = saveRealtimeParticipant()
+            startGame(fixture)
+            submitTap(fixture, clientSequence = 1)
+            sessionService.end(fixture.partyId, LocalDateTime.now().plusSeconds(21))
+
+            mockMvc
+                .post("/api/v1/parties/${fixture.partyId}/burst-game/taps") {
+                    contentType = MediaType.APPLICATION_JSON
+                    header("X-Participant-Token", fixture.participantToken)
+                    content = """{"tapCount":7,"clientSequence":2}"""
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.accepted") { value(false) }
+                    jsonPath("$.data.ignoredReason") { value("ROUND_ENDED") }
+                    jsonPath("$.data.totalTapCount") { doesNotExist() }
+                    jsonPath("$.data.rankings") { isEmpty() }
+                }
+        }
+
+        @Test
+        fun `종료 상태 조회는 터치한 참가자 전체 rankings와 totalTapCount를 반환한다`() {
             val fixture = saveRealtimeParticipant()
             startGame(fixture)
             submitTap(fixture, clientSequence = 1)
@@ -141,7 +162,7 @@ class BurstGameControllerTest
         }
 
         @Test
-        fun `여러 참여자가 탭한 뒤 종료 결과는 전체 rankings를 반환한다`() {
+        fun `여러 참여자가 탭한 뒤 종료 결과는 터치한 참가자 전체 rankings를 반환한다`() {
             val fixtures = saveRealtimeParticipants()
             val firstParticipant = fixtures[0]
             val secondParticipant = fixtures[1]

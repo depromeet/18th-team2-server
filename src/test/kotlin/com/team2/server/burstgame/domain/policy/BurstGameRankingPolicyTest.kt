@@ -24,7 +24,7 @@ class BurstGameRankingPolicyTest {
     }
 
     @Test
-    fun `최종 순위는 상위 제한 없이 전체 참가자를 포함한다`() {
+    fun `최종 순위는 상위 제한 없이 터치한 참가자 전체를 포함한다`() {
         val rankings =
             BurstGameRankingPolicy.finalRankings(
                 listOf(
@@ -39,6 +39,21 @@ class BurstGameRankingPolicyTest {
 
         assertEquals(listOf(1, 1, 2, 3, 3, 4), rankings.map { it.rank })
         assertEquals(listOf(1L, 2L, 3L, 4L, 5L, 6L), rankings.map { it.participantId })
+    }
+
+    @Test
+    fun `최종 순위는 0회 참가자를 제외한다`() {
+        val rankings =
+            BurstGameRankingPolicy.finalRankings(
+                listOf(
+                    score(1, 10),
+                    score(2, 0),
+                    score(3, 5),
+                ),
+            )
+
+        assertEquals(listOf(1L, 3L), rankings.map { it.participantId })
+        assertEquals(listOf(1, 2), rankings.map { it.rank })
     }
 
     @Test

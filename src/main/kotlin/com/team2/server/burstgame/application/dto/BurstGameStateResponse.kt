@@ -30,7 +30,7 @@ data class BurstGameStateResponse(
     val serverTime: LocalDateTime,
     @Schema(description = "서버 기준 남은 라운드 시간입니다. 종료 상태에서는 0입니다.", example = "13")
     val remainingSeconds: Long,
-    @Schema(description = "진행 중에는 상위 3명, 종료 상태에서는 전체 참가자 최종 순위입니다.")
+    @Schema(description = "진행 중에는 상위 3명, 종료 상태에서는 1회 이상 터치한 참가자 전체 최종 순위입니다.")
     val rankings: List<BurstGameRankingResponse>,
 ) {
     companion object {

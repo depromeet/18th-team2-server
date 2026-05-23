@@ -163,7 +163,7 @@ class BurstGameSessionTest {
     }
 
     @Test
-    fun `종료 결과는 전체 참가자 rankings를 반환한다`() {
+    fun `종료 결과는 터치한 참가자 전체 rankings를 반환한다`() {
         session.applyTap(participant(1), tapCount = 10, clientSequence = 1, now = startedAt.plusSeconds(1))
         session.applyTap(participant(2), tapCount = 8, clientSequence = 1, now = startedAt.plusSeconds(1))
 
