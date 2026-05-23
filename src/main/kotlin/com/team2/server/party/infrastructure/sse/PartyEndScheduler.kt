@@ -186,12 +186,17 @@ class PartyEndScheduler(
         endingStartedAt: LocalDateTime,
     ) {
         val state = stateFor(partyId)
+        if (synchronized(state) { state.isPartyEndingHandled() }) return
         val task =
             taskScheduler.schedule(
                 { startAutomaticEnding(partyId, endingStartedAt) },
                 endingStartedAt.toInstant(),
             )
         synchronized(state) {
+            if (state.isPartyEndingHandled()) {
+                task.cancel(false)
+                return
+            }
             state.automaticEndTask?.cancel(false)
             state.automaticEndTask = task
         }
@@ -317,7 +322,7 @@ class PartyEndScheduler(
     }
 
     companion object {
-        private const val GRACE_CLEANUP_SECONDS = 2L
+        private const val GRACE_CLEANUP_SECONDS = 5L
         private const val RECOVERY_MAX_ATTEMPTS = 3
         private const val RECOVERY_RETRY_DELAY_MILLIS = 1_000L
     }

@@ -40,7 +40,6 @@ class StartRealtimePartyEndUseCase(
                 )
             RealtimePartyStatus.LIVE_OPEN -> {
                 if (
-                    party.liveEndingStartedAt != null ||
                     (now.isBefore(party.hostEndAvailableAt()) && !burstGameCompletionReader.isCompleted(party.id, now))
                 ) {
                     throwPartyBusiness(ErrorCode.REALTIME_PARTY_END_NOT_AVAILABLE)

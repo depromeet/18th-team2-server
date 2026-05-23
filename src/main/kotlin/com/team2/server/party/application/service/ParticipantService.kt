@@ -53,14 +53,7 @@ class ParticipantService(
     ): Participant =
         when {
             participantToken != null -> {
-                val tokenParticipant =
-                    try {
-                        resolveCallerByToken(partyId, participantToken)
-                    } catch (e: BusinessException) {
-                        if (e.errorCode != ErrorCode.PARTY_FORBIDDEN) throw e
-                        null
-                    }
-                tokenParticipant
+                resolveCallerByTokenOrNull(partyId, participantToken)
                     ?: userId?.let { resolveCallerByUser(partyId, it) }
                     ?: throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
             }
@@ -94,13 +87,13 @@ class ParticipantService(
         participantRepository.findByPartyIdAndUserId(partyId, userId)
             ?: throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
 
-    private fun resolveCallerByToken(
+    private fun resolveCallerByTokenOrNull(
         partyId: Long,
         participantToken: String,
-    ): Participant {
+    ): Participant? {
         val profile =
             realtimeParticipantProfileRepository.findByParticipantToken(participantToken)
-                ?: throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
+                ?: return null
         if (profile.participant.party.id != partyId) {
             throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
         }

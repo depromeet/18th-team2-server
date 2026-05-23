@@ -148,6 +148,26 @@ class ParticipantServiceTest {
     }
 
     @Test
+    fun `requireCallerParticipant does not fallback to JWT user when token belongs to a different party`() {
+        val party = makeRealtimeParty()
+        val userParticipant = Participant(party = party, user = makeUser())
+        val otherParty: Party = mock()
+        whenever(otherParty.id).thenReturn(99L)
+        val tokenParticipant: Participant = mock()
+        whenever(tokenParticipant.party).thenReturn(otherParty)
+        val profile: RealtimeParticipantProfile = mock()
+        whenever(profile.participant).thenReturn(tokenParticipant)
+        whenever(realtimeParticipantProfileRepository.findByParticipantToken("tok")).thenReturn(profile)
+        whenever(participantRepository.findByPartyIdAndUserId(party.id, 42L)).thenReturn(userParticipant)
+
+        val ex =
+            assertFailsWith<BusinessException> {
+                service.requireCallerParticipant(party.id, userId = 42L, participantToken = "tok")
+            }
+        assertEquals(ErrorCode.PARTY_FORBIDDEN, ex.errorCode)
+    }
+
+    @Test
     fun `requireCallerParticipant throws PARTY_FORBIDDEN when participant token does not exist`() {
         val party = makeRealtimeParty()
         whenever(realtimeParticipantProfileRepository.findByParticipantToken("tok")).thenReturn(null)

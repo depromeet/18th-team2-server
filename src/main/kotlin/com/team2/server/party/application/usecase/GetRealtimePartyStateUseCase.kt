@@ -20,8 +20,9 @@ class GetRealtimePartyStateUseCase(
         userId: Long?,
         participantToken: String?,
     ): RealtimePartyStateResult {
+        val now = LocalDateTime.now(clock)
         val party = partyService.requireRealtimeParty(partyId)
         participantService.validatePartyMember(party, userId, participantToken)
-        return RealtimePartyStateResult.from(party, LocalDateTime.now(clock))
+        return RealtimePartyStateResult.from(party, now)
     }
 }
