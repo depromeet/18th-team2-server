@@ -17,7 +17,7 @@ class GlobalExceptionHandler {
     @ExceptionHandler(BusinessException::class)
     fun handleBusinessException(e: BusinessException): ResponseEntity<ErrorResponse> {
         val errorCode = e.errorCode
-        val response = ErrorResponse.of(errorCode.httpStatus, errorCode.name, e.message ?: errorCode.message)
+        val response = ErrorResponse.of(errorCode.httpStatus, errorCode.name, errorCode.message)
         return ResponseEntity.status(errorCode.httpStatus).body(response)
     }
 

@@ -154,10 +154,7 @@ class GetRollingPaperListUseCase(
         toppingId: Long,
     ): String =
         imageUrlByToppingId[toppingId]
-            ?: throw BusinessException(
-                ErrorCode.INTERNAL_SERVER_ERROR,
-                "Rolling paper topping image is missing: toppingId=$toppingId",
-            )
+            ?: throw BusinessException(ErrorCode.INTERNAL_SERVER_ERROR)
 
     private data class RollingPaperPageResult(
         val page: Int,
