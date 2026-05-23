@@ -15,17 +15,17 @@ class RollingPaperDomainTest {
     fun `롤링페이퍼는 작성자 닉네임과 읽음 상태를 가진다`() {
         val party = newParty()
         val writer = Participant(party = party)
-        val wrapper = RollingPaperWrapper(name = "기본테마")
+        val topping = RollingPaperTopping(name = "기본테마")
         val rollingPaper =
             RollingPaper(
-                wrapper = wrapper,
+                topping = topping,
                 writer = writer,
                 party = party,
                 writerNickname = "작성자",
                 content = "축하해요",
             )
 
-        assertSame(wrapper, rollingPaper.wrapper)
+        assertSame(topping, rollingPaper.topping)
         assertSame(writer, rollingPaper.writer)
         assertSame(party, rollingPaper.party)
         assertEquals("작성자", rollingPaper.writerNickname)
@@ -40,24 +40,24 @@ class RollingPaperDomainTest {
         val changedParty = newParty()
         val originalWriter = Participant(party = originalParty)
         val changedWriter = Participant(party = changedParty)
-        val originalWrapper = RollingPaperWrapper(name = "기본테마")
-        val changedWrapper = RollingPaperWrapper(name = "변경테마")
+        val originalTopping = RollingPaperTopping(name = "기본테마")
+        val changedTopping = RollingPaperTopping(name = "변경테마")
         val rollingPaper =
             RollingPaper(
-                wrapper = originalWrapper,
+                topping = originalTopping,
                 writer = originalWriter,
                 party = originalParty,
                 writerNickname = "작성자",
                 content = "축하해요",
             )
 
-        rollingPaper.wrapper = changedWrapper
+        rollingPaper.topping = changedTopping
         rollingPaper.writer = changedWriter
         rollingPaper.party = changedParty
         rollingPaper.content = "다시 축하해요"
         rollingPaper.isRead = true
 
-        assertSame(changedWrapper, rollingPaper.wrapper)
+        assertSame(changedTopping, rollingPaper.topping)
         assertSame(changedWriter, rollingPaper.writer)
         assertSame(changedParty, rollingPaper.party)
         assertEquals("작성자", rollingPaper.writerNickname)
@@ -71,7 +71,7 @@ class RollingPaperDomainTest {
         val party = newParty()
         val rollingPaper =
             RollingPaper(
-                wrapper = RollingPaperWrapper(name = "기본테마"),
+                topping = RollingPaperTopping(name = "기본테마"),
                 writer = Participant(party = party),
                 party = party,
                 writerNickname = " ABC ",

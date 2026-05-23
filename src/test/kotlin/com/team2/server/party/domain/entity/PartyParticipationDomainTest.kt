@@ -2,7 +2,7 @@ package com.team2.server.party.domain.entity
 
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.rollingpaper.entity.RollingPaper
-import com.team2.server.rollingpaper.entity.RollingPaperWrapper
+import com.team2.server.rollingpaper.entity.RollingPaperTopping
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
 import org.junit.jupiter.api.Test
@@ -53,10 +53,10 @@ class PartyParticipationDomainTest {
     fun `롤링페이퍼는 작성자 참여 관계와 작성 당시 닉네임 스냅샷을 가진다`() {
         val party = newParty()
         val writer = Participant(party = party, user = newUser())
-        val wrapper = RollingPaperWrapper(name = "기본테마")
+        val topping = RollingPaperTopping(name = "기본테마")
         val rollingPaper =
             RollingPaper(
-                wrapper = wrapper,
+                topping = topping,
                 writer = writer,
                 party = party,
                 writerNickname = "작성당시닉네임",
@@ -65,7 +65,7 @@ class PartyParticipationDomainTest {
 
         rollingPaper.isRead = true
 
-        assertSame(wrapper, rollingPaper.wrapper)
+        assertSame(topping, rollingPaper.topping)
         assertSame(writer, rollingPaper.writer)
         assertSame(party, rollingPaper.party)
         assertEquals("작성당시닉네임", rollingPaper.writerNickname)

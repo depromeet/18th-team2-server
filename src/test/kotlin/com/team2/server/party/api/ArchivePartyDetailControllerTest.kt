@@ -4,6 +4,7 @@ import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
 import com.team2.server.chat.entity.ChatMessage
 import com.team2.server.chat.repository.ChatMessageRepository
+import com.team2.server.common.DatabaseCleanup
 import com.team2.server.config.TestcontainersConfiguration
 import com.team2.server.party.domain.entity.PaperOnlyParty
 import com.team2.server.party.domain.entity.Participant
@@ -13,9 +14,9 @@ import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.PartyRepository
 import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProfileRepository
 import com.team2.server.rollingpaper.entity.RollingPaper
-import com.team2.server.rollingpaper.entity.RollingPaperWrapper
+import com.team2.server.rollingpaper.entity.RollingPaperTopping
 import com.team2.server.rollingpaper.repository.RollingPaperRepository
-import com.team2.server.rollingpaper.repository.RollingPaperWrapperRepository
+import com.team2.server.rollingpaper.repository.RollingPaperToppingRepository
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
 import com.team2.server.user.repository.UserRepository
@@ -41,22 +42,17 @@ class ArchivePartyDetailControllerTest
         private val participantRepository: ParticipantRepository,
         private val profileRepository: RealtimeParticipantProfileRepository,
         private val rollingPaperRepository: RollingPaperRepository,
-        private val wrapperRepository: RollingPaperWrapperRepository,
+        private val toppingRepository: RollingPaperToppingRepository,
         private val chatMessageRepository: ChatMessageRepository,
         private val userRepository: UserRepository,
         private val jwtProperties: JwtProperties,
+        private val databaseCleanup: DatabaseCleanup,
     ) {
         private val tokenProvider = JwtTokenProvider(jwtProperties)
 
         @BeforeEach
         fun setUp() {
-            chatMessageRepository.deleteAll()
-            rollingPaperRepository.deleteAll()
-            wrapperRepository.deleteAll()
-            profileRepository.deleteAll()
-            participantRepository.deleteAll()
-            partyRepository.deleteAll()
-            userRepository.deleteAll()
+            databaseCleanup.execute()
         }
 
         @Test
@@ -76,10 +72,10 @@ class ArchivePartyDetailControllerTest
             val myParticipant = participantRepository.save(Participant(party = party, user = me))
             profileRepository.save(RealtimeParticipantProfile(participant = ownerParticipant, nickname = "주최자"))
             profileRepository.save(RealtimeParticipantProfile(participant = myParticipant, nickname = "해파리"))
-            val wrapper = wrapperRepository.save(RollingPaperWrapper(name = "Topping_Candle"))
+            val topping = toppingRepository.save(RollingPaperTopping(name = "Topping_Candle"))
             rollingPaperRepository.save(
                 RollingPaper(
-                    wrapper = wrapper,
+                    topping = topping,
                     writer = myParticipant,
                     party = party,
                     writerNickname = "해파리",
@@ -131,7 +127,7 @@ class ArchivePartyDetailControllerTest
                     jsonPath("$.data.myPaperWritten") { value(false) }
                     jsonPath("$.data.myPaperContent") { value(nullValue()) }
                     jsonPath("$.data.myPaperWriterNickname") { value(nullValue()) }
-                    jsonPath("$.data.myPaperWrapperImageUrl") { value(nullValue()) }
+                    jsonPath("$.data.myPaperToppingImageUrl") { value(nullValue()) }
                 }
         }
 
