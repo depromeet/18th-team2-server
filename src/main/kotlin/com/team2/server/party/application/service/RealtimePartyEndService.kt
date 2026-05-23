@@ -8,6 +8,7 @@ import com.team2.server.party.application.dto.RealtimePartyEndStartResult
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.PartyOption
 import com.team2.server.party.domain.entity.RealtimeParty
+import com.team2.server.party.domain.entity.RealtimePartyStatus
 import com.team2.server.party.infrastructure.persistence.PartyRepository
 import org.hibernate.Hibernate
 import org.springframework.stereotype.Service
@@ -74,11 +75,27 @@ class RealtimePartyEndService(
                 )
             }
 
+    fun canNotifyHostEndAvailable(
+        partyId: Long,
+        now: LocalDateTime,
+    ): Boolean {
+        val party = findRealtimePartyOrNull(partyId) ?: return false
+        return party.liveEndingStartedAt == null && party.status(now) == RealtimePartyStatus.LIVE_OPEN
+    }
+
     private fun findRealtimeParty(partyId: Long): RealtimeParty {
         val party =
             partyRepository.findPartyById(partyId)
                 ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
         if (party.partyOption != PartyOption.REALTIME) throw BusinessException(ErrorCode.PARTY_NOT_REALTIME)
         return Hibernate.unproxy(party) as RealtimeParty
+    }
+
+    private fun findRealtimePartyOrNull(partyId: Long): RealtimeParty? {
+        val party = partyRepository.findPartyById(partyId)
+        return when {
+            party == null || party.partyOption != PartyOption.REALTIME -> null
+            else -> Hibernate.unproxy(party) as RealtimeParty
+        }
     }
 }

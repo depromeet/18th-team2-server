@@ -5,6 +5,7 @@ import com.team2.server.chat.infrastructure.sse.SseEmitterRegistry
 import com.team2.server.party.application.dto.RealtimeEndingScheduleTarget
 import com.team2.server.party.application.event.RealtimePartyCreatedEvent
 import com.team2.server.party.application.event.RealtimePartyEndingStartedEvent
+import com.team2.server.party.application.event.RealtimePartyHostEndAvailableScheduleRequestedEvent
 import com.team2.server.party.application.usecase.HandleBurstGameEndedUseCase
 import com.team2.server.party.application.usecase.RecoverRealtimePartyEndScheduleUseCase
 import com.team2.server.party.application.usecase.StartAutomaticRealtimePartyEndUseCase
@@ -73,11 +74,9 @@ class PartyEndScheduler(
         }
     }
 
-    fun scheduleIfNeeded(
-        partyId: Long,
-        startedAt: LocalDateTime,
-    ) {
-        scheduleHostEndAvailable(partyId, startedAt)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    fun onHostEndAvailableScheduleRequested(event: RealtimePartyHostEndAvailableScheduleRequestedEvent) {
+        scheduleHostEndAvailable(event.partyId, event.startedAt)
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)

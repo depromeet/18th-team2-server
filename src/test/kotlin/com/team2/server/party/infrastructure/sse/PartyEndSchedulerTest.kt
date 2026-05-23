@@ -7,6 +7,7 @@ import com.team2.server.party.application.dto.RealtimeEndingScheduleTarget
 import com.team2.server.party.application.dto.RealtimePartyEndRecoveryResult
 import com.team2.server.party.application.event.RealtimePartyCreatedEvent
 import com.team2.server.party.application.event.RealtimePartyEndingStartedEvent
+import com.team2.server.party.application.event.RealtimePartyHostEndAvailableScheduleRequestedEvent
 import com.team2.server.party.application.usecase.HandleBurstGameEndedUseCase
 import com.team2.server.party.application.usecase.RecoverRealtimePartyEndScheduleUseCase
 import com.team2.server.party.application.usecase.StartAutomaticRealtimePartyEndUseCase
@@ -65,7 +66,9 @@ class PartyEndSchedulerTest {
         val startedAt = now.minusMinutes(1)
         val endingStartedAt = now.plusMinutes(1)
 
-        scheduler.scheduleIfNeeded(partyId = 1L, startedAt = startedAt)
+        scheduler.onHostEndAvailableScheduleRequested(
+            RealtimePartyHostEndAvailableScheduleRequestedEvent(1L, startedAt),
+        )
         scheduler.onRealtimePartyEndingStarted(
             RealtimePartyEndingStartedEvent(
                 partyId = 1L,
@@ -83,9 +86,13 @@ class PartyEndSchedulerTest {
     fun `host-end-available은 한 번 발송된 뒤 재예약하지 않는다`() {
         val startedAt = now.minusMinutes(5)
 
-        scheduler.scheduleIfNeeded(partyId = 1L, startedAt = startedAt)
+        scheduler.onHostEndAvailableScheduleRequested(
+            RealtimePartyHostEndAvailableScheduleRequestedEvent(1L, startedAt),
+        )
         scheduledTasks.first().run()
-        scheduler.scheduleIfNeeded(partyId = 1L, startedAt = startedAt)
+        scheduler.onHostEndAvailableScheduleRequested(
+            RealtimePartyHostEndAvailableScheduleRequestedEvent(1L, startedAt),
+        )
 
         assertEquals(1, scheduledTasks.size)
         verify(sseEmitterRegistry).broadcastHost(eq(1L), anyEvent())
@@ -93,7 +100,9 @@ class PartyEndSchedulerTest {
 
     @Test
     fun `burst game ended event sends host-end-available immediately`() {
-        scheduler.scheduleIfNeeded(partyId = 1L, startedAt = now.minusMinutes(1))
+        scheduler.onHostEndAvailableScheduleRequested(
+            RealtimePartyHostEndAvailableScheduleRequestedEvent(1L, now.minusMinutes(1)),
+        )
         whenever(handleBurstGameEndedUseCase(1L)).thenReturn(true)
 
         scheduler.onBurstGameEnded(BurstGameEndedEvent(1L, now))
@@ -104,7 +113,9 @@ class PartyEndSchedulerTest {
 
     @Test
     fun `burst game ended event does not send host-end-available when party cannot handle it`() {
-        scheduler.scheduleIfNeeded(partyId = 1L, startedAt = now.minusMinutes(1))
+        scheduler.onHostEndAvailableScheduleRequested(
+            RealtimePartyHostEndAvailableScheduleRequestedEvent(1L, now.minusMinutes(1)),
+        )
         whenever(handleBurstGameEndedUseCase(1L)).thenReturn(false)
 
         scheduler.onBurstGameEnded(BurstGameEndedEvent(1L, now))
@@ -189,7 +200,9 @@ class PartyEndSchedulerTest {
 
     @Test
     fun `cancelSchedules cancels stored tasks`() {
-        scheduler.scheduleIfNeeded(partyId = 1L, startedAt = now.minusMinutes(1))
+        scheduler.onHostEndAvailableScheduleRequested(
+            RealtimePartyHostEndAvailableScheduleRequestedEvent(1L, now.minusMinutes(1)),
+        )
         scheduler.onRealtimePartyCreated(RealtimePartyCreatedEvent(1L, now.minusMinutes(10)))
         scheduler.onRealtimePartyEndingStarted(
             RealtimePartyEndingStartedEvent(

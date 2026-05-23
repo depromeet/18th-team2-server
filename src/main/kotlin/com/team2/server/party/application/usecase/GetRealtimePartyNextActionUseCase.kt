@@ -5,6 +5,7 @@ import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.dto.RealtimePartyNextActionResult
 import com.team2.server.party.application.service.ParticipantService
 import com.team2.server.party.application.service.PartyInviteService
+import com.team2.server.party.application.service.PartyService
 import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.RealtimePartyStatus
 import org.springframework.stereotype.Service
@@ -14,7 +15,7 @@ import java.time.LocalDateTime
 
 @Service
 class GetRealtimePartyNextActionUseCase(
-    private val resolveRealtimePartyUseCase: ResolveRealtimePartyUseCase,
+    private val partyService: PartyService,
     private val participantService: ParticipantService,
     private val partyInviteService: PartyInviteService,
     private val clock: Clock,
@@ -26,7 +27,7 @@ class GetRealtimePartyNextActionUseCase(
         participantToken: String?,
     ): RealtimePartyNextActionResult {
         val now = LocalDateTime.now(clock)
-        val party = resolveRealtimePartyUseCase.invoke(partyId)
+        val party = partyService.requireRealtimeParty(partyId)
         val participant =
             if (userId == party.ownerId) {
                 null

@@ -3,9 +3,10 @@ package com.team2.server.party.api
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
+import com.team2.server.burstgame.application.port.BurstGameSessionStore
+import com.team2.server.burstgame.domain.BurstGameSession
 import com.team2.server.common.DatabaseCleanup
 import com.team2.server.config.TestcontainersConfiguration
-import com.team2.server.party.application.service.RealtimePartyEndAvailabilityService
 import com.team2.server.party.domain.entity.Character
 import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.PartyInvite
@@ -48,7 +49,7 @@ class PartyControllerTest
         private val characterRepository: CharacterRepository,
         private val databaseCleanup: DatabaseCleanup,
         private val jwtProperties: JwtProperties,
-        private val realtimePartyEndAvailabilityService: RealtimePartyEndAvailabilityService,
+        private val burstGameSessionStore: BurstGameSessionStore,
     ) {
         private val tokenProvider = JwtTokenProvider(jwtProperties)
         private val objectMapper = ObjectMapper()
@@ -240,8 +241,15 @@ class PartyControllerTest
         @Test
         fun `박터뜨리기가 종료되면 4분 전에도 실시간 파티를 종료할 수 있다`() {
             val owner = saveUser("kakao-realtime-end-burst", "end-burst@kakao.local")
-            val party = saveRealtimeParty(owner, LocalDateTime.now().minusMinutes(1))
-            realtimePartyEndAvailabilityService.markBurstGameEnded(party.id)
+            val now = LocalDateTime.now()
+            val party = saveRealtimeParty(owner, now.minusMinutes(1))
+            burstGameSessionStore.start(party.id, now) {
+                BurstGameSession(
+                    partyId = party.id,
+                    startedAt = now.minusMinutes(1),
+                    endsAt = now.minusSeconds(1),
+                )
+            }
 
             mockMvc
                 .get("/api/v1/parties/${party.id}/realtime-end") {

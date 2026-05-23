@@ -15,8 +15,10 @@ import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class RealtimePartyEndServiceTest {
     private val partyRepository: PartyRepository = mock()
@@ -97,6 +99,25 @@ class RealtimePartyEndServiceTest {
         assertEquals(endingStartedAt, result.single().endingStartedAt)
         assertEquals(endingStartedAt.plusSeconds(RealtimeParty.LIVE_END_COUNTDOWN_SECONDS), result.single().endedAt)
         assertEquals(false, result.single().startedNow)
+    }
+
+    @Test
+    fun `canNotifyHostEndAvailable returns true only for live open realtime party without ending`() {
+        val party = realtimeParty(id = 4L)
+        whenever(partyRepository.findPartyById(4L)).thenReturn(party)
+
+        assertTrue(service.canNotifyHostEndAvailable(4L, startedAt.plusMinutes(1)))
+    }
+
+    @Test
+    fun `canNotifyHostEndAvailable returns false for non realtime or ending party`() {
+        val paperOnly = PaperOnlyParty(ownerId = 1L, startedAt = startedAt)
+        val endingParty = realtimeParty(id = 5L, liveEndingStartedAt = startedAt.plusMinutes(1))
+        whenever(partyRepository.findPartyById(4L)).thenReturn(paperOnly)
+        whenever(partyRepository.findPartyById(5L)).thenReturn(endingParty)
+
+        assertFalse(service.canNotifyHostEndAvailable(4L, startedAt.plusMinutes(1)))
+        assertFalse(service.canNotifyHostEndAvailable(5L, startedAt.plusMinutes(1)))
     }
 
     @Test

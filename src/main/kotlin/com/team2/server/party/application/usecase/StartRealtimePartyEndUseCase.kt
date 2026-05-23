@@ -5,7 +5,8 @@ import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.dto.RealtimePartyEndResult
 import com.team2.server.party.application.dto.RealtimePartyEndStartResult
 import com.team2.server.party.application.event.RealtimePartyEndingEventPublisher
-import com.team2.server.party.application.service.RealtimePartyEndAvailabilityService
+import com.team2.server.party.application.port.BurstGameCompletionReader
+import com.team2.server.party.application.service.PartyService
 import com.team2.server.party.application.service.RealtimePartyEndService
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.domain.entity.RealtimePartyStatus
@@ -16,9 +17,9 @@ import java.time.LocalDateTime
 
 @Service
 class StartRealtimePartyEndUseCase(
-    private val resolveRealtimePartyUseCase: ResolveRealtimePartyUseCase,
+    private val partyService: PartyService,
     private val realtimePartyEndService: RealtimePartyEndService,
-    private val realtimePartyEndAvailabilityService: RealtimePartyEndAvailabilityService,
+    private val burstGameCompletionReader: BurstGameCompletionReader,
     private val realtimePartyEndingEventPublisher: RealtimePartyEndingEventPublisher,
     private val clock: Clock,
 ) {
@@ -28,7 +29,7 @@ class StartRealtimePartyEndUseCase(
         userId: Long,
     ): RealtimePartyEndResult {
         val now = LocalDateTime.now(clock)
-        val party = resolveRealtimePartyUseCase.invoke(partyId)
+        val party = partyService.requireRealtimeParty(partyId)
         if (party.ownerId != userId) throwBusiness(ErrorCode.PARTY_FORBIDDEN)
         return when (party.status(now)) {
             RealtimePartyStatus.LIVE_CLOSED -> throwBusiness(ErrorCode.REALTIME_PARTY_ALREADY_ENDED)
@@ -53,7 +54,7 @@ class StartRealtimePartyEndUseCase(
         now: LocalDateTime,
     ): Boolean =
         !now.isBefore(party.hostEndAvailableAt()) ||
-            realtimePartyEndAvailabilityService.canEndByBurstGame(party.id)
+            burstGameCompletionReader.isCompleted(party.id, now)
 
     private fun existingOrPersistedAutomaticEnding(party: RealtimeParty): RealtimePartyEndResult =
         party.liveEndingStartedAt?.let { RealtimePartyEndResult.from(party) }

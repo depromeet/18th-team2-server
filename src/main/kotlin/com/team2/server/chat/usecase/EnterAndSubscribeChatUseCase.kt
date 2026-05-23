@@ -10,9 +10,10 @@ import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.common.image.entity.ImageTargetType
 import com.team2.server.common.image.persistence.ImageUrlReader
 import com.team2.server.party.application.dto.RealtimePartyStateResult
+import com.team2.server.party.application.event.RealtimePartyHostEndAvailableScheduleRequestedEvent
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.domain.entity.RealtimePartyStatus
-import com.team2.server.party.infrastructure.sse.PartyEndScheduler
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
@@ -23,7 +24,7 @@ class EnterAndSubscribeChatUseCase(
     private val chatMessageRepository: ChatMessageRepository,
     private val imageUrlReader: ImageUrlReader,
     private val chatSseGateway: ChatSseGateway,
-    private val partyEndScheduler: PartyEndScheduler,
+    private val applicationEventPublisher: ApplicationEventPublisher,
 ) {
     @Transactional
     fun enterAndSubscribe(
@@ -72,7 +73,12 @@ class EnterAndSubscribeChatUseCase(
             excludeToken = enterResult.participantToken,
         )
         if (enterResult.partyState.status == RealtimePartyStatus.LIVE_OPEN) {
-            partyEndScheduler.scheduleIfNeeded(enterResult.partyId, enterResult.startedAt)
+            applicationEventPublisher.publishEvent(
+                RealtimePartyHostEndAvailableScheduleRequestedEvent(
+                    partyId = enterResult.partyId,
+                    startedAt = enterResult.startedAt,
+                ),
+            )
         }
         return emitter
     }
