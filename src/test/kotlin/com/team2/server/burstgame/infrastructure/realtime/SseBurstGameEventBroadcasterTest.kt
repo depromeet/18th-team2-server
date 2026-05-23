@@ -5,7 +5,7 @@ import com.team2.server.burstgame.domain.BurstGameRankingEntry
 import com.team2.server.burstgame.domain.BurstGameRoundStatus
 import com.team2.server.burstgame.domain.BurstGameSnapshot
 import com.team2.server.burstgame.domain.BurstGameWinner
-import com.team2.server.chat.infrastructure.sse.ChatSseGateway
+import com.team2.server.chat.application.port.PartySseEventPublisher
 import org.mockito.Mockito.timeout
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
@@ -24,9 +24,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 class SseBurstGameEventBroadcasterTest {
-    private val chatSseGateway: ChatSseGateway = mock()
+    private val partySseEventPublisher: PartySseEventPublisher = mock()
     private val applicationEventPublisher: ApplicationEventPublisher = mock()
-    private val broadcaster = SseBurstGameEventBroadcaster(chatSseGateway, applicationEventPublisher)
+    private val broadcaster = SseBurstGameEventBroadcaster(partySseEventPublisher, applicationEventPublisher)
 
     @AfterTest
     fun tearDown() {
@@ -37,7 +37,7 @@ class SseBurstGameEventBroadcasterTest {
     fun `started 이벤트는 즉시 전송한다`() {
         broadcaster.broadcastStarted(snapshot())
 
-        verify(chatSseGateway).broadcastAfterCommit(eq(1L), anyEvent(), isNull())
+        verify(partySseEventPublisher).broadcastAfterCommit(eq(1L), anyEvent(), isNull())
     }
 
     @Test
@@ -47,7 +47,7 @@ class SseBurstGameEventBroadcasterTest {
         broadcaster.broadcastProgress(latest)
 
         val eventCaptor = argumentCaptor<Set<ResponseBodyEmitter.DataWithMediaType>>()
-        verify(chatSseGateway, timeout(1_000).times(1)).broadcastAfterCommit(eq(1L), eventCaptor.capture(), isNull())
+        verify(partySseEventPublisher, timeout(1_000).times(1)).broadcastAfterCommit(eq(1L), eventCaptor.capture(), isNull())
 
         val payload =
             eventCaptor.firstValue
@@ -64,7 +64,7 @@ class SseBurstGameEventBroadcasterTest {
         val endedSnapshot = snapshot(status = BurstGameRoundStatus.ENDED, totalTapCount = 1, stateVersion = 2)
         broadcaster.broadcastEnded(endedSnapshot)
 
-        verify(chatSseGateway, timeout(400).times(1)).broadcastAfterCommit(eq(1L), anyEvent(), isNull())
+        verify(partySseEventPublisher, timeout(400).times(1)).broadcastAfterCommit(eq(1L), anyEvent(), isNull())
         verify(applicationEventPublisher).publishEvent(
             BurstGameEndedEvent(1L, endedSnapshot.serverTime),
         )
@@ -85,7 +85,7 @@ class SseBurstGameEventBroadcasterTest {
         )
         broadcaster.broadcastProgress(snapshot(totalTapCount = 2, stateVersion = 1, startedAt = newStartedAt))
 
-        verify(chatSseGateway, timeout(1_000).times(2)).broadcastAfterCommit(eq(1L), anyEvent(), isNull())
+        verify(partySseEventPublisher, timeout(1_000).times(2)).broadcastAfterCommit(eq(1L), anyEvent(), isNull())
     }
 
     @Test
@@ -107,7 +107,7 @@ class SseBurstGameEventBroadcasterTest {
         Thread.sleep(300)
         broadcaster.broadcastProgress(snapshot(totalTapCount = 2, stateVersion = 3, startedAt = endedStartedAt))
 
-        verify(chatSseGateway, timeout(1_000).times(2)).broadcastAfterCommit(eq(1L), anyEvent(), isNull())
+        verify(partySseEventPublisher, timeout(1_000).times(2)).broadcastAfterCommit(eq(1L), anyEvent(), isNull())
     }
 
     private fun anyEvent(): Set<ResponseBodyEmitter.DataWithMediaType> = any()

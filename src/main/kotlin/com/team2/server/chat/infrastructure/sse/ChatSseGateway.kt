@@ -1,5 +1,6 @@
 package com.team2.server.chat.infrastructure.sse
 
+import com.team2.server.chat.application.port.PartySseEventPublisher
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.support.TransactionSynchronizationManager
@@ -10,7 +11,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 class ChatSseGateway(
     private val applicationEventPublisher: ApplicationEventPublisher,
     private val sseEmitterRegistry: SseEmitterRegistry,
-) {
+) : PartySseEventPublisher {
     fun subscribe(
         partyId: Long,
         emitter: SseEmitter,
@@ -20,10 +21,10 @@ class ChatSseGateway(
         sseEmitterRegistry.subscribe(partyId, emitter, participantToken, isHost)
     }
 
-    fun broadcastAfterCommit(
+    override fun broadcastAfterCommit(
         partyId: Long,
         event: Set<ResponseBodyEmitter.DataWithMediaType>,
-        excludeToken: String? = null,
+        excludeToken: String?,
     ) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             applicationEventPublisher.publishEvent(SseBroadcastEvent(partyId, event, excludeToken))

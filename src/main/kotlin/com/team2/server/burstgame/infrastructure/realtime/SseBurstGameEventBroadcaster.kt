@@ -5,7 +5,7 @@ import com.team2.server.burstgame.application.port.BurstGameEventBroadcaster
 import com.team2.server.burstgame.domain.BurstGameRankingEntry
 import com.team2.server.burstgame.domain.BurstGameSnapshot
 import com.team2.server.burstgame.domain.BurstGameWinner
-import com.team2.server.chat.infrastructure.sse.ChatSseGateway
+import com.team2.server.chat.application.port.PartySseEventPublisher
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit
 
 @Component
 class SseBurstGameEventBroadcaster(
-    private val chatSseGateway: ChatSseGateway,
+    private val partySseEventPublisher: PartySseEventPublisher,
     private val applicationEventPublisher: ApplicationEventPublisher,
 ) : BurstGameEventBroadcaster {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -111,7 +111,7 @@ class SseBurstGameEventBroadcaster(
         eventName: String,
         payload: Any,
     ) {
-        chatSseGateway.broadcastAfterCommit(
+        partySseEventPublisher.broadcastAfterCommit(
             partyId,
             SseEmitter
                 .event()
