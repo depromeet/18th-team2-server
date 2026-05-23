@@ -12,6 +12,7 @@ import com.team2.server.rollingpaper.dto.OwnerRollingPaperListItemResponse
 import com.team2.server.rollingpaper.dto.OwnerRollingPaperListResponse
 import com.team2.server.rollingpaper.dto.ParticipantRollingPaperListItemResponse
 import com.team2.server.rollingpaper.dto.ParticipantRollingPaperListResponse
+import com.team2.server.rollingpaper.dto.RollingPaperPageInfoResponse
 import com.team2.server.rollingpaper.entity.RollingPaper
 import com.team2.server.rollingpaper.repository.RollingPaperRepository
 import org.springframework.data.domain.PageRequest
@@ -45,10 +46,7 @@ class GetRollingPaperListUseCase(
                 } else {
                     null
                 },
-            page = pageResult.page,
-            totalCount = pageResult.totalCount,
-            totalPages = pageResult.totalPages,
-            hasNext = pageResult.hasNext,
+            pageInfo = pageResult.toPageInfoResponse(),
             items =
                 pageResult.items.map { item ->
                     ParticipantRollingPaperListItemResponse(
@@ -80,10 +78,7 @@ class GetRollingPaperListUseCase(
         return OwnerRollingPaperListResponse(
             celebrantNickname = party.celebrantNickname,
             partyEndAt = party.endedAt(),
-            page = pageResult.page,
-            totalCount = pageResult.totalCount,
-            totalPages = pageResult.totalPages,
-            hasNext = pageResult.hasNext,
+            pageInfo = pageResult.toPageInfoResponse(),
             items =
                 pageResult.items.map { item ->
                     OwnerRollingPaperListItemResponse(
@@ -160,7 +155,15 @@ class GetRollingPaperListUseCase(
         val totalPages: Int,
         val hasNext: Boolean,
         val items: List<RollingPaperPageItem>,
-    )
+    ) {
+        fun toPageInfoResponse(): RollingPaperPageInfoResponse =
+            RollingPaperPageInfoResponse(
+                page = page,
+                totalCount = totalCount,
+                totalPages = totalPages,
+                hasNext = hasNext,
+            )
+    }
 
     private data class RollingPaperPageItem(
         val rollingPaperId: Long,

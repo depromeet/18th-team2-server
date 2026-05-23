@@ -16,14 +16,8 @@ data class ParticipantRollingPaperListResponse(
     val partyOption: PartyOption,
     @Schema(description = "실시간 파티 종료 시각. PAPER_ONLY면 null", nullable = true, example = "2026-05-05T22:10:00")
     val liveEndAt: LocalDateTime?,
-    @Schema(description = "현재 페이지. page가 1보다 작으면 1로 보정합니다.", example = "1")
-    val page: Int,
-    @Schema(description = "전체 롤링페이퍼 수", example = "12")
-    val totalCount: Long,
-    @Schema(description = "전체 페이지 수. 롤링페이퍼가 없으면 0입니다.", example = "2")
-    val totalPages: Int,
-    @Schema(description = "다음 페이지 존재 여부", example = "true")
-    val hasNext: Boolean,
+    @Schema(description = "페이지네이션 정보")
+    val pageInfo: RollingPaperPageInfoResponse,
     @Schema(description = "롤링페이퍼 목록")
     val items: List<ParticipantRollingPaperListItemResponse>,
 )
@@ -35,16 +29,23 @@ data class OwnerRollingPaperListResponse(
     val celebrantNickname: String?,
     @Schema(description = "파티 자체 종료 시각", example = "2026-05-12T14:30:00")
     val partyEndAt: LocalDateTime,
+    @Schema(description = "페이지네이션 정보")
+    val pageInfo: RollingPaperPageInfoResponse,
+    @Schema(description = "롤링페이퍼 목록")
+    val items: List<OwnerRollingPaperListItemResponse>,
+)
+
+@JsonInclude(JsonInclude.Include.ALWAYS)
+@Schema(description = "롤링페이퍼 목록 페이지네이션 정보")
+data class RollingPaperPageInfoResponse(
     @Schema(description = "현재 페이지. page가 1보다 작으면 1로 보정합니다.", example = "1")
     val page: Int,
-    @Schema(description = "전체 롤링페이퍼 수", example = "8")
+    @Schema(description = "전체 롤링페이퍼 수", example = "12")
     val totalCount: Long,
     @Schema(description = "전체 페이지 수. 롤링페이퍼가 없으면 0입니다.", example = "2")
     val totalPages: Int,
     @Schema(description = "다음 페이지 존재 여부", example = "true")
     val hasNext: Boolean,
-    @Schema(description = "롤링페이퍼 목록")
-    val items: List<OwnerRollingPaperListItemResponse>,
 )
 
 @JsonInclude(JsonInclude.Include.ALWAYS)

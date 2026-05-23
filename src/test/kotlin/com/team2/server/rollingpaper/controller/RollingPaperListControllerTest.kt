@@ -86,10 +86,10 @@ class RollingPaperListControllerTest
                     status { isOk() }
                     jsonPath("$.data.partyOption") { value("REALTIME") }
                     jsonPath("$.data.liveEndAt") { value("2026-05-06T22:10:00") }
-                    jsonPath("$.data.page") { value(1) }
-                    jsonPath("$.data.totalCount") { value(8) }
-                    jsonPath("$.data.totalPages") { value(2) }
-                    jsonPath("$.data.hasNext") { value(true) }
+                    jsonPath("$.data.pageInfo.page") { value(1) }
+                    jsonPath("$.data.pageInfo.totalCount") { value(8) }
+                    jsonPath("$.data.pageInfo.totalPages") { value(2) }
+                    jsonPath("$.data.pageInfo.hasNext") { value(true) }
                     jsonPath("$.data.items.length()") { value(7) }
                     jsonPath("$.data.items[0].position") { doesNotExist() }
                     jsonPath("$.data.items[0].writerNickname") { value("작성자8") }
@@ -105,9 +105,9 @@ class RollingPaperListControllerTest
                     param("page", "2")
                 }.andExpect {
                     status { isOk() }
-                    jsonPath("$.data.page") { value(2) }
-                    jsonPath("$.data.totalCount") { value(8) }
-                    jsonPath("$.data.hasNext") { value(false) }
+                    jsonPath("$.data.pageInfo.page") { value(2) }
+                    jsonPath("$.data.pageInfo.totalCount") { value(8) }
+                    jsonPath("$.data.pageInfo.hasNext") { value(false) }
                     jsonPath("$.data.items.length()") { value(1) }
                     jsonPath("$.data.items[0].position") { doesNotExist() }
                     jsonPath("$.data.items[0].writerNickname") { value("작성자1") }
@@ -142,11 +142,11 @@ class RollingPaperListControllerTest
                     param("page", "0")
                 }.andExpect {
                     status { isOk() }
-                    jsonPath("$.data.page") { value(1) }
-                    jsonPath("$.data.totalPages") { value(0) }
-                    jsonPath("$.data.hasNext") { value(false) }
+                    jsonPath("$.data.pageInfo.page") { value(1) }
+                    jsonPath("$.data.pageInfo.totalPages") { value(0) }
+                    jsonPath("$.data.pageInfo.hasNext") { value(false) }
                     jsonPath("$.data.items.length()") { value(0) }
-                    jsonPath("$.data.totalCount") { value(0) }
+                    jsonPath("$.data.pageInfo.totalCount") { value(0) }
                 }
         }
 
@@ -159,7 +159,7 @@ class RollingPaperListControllerTest
                 .get("/api/v1/party-invites/${invite.token}/rolling-papers")
                 .andExpect {
                     status { isOk() }
-                    jsonPath("$.data.totalPages") { value(0) }
+                    jsonPath("$.data.pageInfo.totalPages") { value(0) }
                 }
         }
 
@@ -206,10 +206,10 @@ class RollingPaperListControllerTest
                     status { isOk() }
                     jsonPath("$.data.celebrantNickname") { value("홍길동") }
                     jsonPath("$.data.partyEndAt") { value("2020-01-08T00:00:00") }
-                    jsonPath("$.data.page") { value(1) }
-                    jsonPath("$.data.totalCount") { value(1) }
-                    jsonPath("$.data.totalPages") { value(1) }
-                    jsonPath("$.data.hasNext") { value(false) }
+                    jsonPath("$.data.pageInfo.page") { value(1) }
+                    jsonPath("$.data.pageInfo.totalCount") { value(1) }
+                    jsonPath("$.data.pageInfo.totalPages") { value(1) }
+                    jsonPath("$.data.pageInfo.hasNext") { value(false) }
                     jsonPath("$.data.items[0].position") { value(1) }
                     jsonPath("$.data.items[0].writerNickname") { value("축하요정") }
                     jsonPath("$.data.items[0].content") { value("축하해요") }
@@ -267,8 +267,8 @@ class RollingPaperListControllerTest
                     header("Authorization", "Bearer ${tokenProvider.issue(owner)}")
                 }.andExpect {
                     status { isOk() }
-                    jsonPath("$.data.totalCount") { value(0) }
-                    jsonPath("$.data.totalPages") { value(0) }
+                    jsonPath("$.data.pageInfo.totalCount") { value(0) }
+                    jsonPath("$.data.pageInfo.totalPages") { value(0) }
                 }
         }
 
@@ -408,9 +408,9 @@ class RollingPaperListControllerTest
                     param("page", "5")
                 }.andExpect {
                     status { isOk() }
-                    jsonPath("$.data.page") { value(5) }
-                    jsonPath("$.data.totalPages") { value(1) }
-                    jsonPath("$.data.hasNext") { value(false) }
+                    jsonPath("$.data.pageInfo.page") { value(5) }
+                    jsonPath("$.data.pageInfo.totalPages") { value(1) }
+                    jsonPath("$.data.pageInfo.hasNext") { value(false) }
                     jsonPath("$.data.items.length()") { value(0) }
                 }
         }
