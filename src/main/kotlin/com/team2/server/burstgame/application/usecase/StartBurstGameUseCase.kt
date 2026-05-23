@@ -11,6 +11,7 @@ import com.team2.server.burstgame.application.support.throwAlreadyEndedAfterBroa
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Clock
 import java.time.LocalDateTime
 
 @Service
@@ -19,6 +20,7 @@ class StartBurstGameUseCase(
     private val sessionService: BurstGameSessionService,
     private val eventBroadcaster: BurstGameEventBroadcaster,
     private val endScheduler: BurstGameEndScheduler,
+    private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -29,7 +31,7 @@ class StartBurstGameUseCase(
         participantToken: String?,
     ): StartBurstGameResponse {
         val participant = participantResolver.resolve(partyId, userId, participantToken)
-        val now = LocalDateTime.now()
+        val now = LocalDateTime.now(clock)
         val result =
             when (val startResult = sessionService.start(partyId, participant, now)) {
                 is BurstGameSessionService.StartResult.Started -> startResult
@@ -39,7 +41,7 @@ class StartBurstGameUseCase(
         if (result.created) {
             runCatching {
                 endScheduler.schedule(partyId, result.snapshot.endsAt) {
-                    endScheduledParty(sessionService, eventBroadcaster, it)
+                    endScheduledParty(sessionService, eventBroadcaster, it, LocalDateTime.now(clock))
                 }
             }.onFailure { ex ->
                 removeStartedSession(sessionService, log, partyId, result.snapshot.startedAt, now)

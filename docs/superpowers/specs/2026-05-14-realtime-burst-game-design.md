@@ -372,7 +372,7 @@ tap batch 반영 후 해당 파티의 기존 SSE 구독자에게 전송한다.
   "partyId": 10,
   "totalTapCount": 42,
   "colorChanged": false,
-  "remainingSeconds": 13,
+  "endsAt": "2026-05-14T20:10:20",
   "stateVersion": 13,
   "serverTime": "2026-05-14T20:10:07.120",
   "rankings": [
@@ -419,9 +419,9 @@ tap batch 반영 후 해당 파티의 기존 SSE 구독자에게 전송한다.
 - in-memory 1차 구현에서는 party session 단위 lock 안에서 tap count 반영, ranking 재계산, `stateVersion` 증가, broadcast snapshot 생성을 하나의 원자적 구간으로 묶는다.
 - 최종 종료 이벤트는 throttle과 무관하게 반드시 전송한다.
 - end 이벤트의 `stateVersion`은 마지막 progress 이벤트의 `stateVersion`보다 클 수 있다. 이벤트 수신자는 end 이벤트를 최종 결과로 채택한다.
-- `remainingSeconds`는 정수 초로 내려준다.
-  - 계산식: `max(0, ceil((endsAt - serverTime) / 1000))`
-  - throttle 지연이나 lazy 종료 경계에서도 음수로 내려가지 않는다.
+- progress 이벤트는 라운드 종료 기준 시각인 `endsAt`을 내려준다.
+  - 클라이언트는 `endsAt`과 현재 시각을 기준으로 countdown을 계산한다.
+  - throttle 지연이나 네트워크 지연이 있어도 종료 기준은 `endsAt`으로 고정된다.
 
 ### 5-3. `burst-game-ended`
 

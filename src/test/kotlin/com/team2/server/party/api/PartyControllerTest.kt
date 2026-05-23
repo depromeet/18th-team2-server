@@ -20,6 +20,7 @@ import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProf
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
 import com.team2.server.user.repository.UserRepository
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -53,12 +54,19 @@ class PartyControllerTest
     ) {
         private val tokenProvider = JwtTokenProvider(jwtProperties)
         private val objectMapper = ObjectMapper()
+        private val burstGameSessionPartyIds = mutableListOf<Long>()
         private var defaultCharacterId: Long = 1L
 
         @BeforeEach
         fun setUp() {
             databaseCleanup.execute()
             defaultCharacterId = characterRepository.save(Character(name = "Default")).id
+        }
+
+        @AfterEach
+        fun tearDown() {
+            burstGameSessionPartyIds.forEach { burstGameSessionStore.removeByPartyId(it) }
+            burstGameSessionPartyIds.clear()
         }
 
         @Test
@@ -250,6 +258,7 @@ class PartyControllerTest
                     endsAt = now.minusSeconds(1),
                 )
             }
+            burstGameSessionPartyIds.add(party.id)
 
             mockMvc
                 .get("/api/v1/parties/${party.id}/realtime-end") {

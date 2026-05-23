@@ -23,7 +23,10 @@ class SseBurstGameEventBroadcaster(
     private val applicationEventPublisher: ApplicationEventPublisher,
 ) : BurstGameEventBroadcaster {
     private val log = LoggerFactory.getLogger(javaClass)
-    private val executor = Executors.newSingleThreadScheduledExecutor()
+    private val executor =
+        Executors.newSingleThreadScheduledExecutor { runnable ->
+            Thread(runnable, "burst-game-broadcaster")
+        }
     private val pendingProgress = ConcurrentHashMap<Long, BurstGameSnapshot>()
     private val scheduledProgress = ConcurrentHashMap<Long, ScheduledFuture<*>>()
     private val roundLocks = Array(LOCK_STRIPE_COUNT) { Any() }
@@ -57,9 +60,12 @@ class SseBurstGameEventBroadcaster(
             pendingProgress.remove(snapshot.partyId)
             scheduledProgress.remove(snapshot.partyId)?.cancel(false)
             emit(snapshot.partyId, EVENT_ENDED, BurstGameEndedPayload.from(snapshot))
-            applicationEventPublisher.publishEvent(BurstGameEndedEvent(snapshot.partyId, snapshot.serverTime))
         }
-        scheduleEndedRoundCleanup(snapshot.partyId, snapshot.startedAt, lock)
+        try {
+            applicationEventPublisher.publishEvent(BurstGameEndedEvent(snapshot.partyId, snapshot.serverTime))
+        } finally {
+            scheduleEndedRoundCleanup(snapshot.partyId, snapshot.startedAt, lock)
+        }
     }
 
     private fun scheduleProgress(
@@ -151,7 +157,7 @@ class SseBurstGameEventBroadcaster(
         val partyId: Long,
         val totalTapCount: Int,
         val colorChanged: Boolean,
-        val remainingSeconds: Long,
+        val endsAt: LocalDateTime,
         val stateVersion: Long,
         val serverTime: LocalDateTime,
         val rankings: List<RankingPayload>,
@@ -162,7 +168,7 @@ class SseBurstGameEventBroadcaster(
                     partyId = snapshot.partyId,
                     totalTapCount = snapshot.totalTapCount,
                     colorChanged = snapshot.colorChanged,
-                    remainingSeconds = snapshot.remainingSeconds,
+                    endsAt = snapshot.endsAt,
                     stateVersion = snapshot.stateVersion,
                     serverTime = snapshot.serverTime,
                     rankings = snapshot.rankings.map { RankingPayload.from(it) },

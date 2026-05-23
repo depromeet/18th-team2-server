@@ -3,13 +3,14 @@ package com.team2.server.burstgame.infrastructure.scheduler
 import com.team2.server.burstgame.application.port.BurstGameSessionStore
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
+import java.time.Clock
 import java.time.LocalDateTime
 import kotlin.test.AfterTest
 import kotlin.test.Test
 
 class BurstGameSessionCleanupSchedulerTest {
     private val sessionStore: BurstGameSessionStore = mock()
-    private val scheduler = BurstGameSessionCleanupScheduler(sessionStore)
+    private val scheduler = BurstGameSessionCleanupScheduler(sessionStore, Clock.systemDefaultZone())
 
     @AfterTest
     fun tearDown() {

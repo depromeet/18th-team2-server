@@ -1,6 +1,5 @@
 package com.team2.server.party.application.usecase
 
-import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.dto.RealtimePartyEndStatusResult
 import com.team2.server.party.application.port.BurstGameCompletionReader
@@ -46,7 +45,7 @@ class GetRealtimePartyEndStatusUseCase(
         party: RealtimeParty,
         userId: Long,
     ) {
-        if (party.ownerId != userId) throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
+        if (party.ownerId != userId) throwPartyBusiness(ErrorCode.PARTY_FORBIDDEN)
     }
 
     private fun canEnd(
@@ -55,8 +54,5 @@ class GetRealtimePartyEndStatusUseCase(
     ): Boolean =
         party.liveEndingStartedAt == null &&
             party.status(now) == RealtimePartyStatus.LIVE_OPEN &&
-            (
-                !now.isBefore(party.hostEndAvailableAt()) ||
-                    burstGameCompletionReader.isCompleted(party.id, now)
-            )
+            (!now.isBefore(party.hostEndAvailableAt()) || burstGameCompletionReader.isCompleted(party.id, now))
 }

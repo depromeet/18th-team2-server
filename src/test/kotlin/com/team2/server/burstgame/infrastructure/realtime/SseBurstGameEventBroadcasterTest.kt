@@ -8,16 +8,20 @@ import com.team2.server.burstgame.domain.BurstGameWinner
 import com.team2.server.chat.infrastructure.sse.ChatSseGateway
 import org.mockito.Mockito.timeout
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.isNull
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter
 import java.time.LocalDateTime
 import kotlin.test.AfterTest
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class SseBurstGameEventBroadcasterTest {
     private val chatSseGateway: ChatSseGateway = mock()
@@ -39,9 +43,19 @@ class SseBurstGameEventBroadcasterTest {
     @Test
     fun `progress 이벤트는 throttle 구간에서 최신 값만 전송한다`() {
         broadcaster.broadcastProgress(snapshot(totalTapCount = 1, stateVersion = 1))
-        broadcaster.broadcastProgress(snapshot(totalTapCount = 2, stateVersion = 2))
+        val latest = snapshot(totalTapCount = 2, stateVersion = 2)
+        broadcaster.broadcastProgress(latest)
 
-        verify(chatSseGateway, timeout(1_000).times(1)).broadcastAfterCommit(eq(1L), anyEvent(), isNull())
+        val eventCaptor = argumentCaptor<Set<ResponseBodyEmitter.DataWithMediaType>>()
+        verify(chatSseGateway, timeout(1_000).times(1)).broadcastAfterCommit(eq(1L), eventCaptor.capture(), isNull())
+
+        val payload =
+            eventCaptor.firstValue
+                .map { it.data }
+                .filterIsInstance<SseBurstGameEventBroadcaster.BurstGameProgressPayload>()
+                .single()
+        assertEquals(latest.endsAt, payload.endsAt)
+        assertEquals(latest.serverTime, payload.serverTime)
     }
 
     @Test
@@ -70,6 +84,28 @@ class SseBurstGameEventBroadcasterTest {
             ),
         )
         broadcaster.broadcastProgress(snapshot(totalTapCount = 2, stateVersion = 1, startedAt = newStartedAt))
+
+        verify(chatSseGateway, timeout(1_000).times(2)).broadcastAfterCommit(eq(1L), anyEvent(), isNull())
+    }
+
+    @Test
+    fun `ended 이벤트 발행 실패 시에도 ended round cleanup을 예약한다`() {
+        val endedStartedAt = LocalDateTime.of(2026, 5, 18, 14, 20)
+        whenever(applicationEventPublisher.publishEvent(any<BurstGameEndedEvent>()))
+            .thenThrow(RuntimeException("publish failed"))
+
+        assertFailsWith<RuntimeException> {
+            broadcaster.broadcastEnded(
+                snapshot(
+                    status = BurstGameRoundStatus.ENDED,
+                    totalTapCount = 1,
+                    stateVersion = 2,
+                    startedAt = endedStartedAt,
+                ),
+            )
+        }
+        Thread.sleep(300)
+        broadcaster.broadcastProgress(snapshot(totalTapCount = 2, stateVersion = 3, startedAt = endedStartedAt))
 
         verify(chatSseGateway, timeout(1_000).times(2)).broadcastAfterCommit(eq(1L), anyEvent(), isNull())
     }

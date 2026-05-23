@@ -345,8 +345,8 @@ Run:
 - [ ] `SseBurstGameEventBroadcaster`는 `ChatSseGateway.broadcastAfterCommit(...)` 또는 동등한 현재 chat SSE gateway 계약을 통해 기존 파티 SSE 채널에 이벤트를 발행한다.
 - [ ] 기존 파티 SSE 연결에 `burst-game-started` 이벤트를 보낸다.
 - [ ] accepted tap batch 이후 `burst-game-progress` 이벤트를 보낸다.
-- [ ] progress 이벤트에는 `totalTapCount`, `colorChanged`, `remainingSeconds`, `stateVersion`, `serverTime`, `rankings`를 포함한다.
-- [ ] `remainingSeconds = max(0, ceil((endsAt - serverTime) / 1000))`로 계산한다.
+- [ ] progress 이벤트에는 `totalTapCount`, `colorChanged`, `endsAt`, `stateVersion`, `serverTime`, `rankings`를 포함한다.
+- [ ] progress countdown 기준은 서버가 내려준 `endsAt`이다.
 - [ ] progress는 party/round 단위 200~300ms trailing throttle을 적용한다.
 - [ ] throttle 구현은 `ConcurrentHashMap<RoundId, ScheduledFuture>`와 `ScheduledExecutorService` 기반 또는 동등한 trailing throttle 메커니즘으로 둔다.
 - [ ] throttle 구간의 중간 `stateVersion` 누락을 허용한다.
@@ -419,7 +419,7 @@ Run:
 - end: 최종 결과가 ended session에 TTL 동안 유지됨
 - end: scheduler와 lazy 종료가 동시에 실행돼도 종료 처리는 한 번만 commit됨
 - SSE: progress 이벤트에 `stateVersion`, `serverTime` 포함
-- SSE: `remainingSeconds`는 `max(0, ceil((endsAt - serverTime) / 1000))` 기준 정수 초
+- SSE: progress 이벤트는 countdown 계산 기준으로 `endsAt`을 포함한다.
 - SSE: stale `stateVersion` 이벤트를 무시할 수 있음
 - SSE: throttle 때문에 progress `stateVersion`은 연속되지 않을 수 있음
 - ranking: 참여자가 3명 미만이면 `rankings`도 3개보다 적음
