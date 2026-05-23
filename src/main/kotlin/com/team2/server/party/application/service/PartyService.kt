@@ -150,8 +150,8 @@ class PartyService(
         userId: Long,
         user: User,
     ) {
-        require(userId == user.id) {
-            "Party ownerId and host user must match. ownerId=$userId userId=${user.id}"
+        if (userId != user.id) {
+            throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
         }
     }
 }

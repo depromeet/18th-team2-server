@@ -152,13 +152,18 @@ class StartRealtimePartyEndUseCaseTest {
     ) {
         var type: Class<*>? = party.javaClass
         while (type != null) {
-            runCatching {
+            try {
                 type.getDeclaredField("id").also { field ->
                     field.isAccessible = true
                     field.set(party, id)
                 }
-            }.onSuccess { return }
-            type = type.superclass
+                return
+            } catch (_: NoSuchFieldException) {
+                type = type.superclass
+            } catch (ex: ReflectiveOperationException) {
+                throw IllegalStateException("Failed to set id=$id on party=${party.javaClass.name}", ex)
+            }
         }
+        throw IllegalStateException("Could not find id field to set id=$id on party=${party.javaClass.name}")
     }
 }

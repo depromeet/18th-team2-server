@@ -17,6 +17,7 @@ class RecoverRealtimePartyEndScheduleUseCase(
         val now = LocalDateTime.now(clock)
         realtimePartyEndService.startDueAutomaticEndings(now)
         return RealtimePartyEndRecoveryResult(
+            hostEndAvailableSchedules = realtimePartyEndService.findHostEndAvailableSchedules(now),
             automaticEndSchedules = realtimePartyEndService.findAutomaticEndSchedules(now),
             endingTargets = realtimePartyEndService.findEndingTargets(now),
         )

@@ -4,6 +4,7 @@ import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.dto.RealtimeAutomaticEndSchedule
 import com.team2.server.party.application.dto.RealtimeEndingScheduleTarget
+import com.team2.server.party.application.dto.RealtimeHostEndAvailableSchedule
 import com.team2.server.party.application.dto.RealtimePartyEndStartResult
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.PartyOption
@@ -60,6 +61,17 @@ class RealtimePartyEndService(
                 RealtimeAutomaticEndSchedule(
                     partyId = party.id,
                     endingStartedAt = party.automaticEndingStartedAt(),
+                )
+            }
+
+    fun findHostEndAvailableSchedules(now: LocalDateTime): List<RealtimeHostEndAvailableSchedule> =
+        partyRepository
+            .findRealtimePartiesWaitingAutomaticEnding(now.minusMinutes(RealtimeParty.LIVE_DURATION_MINUTES))
+            .filter { party -> party.status(now) == RealtimePartyStatus.LIVE_OPEN }
+            .map { party ->
+                RealtimeHostEndAvailableSchedule(
+                    partyId = party.id,
+                    startedAt = party.startedAt,
                 )
             }
 

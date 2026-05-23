@@ -2,6 +2,7 @@ package com.team2.server.party.infrastructure.sse
 
 import com.team2.server.party.application.dto.RealtimeAutomaticEndSchedule
 import com.team2.server.party.application.dto.RealtimeEndingScheduleTarget
+import com.team2.server.party.application.dto.RealtimeHostEndAvailableSchedule
 import com.team2.server.party.application.dto.RealtimePartyEndRecoveryResult
 import com.team2.server.party.application.event.RealtimePartyBurstGameEndedEvent
 import com.team2.server.party.application.event.RealtimePartyCreatedEvent
@@ -97,6 +98,23 @@ class PartyEndSchedulerTest {
     }
 
     @Test
+    fun `종료 시작 후 host-end-available 예약 요청은 무시한다`() {
+        scheduler.onRealtimePartyEndingStarted(
+            RealtimePartyEndingStartedEvent(
+                partyId = 1L,
+                endingStartedAt = now,
+                endedAt = now.plusSeconds(60),
+            ),
+        )
+
+        scheduler.onHostEndAvailableScheduleRequested(
+            RealtimePartyHostEndAvailableScheduleRequestedEvent(1L, now.minusMinutes(1)),
+        )
+
+        assertEquals(1, scheduledTasks.size)
+    }
+
+    @Test
     fun `burst game ended event sends host-end-available immediately`() {
         scheduler.onHostEndAvailableScheduleRequested(
             RealtimePartyHostEndAvailableScheduleRequestedEvent(1L, now.minusMinutes(1)),
@@ -167,6 +185,7 @@ class PartyEndSchedulerTest {
         val endingStartedAt = now.plusMinutes(1)
         whenever(recoverRealtimePartyEndScheduleUseCase()).thenReturn(
             RealtimePartyEndRecoveryResult(
+                hostEndAvailableSchedules = listOf(RealtimeHostEndAvailableSchedule(3L, now.minusMinutes(1))),
                 automaticEndSchedules = listOf(RealtimeAutomaticEndSchedule(1L, endingStartedAt)),
                 endingTargets = listOf(RealtimeEndingScheduleTarget(2L, now.minusSeconds(10), now.plusSeconds(50))),
             ),
@@ -174,7 +193,7 @@ class PartyEndSchedulerTest {
 
         scheduler.recoverSchedules()
 
-        assertEquals(2, scheduledTasks.size)
+        assertEquals(3, scheduledTasks.size)
         verify(realtimePartyEventBroadcaster, never()).broadcastPartyEnding(eq(2L), any(), any())
     }
 
@@ -183,6 +202,7 @@ class PartyEndSchedulerTest {
         val target = RealtimeEndingScheduleTarget(1L, now.minusSeconds(70), now.minusSeconds(10))
         whenever(recoverRealtimePartyEndScheduleUseCase()).thenReturn(
             RealtimePartyEndRecoveryResult(
+                hostEndAvailableSchedules = emptyList(),
                 automaticEndSchedules = emptyList(),
                 endingTargets = listOf(target),
             ),

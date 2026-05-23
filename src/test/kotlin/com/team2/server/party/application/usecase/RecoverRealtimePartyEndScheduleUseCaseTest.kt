@@ -2,6 +2,7 @@ package com.team2.server.party.application.usecase
 
 import com.team2.server.party.application.dto.RealtimeAutomaticEndSchedule
 import com.team2.server.party.application.dto.RealtimeEndingScheduleTarget
+import com.team2.server.party.application.dto.RealtimeHostEndAvailableSchedule
 import com.team2.server.party.application.service.RealtimePartyEndService
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.mock
@@ -23,12 +24,16 @@ class RecoverRealtimePartyEndScheduleUseCaseTest {
     fun `starts due automatic endings and maps recovery schedules`() {
         whenever(realtimePartyEndService.findAutomaticEndSchedules(now))
             .thenReturn(listOf(RealtimeAutomaticEndSchedule(1L, now.plusMinutes(1))))
+        whenever(realtimePartyEndService.findHostEndAvailableSchedules(now))
+            .thenReturn(listOf(RealtimeHostEndAvailableSchedule(3L, now.minusMinutes(1))))
         whenever(realtimePartyEndService.findEndingTargets(now))
             .thenReturn(listOf(RealtimeEndingScheduleTarget(2L, now.minusMinutes(1), now, startedNow = true)))
 
         val result = useCase()
 
         verify(realtimePartyEndService).startDueAutomaticEndings(now)
+        assertEquals(3L, result.hostEndAvailableSchedules.single().partyId)
+        assertEquals(now.minusMinutes(1), result.hostEndAvailableSchedules.single().startedAt)
         assertEquals(1L, result.automaticEndSchedules.single().partyId)
         assertEquals(now.plusMinutes(1), result.automaticEndSchedules.single().endingStartedAt)
         assertEquals(2L, result.endingTargets.single().partyId)

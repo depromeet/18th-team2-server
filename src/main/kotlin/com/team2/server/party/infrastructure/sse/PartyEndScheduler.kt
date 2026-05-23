@@ -60,6 +60,7 @@ class PartyEndScheduler(
 
     private fun recoverSchedulesOnce() {
         val result = recoverRealtimePartyEndScheduleUseCase()
+        result.hostEndAvailableSchedules.forEach { scheduleHostEndAvailable(it.partyId, it.startedAt) }
         result.automaticEndSchedules.forEach { scheduleAutomaticEnd(it.partyId, it.endingStartedAt) }
         result.endingTargets.forEach { scheduleEndingEvents(it, emitEnding = false) }
     }
@@ -115,7 +116,7 @@ class PartyEndScheduler(
     ) {
         val state = stateFor(partyId)
         synchronized(state) {
-            if (state.hostAvailableScheduled || state.hostAvailableNotified) return
+            if (!state.canScheduleHostEndAvailable()) return
             state.hostAvailableScheduled = true
         }
 
@@ -151,7 +152,9 @@ class PartyEndScheduler(
             {
                 val shouldSend =
                     synchronized(state) {
-                        if (!state.hostAvailableScheduled) {
+                        if (!state.canSendScheduledHostEndAvailable()) {
+                            state.hostAvailableTask = null
+                            state.hostAvailableScheduled = false
                             false
                         } else {
                             state.hostAvailableTask = null
@@ -170,7 +173,7 @@ class PartyEndScheduler(
         task: ScheduledFuture<*>,
     ) {
         synchronized(state) {
-            if (state.hostAvailableScheduled) {
+            if (state.canStoreHostEndAvailableTask()) {
                 state.hostAvailableTask = task
             } else {
                 task.cancel(false)
@@ -285,6 +288,20 @@ class PartyEndScheduler(
 
     private fun stateFor(partyId: Long): PartyEndScheduleState =
         partyStates.computeIfAbsent(partyId) { PartyEndScheduleState() }
+
+    private fun PartyEndScheduleState.canScheduleHostEndAvailable(): Boolean =
+        !isHostEndAvailableHandled() && !isPartyEndingHandled()
+
+    private fun PartyEndScheduleState.canSendScheduledHostEndAvailable(): Boolean =
+        hostAvailableScheduled && !isPartyEndingHandled()
+
+    private fun PartyEndScheduleState.canStoreHostEndAvailableTask(): Boolean =
+        hostAvailableScheduled && !isPartyEndingHandled()
+
+    private fun PartyEndScheduleState.isHostEndAvailableHandled(): Boolean =
+        hostAvailableScheduled || hostAvailableNotified
+
+    private fun PartyEndScheduleState.isPartyEndingHandled(): Boolean = endingNotified || endedNotified
 
     private fun LocalDateTime.toInstant(): Instant = atZone(clock.zone).toInstant()
 
