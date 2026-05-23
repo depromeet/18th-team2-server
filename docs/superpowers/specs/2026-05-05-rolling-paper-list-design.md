@@ -120,19 +120,19 @@ GET /api/v1/party-invites/{inviteToken}/rolling-papers?page=1
 {
   "partyOption": "REALTIME",
   "liveEndAt": "2026-05-05T22:10:00",
-  "pageInfo": {
-    "page": 1,
-    "totalCount": 12,
-    "totalPages": 2,
-    "hasNext": true
-  },
   "items": [
     {
       "rollingPaperId": 10,
       "writerNickname": "축하요정",
       "toppingImageUrl": "/images/rolling-paper-wrappers/Topping_Candle.svg"
     }
-  ]
+  ],
+  "pageInfo": {
+    "page": 1,
+    "totalCount": 12,
+    "totalPages": 2,
+    "hasNext": true
+  }
 }
 ```
 
@@ -142,19 +142,19 @@ GET /api/v1/party-invites/{inviteToken}/rolling-papers?page=1
 {
   "partyOption": "PAPER_ONLY",
   "liveEndAt": null,
-  "pageInfo": {
-    "page": 1,
-    "totalCount": 12,
-    "totalPages": 2,
-    "hasNext": true
-  },
   "items": [
     {
       "rollingPaperId": 10,
       "writerNickname": "축하요정",
       "toppingImageUrl": "/images/rolling-paper-wrappers/Topping_Candle.svg"
     }
-  ]
+  ],
+  "pageInfo": {
+    "page": 1,
+    "totalCount": 12,
+    "totalPages": 2,
+    "hasNext": true
+  }
 }
 ```
 
@@ -164,15 +164,15 @@ GET /api/v1/party-invites/{inviteToken}/rolling-papers?page=1
 |---|---|
 | `partyOption` | `REALTIME`, `PAPER_ONLY`. `liveEndAt = null`의 의미를 명확히 하기 위해 유지한다. |
 | `liveEndAt` | 실시간 파티 종료 시각. `PAPER_ONLY`이면 `null`. |
+| `items` | 롤링페이퍼 카드 목록. |
+| `items[].rollingPaperId` | 롤링페이퍼 식별자. |
+| `items[].writerNickname` | 롤링페이퍼 작성 당시 닉네임 스냅샷. |
+| `items[].toppingImageUrl` | 카드 렌더링용 토핑 이미지 URL. 기본 토핑 seed에서 보장한다. |
 | `pageInfo` | 페이지네이션 정보. 파티 메타와 목록 페이지 메타를 분리한다. |
 | `pageInfo.page` | 요청한 페이지 번호. 1부터 시작한다. |
 | `pageInfo.totalCount` | 전체 롤링페이퍼 수. |
 | `pageInfo.totalPages` | 페이지 번호 UI 계산용 전체 페이지 수. |
 | `pageInfo.hasNext` | 다음 페이지 존재 여부. |
-| `items` | 롤링페이퍼 카드 목록. |
-| `items[].rollingPaperId` | 롤링페이퍼 식별자. |
-| `items[].writerNickname` | 롤링페이퍼 작성 당시 닉네임 스냅샷. |
-| `items[].toppingImageUrl` | 카드 렌더링용 토핑 이미지 URL. 기본 토핑 seed에서 보장한다. |
 
 응답에서 제외하는 필드:
 
@@ -217,12 +217,6 @@ GET /api/v1/parties/{partyId}/rolling-papers?page=1
 {
   "celebrantNickname": "홍길동",
   "partyEndAt": "2026-05-12T14:30:00",
-  "pageInfo": {
-    "page": 1,
-    "totalCount": 8,
-    "totalPages": 2,
-    "hasNext": true
-  },
   "items": [
     {
       "rollingPaperId": 10,
@@ -231,7 +225,13 @@ GET /api/v1/parties/{partyId}/rolling-papers?page=1
       "content": "생일 축하해요!",
       "toppingImageUrl": "/images/rolling-paper-wrappers/Topping_Candle.svg"
     }
-  ]
+  ],
+  "pageInfo": {
+    "page": 1,
+    "totalCount": 8,
+    "totalPages": 2,
+    "hasNext": true
+  }
 }
 ```
 
@@ -241,17 +241,17 @@ GET /api/v1/parties/{partyId}/rolling-papers?page=1
 |---|---|
 | `celebrantNickname` | 파티 주인공 이름. 현재 `Party.celebrantNickname` 기준. |
 | `partyEndAt` | 파티 자체 종료 시각. `Party.endedAt()` 기준. |
-| `pageInfo` | 페이지네이션 정보. 파티 메타와 목록 페이지 메타를 분리한다. |
-| `pageInfo.page` | 요청한 페이지 번호. 1부터 시작한다. |
-| `pageInfo.totalCount` | 주최자 화면에서 표시할 전체 롤링페이퍼 개수. |
-| `pageInfo.totalPages` | 페이지 번호 UI 계산용 전체 페이지 수. |
-| `pageInfo.hasNext` | 다음 페이지 존재 여부. |
 | `items` | 롤링페이퍼 카드 목록. |
 | `items[].rollingPaperId` | 롤링페이퍼 식별자. |
 | `items[].position` | 최신순 기준 현재 롤링페이퍼 순번. 1부터 시작한다. |
 | `items[].writerNickname` | 롤링페이퍼 작성 당시 닉네임 스냅샷. |
 | `items[].content` | 롤링페이퍼 상세 오버레이에 표시할 본문. 작성 API 기준 최대 100자. |
 | `items[].toppingImageUrl` | 카드 렌더링용 토핑 이미지 URL. 기본 토핑 seed에서 보장한다. |
+| `pageInfo` | 페이지네이션 정보. 파티 메타와 목록 페이지 메타를 분리한다. |
+| `pageInfo.page` | 요청한 페이지 번호. 1부터 시작한다. |
+| `pageInfo.totalCount` | 주최자 화면에서 표시할 전체 롤링페이퍼 개수. |
+| `pageInfo.totalPages` | 페이지 번호 UI 계산용 전체 페이지 수. |
+| `pageInfo.hasNext` | 다음 페이지 존재 여부. |
 
 응답에서 제외하는 필드:
 

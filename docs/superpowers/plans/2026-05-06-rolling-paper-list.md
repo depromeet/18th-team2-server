@@ -37,19 +37,19 @@ Response data:
 {
   "partyOption": "REALTIME",
   "liveEndAt": "2026-05-05T22:10:00",
-  "pageInfo": {
-    "page": 1,
-    "totalCount": 12,
-    "totalPages": 2,
-    "hasNext": true
-  },
   "items": [
     {
       "rollingPaperId": 10,
       "writerNickname": "축하요정",
       "toppingImageUrl": "/images/rolling-paper-wrappers/Topping_Candle.svg"
     }
-  ]
+  ],
+  "pageInfo": {
+    "page": 1,
+    "totalCount": 12,
+    "totalPages": 2,
+    "hasNext": true
+  }
 }
 ```
 
@@ -68,12 +68,6 @@ Response data:
 {
   "celebrantNickname": "홍길동",
   "partyEndAt": "2026-05-12T14:30:00",
-  "pageInfo": {
-    "page": 1,
-    "totalCount": 8,
-    "totalPages": 2,
-    "hasNext": true
-  },
   "items": [
     {
       "rollingPaperId": 10,
@@ -82,7 +76,13 @@ Response data:
       "content": "생일 축하해요!",
       "toppingImageUrl": "/images/rolling-paper-wrappers/Topping_Candle.svg"
     }
-  ]
+  ],
+  "pageInfo": {
+    "page": 1,
+    "totalCount": 8,
+    "totalPages": 2,
+    "hasNext": true
+  }
 }
 ```
 

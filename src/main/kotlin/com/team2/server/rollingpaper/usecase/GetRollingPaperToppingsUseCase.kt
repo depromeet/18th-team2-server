@@ -29,8 +29,16 @@ class GetRollingPaperToppingsUseCase(
             RollingPaperToppingResult(
                 toppingId = topping.id,
                 name = topping.name,
-                toppingImageUrl = imageUrlByTargetId.getValue(topping.id),
+                toppingImageUrl = requireToppingImageUrl(imageUrlByTargetId, topping.id),
             )
         }
     }
+
+    private fun requireToppingImageUrl(
+        imageUrlByToppingId: Map<Long, String>,
+        toppingId: Long,
+    ): String =
+        requireNotNull(imageUrlByToppingId[toppingId]) {
+            "Rolling paper topping image is missing: toppingId=$toppingId"
+        }
 }

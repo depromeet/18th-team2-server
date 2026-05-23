@@ -16,10 +16,10 @@ data class ParticipantRollingPaperListResponse(
     val partyOption: PartyOption,
     @Schema(description = "실시간 파티 종료 시각. PAPER_ONLY면 null", nullable = true, example = "2026-05-05T22:10:00")
     val liveEndAt: LocalDateTime?,
-    @Schema(description = "페이지네이션 정보")
-    val pageInfo: RollingPaperPageInfoResponse,
     @Schema(description = "롤링페이퍼 목록")
     val items: List<ParticipantRollingPaperListItemResponse>,
+    @Schema(description = "페이지네이션 정보")
+    val pageInfo: RollingPaperPageInfoResponse,
 )
 
 @JsonInclude(JsonInclude.Include.ALWAYS)
@@ -29,10 +29,10 @@ data class OwnerRollingPaperListResponse(
     val celebrantNickname: String?,
     @Schema(description = "파티 자체 종료 시각", example = "2026-05-12T14:30:00")
     val partyEndAt: LocalDateTime,
-    @Schema(description = "페이지네이션 정보")
-    val pageInfo: RollingPaperPageInfoResponse,
     @Schema(description = "롤링페이퍼 목록")
     val items: List<OwnerRollingPaperListItemResponse>,
+    @Schema(description = "페이지네이션 정보")
+    val pageInfo: RollingPaperPageInfoResponse,
 )
 
 @JsonInclude(JsonInclude.Include.ALWAYS)

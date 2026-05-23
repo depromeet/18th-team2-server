@@ -46,7 +46,6 @@ class GetRollingPaperListUseCase(
                 } else {
                     null
                 },
-            pageInfo = pageResult.toPageInfoResponse(),
             items =
                 pageResult.items.map { item ->
                     ParticipantRollingPaperListItemResponse(
@@ -55,6 +54,7 @@ class GetRollingPaperListUseCase(
                         toppingImageUrl = item.toppingImageUrl,
                     )
                 },
+            pageInfo = pageResult.toPageInfoResponse(),
         )
     }
 
@@ -78,7 +78,6 @@ class GetRollingPaperListUseCase(
         return OwnerRollingPaperListResponse(
             celebrantNickname = party.celebrantNickname,
             partyEndAt = party.endedAt(),
-            pageInfo = pageResult.toPageInfoResponse(),
             items =
                 pageResult.items.map { item ->
                     OwnerRollingPaperListItemResponse(
@@ -89,6 +88,7 @@ class GetRollingPaperListUseCase(
                         toppingImageUrl = item.toppingImageUrl,
                     )
                 },
+            pageInfo = pageResult.toPageInfoResponse(),
         )
     }
 
@@ -132,7 +132,7 @@ class GetRollingPaperListUseCase(
                         position = calculatePosition(page, index),
                         writerNickname = rollingPaper.writerNickname,
                         content = rollingPaper.content,
-                        toppingImageUrl = imageUrlByToppingId.getValue(rollingPaper.topping.id),
+                        toppingImageUrl = requireToppingImageUrl(imageUrlByToppingId, rollingPaper.topping.id),
                     )
                 },
         )
@@ -148,6 +148,14 @@ class GetRollingPaperListUseCase(
             ImageTargetType.ROLLING_PAPER_WRAPPER,
             rollingPapers.map { it.topping.id },
         )
+
+    private fun requireToppingImageUrl(
+        imageUrlByToppingId: Map<Long, String>,
+        toppingId: Long,
+    ): String =
+        requireNotNull(imageUrlByToppingId[toppingId]) {
+            "Rolling paper topping image is missing: toppingId=$toppingId"
+        }
 
     private data class RollingPaperPageResult(
         val page: Int,
