@@ -428,7 +428,7 @@ POST /api/v1/party-invites/{inviteToken}/participants/me
 
 - 로그인 회원 전용이다.
 - 요청 body는 없다.
-- 응답은 `ApiResponse` 토핑 안에 `participantId`만 내려준다.
+- 응답은 `ApiResponse` 래퍼 안에 `participantId`만 내려준다.
 - 이미 참여한 회원이 다시 호출하면 기존 participant를 반환하고 새 participant를 만들지 않는다.
 - 기존 participant를 반환하는 경우 `hasWrittenPaper`, `isCelebrant` 같은 상태 필드는 갱신하지 않는다.
 - 별도 `permitAll`을 추가하지 않고 `anyRequest().authenticated()`로 보호한다.

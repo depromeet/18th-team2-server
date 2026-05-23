@@ -43,21 +43,22 @@ class FlywayMigrationTest {
 
     private fun java.sql.Connection.countRollingPaperToppingsMissingImage(): Int =
         createStatement().use { statement ->
-            statement.executeQuery(
-                """
-                select count(*)
-                from rolling_paper_wrapper rpw
-                where not exists (
-                    select 1
-                    from image i
-                    where i.target_type = 'ROLLING_PAPER_WRAPPER'
-                      and i.target_id = rpw.id
-                )
-                """.trimIndent(),
-            ).use { resultSet ->
-                resultSet.next()
-                resultSet.getInt(1)
-            }
+            statement
+                .executeQuery(
+                    """
+                    select count(*)
+                    from rolling_paper_wrapper rpw
+                    where not exists (
+                        select 1
+                        from image i
+                        where i.target_type = 'ROLLING_PAPER_WRAPPER'
+                          and i.target_id = rpw.id
+                    )
+                    """.trimIndent(),
+                ).use { resultSet ->
+                    resultSet.next()
+                    resultSet.getInt(1)
+                }
         }
 
     private companion object {
