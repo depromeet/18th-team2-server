@@ -4,7 +4,6 @@ import com.team2.server.burstgame.application.event.BurstGameEndedEvent
 import com.team2.server.burstgame.domain.BurstGameRankingEntry
 import com.team2.server.burstgame.domain.BurstGameRoundStatus
 import com.team2.server.burstgame.domain.BurstGameSnapshot
-import com.team2.server.burstgame.domain.BurstGameWinner
 import com.team2.server.chat.application.port.PartySseEventPublisher
 import org.mockito.Mockito.timeout
 import org.mockito.kotlin.any
@@ -47,7 +46,14 @@ class SseBurstGameEventBroadcasterTest {
         broadcaster.broadcastProgress(latest)
 
         val eventCaptor = argumentCaptor<Set<ResponseBodyEmitter.DataWithMediaType>>()
-        verify(partySseEventPublisher, timeout(1_000).times(1)).broadcastAfterCommit(eq(1L), eventCaptor.capture(), isNull())
+        verify(
+            partySseEventPublisher,
+            timeout(1_000).times(1),
+        ).broadcastAfterCommit(
+            eq(1L),
+            eventCaptor.capture(),
+            isNull(),
+        )
 
         val payload =
             eventCaptor.firstValue
@@ -134,17 +140,6 @@ class SseBurstGameEventBroadcasterTest {
                 listOf(
                     BurstGameRankingEntry(
                         rank = 1,
-                        participantId = 10L,
-                        nickname = "player",
-                        characterId = null,
-                        characterImageUrl = null,
-                        role = "PARTICIPANT",
-                        tapCount = totalTapCount,
-                    ),
-                ),
-            winners =
-                listOf(
-                    BurstGameWinner(
                         participantId = 10L,
                         nickname = "player",
                         characterId = null,

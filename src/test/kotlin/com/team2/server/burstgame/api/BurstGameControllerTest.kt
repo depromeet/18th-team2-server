@@ -54,7 +54,7 @@ class BurstGameControllerTest
                     jsonPath("$.status") { value(200) }
                     jsonPath("$.data.partyId") { value(fixture.partyId) }
                     jsonPath("$.data.myParticipantId") { value(fixture.participantId) }
-                    jsonPath("$.data.totalTapCount") { value(0) }
+                    jsonPath("$.data.totalTapCount") { doesNotExist() }
                     jsonPath("$.data.colorChanged") { value(false) }
                 }
         }
@@ -73,7 +73,7 @@ class BurstGameControllerTest
                     status { isOk() }
                     jsonPath("$.data.partyId") { value(fixture.partyId) }
                     jsonPath("$.data.ended") { value(false) }
-                    jsonPath("$.data.totalTapCount") { value(0) }
+                    jsonPath("$.data.totalTapCount") { doesNotExist() }
                 }
         }
 
@@ -91,7 +91,7 @@ class BurstGameControllerTest
                     status { isOk() }
                     jsonPath("$.data.accepted") { value(true) }
                     jsonPath("$.data.ignoredReason") { doesNotExist() }
-                    jsonPath("$.data.totalTapCount") { value(7) }
+                    jsonPath("$.data.totalTapCount") { doesNotExist() }
                     jsonPath("$.data.myTapCount") { value(7) }
                     jsonPath("$.data.rankings[0].rank") { value(1) }
                     jsonPath("$.data.rankings[0].participantId") { value(fixture.participantId) }
@@ -113,12 +113,13 @@ class BurstGameControllerTest
                     status { isOk() }
                     jsonPath("$.data.accepted") { value(false) }
                     jsonPath("$.data.ignoredReason") { value("DUPLICATE_SEQUENCE") }
-                    jsonPath("$.data.totalTapCount") { value(7) }
+                    jsonPath("$.data.totalTapCount") { doesNotExist() }
+                    jsonPath("$.data.myTapCount") { value(7) }
                 }
         }
 
         @Test
-        fun `종료 상태 조회는 rankings 없이 winners만 반환한다`() {
+        fun `종료 상태 조회는 전체 rankings와 totalTapCount를 반환한다`() {
             val fixture = saveRealtimeParticipant()
             startGame(fixture)
             submitTap(fixture, clientSequence = 1)
@@ -131,15 +132,16 @@ class BurstGameControllerTest
                 }.andExpect {
                     status { isOk() }
                     jsonPath("$.data.ended") { value(true) }
-                    jsonPath("$.data.rankings") { isEmpty() }
-                    jsonPath("$.data.winners.length()") { value(1) }
-                    jsonPath("$.data.winners[0].participantId") { value(fixture.participantId) }
-                    jsonPath("$.data.winners[0].tapCount") { value(7) }
+                    jsonPath("$.data.totalTapCount") { value(7) }
+                    jsonPath("$.data.rankings.length()") { value(1) }
+                    jsonPath("$.data.rankings[0].participantId") { value(fixture.participantId) }
+                    jsonPath("$.data.rankings[0].tapCount") { value(7) }
+                    jsonPath("$.data.winners") { doesNotExist() }
                 }
         }
 
         @Test
-        fun `여러 참여자가 탭한 뒤 종료 결과는 1등 winners만 반환한다`() {
+        fun `여러 참여자가 탭한 뒤 종료 결과는 전체 rankings를 반환한다`() {
             val fixtures = saveRealtimeParticipants()
             val firstParticipant = fixtures[0]
             val secondParticipant = fixtures[1]
@@ -156,10 +158,12 @@ class BurstGameControllerTest
                     status { isOk() }
                     jsonPath("$.data.ended") { value(true) }
                     jsonPath("$.data.totalTapCount") { value(21) }
-                    jsonPath("$.data.rankings") { isEmpty() }
-                    jsonPath("$.data.winners.length()") { value(1) }
-                    jsonPath("$.data.winners[0].participantId") { value(secondParticipant.participantId) }
-                    jsonPath("$.data.winners[0].tapCount") { value(14) }
+                    jsonPath("$.data.rankings.length()") { value(2) }
+                    jsonPath("$.data.rankings[0].participantId") { value(secondParticipant.participantId) }
+                    jsonPath("$.data.rankings[0].tapCount") { value(14) }
+                    jsonPath("$.data.rankings[1].participantId") { value(firstParticipant.participantId) }
+                    jsonPath("$.data.rankings[1].tapCount") { value(7) }
+                    jsonPath("$.data.winners") { doesNotExist() }
                 }
         }
 
