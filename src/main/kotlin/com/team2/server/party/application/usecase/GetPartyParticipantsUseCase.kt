@@ -22,7 +22,7 @@ class GetPartyParticipantsUseCase(
         userId: Long?,
         participantToken: String?,
     ): PartyParticipantsResult {
-        val callerParticipantId = participantService.requireCallerParticipantId(partyId, userId, participantToken)
+        val callerParticipantId = participantService.requireCallerParticipant(partyId, userId, participantToken).id
         val party = partyService.requireRealtimeParty(partyId)
 
         val profiles = participantService.findOrderedProfiles(partyId)

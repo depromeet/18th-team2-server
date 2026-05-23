@@ -220,4 +220,32 @@ class PartyInviteServiceTest {
             }
         assertEquals(ErrorCode.CHAT_NOT_ACTIVE, e.errorCode)
     }
+
+    @Test
+    fun `findLatestUsableInviteToken 파티가 없으면 PARTY_NOT_FOUND`() {
+        whenever(partyRepository.existsById(1L)).thenReturn(false)
+
+        val e =
+            assertThrows<BusinessException> {
+                service.findLatestUsableInviteToken(1L, LocalDateTime.now())
+            }
+
+        assertEquals(ErrorCode.PARTY_NOT_FOUND, e.errorCode)
+        verify(partyInviteRepository, never())
+            .findFirstByPartyIdAndExpiresAtAfterOrderByCreatedAtDescIdDesc(any(), any())
+    }
+
+    @Test
+    fun `findLatestUsableInviteToken 유효한 초대링크가 없으면 PARTY_INVITE_NOT_FOUND`() {
+        whenever(partyRepository.existsById(1L)).thenReturn(true)
+        whenever(partyInviteRepository.findFirstByPartyIdAndExpiresAtAfterOrderByCreatedAtDescIdDesc(any(), any()))
+            .thenReturn(null)
+
+        val e =
+            assertThrows<BusinessException> {
+                service.findLatestUsableInviteToken(1L, LocalDateTime.now())
+            }
+
+        assertEquals(ErrorCode.PARTY_INVITE_NOT_FOUND, e.errorCode)
+    }
 }

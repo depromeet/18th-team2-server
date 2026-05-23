@@ -5,6 +5,7 @@ import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.domain.entity.Character
 import com.team2.server.party.domain.entity.PaperOnlyParty
 import com.team2.server.party.domain.entity.Participant
+import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProfileRepository
@@ -121,6 +122,88 @@ class RealtimeParticipantProfileServiceTest {
         assertEquals(ErrorCode.PARTY_HOST_NICKNAME_NOT_EDITABLE, e.errorCode)
         assertEquals("host", existing.nickname)
         assertSame(character, existing.character)
+    }
+
+    @Test
+    fun `requireByParticipantToken returns matching profile`() {
+        val participant = newParticipant(isCelebrant = false)
+        val profile =
+            RealtimeParticipantProfile(
+                participant = participant,
+                nickname = "guest",
+                participantToken = "tok",
+            )
+        whenever(profileRepository.findByParticipantToken("tok")).thenReturn(profile)
+
+        val result = service.requireByParticipantToken("tok", party.id)
+
+        assertSame(profile, result)
+    }
+
+    @Test
+    fun `requireByParticipantToken throws UNAUTHORIZED when token is missing`() {
+        whenever(profileRepository.findByParticipantToken("tok")).thenReturn(null)
+
+        val ex = assertThrows<BusinessException> { service.requireByParticipantToken("tok", party.id) }
+
+        assertEquals(ErrorCode.UNAUTHORIZED, ex.errorCode)
+    }
+
+    @Test
+    fun `requireByParticipantToken throws PARTY_FORBIDDEN when token belongs to another party`() {
+        val otherParty: Party = org.mockito.kotlin.mock()
+        whenever(otherParty.id).thenReturn(999L)
+        val profile =
+            RealtimeParticipantProfile(
+                participant = Participant(party = otherParty),
+                nickname = "guest",
+                participantToken = "tok",
+            )
+        whenever(profileRepository.findByParticipantToken("tok")).thenReturn(profile)
+
+        val ex = assertThrows<BusinessException> { service.requireByParticipantToken("tok", party.id) }
+
+        assertEquals(ErrorCode.PARTY_FORBIDDEN, ex.errorCode)
+    }
+
+    @Test
+    fun `resolveProfile by user returns profile`() {
+        val participant = newParticipant(isCelebrant = false)
+        val profile = RealtimeParticipantProfile(participant = participant, nickname = "guest")
+        whenever(participantRepository.findByPartyIdAndUserId(party.id, 10L)).thenReturn(participant)
+        whenever(profileRepository.findByParticipant(participant)).thenReturn(profile)
+
+        val result = service.resolveProfile(party.id, userId = 10L, participantToken = null)
+
+        assertSame(profile, result)
+    }
+
+    @Test
+    fun `resolveProfile by user throws CHARACTER_REQUIRED when profile is missing`() {
+        val participant = newParticipant(isCelebrant = false)
+        whenever(participantRepository.findByPartyIdAndUserId(party.id, 10L)).thenReturn(participant)
+        whenever(profileRepository.findByParticipant(participant)).thenReturn(null)
+
+        val ex = assertThrows<BusinessException> { service.resolveProfile(party.id, 10L, null) }
+
+        assertEquals(ErrorCode.CHARACTER_REQUIRED, ex.errorCode)
+    }
+
+    @Test
+    fun `resolveProfile by token returns profile`() {
+        val profile = RealtimeParticipantProfile(participant = newParticipant(isCelebrant = false), nickname = "guest")
+        whenever(profileRepository.findByParticipantToken("tok")).thenReturn(profile)
+
+        val result = service.resolveProfile(party.id, userId = null, participantToken = "tok")
+
+        assertSame(profile, result)
+    }
+
+    @Test
+    fun `resolveProfile throws UNAUTHORIZED without credentials`() {
+        val ex = assertThrows<BusinessException> { service.resolveProfile(party.id, null, null) }
+
+        assertEquals(ErrorCode.UNAUTHORIZED, ex.errorCode)
     }
 
     @Test

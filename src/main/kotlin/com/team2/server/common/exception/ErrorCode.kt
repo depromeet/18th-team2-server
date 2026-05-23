@@ -11,6 +11,7 @@ enum class ErrorCode(
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "리소스를 찾을 수 없습니다"),
     PARTY_NOT_FOUND(HttpStatus.NOT_FOUND, "파티를 찾을 수 없습니다"),
     PARTY_FORBIDDEN(HttpStatus.FORBIDDEN, "파티에 대한 권한이 없습니다"),
+    PARTY_INVITE_NOT_FOUND(HttpStatus.NOT_FOUND, "초대링크를 찾을 수 없습니다"),
     INVITE_LINK_EXPIRED(HttpStatus.BAD_REQUEST, "만료된 초대링크입니다"),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다"),
 
@@ -21,7 +22,6 @@ enum class ErrorCode(
     AUTH_USER_NOT_FOUND(HttpStatus.UNAUTHORIZED, "사용자를 찾을 수 없습니다"),
 
     PARTY_ENDED(HttpStatus.BAD_REQUEST, "이미 종료된 파티입니다"),
-    PARTY_NOT_REALTIME(HttpStatus.BAD_REQUEST, "실시간 파티가 아닙니다"),
     PARTY_ALREADY_STARTED(HttpStatus.CONFLICT, "이미 시작된 파티는 삭제할 수 없습니다"),
     ALREADY_JOINED(HttpStatus.CONFLICT, "이미 참여한 파티입니다"),
     CHARACTER_NOT_FOUND(HttpStatus.NOT_FOUND, "캐릭터를 찾을 수 없습니다"),
@@ -33,9 +33,12 @@ enum class ErrorCode(
     ROLLING_PAPER_NOT_VIEWABLE(HttpStatus.FORBIDDEN, "아직 롤링페이퍼를 확인할 수 없습니다"),
     ROLLING_PAPER_NOT_FOUND(HttpStatus.NOT_FOUND, "롤링페이퍼를 찾을 수 없습니다"),
     PARTY_HOST_NICKNAME_NOT_EDITABLE(HttpStatus.BAD_REQUEST, "주최자 닉네임은 변경할 수 없습니다"),
+    PARTY_NOT_REALTIME(HttpStatus.BAD_REQUEST, "실시간 파티가 아닙니다"),
     PARTY_NICKNAME_DUPLICATED(HttpStatus.CONFLICT, "이미 사용 중인 닉네임입니다"),
     CHAT_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, "채팅을 지원하지 않는 파티입니다"),
     CHAT_NOT_ACTIVE(HttpStatus.BAD_REQUEST, "현재 채팅이 활성화된 시간이 아닙니다"),
+    REALTIME_PARTY_END_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "아직 실시간 파티를 종료할 수 없습니다"),
+    REALTIME_PARTY_ALREADY_ENDED(HttpStatus.CONFLICT, "이미 종료된 실시간 파티입니다"),
     BURST_GAME_NOT_FOUND(HttpStatus.NOT_FOUND, "박터뜨리기 라운드를 찾을 수 없습니다"),
     BURST_GAME_ALREADY_ENDED(HttpStatus.CONFLICT, "이미 종료된 박터뜨리기 라운드입니다"),
     BURST_GAME_NOT_READY(HttpStatus.BAD_REQUEST, "박터뜨리기를 시작할 수 있는 상태가 아닙니다"),

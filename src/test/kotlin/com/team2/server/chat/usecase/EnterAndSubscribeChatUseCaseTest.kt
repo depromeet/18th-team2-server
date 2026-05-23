@@ -3,12 +3,14 @@ package com.team2.server.chat.usecase
 import com.team2.server.chat.dto.EnterRealtimePartyRequest
 import com.team2.server.chat.entity.ChatMessage
 import com.team2.server.chat.infrastructure.sse.ChatSseGateway
-import com.team2.server.chat.infrastructure.sse.PartyEndScheduler
 import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.common.image.persistence.ImageUrlReader
+import com.team2.server.party.application.dto.RealtimePartyStateResult
+import com.team2.server.party.application.event.RealtimePartyHostEndAvailableScheduleRequestedEvent
 import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
+import com.team2.server.party.domain.entity.RealtimePartyStatus
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks
@@ -18,6 +20,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.springframework.context.ApplicationEventPublisher
 import java.time.LocalDateTime
 import kotlin.test.assertNotNull
 
@@ -31,7 +34,7 @@ class EnterAndSubscribeChatUseCaseTest {
 
     @Mock lateinit var chatSseGateway: ChatSseGateway
 
-    @Mock lateinit var partyEndScheduler: PartyEndScheduler
+    @Mock lateinit var applicationEventPublisher: ApplicationEventPublisher
 
     @InjectMocks
     lateinit var useCase: EnterAndSubscribeChatUseCase
@@ -48,6 +51,14 @@ class EnterAndSubscribeChatUseCaseTest {
         isCelebrant = isCelebrant,
         nickname = "토끼왕",
         characterId = 1L,
+        partyState =
+            RealtimePartyStateResult(
+                partyId = partyId,
+                status = RealtimePartyStatus.LIVE_OPEN,
+                liveStartAt = LocalDateTime.now().minusMinutes(5),
+                endingStartedAt = null,
+                endedAt = LocalDateTime.now().plusMinutes(5).plusSeconds(60),
+            ),
     )
 
     @Test
@@ -57,8 +68,8 @@ class EnterAndSubscribeChatUseCaseTest {
         val profile = RealtimeParticipantProfile(participant = participant, nickname = "토끼왕")
         val msg = ChatMessage(content = "이전 메시지", party = party, profile = profile)
 
-        whenever(enterRealtimePartyUseCase.enter("tok", null, request))
-            .thenReturn(enterResult())
+        val enterResult = enterResult()
+        whenever(enterRealtimePartyUseCase.enter("tok", null, request)).thenReturn(enterResult)
         whenever(chatMessageRepository.findAllByPartyIdWithProfileOrderByCreatedAtAsc(1L))
             .thenReturn(listOf(msg))
         whenever(imageUrlReader.findFirstImageUrlByTargetIds(any(), any())).thenReturn(emptyMap())
@@ -66,15 +77,17 @@ class EnterAndSubscribeChatUseCaseTest {
         val emitter = useCase.enterAndSubscribe("tok", null, request)
 
         assertNotNull(emitter)
-        verify(chatSseGateway).subscribe(eq(1L), any(), eq("abc12345"))
+        verify(chatSseGateway).subscribe(eq(1L), any(), eq("abc12345"), eq(false))
         verify(chatSseGateway).broadcastAfterCommit(eq(1L), any(), eq("abc12345"))
-        verify(partyEndScheduler).scheduleIfNeeded(eq(1L), any())
+        verify(applicationEventPublisher).publishEvent(
+            RealtimePartyHostEndAvailableScheduleRequestedEvent(enterResult.partyId, enterResult.startedAt),
+        )
     }
 
     @Test
     fun `히스토리 없어도 entered 이벤트 전송`() {
-        whenever(enterRealtimePartyUseCase.enter("tok", null, request))
-            .thenReturn(enterResult())
+        val enterResult = enterResult()
+        whenever(enterRealtimePartyUseCase.enter("tok", null, request)).thenReturn(enterResult)
         whenever(chatMessageRepository.findAllByPartyIdWithProfileOrderByCreatedAtAsc(1L))
             .thenReturn(emptyList())
         whenever(imageUrlReader.findFirstImageUrlByTargetIds(any(), any())).thenReturn(emptyMap())
@@ -82,15 +95,17 @@ class EnterAndSubscribeChatUseCaseTest {
         val emitter = useCase.enterAndSubscribe("tok", null, request)
 
         assertNotNull(emitter)
-        verify(chatSseGateway).subscribe(eq(1L), any(), eq("abc12345"))
+        verify(chatSseGateway).subscribe(eq(1L), any(), eq("abc12345"), eq(false))
         verify(chatSseGateway).broadcastAfterCommit(eq(1L), any(), eq("abc12345"))
-        verify(partyEndScheduler).scheduleIfNeeded(eq(1L), any())
+        verify(applicationEventPublisher).publishEvent(
+            RealtimePartyHostEndAvailableScheduleRequestedEvent(enterResult.partyId, enterResult.startedAt),
+        )
     }
 
     @Test
     fun `입장 성공 - user-entered 이벤트 브로드캐스트`() {
-        whenever(enterRealtimePartyUseCase.enter("tok", null, request))
-            .thenReturn(enterResult(isCelebrant = true))
+        val enterResult = enterResult(isCelebrant = true)
+        whenever(enterRealtimePartyUseCase.enter("tok", null, request)).thenReturn(enterResult)
         whenever(chatMessageRepository.findAllByPartyIdWithProfileOrderByCreatedAtAsc(1L))
             .thenReturn(emptyList())
         whenever(imageUrlReader.findFirstImageUrlByTargetIds(any(), any()))
@@ -99,7 +114,9 @@ class EnterAndSubscribeChatUseCaseTest {
         useCase.enterAndSubscribe("tok", null, request)
 
         verify(chatSseGateway).broadcastAfterCommit(eq(1L), any(), eq("abc12345"))
-        verify(chatSseGateway).subscribe(eq(1L), any(), eq("abc12345"))
-        verify(partyEndScheduler).scheduleIfNeeded(eq(1L), any())
+        verify(chatSseGateway).subscribe(eq(1L), any(), eq("abc12345"), eq(true))
+        verify(applicationEventPublisher).publishEvent(
+            RealtimePartyHostEndAvailableScheduleRequestedEvent(enterResult.partyId, enterResult.startedAt),
+        )
     }
 }

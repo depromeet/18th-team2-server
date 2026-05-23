@@ -11,33 +11,38 @@ import java.util.concurrent.CopyOnWriteArrayList
 @Component
 class SseEmitterRegistry {
     private val emitters = ConcurrentHashMap<Long, CopyOnWriteArrayList<SseEmitter>>()
+    private val hostEmitters = ConcurrentHashMap<Long, CopyOnWriteArrayList<SseEmitter>>()
     private val tokenToEmitter = ConcurrentHashMap<String, SseEmitter>()
-
-    private fun isCompleted(emitter: SseEmitter): Boolean =
-        try {
-            emitter.send(emptySet<ResponseBodyEmitter.DataWithMediaType>())
-            false
-        } catch (_: IllegalStateException) {
-            true
-        } catch (_: java.io.IOException) {
-            true
-        }
+    private val emitterToToken = ConcurrentHashMap<SseEmitter, String>()
+    private val emitterToPartyId = ConcurrentHashMap<SseEmitter, Long>()
 
     fun subscribe(
         partyId: Long,
         emitter: SseEmitter,
         participantToken: String,
+        isHost: Boolean = false,
     ) {
         tokenToEmitter.put(participantToken, emitter)?.also { oldEmitter ->
             emitters[partyId]?.remove(oldEmitter)
+            hostEmitters[partyId]?.remove(oldEmitter)
+            emitterToToken.remove(oldEmitter)
+            emitterToPartyId.remove(oldEmitter)
             oldEmitter.complete()
         }
+        emitterToToken[emitter] = participantToken
+        emitterToPartyId[emitter] = partyId
         emitters.computeIfAbsent(partyId) { CopyOnWriteArrayList() }.add(emitter)
+        if (isHost) {
+            hostEmitters.computeIfAbsent(partyId) { CopyOnWriteArrayList() }.add(emitter)
+        }
 
         val remove =
             Runnable {
                 remove(partyId, emitter)
+                hostEmitters[partyId]?.remove(emitter)
                 tokenToEmitter.remove(participantToken, emitter)
+                emitterToToken.remove(emitter)
+                emitterToPartyId.remove(emitter)
             }
         emitter.onCompletion(remove)
         emitter.onTimeout(remove)
@@ -45,7 +50,11 @@ class SseEmitterRegistry {
     }
 
     fun unsubscribeByToken(participantToken: String) {
-        tokenToEmitter.remove(participantToken)?.complete()
+        tokenToEmitter.remove(participantToken)?.also { emitter ->
+            emitterToToken.remove(emitter)
+            removeEmitterFromParty(emitter)
+            emitter.complete()
+        }
     }
 
     fun broadcast(
@@ -65,6 +74,17 @@ class SseEmitterRegistry {
         removeTokenMappings(dead)
     }
 
+    fun broadcastHost(
+        partyId: Long,
+        event: Set<ResponseBodyEmitter.DataWithMediaType>,
+    ) {
+        val list = hostEmitters[partyId] ?: return
+        val dead = list.filter { emitter -> !trySend(emitter, event) }
+        list.removeAll(dead)
+        emitters[partyId]?.removeAll(dead)
+        removeTokenMappings(dead)
+    }
+
     private fun trySend(
         emitter: SseEmitter,
         event: Set<ResponseBodyEmitter.DataWithMediaType>,
@@ -80,19 +100,15 @@ class SseEmitterRegistry {
 
     private fun removeTokenMappings(dead: List<SseEmitter>) {
         dead.forEach { deadEmitter ->
-            tokenToEmitter
-                .filterValues { emitter -> emitter === deadEmitter }
-                .keys
-                .forEach { token -> tokenToEmitter.remove(token, deadEmitter) }
+            val token = emitterToToken.remove(deadEmitter)
+            if (token != null) {
+                tokenToEmitter.remove(token, deadEmitter)
+            }
+            emitterToPartyId.remove(deadEmitter)
         }
     }
 
-    fun count(partyId: Long): Int {
-        val list = emitters[partyId] ?: return 0
-        val dead = list.filter { isCompleted(it) }
-        list.removeAll(dead)
-        return list.size
-    }
+    fun count(partyId: Long): Int = emitters[partyId]?.size ?: 0
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     fun onBroadcast(event: SseBroadcastEvent) {
@@ -100,7 +116,10 @@ class SseEmitterRegistry {
     }
 
     fun completeAll(partyId: Long) {
-        emitters.remove(partyId)?.forEach { it.complete() }
+        val removed = emitters.remove(partyId).orEmpty()
+        hostEmitters.remove(partyId)
+        removeTokenMappings(removed)
+        removed.forEach { it.complete() }
     }
 
     private fun remove(
@@ -108,5 +127,11 @@ class SseEmitterRegistry {
         emitter: SseEmitter,
     ) {
         emitters[partyId]?.remove(emitter)
+    }
+
+    private fun removeEmitterFromParty(emitter: SseEmitter) {
+        val partyId = emitterToPartyId.remove(emitter) ?: return
+        emitters[partyId]?.remove(emitter)
+        hostEmitters[partyId]?.remove(emitter)
     }
 }

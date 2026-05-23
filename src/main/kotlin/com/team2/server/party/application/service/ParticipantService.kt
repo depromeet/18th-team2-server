@@ -6,16 +6,20 @@ import com.team2.server.common.exception.isConstraintViolation
 import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
+import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProfileRepository
 import com.team2.server.user.entity.User
+import com.team2.server.user.repository.UserRepository
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 
 @Service
 class ParticipantService(
     private val participantRepository: ParticipantRepository,
     private val realtimeParticipantProfileRepository: RealtimeParticipantProfileRepository,
+    private val userRepository: UserRepository,
 ) {
     fun joinMember(
         party: Party,
@@ -26,6 +30,14 @@ class ParticipantService(
 
     fun joinAnonymous(party: Party): Participant = participantRepository.save(Participant(party = party))
 
+    fun joinAnonymousOrMember(
+        party: Party,
+        user: User?,
+    ): Participant {
+        if (user == null) return joinAnonymous(party)
+        return joinMember(party, user)
+    }
+
     fun findOrCreate(
         party: Party,
         userId: Long,
@@ -34,35 +46,58 @@ class ParticipantService(
         participantRepository.findByPartyIdAndUserId(party.id, userId)
             ?: participantRepository.save(Participant(party = party, user = user))
 
-    fun requireCallerParticipantId(
+    fun requireCallerParticipant(
         partyId: Long,
         userId: Long?,
         participantToken: String?,
-    ): Long =
+    ): Participant =
         when {
+            participantToken != null -> {
+                resolveCallerByTokenOrNull(partyId, participantToken)
+                    ?: userId?.let { resolveCallerByUser(partyId, it) }
+                    ?: throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
+            }
             userId != null -> resolveCallerByUser(partyId, userId)
-            participantToken != null -> resolveCallerByToken(partyId, participantToken)
             else -> throw BusinessException(ErrorCode.UNAUTHORIZED)
         }
+
+    fun validatePartyMember(
+        party: RealtimeParty,
+        userId: Long?,
+        participantToken: String?,
+    ) {
+        if (party.ownerId == userId) return
+        requireCallerParticipant(
+            partyId = party.id,
+            userId = userId,
+            participantToken = participantToken,
+        )
+    }
+
+    fun resolveUser(userId: Long?): User? {
+        if (userId == null) return null
+        return userRepository.findByIdOrNull(userId)
+            ?: throw BusinessException(ErrorCode.AUTH_USER_NOT_FOUND)
+    }
 
     private fun resolveCallerByUser(
         partyId: Long,
         userId: Long,
-    ): Long =
-        participantRepository.findByPartyIdAndUserId(partyId, userId)?.id
+    ): Participant =
+        participantRepository.findByPartyIdAndUserId(partyId, userId)
             ?: throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
 
-    private fun resolveCallerByToken(
+    private fun resolveCallerByTokenOrNull(
         partyId: Long,
         participantToken: String,
-    ): Long {
+    ): Participant? {
         val profile =
             realtimeParticipantProfileRepository.findByParticipantToken(participantToken)
-                ?: throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
+                ?: return null
         if (profile.participant.party.id != partyId) {
             throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
         }
-        return profile.participant.id
+        return profile.participant
     }
 
     fun findOrderedProfiles(partyId: Long): List<RealtimeParticipantProfile> =

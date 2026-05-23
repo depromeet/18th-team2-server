@@ -27,12 +27,12 @@ class SseEmitterRegistryTest {
     }
 
     @Test
-    fun `subscribe 후 complete하면 registry에서 제거됨`() {
+    fun `completeAll 호출 시 registry에서 제거됨`() {
         val emitter = SseEmitter(1000L)
         registry.subscribe(1L, emitter, "tok")
         assertEquals(1, registry.count(1L))
 
-        emitter.complete()
+        registry.completeAll(1L)
         assertEquals(0, registry.count(1L))
     }
 
@@ -64,8 +64,6 @@ class SseEmitterRegistryTest {
         registry.subscribe(1L, newEmitter, "tok")
 
         assertEquals(1, registry.count(1L))
-
-        oldEmitter.complete()
         assertEquals(1, registry.count(1L))
 
         registry.unsubscribeByToken("tok")
@@ -89,6 +87,69 @@ class SseEmitterRegistryTest {
 
         assertEquals(0, registry.count(1L))
         assertEquals(0, emitter.completeCount)
+    }
+
+    @Test
+    fun `excludeToken emitter에는 broadcast 하지 않는다`() {
+        val excluded = RecordingSseEmitter()
+        val included = RecordingSseEmitter()
+        registry.subscribe(1L, excluded, "tok1")
+        registry.subscribe(1L, included, "tok2")
+
+        registry.broadcast(1L, event(), excludeToken = "tok1")
+
+        assertEquals(0, excluded.sendCount)
+        assertEquals(1, included.sendCount)
+    }
+
+    @Test
+    fun `broadcastHost는 host emitter에만 전송한다`() {
+        val host = RecordingSseEmitter()
+        val participant = RecordingSseEmitter()
+        registry.subscribe(1L, host, "host", isHost = true)
+        registry.subscribe(1L, participant, "participant", isHost = false)
+
+        registry.broadcastHost(1L, event())
+
+        assertEquals(1, host.sendCount)
+        assertEquals(0, participant.sendCount)
+    }
+
+    @Test
+    fun `broadcastHost 실패 emitter는 일반 목록에서도 제거한다`() {
+        val host = FailingSseEmitter()
+        registry.subscribe(1L, host, "host", isHost = true)
+
+        registry.broadcastHost(1L, event())
+
+        assertEquals(0, registry.count(1L))
+    }
+
+    @Test
+    fun `onBroadcast delegates to broadcast`() {
+        val emitter = RecordingSseEmitter()
+        val event = event()
+        registry.subscribe(1L, emitter, "tok")
+
+        registry.onBroadcast(SseBroadcastEvent(1L, event, excludeToken = null))
+
+        assertEquals(1, emitter.sendCount)
+    }
+
+    private fun event(): Set<ResponseBodyEmitter.DataWithMediaType> =
+        SseEmitter
+            .event()
+            .name("message")
+            .data("hello")
+            .build()
+
+    private class RecordingSseEmitter : SseEmitter(5000L) {
+        var sendCount = 0
+            private set
+
+        override fun send(dataSet: Set<ResponseBodyEmitter.DataWithMediaType>) {
+            sendCount += 1
+        }
     }
 
     private class FailingSseEmitter : SseEmitter(5000L) {
