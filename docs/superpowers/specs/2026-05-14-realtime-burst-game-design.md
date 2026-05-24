@@ -2,7 +2,7 @@
 
 - 작성일: 2026-05-14
 - 기준 브랜치: `develop`
-- 목적: 실시간 파티에서 채팅/촛불끄기 이후 20초 동안 참여자가 함께 원을 터치하고, 총 터치 수와 실시간 순위를 집계하는 박터뜨리기 기능 설계
+- 목적: 실시간 파티에서 채팅/촛불끄기 종료 이후 20초 동안 참여자가 함께 원을 터치하고, 총 터치 수와 실시간 순위를 집계하는 박터뜨리기 기능 설계
 - 구현 반영 상태: 구현 브랜치 기준 API 응답/이벤트 계약과 맞춰 갱신한다.
 
 ---
@@ -19,7 +19,7 @@
 
 블로커 결정 사항:
 
-- [x] 시작 권한: 촛불끄기가 완료된 상태라면 실시간 파티 참여자 누구나 시작 가능
+- [x] 시작 권한: 촛불끄기가 종료된 상태라면 실시간 파티 참여자 누구나 시작 가능
 - [x] 재시작 정책: 파티당 1회만 허용
 - [x] 동점 처리: 공동 순위 허용. 최종 공동 1등은 모두 `winners`에 포함
 
@@ -29,7 +29,7 @@
 - `stateVersion`은 라운드 session lock 안에서 집계 반영과 함께 증가
 - progress SSE는 throttle로 중간 버전이 누락될 수 있는 최신 aggregate snapshot
 - 종료는 scheduler와 submit/상태 조회 lazy 종료 체크를 모두 둔다.
-- 박터뜨리기 start는 촛불끄기 완료 상태를 선행 조건으로 검증한다.
+- 박터뜨리기 start는 촛불끄기 종료 상태를 선행 조건으로 검증한다.
 - 참가자별 tap rate limit은 독립된 두 제약으로 검사한다.
   - 초당 제한: 참가자별 token bucket 기준 초당 20회 refill, burst capacity 30회까지 반영
   - 라운드 누적 제한: 참가자별 라운드 누적 400회까지 반영
@@ -38,7 +38,7 @@
 
 ## 1. 기능 요약 [기획]
 
-실시간 파티(`REALTIME`) 진행 중 "촛불끄기" 다음 단계로 20초짜리 박터뜨리기 라운드를 시작한다.
+실시간 파티(`REALTIME`) 진행 중 "촛불끄기"가 종료된 다음 단계로 20초짜리 박터뜨리기 라운드를 시작한다.
 
 참여자들은 20초 동안 터치 액션을 전송한다. 서버는 모든 참여자의 터치 수를 합산해 총 터치 수를 만들고, 진행 중에는 전체 참여자에게 모두의 총 터치 수와 상위 3개 rank group의 순위 entry를 실시간으로 브로드캐스트한다. 20초가 끝나면 최종 총 터치 수와 공동 1등 `winners`만 브로드캐스트한다.
 
@@ -60,7 +60,7 @@
 |---|---|
 | 라운드 시작 | 서버 기준 시작/종료 시각 확정 |
 | 참여자 검증 | JWT 또는 `X-Participant-Token`으로 실시간 파티 참여자와 프로필 존재 여부 확인 |
-| 선행 단계 검증 | 촛불끄기 완료 상태인지 확인 |
+| 선행 단계 검증 | 촛불끄기 종료 상태인지 확인 |
 | 시간 검증 | 20초 진행 구간 안에서만 tap batch 반영 |
 | 터치 수 집계 | 참가자별 터치 수, 모두의 총 터치 수, 상위 3개 rank group의 순위 entry 계산 |
 | 중복 batch 방지 | 참가자별 `clientSequence`를 기준으로 동일 batch 재처리 방지 |
@@ -117,8 +117,8 @@ X-Participant-Token: {participantToken}
 
 권한:
 
-- 현재 결정: **촛불끄기가 완료된 상태라면 실시간 파티 참여자 누구나 시작 가능**
-  - 이유: 박터뜨리기는 촛불끄기 다음 단계이고, 시작 권한보다 선행 단계 완료 여부가 핵심 조건이다.
+- 현재 결정: **촛불끄기가 종료된 상태라면 실시간 파티 참여자 누구나 시작 가능**
+  - 이유: 박터뜨리기는 촛불끄기 다음 단계이고, 시작 권한보다 선행 단계 종료 여부가 핵심 조건이다.
   - 여러 참여자가 동시에 호출해도 서버는 active 라운드 1개만 생성하고 나머지는 기존 active 라운드를 반환한다.
 
 요청 body 없음.
@@ -145,11 +145,12 @@ X-Participant-Token: {participantToken}
 - 실시간 파티 진행 가능 구간이 아니면 `CHAT_NOT_ACTIVE`.
 - 참여자 프로필이 없으면 `UNAUTHORIZED`.
 - 이미 active 라운드가 있으면 새로 만들지 않고 기존 라운드를 반환한다.
-  - active 라운드가 있다는 것은 이미 선행 조건 검증을 통과했다는 뜻이므로 촛불끄기 완료 상태를 다시 검증하지 않는다.
+  - active 라운드가 있다는 것은 이미 선행 조건 검증을 통과했다는 뜻이므로 촛불끄기 종료 상태를 다시 검증하지 않는다.
 - 이미 ended session이 TTL 안에 있으면 기존 결과를 반환하지 않고 `BURST_GAME_ALREADY_ENDED (409)`로 막는다.
-- active/ended session이 없고 새 라운드를 생성해야 할 때 촛불끄기 완료 상태를 검증한다.
-  - 촛불끄기가 완료되지 않았으면 `BURST_GAME_NOT_READY`.
-  - TODO: `burstgame.application.service.CandleBlowStatusReader`를 먼저 만들고 `fun isCandleBlowCompleted(partyId: Long): Boolean` 계약으로 촛불 완료 상태 조회 로직을 연결한다. 실제 촛불끄기 feature가 머지되면 인터페이스 signature나 반환 타입은 사전 합의 후 조정한다.
+- active/ended session이 없고 새 라운드를 생성해야 할 때 촛불끄기 종료 상태를 검증한다.
+  - 촛불끄기가 종료되지 않았으면 `BURST_GAME_NOT_READY`.
+  - `ALL_EXTINGUISHED`, `TIMEOUT` 모두 촛불끄기 종료 상태로 본다.
+  - TODO: `burstgame.application.port.CandleBlowStatusReader`의 의미를 `fun isCandleBlowFinished(partyId: Long): Boolean` 계약으로 정렬한다. 실제 촛불끄기 feature가 머지되면 종료 사유까지 필요한지 사전 합의 후 조정한다.
   - 촛불끄기 feature가 아직 머지되지 않은 개발/테스트 단계에서는 항상 `true`를 반환하고 warning log를 남기는 `CandleBlowStatusReaderStub`을 임시 adapter로 둔다.
   - stub은 `local`, `dev`, `test` profile 또는 명시적 feature flag에서만 bean으로 등록하고, prod profile에는 등록하지 않는다.
 - 종료 결과 조회는 start API가 아니라 상태 및 결과 조회 API를 사용한다.
@@ -586,7 +587,7 @@ DB 저장이 필요한 조건:
 1차 구현 기준:
 
 - start 요청도 `partyId` 단위 lock 또는 `ConcurrentHashMap.compute(partyId) { ... }`로 직렬화한다.
-  - 촛불끄기 완료 직후 여러 참여자가 동시에 start를 호출해도 active session은 1개만 생성되어야 한다.
+  - 촛불끄기 종료 직후 여러 참여자가 동시에 start를 호출해도 active session은 1개만 생성되어야 한다.
   - 먼저 session을 생성한 요청만 새 session을 만들고, 나머지 요청은 같은 active 상태를 반환한다.
 - `BurstGameSessionStore`가 `partyId`별 session을 보관한다.
 - session 내부 mutation은 party 단위 lock 안에서 수행한다.
@@ -689,7 +690,7 @@ cross-feature 의존:
 |---|---|---|
 | `BURST_GAME_NOT_FOUND` | 404 | 파티에 active/TTL 안의 ended session이 없음 |
 | `BURST_GAME_ALREADY_ENDED` | 409 | TTL 안에 남아 있는 ended session에 대해 재시작 시도 |
-| `BURST_GAME_NOT_READY` | 400 | 촛불끄기가 아직 완료되지 않은 상태에서 start 호출 |
+| `BURST_GAME_NOT_READY` | 400 | 촛불끄기가 아직 종료되지 않은 상태에서 start 호출 |
 | `BURST_GAME_RATE_LIMITED` | 429 | 참가자별 허용 tap rate 초과 |
 
 기존 ErrorCode 재사용:
@@ -713,7 +714,7 @@ cross-feature 의존:
 3. `partyId` 단위 직렬화 구간 진입
 4. 파티에 active round가 있으면 촛불끄기 검증을 건너뛰고 기존 active 상태 반환
 5. TTL 안의 ended round가 있으면 `BURST_GAME_ALREADY_ENDED`
-6. active/ended round가 없으면 촛불끄기 완료 상태 확인
+6. active/ended round가 없으면 촛불끄기 종료 상태 확인
 7. in-memory session 생성
 9. 20초 뒤 종료 scheduler 등록
 10. 기존 파티 SSE 구독자에게 `burst-game-started` 브로드캐스트
@@ -768,8 +769,8 @@ cross-feature 의존:
 ### 12-1. 확정된 블로커 결정
 
 1. 박터뜨리기 시작 조건
-   - 결정: 촛불끄기가 완료된 상태라면 실시간 파티 참여자 누구나 시작 가능하다.
-   - 백엔드 처리: start API에서 촛불끄기 완료 상태를 검증한다.
+   - 결정: 촛불끄기가 종료된 상태라면 실시간 파티 참여자 누구나 시작 가능하다.
+   - 백엔드 처리: start API에서 촛불끄기 종료 상태를 검증한다.
    - 촛불끄기 기능이 별도 PR이라면 박터뜨리기는 `CandleBlowStatusReader` 같은 조회 계약에 의존하고, 촛불 상태 생성/집계 자체는 촛불 기능 범위로 둔다.
 
 2. 라운드 재시작 가능 여부

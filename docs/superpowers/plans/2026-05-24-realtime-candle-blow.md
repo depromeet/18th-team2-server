@@ -1,0 +1,127 @@
+# Realtime Candle Blow Implementation Plan
+
+> 단계별로 진행한다. 각 단계가 끝나면 커밋하지 않고 변경 내용과 검증 결과를 공유한다.
+
+**Goal:** 실시간 파티 시작 35초 뒤 공유 촛불 9개를 끄는 단계를 시작하고, 9개 모두 꺼짐 또는 45초 타임아웃으로 종료한 뒤 기존 박터뜨리기 start API를 열어준다.
+
+**Architecture:** 기존 `burstgame` feature 안에 촛불 phase를 추가한다. HTTP 진입점은 `api`, 흐름/트랜잭션은 `application/usecase`, 공유 상태와 정책은 `domain`, in-memory store/scheduler/SSE adapter는 `infrastructure`에 둔다.
+
+**Spec Reference:** `docs/superpowers/specs/2026-05-24-realtime-candle-blow-design.md`
+
+---
+
+## Decisions
+
+- 촛불끄기는 `REALTIME` 파티에서만 동작한다.
+- 시작 시각은 `party.startedAt + 35초`다.
+- 제한 시간은 45초다.
+- 촛불 수는 9개 고정이고 외부 입력으로 바꾸지 않는다.
+- 실시간 파티 참여자라면 누구나 촛불을 끌 수 있다.
+- 이미 꺼진 촛불 클릭은 `200 OK` 멱등 응답으로 처리한다.
+- 종료 조건은 `ALL_EXTINGUISHED` 또는 `TIMEOUT`이다.
+- 촛불 종료 후 박터뜨리기는 자동 시작하지 않는다.
+- 다음 버튼을 누른 참여자 중 가장 먼저 도착한 기존 `burst-game/start` 요청이 박터뜨리기 라운드를 생성한다.
+- 박터뜨리기 선행 조건은 촛불 `completed`가 아니라 촛불 `finished`다.
+- 1차 구현은 DB 저장 없이 in-memory session으로 처리한다.
+- 확장성을 고려해 촛불 상태 접근은 `CandleBlowSessionStore` 포트 뒤에 둔다.
+
+---
+
+## Task Order
+
+## Task 1: 문서 계약 확정
+
+**Files:**
+- Create: `docs/superpowers/specs/2026-05-24-realtime-candle-blow-design.md`
+- Create: `docs/superpowers/plans/2026-05-24-realtime-candle-blow.md`
+- Modify: `docs/superpowers/specs/2026-05-14-realtime-burst-game-design.md`
+- Modify: `docs/superpowers/plans/2026-05-14-realtime-burst-game.md`
+
+- [x] 촛불 시작/종료 시간 정책을 문서화한다.
+- [x] 촛불 끄기 API의 `200 OK` 멱등 정책을 문서화한다.
+- [x] 촛불 SSE 이벤트 3종을 문서화한다.
+- [x] 박터뜨리기 선행 조건을 `finished` 용어로 정렬한다.
+
+## Task 2: 촛불 domain 모델과 store 추가
+
+**Files:**
+- Create: `src/main/kotlin/com/team2/server/burstgame/domain/candle/CandleBlowPolicy.kt`
+- Create: `src/main/kotlin/com/team2/server/burstgame/domain/candle/CandleBlowSession.kt`
+- Create: `src/main/kotlin/com/team2/server/burstgame/domain/candle/CandleBlowStatus.kt`
+- Create: `src/main/kotlin/com/team2/server/burstgame/domain/candle/CandleBlowFinishedReason.kt`
+- Create: `src/main/kotlin/com/team2/server/burstgame/domain/candle/CandleBlowIgnoredReason.kt`
+- Create: `src/main/kotlin/com/team2/server/burstgame/application/port/CandleBlowSessionStore.kt`
+- Create: `src/main/kotlin/com/team2/server/burstgame/infrastructure/candle/InMemoryCandleBlowSessionStore.kt`
+- Test: `src/test/kotlin/com/team2/server/burstgame/domain/candle/CandleBlowSessionTest.kt`
+- Test: `src/test/kotlin/com/team2/server/burstgame/infrastructure/candle/InMemoryCandleBlowSessionStoreTest.kt`
+
+- [ ] `CANDLE_COUNT = 9`
+- [ ] `START_DELAY_SECONDS = 35`
+- [ ] `DURATION_SECONDS = 45`
+- [ ] 1차 store는 단일 app instance 전제의 in-memory 구현으로 둔다.
+- [ ] 추후 store 구현 교체 가능성을 고려해 `CandleBlowSessionStore` 포트 뒤에 구현을 숨긴다.
+- [ ] `candleId` 범위 `1..9` 검증
+- [ ] 이미 꺼진 촛불은 멱등 결과 반환, `stateVersion` 유지
+- [ ] 전체 소등 시 `FINISHED / ALL_EXTINGUISHED`
+- [ ] 종료 시각 도달 시 `FINISHED / TIMEOUT`
+
+## Task 3: 상태 조회/촛불 끄기 API와 UseCase 추가
+
+**Files:**
+- Modify: `src/main/kotlin/com/team2/server/burstgame/api/BurstGameApi.kt`
+- Modify: `src/main/kotlin/com/team2/server/burstgame/api/BurstGameController.kt`
+- Create: `src/main/kotlin/com/team2/server/burstgame/application/usecase/GetCandleBlowStateUseCase.kt`
+- Create: `src/main/kotlin/com/team2/server/burstgame/application/usecase/BlowCandleUseCase.kt`
+- Create: `src/main/kotlin/com/team2/server/burstgame/application/dto/CandleBlowStateResponse.kt`
+- Create: `src/main/kotlin/com/team2/server/burstgame/application/dto/BlowCandleResponse.kt`
+- Modify: `src/main/kotlin/com/team2/server/common/exception/ErrorCode.kt`
+- Test: `src/test/kotlin/com/team2/server/burstgame/api/BurstGameControllerTest.kt`
+
+- [ ] `GET /api/v1/parties/{partyId}/candle-blow`
+- [ ] `POST /api/v1/parties/{partyId}/candle-blow/candles/{candleId}`
+- [ ] JWT 또는 `X-Participant-Token` 참여자 검증 재사용
+- [ ] `WAITING` 상태 blow 요청은 `CANDLE_BLOW_NOT_STARTED`
+- [ ] `FINISHED` 상태 blow 요청은 `200 OK` 멱등 응답
+
+## Task 4: scheduler와 SSE 구현
+
+**Files:**
+- Create: `src/main/kotlin/com/team2/server/burstgame/application/port/CandleBlowEventBroadcaster.kt`
+- Create: `src/main/kotlin/com/team2/server/burstgame/application/port/CandleBlowScheduler.kt`
+- Create: `src/main/kotlin/com/team2/server/burstgame/infrastructure/realtime/SseCandleBlowEventBroadcaster.kt`
+- Create: `src/main/kotlin/com/team2/server/burstgame/infrastructure/scheduler/ScheduledCandleBlowScheduler.kt`
+- Test: `src/test/kotlin/com/team2/server/burstgame/infrastructure/realtime/SseCandleBlowEventBroadcasterTest.kt`
+- Test: `src/test/kotlin/com/team2/server/burstgame/infrastructure/scheduler/ScheduledCandleBlowSchedulerTest.kt`
+
+- [ ] `candle-blow-started`
+- [ ] `candle-blow-progress`
+- [ ] `candle-blow-ended`
+- [ ] started/ended 이벤트가 중복 발송되지 않도록 party 단위 직렬화
+- [ ] 앱 재시작 복구 범위는 기존 party scheduler 패턴과 맞춘다.
+
+## Task 5: 박터뜨리기 start 선행 조건 연결
+
+**Files:**
+- Modify: `src/main/kotlin/com/team2/server/burstgame/application/port/CandleBlowStatusReader.kt`
+- Modify: `src/main/kotlin/com/team2/server/burstgame/application/service/BurstGameSessionService.kt`
+- Modify: `src/main/kotlin/com/team2/server/burstgame/infrastructure/candle/CandleBlowStatusReaderStub.kt`
+- Modify: `src/main/kotlin/com/team2/server/burstgame/infrastructure/candle/CandleBlowStatusReaderUnavailable.kt`
+- Create/Modify: 실제 촛불 상태 reader adapter
+- Test: `src/test/kotlin/com/team2/server/burstgame/application/service/BurstGameSessionServiceTest.kt`
+
+- [ ] `isCandleBlowCompleted` 의미를 `isCandleBlowFinished`로 정렬
+- [ ] `ALL_EXTINGUISHED`, `TIMEOUT` 모두 박터뜨리기 start 가능
+- [ ] `WAITING`, `ACTIVE`는 `BURST_GAME_NOT_READY`
+- [ ] active burst game이 이미 있으면 촛불 상태 재검증하지 않음
+
+## Task 6: 아키텍처/회귀 검증
+
+**Files:**
+- Modify: `src/test/kotlin/com/team2/server/architecture/ArchUnitConstants.kt`
+- Test: 관련 burstgame/candle 테스트
+
+- [ ] ArchUnit feature 목록에 `burstgame` 포함 여부 반영
+- [ ] `./gradlew test --tests '*CandleBlow*'`
+- [ ] `./gradlew test --tests '*BurstGame*'`
+- [ ] `./gradlew test --tests 'com.team2.server.architecture.*'`
+- [ ] 마지막 단계에서만 필요 시 `./gradlew check`
