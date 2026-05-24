@@ -123,11 +123,13 @@
 ## Task 6: 아키텍처/회귀 검증
 
 **Files:**
-- Modify: `src/test/kotlin/com/team2/server/architecture/ArchUnitConstants.kt`
+- Review: `src/test/kotlin/com/team2/server/architecture/ArchUnitConstants.kt`
 - Test: 관련 burstgame/candle 테스트
 
-- [ ] ArchUnit feature 목록에 `burstgame` 포함 여부 반영
-- [ ] `./gradlew test --tests '*CandleBlow*'`
-- [ ] `./gradlew test --tests '*BurstGame*'`
-- [ ] `./gradlew test --tests 'com.team2.server.architecture.*'`
-- [ ] 마지막 단계에서만 필요 시 `./gradlew check`
+- [x] ArchUnit feature 목록에 `burstgame` 포함 여부 확인
+- [x] `./gradlew test --tests '*CandleBlow*'`
+- [x] `./gradlew test --tests '*BurstGame*'`
+- [x] `./gradlew test --tests 'com.team2.server.architecture.*'`
+- [x] 마지막 단계에서만 필요 시 `./gradlew check`
+
+Note: 현 브랜치의 `ArchUnitConstants.FEATURES`에는 아직 `burstgame`이 없지만, 해당 반영은 별도 브랜치에서 처리된 항목이므로 이 브랜치에서는 수정하지 않는다.
