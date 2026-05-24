@@ -92,14 +92,17 @@
 - Create: `src/main/kotlin/com/team2/server/burstgame/application/port/CandleBlowScheduler.kt`
 - Create: `src/main/kotlin/com/team2/server/burstgame/infrastructure/realtime/SseCandleBlowEventBroadcaster.kt`
 - Create: `src/main/kotlin/com/team2/server/burstgame/infrastructure/scheduler/ScheduledCandleBlowScheduler.kt`
+- Create: `src/main/kotlin/com/team2/server/burstgame/infrastructure/scheduler/CandleBlowSessionCleanupScheduler.kt`
 - Test: `src/test/kotlin/com/team2/server/burstgame/infrastructure/realtime/SseCandleBlowEventBroadcasterTest.kt`
 - Test: `src/test/kotlin/com/team2/server/burstgame/infrastructure/scheduler/ScheduledCandleBlowSchedulerTest.kt`
+- Test: `src/test/kotlin/com/team2/server/burstgame/infrastructure/scheduler/CandleBlowSessionCleanupSchedulerTest.kt`
 
-- [ ] `candle-blow-started`
-- [ ] `candle-blow-progress`
-- [ ] `candle-blow-ended`
-- [ ] started/ended 이벤트가 중복 발송되지 않도록 party 단위 직렬화
-- [ ] 앱 재시작 복구 범위는 기존 party scheduler 패턴과 맞춘다.
+- [x] `candle-blow-started`
+- [x] `candle-blow-progress`
+- [x] `candle-blow-ended`
+- [x] started/ended 이벤트가 중복 발송되지 않도록 party 단위 직렬화
+- [x] 앱 재시작 복구 범위는 기존 party scheduler 패턴과 맞춘다.
+- [x] `endsAt + 10분` 이후 인메모리 촛불 세션 cleanup
 
 ## Task 5: 박터뜨리기 start 선행 조건 연결
 

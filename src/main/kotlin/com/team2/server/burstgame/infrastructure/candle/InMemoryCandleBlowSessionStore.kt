@@ -1,8 +1,10 @@
 package com.team2.server.burstgame.infrastructure.candle
 
 import com.team2.server.burstgame.application.port.CandleBlowSessionStore
+import com.team2.server.burstgame.domain.candle.CandleBlowPolicy
 import com.team2.server.burstgame.domain.candle.CandleBlowSession
 import org.springframework.stereotype.Component
+import java.time.LocalDateTime
 import java.util.concurrent.ConcurrentHashMap
 
 @Component
@@ -48,8 +50,28 @@ class InMemoryCandleBlowSessionStore : CandleBlowSessionStore {
         }
     }
 
+    override fun removeExpired(now: LocalDateTime) {
+        sessionsByPartyId.keys.forEach { partyId ->
+            val lock = lockFor(partyId)
+            synchronized(lock) {
+                pruneExpiredLocked(partyId, now)
+            }
+        }
+    }
+
     override fun clear() {
         sessionsByPartyId.clear()
+    }
+
+    private fun pruneExpiredLocked(
+        partyId: Long,
+        now: LocalDateTime,
+    ) {
+        val session = sessionsByPartyId[partyId] ?: return
+        val expiresAt = session.endsAt.plus(CandleBlowPolicy.SESSION_TTL)
+        if (!now.isBefore(expiresAt)) {
+            sessionsByPartyId.remove(partyId, session)
+        }
     }
 
     private fun lockFor(partyId: Long): Any = partyLocks[Math.floorMod(partyId.hashCode(), LOCK_STRIPE_COUNT)]

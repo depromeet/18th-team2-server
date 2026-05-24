@@ -1,5 +1,6 @@
 package com.team2.server.burstgame.infrastructure.candle
 
+import com.team2.server.burstgame.domain.candle.CandleBlowPolicy
 import com.team2.server.burstgame.domain.candle.CandleBlowSession
 import java.time.LocalDateTime
 import java.util.concurrent.CountDownLatch
@@ -132,6 +133,33 @@ class InMemoryCandleBlowSessionStoreTest {
             executor.shutdown()
             assertTrue(executor.awaitTermination(1, TimeUnit.SECONDS))
         }
+    }
+
+    @Test
+    fun `종료 시각과 TTL이 지난 세션을 제거한다`() {
+        store.getOrCreateWithLock(1L, { session(1L) }) { _, _ -> }
+
+        store.removeExpired(
+            partyStartedAt
+                .plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS + CandleBlowPolicy.DURATION_SECONDS)
+                .plus(CandleBlowPolicy.SESSION_TTL),
+        )
+
+        assertEquals(null, store.withSessionLock(1L) { it.partyId })
+    }
+
+    @Test
+    fun `TTL이 지나지 않은 세션은 제거하지 않는다`() {
+        store.getOrCreateWithLock(1L, { session(1L) }) { _, _ -> }
+
+        store.removeExpired(
+            partyStartedAt
+                .plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS + CandleBlowPolicy.DURATION_SECONDS)
+                .plus(CandleBlowPolicy.SESSION_TTL)
+                .minusNanos(1),
+        )
+
+        assertEquals(1L, store.withSessionLock(1L) { it.partyId })
     }
 
     private fun session(partyId: Long): CandleBlowSession =

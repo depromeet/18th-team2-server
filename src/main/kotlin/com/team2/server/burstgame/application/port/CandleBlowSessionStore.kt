@@ -1,6 +1,7 @@
 package com.team2.server.burstgame.application.port
 
 import com.team2.server.burstgame.domain.candle.CandleBlowSession
+import java.time.LocalDateTime
 
 interface CandleBlowSessionStore {
     fun <T> getOrCreateWithLock(
@@ -15,6 +16,8 @@ interface CandleBlowSessionStore {
     ): T?
 
     fun removeByPartyId(partyId: Long): Boolean
+
+    fun removeExpired(now: LocalDateTime)
 
     fun clear()
 }

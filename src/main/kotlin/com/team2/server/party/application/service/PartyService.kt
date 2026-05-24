@@ -135,6 +135,9 @@ class PartyService(
         return Hibernate.unproxy(party) as RealtimeParty
     }
 
+    fun findRealtimePartiesWaitingAutomaticEnding(startedAfter: LocalDateTime): List<RealtimeParty> =
+        partyRepository.findRealtimePartiesWaitingAutomaticEnding(startedAfter)
+
     private fun requireRealtimePartyForChat(party: Party): RealtimeParty {
         if (party.partyOption != PartyOption.REALTIME) {
             throw BusinessException(ErrorCode.CHAT_NOT_SUPPORTED)
