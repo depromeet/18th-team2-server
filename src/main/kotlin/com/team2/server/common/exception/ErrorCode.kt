@@ -43,4 +43,5 @@ enum class ErrorCode(
     BURST_GAME_ALREADY_ENDED(HttpStatus.CONFLICT, "이미 종료된 박터뜨리기 라운드입니다"),
     BURST_GAME_NOT_READY(HttpStatus.BAD_REQUEST, "박터뜨리기를 시작할 수 있는 상태가 아닙니다"),
     BURST_GAME_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "박터뜨리기 터치 요청이 너무 많습니다"),
+    CANDLE_BLOW_NOT_STARTED(HttpStatus.BAD_REQUEST, "아직 촛불끄기를 시작할 수 없습니다"),
 }

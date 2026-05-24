@@ -71,7 +71,15 @@ class CandleBlowSessionTest {
                 session.blow(candleId = 1, now = startedAt.minusNanos(1))
             }
 
-        assertEquals(ErrorCode.INVALID_INPUT, ex.errorCode)
+        assertEquals(ErrorCode.CANDLE_BLOW_NOT_STARTED, ex.errorCode)
+    }
+
+    @Test
+    fun `snapshot은 종료 시각이 지나면 TIMEOUT 상태로 전이한다`() {
+        val snapshot = session.snapshot(endsAt)
+
+        assertEquals(CandleBlowStatus.FINISHED, snapshot.status)
+        assertEquals(CandleBlowFinishedReason.TIMEOUT, snapshot.finishedReason)
     }
 
     @Test

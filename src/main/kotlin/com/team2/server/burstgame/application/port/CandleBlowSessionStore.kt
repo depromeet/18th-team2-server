@@ -3,24 +3,18 @@ package com.team2.server.burstgame.application.port
 import com.team2.server.burstgame.domain.candle.CandleBlowSession
 
 interface CandleBlowSessionStore {
-    fun getOrCreate(
+    fun <T> getOrCreateWithLock(
         partyId: Long,
         sessionFactory: () -> CandleBlowSession,
-    ): CreateResult
+        block: (session: CandleBlowSession, created: Boolean) -> T,
+    ): T
 
-    fun findByPartyId(partyId: Long): CandleBlowSession?
+    fun <T> withSessionLock(
+        partyId: Long,
+        block: (CandleBlowSession) -> T,
+    ): T?
 
     fun removeByPartyId(partyId: Long): Boolean
 
     fun clear()
-
-    sealed interface CreateResult {
-        data class Created(
-            val session: CandleBlowSession,
-        ) : CreateResult
-
-        data class Existing(
-            val session: CandleBlowSession,
-        ) : CreateResult
-    }
 }

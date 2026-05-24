@@ -27,18 +27,20 @@ class CandleBlowSession(
     ): CandleBlowUpdateResult {
         CandleBlowPolicy.validateCandleId(candleId)
         val timedOutNow = finishIfTimedOut(now)
-        if (timedOutNow || isFinished()) {
-            return unchanged(now, timedOutNow)
+        return when {
+            timedOutNow || isFinished() -> unchanged(now, timedOutNow)
+            now.isBefore(startedAt) -> throw BusinessException(ErrorCode.CANDLE_BLOW_NOT_STARTED)
+            candleId in extinguishedCandleIds -> unchanged(now)
+            else -> extinguish(candleId, now)
         }
-        if (now.isBefore(startedAt)) {
-            throw BusinessException(ErrorCode.INVALID_INPUT)
-        }
-        if (candleId in extinguishedCandleIds) {
-            return unchanged(now)
-        }
+    }
 
+    private fun extinguish(
+        candleId: Int,
+        now: LocalDateTime,
+    ): CandleBlowUpdateResult {
         extinguishedCandleIds.add(candleId)
-        val finishedNow = finishIfAllExtinguished(now)
+        val finishedNow = finishIfAllExtinguished()
 
         return CandleBlowUpdateResult(
             changed = true,
@@ -53,8 +55,9 @@ class CandleBlowSession(
         return true
     }
 
-    fun snapshot(now: LocalDateTime): CandleBlowSnapshot =
-        CandleBlowSnapshot(
+    fun snapshot(now: LocalDateTime): CandleBlowSnapshot {
+        finishIfTimedOut(now)
+        return CandleBlowSnapshot(
             partyId = partyId,
             status = status(now),
             candles =
@@ -67,6 +70,7 @@ class CandleBlowSession(
             remainingCount = CandleBlowPolicy.CANDLE_COUNT - extinguishedCandleIds.size,
             finishedReason = finishedReason,
         )
+    }
 
     fun isFinished(): Boolean = finishedReason != null
 
@@ -77,7 +81,7 @@ class CandleBlowSession(
             else -> CandleBlowStatus.ACTIVE
         }
 
-    private fun finishIfAllExtinguished(now: LocalDateTime): Boolean {
+    private fun finishIfAllExtinguished(): Boolean {
         if (extinguishedCandleIds.size != CandleBlowPolicy.CANDLE_COUNT) return false
         finish(CandleBlowFinishedReason.ALL_EXTINGUISHED)
         return true
