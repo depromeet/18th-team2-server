@@ -2,10 +2,14 @@ package com.team2.server.burstgame.api
 
 import com.team2.server.auth.principal.UserPrincipal
 import com.team2.server.burstgame.api.dto.SubmitBurstGameTapRequest
+import com.team2.server.burstgame.application.dto.BlowCandleResponse
 import com.team2.server.burstgame.application.dto.BurstGameStateResponse
+import com.team2.server.burstgame.application.dto.CandleBlowStateResponse
 import com.team2.server.burstgame.application.dto.StartBurstGameResponse
 import com.team2.server.burstgame.application.dto.SubmitBurstGameTapResponse
+import com.team2.server.burstgame.application.usecase.BlowCandleUseCase
 import com.team2.server.burstgame.application.usecase.GetBurstGameSnapshotUseCase
+import com.team2.server.burstgame.application.usecase.GetCandleBlowStateUseCase
 import com.team2.server.burstgame.application.usecase.StartBurstGameUseCase
 import com.team2.server.burstgame.application.usecase.SubmitBurstGameTapUseCase
 import com.team2.server.common.web.ApiResponse
@@ -20,10 +24,38 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 class BurstGameController(
+    private val getCandleBlowStateUseCase: GetCandleBlowStateUseCase,
+    private val blowCandleUseCase: BlowCandleUseCase,
     private val startBurstGameUseCase: StartBurstGameUseCase,
     private val submitBurstGameTapUseCase: SubmitBurstGameTapUseCase,
     private val getBurstGameSnapshotUseCase: GetBurstGameSnapshotUseCase,
 ) : BurstGameApi {
+    @GetMapping("/api/v1/parties/{partyId}/candle-blow")
+    override fun getCandleBlowState(
+        @PathVariable partyId: Long,
+        @AuthenticationPrincipal principal: UserPrincipal?,
+        @RequestHeader(value = "X-Participant-Token", required = false) participantToken: String?,
+    ): ApiResponse<CandleBlowStateResponse> =
+        ApiResponse.success(
+            getCandleBlowStateUseCase(partyId, principal?.userId, participantToken),
+        )
+
+    @PostMapping("/api/v1/parties/{partyId}/candle-blow/candles/{candleId}")
+    override fun blowCandle(
+        @PathVariable partyId: Long,
+        @PathVariable candleId: Int,
+        @AuthenticationPrincipal principal: UserPrincipal?,
+        @RequestHeader(value = "X-Participant-Token", required = false) participantToken: String?,
+    ): ApiResponse<BlowCandleResponse> =
+        ApiResponse.success(
+            blowCandleUseCase(
+                partyId = partyId,
+                candleId = candleId,
+                userId = principal?.userId,
+                participantToken = participantToken,
+            ),
+        )
+
     @PostMapping("/api/v1/parties/{partyId}/burst-game/start")
     override fun start(
         @PathVariable partyId: Long,

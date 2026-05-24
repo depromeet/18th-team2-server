@@ -114,7 +114,6 @@ X-Participant-Token: {participantToken}
     { "candleId": 8, "extinguished": false },
     { "candleId": 9, "extinguished": false }
   ],
-  "remainingCount": 6,
   "finishedReason": null
 }
 ```
@@ -162,7 +161,6 @@ X-Participant-Token: {participantToken}
     { "candleId": 8, "extinguished": false },
     { "candleId": 9, "extinguished": false }
   ],
-  "remainingCount": 5,
   "finishedReason": null
 }
 ```
@@ -184,7 +182,6 @@ X-Participant-Token: {participantToken}
     { "candleId": 8, "extinguished": false },
     { "candleId": 9, "extinguished": false }
   ],
-  "remainingCount": 5,
   "finishedReason": null
 }
 ```
@@ -207,7 +204,7 @@ X-Participant-Token: {participantToken}
 
 ```text
 event: candle-blow-started
-data: {"partyId":1,"status":"ACTIVE","candles":[{"candleId":1,"extinguished":false},{"candleId":2,"extinguished":false},{"candleId":3,"extinguished":false},{"candleId":4,"extinguished":false},{"candleId":5,"extinguished":false},{"candleId":6,"extinguished":false},{"candleId":7,"extinguished":false},{"candleId":8,"extinguished":false},{"candleId":9,"extinguished":false}],"remainingCount":9,"finishedReason":null}
+data: {"partyId":1,"status":"ACTIVE","candles":[{"candleId":1,"extinguished":false},{"candleId":2,"extinguished":false},{"candleId":3,"extinguished":false},{"candleId":4,"extinguished":false},{"candleId":5,"extinguished":false},{"candleId":6,"extinguished":false},{"candleId":7,"extinguished":false},{"candleId":8,"extinguished":false},{"candleId":9,"extinguished":false}],"finishedReason":null}
 ```
 
 발생 조건:
@@ -219,7 +216,7 @@ data: {"partyId":1,"status":"ACTIVE","candles":[{"candleId":1,"extinguished":fal
 
 ```text
 event: candle-blow-progress
-data: {"partyId":1,"status":"ACTIVE","candles":[{"candleId":1,"extinguished":true},{"candleId":2,"extinguished":false},{"candleId":3,"extinguished":true},{"candleId":4,"extinguished":true},{"candleId":5,"extinguished":true},{"candleId":6,"extinguished":false},{"candleId":7,"extinguished":false},{"candleId":8,"extinguished":false},{"candleId":9,"extinguished":false}],"remainingCount":5,"finishedReason":null}
+data: {"partyId":1,"status":"ACTIVE","candles":[{"candleId":1,"extinguished":true},{"candleId":2,"extinguished":false},{"candleId":3,"extinguished":true},{"candleId":4,"extinguished":true},{"candleId":5,"extinguished":true},{"candleId":6,"extinguished":false},{"candleId":7,"extinguished":false},{"candleId":8,"extinguished":false},{"candleId":9,"extinguished":false}],"finishedReason":null}
 ```
 
 발생 조건:
@@ -231,7 +228,7 @@ data: {"partyId":1,"status":"ACTIVE","candles":[{"candleId":1,"extinguished":tru
 
 ```text
 event: candle-blow-ended
-data: {"partyId":1,"status":"FINISHED","candles":[{"candleId":1,"extinguished":true},{"candleId":2,"extinguished":true},{"candleId":3,"extinguished":true},{"candleId":4,"extinguished":true},{"candleId":5,"extinguished":true},{"candleId":6,"extinguished":true},{"candleId":7,"extinguished":true},{"candleId":8,"extinguished":true},{"candleId":9,"extinguished":true}],"remainingCount":0,"finishedReason":"ALL_EXTINGUISHED"}
+data: {"partyId":1,"status":"FINISHED","candles":[{"candleId":1,"extinguished":true},{"candleId":2,"extinguished":true},{"candleId":3,"extinguished":true},{"candleId":4,"extinguished":true},{"candleId":5,"extinguished":true},{"candleId":6,"extinguished":true},{"candleId":7,"extinguished":true},{"candleId":8,"extinguished":true},{"candleId":9,"extinguished":true}],"finishedReason":"ALL_EXTINGUISHED"}
 ```
 
 발생 조건:

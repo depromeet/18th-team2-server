@@ -79,11 +79,11 @@
 - Modify: `src/main/kotlin/com/team2/server/common/exception/ErrorCode.kt`
 - Test: `src/test/kotlin/com/team2/server/burstgame/api/BurstGameControllerTest.kt`
 
-- [ ] `GET /api/v1/parties/{partyId}/candle-blow`
-- [ ] `POST /api/v1/parties/{partyId}/candle-blow/candles/{candleId}`
-- [ ] JWT 또는 `X-Participant-Token` 참여자 검증 재사용
-- [ ] `WAITING` 상태 blow 요청은 `CANDLE_BLOW_NOT_STARTED`
-- [ ] `FINISHED` 상태 blow 요청은 `200 OK` 멱등 응답
+- [x] `GET /api/v1/parties/{partyId}/candle-blow`
+- [x] `POST /api/v1/parties/{partyId}/candle-blow/candles/{candleId}`
+- [x] JWT 또는 `X-Participant-Token` 참여자 검증 재사용
+- [x] `WAITING` 상태 blow 요청은 `CANDLE_BLOW_NOT_STARTED`
+- [x] `FINISHED` 상태 blow 요청은 `200 OK` 멱등 응답
 
 ## Task 4: scheduler와 SSE 구현
 

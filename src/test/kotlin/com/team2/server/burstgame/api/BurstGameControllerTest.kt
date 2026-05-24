@@ -1,6 +1,7 @@
 package com.team2.server.burstgame.api
 
 import com.team2.server.burstgame.application.port.BurstGameSessionStore
+import com.team2.server.burstgame.application.port.CandleBlowSessionStore
 import com.team2.server.burstgame.application.service.BurstGameSessionService
 import com.team2.server.common.DatabaseCleanup
 import com.team2.server.config.TestcontainersConfiguration
@@ -34,12 +35,116 @@ class BurstGameControllerTest
         private val profileRepository: RealtimeParticipantProfileRepository,
         private val sessionService: BurstGameSessionService,
         private val sessionStore: BurstGameSessionStore,
+        private val candleBlowSessionStore: CandleBlowSessionStore,
         private val databaseCleanup: DatabaseCleanup,
     ) {
         @BeforeEach
         fun setUp() {
             databaseCleanup.execute()
             sessionStore.clear()
+            candleBlowSessionStore.clear()
+        }
+
+        @Test
+        fun `participantToken으로 촛불끄기 상태 조회 성공`() {
+            val fixture = saveRealtimeParticipant(startedAt = LocalDateTime.now().minusSeconds(40))
+
+            mockMvc
+                .get("/api/v1/parties/${fixture.partyId}/candle-blow") {
+                    header("X-Participant-Token", fixture.participantToken)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.status") { value(200) }
+                    jsonPath("$.data.partyId") { value(fixture.partyId) }
+                    jsonPath("$.data.status") { value("ACTIVE") }
+                    jsonPath("$.data.remainingCount") { doesNotExist() }
+                    jsonPath("$.data.finishedReason") { doesNotExist() }
+                    jsonPath("$.data.candles.length()") { value(9) }
+                    jsonPath("$.data.candles[0].candleId") { value(1) }
+                    jsonPath("$.data.candles[0].extinguished") { value(false) }
+                }
+        }
+
+        @Test
+        fun `participantToken으로 촛불 끄기 성공`() {
+            val fixture = saveRealtimeParticipant(startedAt = LocalDateTime.now().minusSeconds(40))
+
+            mockMvc
+                .post("/api/v1/parties/${fixture.partyId}/candle-blow/candles/3") {
+                    header("X-Participant-Token", fixture.participantToken)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.status") { value(200) }
+                    jsonPath("$.data.partyId") { value(fixture.partyId) }
+                    jsonPath("$.data.status") { value("ACTIVE") }
+                    jsonPath("$.data.remainingCount") { doesNotExist() }
+                    jsonPath("$.data.candles[2].candleId") { value(3) }
+                    jsonPath("$.data.candles[2].extinguished") { value(true) }
+                }
+        }
+
+        @Test
+        fun `이미 꺼진 촛불을 다시 꺼도 200 응답으로 현재 상태를 반환한다`() {
+            val fixture = saveRealtimeParticipant(startedAt = LocalDateTime.now().minusSeconds(40))
+
+            blowCandle(fixture, candleId = 3)
+
+            mockMvc
+                .post("/api/v1/parties/${fixture.partyId}/candle-blow/candles/3") {
+                    header("X-Participant-Token", fixture.participantToken)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.status") { value("ACTIVE") }
+                    jsonPath("$.data.remainingCount") { doesNotExist() }
+                    jsonPath("$.data.candles[2].extinguished") { value(true) }
+                }
+        }
+
+        @Test
+        fun `촛불끄기 시작 전 촛불 끄기 요청은 400을 반환한다`() {
+            val fixture = saveRealtimeParticipant(startedAt = LocalDateTime.now().minusSeconds(10))
+
+            mockMvc
+                .post("/api/v1/parties/${fixture.partyId}/candle-blow/candles/1") {
+                    header("X-Participant-Token", fixture.participantToken)
+                }.andExpect {
+                    status { isBadRequest() }
+                    jsonPath("$.error.code") { value("CANDLE_BLOW_NOT_STARTED") }
+                }
+        }
+
+        @Test
+        fun `모든 촛불이 꺼진 뒤 촛불 끄기 요청은 200 응답으로 종료 상태를 반환한다`() {
+            val fixture = saveRealtimeParticipant(startedAt = LocalDateTime.now().minusSeconds(40))
+
+            (1..9).forEach { candleId ->
+                blowCandle(fixture, candleId)
+            }
+
+            mockMvc
+                .post("/api/v1/parties/${fixture.partyId}/candle-blow/candles/1") {
+                    header("X-Participant-Token", fixture.participantToken)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.status") { value("FINISHED") }
+                    jsonPath("$.data.remainingCount") { doesNotExist() }
+                    jsonPath("$.data.finishedReason") { value("ALL_EXTINGUISHED") }
+                }
+        }
+
+        @Test
+        fun `종료 시각이 지난 촛불끄기 조회는 TIMEOUT 종료 상태를 반환한다`() {
+            val fixture = saveRealtimeParticipant(startedAt = LocalDateTime.now().minusSeconds(90))
+
+            mockMvc
+                .get("/api/v1/parties/${fixture.partyId}/candle-blow") {
+                    header("X-Participant-Token", fixture.participantToken)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.status") { value("FINISHED") }
+                    jsonPath("$.data.remainingCount") { doesNotExist() }
+                    jsonPath("$.data.finishedReason") { value("TIMEOUT") }
+                }
         }
 
         @Test
@@ -187,14 +292,28 @@ class BurstGameControllerTest
                 }
         }
 
-        private fun saveRealtimeParticipant(): BurstGameFixture {
+        private fun blowCandle(
+            fixture: BurstGameFixture,
+            candleId: Int,
+        ) {
+            mockMvc
+                .post("/api/v1/parties/${fixture.partyId}/candle-blow/candles/$candleId") {
+                    header("X-Participant-Token", fixture.participantToken)
+                }.andExpect {
+                    status { isOk() }
+                }
+        }
+
+        private fun saveRealtimeParticipant(
+            startedAt: LocalDateTime = LocalDateTime.now().minusMinutes(1),
+        ): BurstGameFixture {
             val party =
                 partyRepository.saveAndFlush(
                     RealtimeParty(
                         ownerId = 1L,
                         name = "실시간 파티",
                         celebrantNickname = "주인공",
-                        startedAt = LocalDateTime.now().minusMinutes(1),
+                        startedAt = startedAt,
                     ),
                 )
             val participant = participantRepository.saveAndFlush(Participant(party = party, isCelebrant = true))
