@@ -45,7 +45,7 @@ class BurstGameSessionService(
     ): StartResult {
         val result =
             sessionStore.start(partyId, now) {
-                validateCandleBlowCompleted(partyId)
+                validateCandleBlowFinished(partyId, now)
                 BurstGameSession(
                     partyId = partyId,
                     startedAt = now,
@@ -145,8 +145,11 @@ class BurstGameSessionService(
         }
     }
 
-    private fun validateCandleBlowCompleted(partyId: Long) {
-        if (!candleBlowStatusReader.isCandleBlowCompleted(partyId)) {
+    private fun validateCandleBlowFinished(
+        partyId: Long,
+        now: LocalDateTime,
+    ) {
+        if (!candleBlowStatusReader.isCandleBlowFinished(partyId, now)) {
             throw BusinessException(ErrorCode.BURST_GAME_NOT_READY)
         }
     }

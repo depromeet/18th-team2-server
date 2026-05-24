@@ -21,7 +21,7 @@
 - 종료 조건은 `ALL_EXTINGUISHED` 또는 `TIMEOUT`이다.
 - 촛불 종료 후 박터뜨리기는 자동 시작하지 않는다.
 - 다음 버튼을 누른 참여자 중 가장 먼저 도착한 기존 `burst-game/start` 요청이 박터뜨리기 라운드를 생성한다.
-- 박터뜨리기 선행 조건은 촛불 `completed`가 아니라 촛불 `finished`다.
+- 박터뜨리기 선행 조건은 촛불 `finished`다.
 - 1차 구현은 DB 저장 없이 in-memory session으로 처리한다.
 - 확장성을 고려해 촛불 상태 접근은 `CandleBlowSessionStore` 포트 뒤에 둔다.
 
@@ -109,15 +109,16 @@
 **Files:**
 - Modify: `src/main/kotlin/com/team2/server/burstgame/application/port/CandleBlowStatusReader.kt`
 - Modify: `src/main/kotlin/com/team2/server/burstgame/application/service/BurstGameSessionService.kt`
-- Modify: `src/main/kotlin/com/team2/server/burstgame/infrastructure/candle/CandleBlowStatusReaderStub.kt`
-- Modify: `src/main/kotlin/com/team2/server/burstgame/infrastructure/candle/CandleBlowStatusReaderUnavailable.kt`
-- Create/Modify: 실제 촛불 상태 reader adapter
+- Delete: `src/main/kotlin/com/team2/server/burstgame/infrastructure/candle/CandleBlowStatusReaderStub.kt`
+- Delete: `src/main/kotlin/com/team2/server/burstgame/infrastructure/candle/CandleBlowStatusReaderUnavailable.kt`
+- Create: `src/main/kotlin/com/team2/server/burstgame/infrastructure/candle/InMemoryCandleBlowStatusReader.kt`
 - Test: `src/test/kotlin/com/team2/server/burstgame/application/service/BurstGameSessionServiceTest.kt`
 
-- [ ] `isCandleBlowCompleted` 의미를 `isCandleBlowFinished`로 정렬
-- [ ] `ALL_EXTINGUISHED`, `TIMEOUT` 모두 박터뜨리기 start 가능
-- [ ] `WAITING`, `ACTIVE`는 `BURST_GAME_NOT_READY`
-- [ ] active burst game이 이미 있으면 촛불 상태 재검증하지 않음
+- [x] `isCandleBlowFinished` 용어로 정렬
+- [x] `ALL_EXTINGUISHED`, `TIMEOUT` 모두 박터뜨리기 start 가능
+- [x] `WAITING`, `ACTIVE`는 `BURST_GAME_NOT_READY`
+- [x] active burst game이 이미 있으면 촛불 상태 재검증하지 않음
+- [x] 박터뜨리기 start 성공 후 촛불 세션 즉시 제거
 
 ## Task 6: 아키텍처/회귀 검증
 

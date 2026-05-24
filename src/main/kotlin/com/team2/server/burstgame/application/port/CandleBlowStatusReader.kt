@@ -1,5 +1,10 @@
 package com.team2.server.burstgame.application.port
 
+import java.time.LocalDateTime
+
 interface CandleBlowStatusReader {
-    fun isCandleBlowCompleted(partyId: Long): Boolean
+    fun isCandleBlowFinished(
+        partyId: Long,
+        now: LocalDateTime,
+    ): Boolean
 }

@@ -151,6 +151,8 @@ class BurstGameControllerTest
         fun `participantToken으로 박터뜨리기 시작 성공`() {
             val fixture = saveRealtimeParticipant()
 
+            prepareCandleBlowFinished(fixture)
+
             mockMvc
                 .post("/api/v1/parties/${fixture.partyId}/burst-game/start") {
                     header("X-Participant-Token", fixture.participantToken)
@@ -165,9 +167,23 @@ class BurstGameControllerTest
         }
 
         @Test
+        fun `촛불끄기가 끝나기 전 박터뜨리기 시작은 400을 반환한다`() {
+            val fixture = saveRealtimeParticipant()
+
+            mockMvc
+                .post("/api/v1/parties/${fixture.partyId}/burst-game/start") {
+                    header("X-Participant-Token", fixture.participantToken)
+                }.andExpect {
+                    status { isBadRequest() }
+                    jsonPath("$.error.code") { value("BURST_GAME_NOT_READY") }
+                }
+        }
+
+        @Test
         fun `active 라운드가 있으면 start 재호출은 같은 party 상태를 반환한다`() {
             val fixture = saveRealtimeParticipant()
 
+            prepareCandleBlowFinished(fixture)
             startGame(fixture)
             startGame(fixture)
 
@@ -185,6 +201,7 @@ class BurstGameControllerTest
         @Test
         fun `터치 batch 제출 후 진행 상태에 rankings를 반환한다`() {
             val fixture = saveRealtimeParticipant()
+            prepareCandleBlowFinished(fixture)
             startGame(fixture)
 
             mockMvc
@@ -206,6 +223,7 @@ class BurstGameControllerTest
         @Test
         fun `중복 clientSequence는 200 응답에서 DUPLICATE_SEQUENCE로 무시한다`() {
             val fixture = saveRealtimeParticipant()
+            prepareCandleBlowFinished(fixture)
             startGame(fixture)
             submitTap(fixture, clientSequence = 1)
 
@@ -225,6 +243,7 @@ class BurstGameControllerTest
         @Test
         fun `종료 상태 조회는 rankings 없이 winners만 반환한다`() {
             val fixture = saveRealtimeParticipant()
+            prepareCandleBlowFinished(fixture)
             startGame(fixture)
             submitTap(fixture, clientSequence = 1)
 
@@ -248,6 +267,7 @@ class BurstGameControllerTest
             val fixtures = saveRealtimeParticipants()
             val firstParticipant = fixtures[0]
             val secondParticipant = fixtures[1]
+            prepareCandleBlowFinished(firstParticipant)
             startGame(firstParticipant)
             submitTap(firstParticipant, tapCount = 7, clientSequence = 1)
             submitTap(secondParticipant, tapCount = 14, clientSequence = 1)
@@ -266,6 +286,12 @@ class BurstGameControllerTest
                     jsonPath("$.data.winners[0].participantId") { value(secondParticipant.participantId) }
                     jsonPath("$.data.winners[0].tapCount") { value(14) }
                 }
+        }
+
+        private fun prepareCandleBlowFinished(fixture: BurstGameFixture) {
+            (1..9).forEach { candleId ->
+                blowCandle(fixture, candleId)
+            }
         }
 
         private fun startGame(fixture: BurstGameFixture) {

@@ -3,6 +3,7 @@ package com.team2.server.burstgame.application.usecase
 import com.team2.server.burstgame.application.dto.StartBurstGameResponse
 import com.team2.server.burstgame.application.port.BurstGameEndScheduler
 import com.team2.server.burstgame.application.port.BurstGameEventBroadcaster
+import com.team2.server.burstgame.application.port.CandleBlowSessionStore
 import com.team2.server.burstgame.application.service.BurstGameSessionService
 import com.team2.server.burstgame.application.support.BurstGameParticipantResolver
 import com.team2.server.burstgame.application.support.endScheduledParty
@@ -20,6 +21,7 @@ class StartBurstGameUseCase(
     private val sessionService: BurstGameSessionService,
     private val eventBroadcaster: BurstGameEventBroadcaster,
     private val endScheduler: BurstGameEndScheduler,
+    private val candleBlowSessionStore: CandleBlowSessionStore,
     private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -56,6 +58,7 @@ class StartBurstGameUseCase(
                 logStartFailure(result, ex)
                 throw ex
             }
+            candleBlowSessionStore.removeByPartyId(partyId)
         }
         return StartBurstGameResponse.from(result.snapshot)
     }
