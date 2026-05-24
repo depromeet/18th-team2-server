@@ -49,21 +49,23 @@
 - Create: `src/main/kotlin/com/team2/server/burstgame/domain/candle/CandleBlowSession.kt`
 - Create: `src/main/kotlin/com/team2/server/burstgame/domain/candle/CandleBlowStatus.kt`
 - Create: `src/main/kotlin/com/team2/server/burstgame/domain/candle/CandleBlowFinishedReason.kt`
-- Create: `src/main/kotlin/com/team2/server/burstgame/domain/candle/CandleBlowIgnoredReason.kt`
+- Create: `src/main/kotlin/com/team2/server/burstgame/domain/candle/CandleBlowSnapshot.kt`
+- Create: `src/main/kotlin/com/team2/server/burstgame/domain/candle/CandleState.kt`
+- Create: `src/main/kotlin/com/team2/server/burstgame/domain/candle/CandleBlowUpdateResult.kt`
 - Create: `src/main/kotlin/com/team2/server/burstgame/application/port/CandleBlowSessionStore.kt`
 - Create: `src/main/kotlin/com/team2/server/burstgame/infrastructure/candle/InMemoryCandleBlowSessionStore.kt`
 - Test: `src/test/kotlin/com/team2/server/burstgame/domain/candle/CandleBlowSessionTest.kt`
 - Test: `src/test/kotlin/com/team2/server/burstgame/infrastructure/candle/InMemoryCandleBlowSessionStoreTest.kt`
 
-- [ ] `CANDLE_COUNT = 9`
-- [ ] `START_DELAY_SECONDS = 35`
-- [ ] `DURATION_SECONDS = 45`
-- [ ] 1차 store는 단일 app instance 전제의 in-memory 구현으로 둔다.
-- [ ] 추후 store 구현 교체 가능성을 고려해 `CandleBlowSessionStore` 포트 뒤에 구현을 숨긴다.
-- [ ] `candleId` 범위 `1..9` 검증
-- [ ] 이미 꺼진 촛불은 멱등 결과 반환, `stateVersion` 유지
-- [ ] 전체 소등 시 `FINISHED / ALL_EXTINGUISHED`
-- [ ] 종료 시각 도달 시 `FINISHED / TIMEOUT`
+- [x] `CANDLE_COUNT = 9`
+- [x] `START_DELAY_SECONDS = 35`
+- [x] `DURATION_SECONDS = 45`
+- [x] 1차 store는 단일 app instance 전제의 in-memory 구현으로 둔다.
+- [x] 추후 store 구현 교체 가능성을 고려해 `CandleBlowSessionStore` 포트 뒤에 구현을 숨긴다.
+- [x] `candleId` 범위 `1..9` 검증
+- [x] 이미 꺼진 촛불은 멱등으로 현재 상태만 반환
+- [x] 전체 소등 시 `FINISHED / ALL_EXTINGUISHED`
+- [x] 종료 시각 도달 시 `FINISHED / TIMEOUT`
 
 ## Task 3: 상태 조회/촛불 끄기 API와 UseCase 추가
 

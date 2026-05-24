@@ -75,7 +75,7 @@ CANDLE_COUNT = 9
 | 복구 | 앱 재시작, SSE 유실, 늦은 입장 시 상태 조회 또는 입장 이벤트로 현재 단계 복구 |
 | 참여자 검증 | JWT 또는 `X-Participant-Token`으로 실시간 파티 참여자 확인 |
 | 공유 상태 관리 | 파티별 9개 촛불의 extinguished 상태를 단일 aggregate로 관리 |
-| 멱등 처리 | 이미 꺼진 촛불 클릭은 `200 OK`로 현재 상태를 반환하고 `stateVersion`은 증가시키지 않음 |
+| 멱등 처리 | 이미 꺼진 촛불 클릭은 `200 OK`로 현재 촛불 상태를 그대로 반환 |
 | 종료 처리 | 9개 모두 꺼짐 또는 45초 타임아웃 시 finished 상태 전이 |
 | 박터뜨리기 연동 | `CandleBlowStatusReader` 계열 계약은 `finished` 여부를 반환하도록 정렬 |
 
@@ -103,15 +103,19 @@ X-Participant-Token: {participantToken}
 {
   "partyId": 1,
   "status": "ACTIVE",
-  "totalCandles": 9,
-  "extinguishedCandleIds": [1, 3, 5],
+  "candles": [
+    { "candleId": 1, "extinguished": true },
+    { "candleId": 2, "extinguished": false },
+    { "candleId": 3, "extinguished": true },
+    { "candleId": 4, "extinguished": false },
+    { "candleId": 5, "extinguished": true },
+    { "candleId": 6, "extinguished": false },
+    { "candleId": 7, "extinguished": false },
+    { "candleId": 8, "extinguished": false },
+    { "candleId": 9, "extinguished": false }
+  ],
   "remainingCount": 6,
-  "startedAt": "2026-05-24T20:00:35",
-  "endsAt": "2026-05-24T20:01:20",
-  "finishedAt": null,
-  "finishedReason": null,
-  "stateVersion": 3,
-  "serverTime": "2026-05-24T20:00:50"
+  "finishedReason": null
 }
 ```
 
@@ -147,18 +151,19 @@ X-Participant-Token: {participantToken}
 {
   "partyId": 1,
   "status": "ACTIVE",
-  "candleId": 4,
-  "accepted": true,
-  "ignoredReason": null,
-  "totalCandles": 9,
-  "extinguishedCandleIds": [1, 3, 4, 5],
+  "candles": [
+    { "candleId": 1, "extinguished": true },
+    { "candleId": 2, "extinguished": false },
+    { "candleId": 3, "extinguished": true },
+    { "candleId": 4, "extinguished": true },
+    { "candleId": 5, "extinguished": true },
+    { "candleId": 6, "extinguished": false },
+    { "candleId": 7, "extinguished": false },
+    { "candleId": 8, "extinguished": false },
+    { "candleId": 9, "extinguished": false }
+  ],
   "remainingCount": 5,
-  "startedAt": "2026-05-24T20:00:35",
-  "endsAt": "2026-05-24T20:01:20",
-  "finishedAt": null,
-  "finishedReason": null,
-  "stateVersion": 4,
-  "serverTime": "2026-05-24T20:00:52"
+  "finishedReason": null
 }
 ```
 
@@ -168,18 +173,19 @@ X-Participant-Token: {participantToken}
 {
   "partyId": 1,
   "status": "ACTIVE",
-  "candleId": 4,
-  "accepted": false,
-  "ignoredReason": "ALREADY_EXTINGUISHED",
-  "totalCandles": 9,
-  "extinguishedCandleIds": [1, 3, 4, 5],
+  "candles": [
+    { "candleId": 1, "extinguished": true },
+    { "candleId": 2, "extinguished": false },
+    { "candleId": 3, "extinguished": true },
+    { "candleId": 4, "extinguished": true },
+    { "candleId": 5, "extinguished": true },
+    { "candleId": 6, "extinguished": false },
+    { "candleId": 7, "extinguished": false },
+    { "candleId": 8, "extinguished": false },
+    { "candleId": 9, "extinguished": false }
+  ],
   "remainingCount": 5,
-  "startedAt": "2026-05-24T20:00:35",
-  "endsAt": "2026-05-24T20:01:20",
-  "finishedAt": null,
-  "finishedReason": null,
-  "stateVersion": 4,
-  "serverTime": "2026-05-24T20:00:53"
+  "finishedReason": null
 }
 ```
 
@@ -187,11 +193,11 @@ X-Participant-Token: {participantToken}
 
 - `candleId`는 `1..9`만 허용한다. 범위를 벗어나면 `INVALID_INPUT`.
 - `WAITING` 상태에서 호출하면 `CANDLE_BLOW_NOT_STARTED`.
-- `FINISHED` 상태에서 호출하면 `200 OK`, `accepted=false`, `ignoredReason=ALREADY_FINISHED`와 현재 종료 상태를 반환한다.
-- 이미 꺼진 촛불이면 `200 OK`, `accepted=false`, `ignoredReason=ALREADY_EXTINGUISHED`와 현재 상태를 반환한다.
-- 새 촛불이 꺼지면 `accepted=true`, `stateVersion += 1`.
+- `FINISHED` 상태에서 호출하면 `200 OK`와 현재 종료 상태를 반환한다.
+- 이미 꺼진 촛불이면 `200 OK`와 현재 상태를 반환한다.
+- 새 촛불이 꺼지면 현재 9개 촛불 상태를 반환하고 progress SSE 발송 대상이 된다.
 - 새 입력으로 9개가 모두 꺼지면 같은 처리 안에서 `FINISHED`로 전이하고 `finishedReason=ALL_EXTINGUISHED`가 된다.
-- 요청 시점에 `now >= endsAt`이면 먼저 `FINISHED/TIMEOUT`으로 전이한 뒤 `accepted=false`, `ignoredReason=ALREADY_FINISHED`를 반환한다.
+- 요청 시점에 `now >= endsAt`이면 먼저 `FINISHED/TIMEOUT`으로 전이한 뒤 현재 종료 상태를 반환한다.
 
 ---
 
@@ -201,7 +207,7 @@ X-Participant-Token: {participantToken}
 
 ```text
 event: candle-blow-started
-data: {"partyId":1,"status":"ACTIVE","totalCandles":9,"extinguishedCandleIds":[],"remainingCount":9,"startedAt":"2026-05-24T20:00:35","endsAt":"2026-05-24T20:01:20","stateVersion":0,"serverTime":"2026-05-24T20:00:35"}
+data: {"partyId":1,"status":"ACTIVE","candles":[{"candleId":1,"extinguished":false},{"candleId":2,"extinguished":false},{"candleId":3,"extinguished":false},{"candleId":4,"extinguished":false},{"candleId":5,"extinguished":false},{"candleId":6,"extinguished":false},{"candleId":7,"extinguished":false},{"candleId":8,"extinguished":false},{"candleId":9,"extinguished":false}],"remainingCount":9,"finishedReason":null}
 ```
 
 발생 조건:
@@ -213,7 +219,7 @@ data: {"partyId":1,"status":"ACTIVE","totalCandles":9,"extinguishedCandleIds":[]
 
 ```text
 event: candle-blow-progress
-data: {"partyId":1,"status":"ACTIVE","candleId":4,"totalCandles":9,"extinguishedCandleIds":[1,3,4,5],"remainingCount":5,"startedAt":"2026-05-24T20:00:35","endsAt":"2026-05-24T20:01:20","stateVersion":4,"serverTime":"2026-05-24T20:00:52"}
+data: {"partyId":1,"status":"ACTIVE","candles":[{"candleId":1,"extinguished":true},{"candleId":2,"extinguished":false},{"candleId":3,"extinguished":true},{"candleId":4,"extinguished":true},{"candleId":5,"extinguished":true},{"candleId":6,"extinguished":false},{"candleId":7,"extinguished":false},{"candleId":8,"extinguished":false},{"candleId":9,"extinguished":false}],"remainingCount":5,"finishedReason":null}
 ```
 
 발생 조건:
@@ -225,7 +231,7 @@ data: {"partyId":1,"status":"ACTIVE","candleId":4,"totalCandles":9,"extinguished
 
 ```text
 event: candle-blow-ended
-data: {"partyId":1,"status":"FINISHED","totalCandles":9,"extinguishedCandleIds":[1,2,3,4,5,6,7,8,9],"remainingCount":0,"startedAt":"2026-05-24T20:00:35","endsAt":"2026-05-24T20:01:20","finishedAt":"2026-05-24T20:00:58","finishedReason":"ALL_EXTINGUISHED","stateVersion":10,"serverTime":"2026-05-24T20:00:58"}
+data: {"partyId":1,"status":"FINISHED","candles":[{"candleId":1,"extinguished":true},{"candleId":2,"extinguished":true},{"candleId":3,"extinguished":true},{"candleId":4,"extinguished":true},{"candleId":5,"extinguished":true},{"candleId":6,"extinguished":true},{"candleId":7,"extinguished":true},{"candleId":8,"extinguished":true},{"candleId":9,"extinguished":true}],"remainingCount":0,"finishedReason":"ALL_EXTINGUISHED"}
 ```
 
 발생 조건:
@@ -310,10 +316,10 @@ burstgame/infrastructure/scheduler
 
 - `party.startedAt + 35초` 전 상태 조회는 `WAITING`.
 - `party.startedAt + 35초` 이후 상태 조회는 `ACTIVE`.
-- 촛불 1개 끄기 성공 시 `accepted=true`, `stateVersion` 증가.
-- 이미 꺼진 촛불 재클릭은 `200 OK`, `accepted=false`, `ignoredReason=ALREADY_EXTINGUISHED`, `stateVersion` 유지.
+- 촛불 1개 끄기 성공 시 해당 `candleId`의 `extinguished`가 `true`로 바뀐다.
+- 이미 꺼진 촛불 재클릭은 `200 OK`와 현재 9개 촛불 상태를 반환한다.
 - 9개가 모두 꺼지면 `FINISHED`, `finishedReason=ALL_EXTINGUISHED`.
 - 45초가 지나면 `FINISHED`, `finishedReason=TIMEOUT`.
-- 종료 후 클릭은 `200 OK`, `accepted=false`, `ignoredReason=ALREADY_FINISHED`.
+- 종료 후 클릭은 `200 OK`와 현재 종료 상태를 반환한다.
 - `FINISHED` 상태에서는 박터뜨리기 start가 가능하다.
 - `WAITING`/`ACTIVE` 상태에서는 박터뜨리기 start가 `BURST_GAME_NOT_READY`.
