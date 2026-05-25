@@ -33,9 +33,8 @@ class BurstGameStartSideEffectHandler(
         result: BurstGameSessionService.StartResult.Started,
         now: LocalDateTime,
     ) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            completeStarted(partyId, result, now)
-            return
+        check(TransactionSynchronizationManager.isSynchronizationActive()) {
+            "completeStartedAfterCommit must be called within a transactional context."
         }
 
         TransactionSynchronizationManager.registerSynchronization(
@@ -68,7 +67,7 @@ class BurstGameStartSideEffectHandler(
                 endScheduledParty(sessionService, eventBroadcaster, it, LocalDateTime.now(clock))
             }
         }.onFailure { ex ->
-            removeStartedSession(sessionService, log, partyId, result.snapshot.startedAt, now)
+            rollbackStartedSession(partyId, result, now)
             logStartFailure(result, ex)
             throw ex
         }
@@ -82,10 +81,30 @@ class BurstGameStartSideEffectHandler(
         runCatching {
             eventBroadcaster.broadcastStarted(result.snapshot)
         }.onFailure { ex ->
-            endScheduler.cancel(partyId)
-            removeStartedSession(sessionService, log, partyId, result.snapshot.startedAt, now)
+            cancelEndSchedule(partyId)
+            rollbackStartedSession(partyId, result, now)
             logStartFailure(result, ex)
             throw ex
+        }
+    }
+
+    private fun cancelEndSchedule(partyId: Long) {
+        runCatching {
+            endScheduler.cancel(partyId)
+        }.onFailure { ex ->
+            log.error("Failed to cancel burst game end schedule during start rollback. partyId={}", partyId, ex)
+        }
+    }
+
+    private fun rollbackStartedSession(
+        partyId: Long,
+        result: BurstGameSessionService.StartResult.Started,
+        now: LocalDateTime,
+    ) {
+        runCatching {
+            removeStartedSession(sessionService, log, partyId, result.snapshot.startedAt, now)
+        }.onFailure { ex ->
+            log.error("Failed to remove burst game session during start rollback. partyId={}", partyId, ex)
         }
     }
 

@@ -5,6 +5,7 @@ import com.team2.server.burstgame.application.usecase.RecoverCandleBlowScheduleU
 import com.team2.server.burstgame.application.usecase.StartScheduledCandleBlowUseCase
 import org.mockito.kotlin.mock
 import java.time.Clock
+import java.time.Duration
 import java.time.LocalDateTime
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -35,7 +36,7 @@ class ScheduledCandleBlowSchedulerTest {
     fun `시작 시간이 되면 start callback을 실행한다`() {
         val latch = CountDownLatch(1)
 
-        scheduler.scheduleStart(1L, LocalDateTime.now(clock).plusNanos(1)) { partyId ->
+        scheduler.scheduleStart(1L, LocalDateTime.now(clock).plus(SCHEDULE_DELAY)) { partyId ->
             if (partyId == 1L) {
                 latch.countDown()
             }
@@ -48,7 +49,7 @@ class ScheduledCandleBlowSchedulerTest {
     fun `종료 시간이 되면 end callback을 실행한다`() {
         val latch = CountDownLatch(1)
 
-        scheduler.scheduleEnd(1L, LocalDateTime.now(clock).plusNanos(1)) { partyId ->
+        scheduler.scheduleEnd(1L, LocalDateTime.now(clock).plus(SCHEDULE_DELAY)) { partyId ->
             if (partyId == 1L) {
                 latch.countDown()
             }
@@ -67,5 +68,9 @@ class ScheduledCandleBlowSchedulerTest {
 
         assertTrue(scheduler.cancel(1L))
         assertFalse(latch.await(200, TimeUnit.MILLISECONDS))
+    }
+
+    private companion object {
+        val SCHEDULE_DELAY: Duration = Duration.ofMillis(50)
     }
 }

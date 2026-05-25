@@ -113,6 +113,7 @@ class ScheduledCandleBlowScheduler(
                     {
                         synchronized(scheduledLock) {
                             scheduled[partyId]?.start = null
+                            removeIfEmpty(partyId)
                         }
                         runCatching {
                             onStart(partyId)

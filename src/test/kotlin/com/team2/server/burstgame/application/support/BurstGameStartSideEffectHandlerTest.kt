@@ -47,7 +47,9 @@ class BurstGameStartSideEffectHandlerTest {
         val snapshot = activeSnapshot()
         val result = BurstGameSessionService.StartResult.Started(snapshot, created = true)
 
-        handler.completeStartedAfterCommit(partyId = 1L, result = result, now = snapshot.startedAt)
+        executeAfterCommit {
+            handler.completeStartedAfterCommit(partyId = 1L, result = result, now = snapshot.startedAt)
+        }
 
         verify(endScheduler).schedule(eq(1L), eq(snapshot.endsAt), any())
         verify(eventBroadcaster).broadcastStarted(snapshot)
@@ -55,12 +57,24 @@ class BurstGameStartSideEffectHandlerTest {
     }
 
     @Test
+    fun `트랜잭션 동기화가 없으면 시작 후처리 등록을 거부한다`() {
+        val snapshot = activeSnapshot()
+        val result = BurstGameSessionService.StartResult.Started(snapshot, created = true)
+
+        assertThrows<IllegalStateException> {
+            handler.completeStartedAfterCommit(partyId = 1L, result = result, now = snapshot.startedAt)
+        }
+
+        verify(endScheduler, never()).schedule(eq(1L), eq(snapshot.endsAt), any())
+        verify(eventBroadcaster, never()).broadcastStarted(snapshot)
+    }
+
+    @Test
     fun `트랜잭션 동기화가 활성화되어 있으면 시작 후처리를 커밋 이후로 지연한다`() {
         val snapshot = activeSnapshot()
         val result = BurstGameSessionService.StartResult.Started(snapshot, created = true)
 
-        TransactionSynchronizationManager.initSynchronization()
-        try {
+        registerAfterCommit {
             handler.completeStartedAfterCommit(partyId = 1L, result = result, now = snapshot.startedAt)
 
             verify(endScheduler, never()).schedule(eq(1L), eq(snapshot.endsAt), any())
@@ -74,8 +88,6 @@ class BurstGameStartSideEffectHandlerTest {
             verify(endScheduler).schedule(eq(1L), eq(snapshot.endsAt), any())
             verify(eventBroadcaster).broadcastStarted(snapshot)
             verify(candleBlowSessionStore).removeByPartyId(1L)
-        } finally {
-            TransactionSynchronizationManager.clearSynchronization()
         }
     }
 
@@ -86,11 +98,31 @@ class BurstGameStartSideEffectHandlerTest {
         whenever(candleBlowSessionStore.removeByPartyId(1L)).thenThrow(IllegalStateException("cleanup failed"))
 
         assertDoesNotThrow {
-            handler.completeStartedAfterCommit(partyId = 1L, result = result, now = snapshot.startedAt)
+            executeAfterCommit {
+                handler.completeStartedAfterCommit(partyId = 1L, result = result, now = snapshot.startedAt)
+            }
         }
 
         verify(endScheduler).schedule(eq(1L), eq(snapshot.endsAt), any())
         verify(eventBroadcaster).broadcastStarted(snapshot)
+    }
+
+    @Test
+    fun `started 이벤트 실패 시 rollback 실패보다 원래 예외를 전파한다`() {
+        val snapshot = activeSnapshot()
+        val result = BurstGameSessionService.StartResult.Started(snapshot, created = true)
+        val broadcastException = IllegalStateException("broadcast failed")
+        whenever(eventBroadcaster.broadcastStarted(snapshot)).thenThrow(broadcastException)
+        whenever(endScheduler.cancel(1L)).thenThrow(IllegalStateException("cancel failed"))
+
+        val ex =
+            assertThrows<IllegalStateException> {
+                executeAfterCommit {
+                    handler.completeStartedAfterCommit(partyId = 1L, result = result, now = snapshot.startedAt)
+                }
+            }
+
+        assertEquals(broadcastException, ex)
     }
 
     @Test
@@ -134,5 +166,21 @@ class BurstGameStartSideEffectHandlerTest {
             serverTime = startedAt.plusSeconds(20),
             remainingSeconds = 0,
         )
+    }
+
+    private fun executeAfterCommit(block: () -> Unit) {
+        registerAfterCommit {
+            block()
+            TransactionSynchronizationManager.getSynchronizations().forEach { it.afterCommit() }
+        }
+    }
+
+    private fun registerAfterCommit(block: () -> Unit) {
+        TransactionSynchronizationManager.initSynchronization()
+        try {
+            block()
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization()
+        }
     }
 }
