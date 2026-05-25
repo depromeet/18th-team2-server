@@ -200,7 +200,7 @@ Run:
 
 **Files:**
 - Create: `src/main/kotlin/com/team2/server/burstgame/application/service/BurstGameParticipantReader.kt`
-- Create: `src/main/kotlin/com/team2/server/burstgame/application/service/CandleBlowStatusReader.kt`
+- Create: `src/main/kotlin/com/team2/server/burstgame/application/port/CandleBlowStatusReader.kt`
 - Create: `src/main/kotlin/com/team2/server/burstgame/application/service/BurstGameEventBroadcaster.kt`
 - Create: `src/main/kotlin/com/team2/server/burstgame/application/service/BurstGameEndScheduler.kt`
 - Modify: `src/main/kotlin/com/team2/server/party/application/service/PartyService.kt`, `RealtimeParticipantProfileService.kt` 또는 기존 party reader
@@ -209,8 +209,8 @@ Run:
 - [ ] `partyOption != REALTIME`이면 `CHAT_NOT_SUPPORTED`.
 - [ ] 실시간 파티 진행 가능 구간이 아니면 `CHAT_NOT_ACTIVE`.
 - [ ] 프로필이 없으면 `UNAUTHORIZED`.
-- [ ] `CandleBlowStatusReader`는 촛불 종료 여부만 반환하는 application port 인터페이스다.
-- [ ] `CandleBlowStatusReader`는 `fun isCandleBlowFinished(partyId: Long): Boolean` 시그니처를 기본 계약으로 둔다.
+- [ ] `CandleBlowStatusReader`는 `com.team2.server.burstgame.application.port` 패키지의 application port 인터페이스다.
+- [ ] `CandleBlowStatusReader`는 `fun isCandleBlowFinished(partyId: Long): Boolean` 시그니처로 촛불 종료 여부만 반환한다.
 - [ ] 새 라운드 생성 시 `CandleBlowStatusReader`로 촛불 종료 상태를 확인한다.
 - [ ] 촛불 종료 전이면 `BURST_GAME_NOT_READY`.
 - [ ] active 라운드가 이미 있으면 촛불 상태를 재검증하지 않는다.

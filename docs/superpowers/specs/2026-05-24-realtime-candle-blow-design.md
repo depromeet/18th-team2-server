@@ -133,6 +133,7 @@ X-Participant-Token: {participantToken}
 - 실시간 파티 참여자가 아니면 `UNAUTHORIZED` 또는 `PARTY_FORBIDDEN`.
 - 아직 시작 전이면 `WAITING` 상태를 반환한다.
 - 시작/종료 예약 이벤트가 유실됐더라도 조회 시점의 서버 시간으로 lazy transition을 수행할 수 있다.
+- 조회 lazy transition은 party 단위 lock 또는 compare-and-set 안에서 `status == ACTIVE && now >= endsAt`를 확인한 경로만 `transitionToFinishedOnce()`와 `emitEndedEventOnce()`를 같은 critical section에서 예약한다. persisted store로 교체할 때는 동등한 deduplication marker로 `candle-blow-ended`가 정확히 1회만 발행되도록 보장한다.
 
 ### 3-2. 촛불 끄기
 
@@ -195,6 +196,7 @@ X-Participant-Token: {participantToken}
 - 새 촛불이 꺼지면 현재 9개 촛불 상태를 반환하고 progress SSE 발송 대상이 된다.
 - 새 입력으로 9개가 모두 꺼지면 같은 처리 안에서 `FINISHED`로 전이하고 `finishedReason=ALL_EXTINGUISHED`가 된다.
 - 요청 시점에 `now >= endsAt`이면 먼저 `FINISHED/TIMEOUT`으로 전이한 뒤 현재 종료 상태를 반환한다.
+- 전체 소등 또는 timeout 전이는 party 단위 lock 또는 compare-and-set 안에서 `status == ACTIVE`를 확인한 경로만 `transitionToFinishedOnce()`와 `emitEndedEventOnce()`를 같은 critical section에서 예약한다.
 
 ---
 
@@ -235,6 +237,12 @@ data: {"partyId":1,"status":"FINISHED","candles":[{"candleId":1,"extinguished":t
 
 - 9개 촛불이 모두 꺼짐
 - 시작 후 45초 경과
+
+정확히 1회 발송 조건:
+
+- scheduler 종료, 상태 조회 lazy transition, 촛불 끄기 요청이 동시에 종료를 시도해도 party 단위 lock 또는 compare-and-set에서 `status == ACTIVE`를 획득한 하나의 경로만 `transitionToFinishedOnce()`를 수행한다.
+- 같은 critical section 안에서 ended snapshot과 `emitEndedEventOnce()` 예약 여부를 결정한다.
+- persisted store 구현으로 교체할 경우에는 status 전이와 event deduplication marker 저장을 하나의 원자적 연산으로 처리한다.
 
 `candle-blow-ended`는 박터뜨리기를 자동 시작하지 않는다. 참여자 중 누군가가 다음 버튼을 눌러 `POST /api/v1/parties/{partyId}/burst-game/start`를 호출하면, 기존 박터뜨리기 정책대로 가장 먼저 도착한 요청이 라운드를 생성하고 전체 파티 SSE로 `burst-game-started`가 발송된다.
 

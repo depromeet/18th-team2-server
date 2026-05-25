@@ -150,7 +150,8 @@ X-Participant-Token: {participantToken}
 - active/ended session이 없고 새 라운드를 생성해야 할 때 촛불끄기 종료 상태를 검증한다.
   - 촛불끄기가 종료되지 않았으면 `BURST_GAME_NOT_READY`.
   - `ALL_EXTINGUISHED`, `TIMEOUT` 모두 촛불끄기 종료 상태로 본다.
-  - TODO: `burstgame.application.port.CandleBlowStatusReader`의 의미를 `fun isCandleBlowFinished(partyId: Long): Boolean` 계약으로 정렬한다. 실제 촛불끄기 feature가 머지되면 종료 사유까지 필요한지 사전 합의 후 조정한다.
+  - 선행 조건 조회 포트는 `com.team2.server.burstgame.application.port.CandleBlowStatusReader`로 둔다.
+  - 포트 계약은 `fun isCandleBlowFinished(partyId: Long): Boolean`이며, `ALL_EXTINGUISHED`, `TIMEOUT` 모두 `true`로 해석한다.
   - 촛불끄기 feature가 아직 머지되지 않은 개발/테스트 단계에서는 항상 `true`를 반환하고 warning log를 남기는 `CandleBlowStatusReaderStub`을 임시 adapter로 둔다.
   - stub은 `local`, `dev`, `test` profile 또는 명시적 feature flag에서만 bean으로 등록하고, prod profile에는 등록하지 않는다.
 - 종료 결과 조회는 start API가 아니라 상태 및 결과 조회 API를 사용한다.
