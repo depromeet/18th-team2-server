@@ -1,6 +1,6 @@
 package com.team2.server.burstgame.application.usecase
 
-import com.team2.server.burstgame.application.dto.CandleBlowStateResponse
+import com.team2.server.burstgame.application.dto.CandleBlowResponse
 import com.team2.server.burstgame.application.port.CandleBlowSessionStore
 import com.team2.server.burstgame.application.support.BurstGameParticipantResolver
 import com.team2.server.burstgame.application.support.CandleBlowEndEventPublisher
@@ -23,7 +23,7 @@ class GetCandleBlowStateUseCase(
         partyId: Long,
         userId: Long?,
         participantToken: String?,
-    ): CandleBlowStateResponse {
+    ): CandleBlowResponse {
         val context = participantResolver.resolveWithParty(partyId, userId, participantToken)
         val now = LocalDateTime.now(clock)
         val result =
@@ -39,7 +39,7 @@ class GetCandleBlowStateUseCase(
                 val wasFinished = session.isFinished()
                 val snapshot = session.snapshot(now)
                 CandleBlowStateLookupResult(
-                    response = CandleBlowStateResponse.from(snapshot),
+                    response = CandleBlowResponse.from(snapshot),
                     endedSnapshot = snapshot.takeIf { !wasFinished && it.finishedReason != null },
                 )
             }
@@ -48,7 +48,7 @@ class GetCandleBlowStateUseCase(
     }
 
     private data class CandleBlowStateLookupResult(
-        val response: CandleBlowStateResponse,
+        val response: CandleBlowResponse,
         val endedSnapshot: CandleBlowSnapshot?,
     )
 }

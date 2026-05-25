@@ -2,9 +2,8 @@ package com.team2.server.burstgame.api
 
 import com.team2.server.auth.principal.UserPrincipal
 import com.team2.server.burstgame.api.dto.SubmitBurstGameTapRequest
-import com.team2.server.burstgame.application.dto.BlowCandleResponse
 import com.team2.server.burstgame.application.dto.BurstGameStateResponse
-import com.team2.server.burstgame.application.dto.CandleBlowStateResponse
+import com.team2.server.burstgame.application.dto.CandleBlowResponse
 import com.team2.server.burstgame.application.dto.StartBurstGameResponse
 import com.team2.server.burstgame.application.dto.SubmitBurstGameTapResponse
 import com.team2.server.burstgame.application.usecase.BlowCandleUseCase
@@ -13,6 +12,7 @@ import com.team2.server.burstgame.application.usecase.GetCandleBlowStateUseCase
 import com.team2.server.burstgame.application.usecase.StartBurstGameUseCase
 import com.team2.server.burstgame.application.usecase.SubmitBurstGameTapUseCase
 import com.team2.server.common.web.ApiResponse
+import jakarta.validation.Valid
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.GetMapping
@@ -36,7 +36,7 @@ class BurstGameController(
         @PathVariable partyId: Long,
         @AuthenticationPrincipal principal: UserPrincipal?,
         @RequestHeader(value = "X-Participant-Token", required = false) participantToken: String?,
-    ): ApiResponse<CandleBlowStateResponse> =
+    ): ApiResponse<CandleBlowResponse> =
         ApiResponse.success(
             getCandleBlowStateUseCase(partyId, principal?.userId, participantToken),
         )
@@ -47,7 +47,7 @@ class BurstGameController(
         @PathVariable candleId: Int,
         @AuthenticationPrincipal principal: UserPrincipal?,
         @RequestHeader(value = "X-Participant-Token", required = false) participantToken: String?,
-    ): ApiResponse<BlowCandleResponse> =
+    ): ApiResponse<CandleBlowResponse> =
         ApiResponse.success(
             blowCandleUseCase(
                 partyId = partyId,
@@ -72,7 +72,7 @@ class BurstGameController(
         @PathVariable partyId: Long,
         @AuthenticationPrincipal principal: UserPrincipal?,
         @RequestHeader(value = "X-Participant-Token", required = false) participantToken: String?,
-        @RequestBody request: SubmitBurstGameTapRequest,
+        @RequestBody @Valid request: SubmitBurstGameTapRequest,
     ): ApiResponse<SubmitBurstGameTapResponse> =
         ApiResponse.success(
             submitBurstGameTapUseCase(

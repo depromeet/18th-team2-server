@@ -5,7 +5,7 @@ import com.team2.server.burstgame.domain.candle.CandleBlowSnapshot
 import com.team2.server.burstgame.domain.candle.CandleBlowStatus
 import io.swagger.v3.oas.annotations.media.Schema
 
-data class CandleBlowStateResponse(
+data class CandleBlowResponse(
     @Schema(description = "촛불끄기 단계가 속한 파티 ID입니다.", example = "10")
     val partyId: Long,
     @Schema(description = "촛불끄기 상태입니다.", example = "ACTIVE", allowableValues = ["WAITING", "ACTIVE", "FINISHED"])
@@ -20,8 +20,8 @@ data class CandleBlowStateResponse(
     val finishedReason: CandleBlowFinishedReason?,
 ) {
     companion object {
-        fun from(snapshot: CandleBlowSnapshot): CandleBlowStateResponse =
-            CandleBlowStateResponse(
+        fun from(snapshot: CandleBlowSnapshot): CandleBlowResponse =
+            CandleBlowResponse(
                 partyId = snapshot.partyId,
                 status = snapshot.status,
                 candles = snapshot.candles.map { CandleBlowCandleResponse.from(it) },

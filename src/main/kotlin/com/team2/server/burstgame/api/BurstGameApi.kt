@@ -4,9 +4,8 @@ package com.team2.server.burstgame.api
 
 import com.team2.server.auth.principal.UserPrincipal
 import com.team2.server.burstgame.api.dto.SubmitBurstGameTapRequest
-import com.team2.server.burstgame.application.dto.BlowCandleResponse
 import com.team2.server.burstgame.application.dto.BurstGameStateResponse
-import com.team2.server.burstgame.application.dto.CandleBlowStateResponse
+import com.team2.server.burstgame.application.dto.CandleBlowResponse
 import com.team2.server.burstgame.application.dto.StartBurstGameResponse
 import com.team2.server.burstgame.application.dto.SubmitBurstGameTapResponse
 import com.team2.server.common.web.ApiResponse
@@ -52,7 +51,7 @@ interface BurstGameApi {
         @Parameter(hidden = true) principal: UserPrincipal?,
         @Parameter(description = "비로그인 참여자 토큰", `in` = ParameterIn.HEADER, name = "X-Participant-Token")
         participantToken: String?,
-    ): ApiResponse<CandleBlowStateResponse>
+    ): ApiResponse<CandleBlowResponse>
 
     @Operation(
         summary = "촛불 끄기",
@@ -83,7 +82,7 @@ interface BurstGameApi {
         @Parameter(hidden = true) principal: UserPrincipal?,
         @Parameter(description = "비로그인 참여자 토큰", `in` = ParameterIn.HEADER, name = "X-Participant-Token")
         participantToken: String?,
-    ): ApiResponse<BlowCandleResponse>
+    ): ApiResponse<CandleBlowResponse>
 
     @Operation(
         summary = "박터뜨리기 시작",
