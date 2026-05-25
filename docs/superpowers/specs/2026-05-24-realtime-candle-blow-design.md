@@ -133,7 +133,10 @@ X-Participant-Token: {participantToken}
 - 실시간 파티 참여자가 아니면 `UNAUTHORIZED` 또는 `PARTY_FORBIDDEN`.
 - 아직 시작 전이면 `WAITING` 상태를 반환한다.
 - 시작/종료 예약 이벤트가 유실됐더라도 조회 시점의 서버 시간으로 lazy transition을 수행할 수 있다.
-- 조회 lazy transition은 party 단위 lock 또는 compare-and-set 안에서 `status == ACTIVE && now >= endsAt`를 확인한 경로만 `transitionToFinishedOnce()`와 `emitEndedEventOnce()`를 같은 critical section에서 예약한다. persisted store로 교체할 때는 동등한 deduplication marker로 `candle-blow-ended`가 정확히 1회만 발행되도록 보장한다.
+- 조회 lazy transition은 party 단위 lock 또는 compare-and-set 안에서 수행한다.
+  - `status == WAITING && now >= party.startedAt + 35초`이면 `transitionToActiveOnce()`와 `emitStartedEventOnce()`를 같은 critical section에서 예약한다.
+  - `status == ACTIVE && now >= endsAt`이면 `transitionToFinishedOnce()`와 `emitEndedEventOnce()`를 같은 critical section에서 예약한다.
+  - persisted store로 교체할 때는 동등한 deduplication marker로 `candle-blow-started`, `candle-blow-ended`가 각각 정확히 1회만 발행되도록 보장한다.
 
 ### 3-2. 촛불 끄기
 
@@ -190,7 +193,8 @@ X-Participant-Token: {participantToken}
 처리 정책:
 
 - `candleId`는 `1..9`만 허용한다. 범위를 벗어나면 `INVALID_INPUT`.
-- `WAITING` 상태에서 호출하면 `CANDLE_BLOW_NOT_STARTED`.
+- `WAITING` 상태이고 `now < party.startedAt + 35초`이면 `CANDLE_BLOW_NOT_STARTED`.
+- `WAITING` 상태지만 `now >= party.startedAt + 35초`이면 party 단위 lock 또는 compare-and-set 안에서 lazy `transitionToActiveOnce()`와 `emitStartedEventOnce()`를 예약한 뒤 촛불 끄기 요청을 처리한다.
 - `FINISHED` 상태에서 호출하면 `200 OK`와 현재 종료 상태를 반환한다.
 - 이미 꺼진 촛불이면 `200 OK`와 현재 상태를 반환한다.
 - 새 촛불이 꺼지면 현재 9개 촛불 상태를 반환하고 progress SSE 발송 대상이 된다.
@@ -213,6 +217,13 @@ data: {"partyId":1,"status":"ACTIVE","candles":[{"candleId":1,"extinguished":fal
 
 - `party.startedAt + 35초` 도달
 - 서버 재시작 후 복구 시 이미 시작 시간이 지났지만 아직 종료 시간이 지나지 않은 경우
+- 상태 조회 또는 촛불 끄기 요청에서 `WAITING` lazy transition이 발생한 경우
+
+정확히 1회 발송 조건:
+
+- scheduler 시작, 서버 재시작 복구, 상태 조회 lazy transition, 촛불 끄기 요청이 동시에 시작을 시도해도 party 단위 lock 또는 compare-and-set에서 `status == WAITING && now >= party.startedAt + 35초`를 획득한 하나의 경로만 `transitionToActiveOnce()`를 수행한다.
+- 같은 critical section 안에서 started snapshot과 `emitStartedEventOnce()` 예약 여부를 결정한다.
+- persisted store 구현으로 교체할 경우에는 status 전이와 event deduplication marker 저장을 하나의 원자적 연산으로 처리한다.
 
 ### 4-2. `candle-blow-progress`
 
@@ -298,6 +309,7 @@ interface CandleBlowStatusReader {
 - 기존 박터뜨리기 설계와 코드가 이미 `CandleBlowStatusReader` 포트를 가지고 있다.
 - 촛불끄기는 현재 독립 화면/아카이브/DB 영속 결과가 아니라 박터뜨리기 직전 실시간 phase다.
 - `party` 기능은 실시간 파티 존재/참여자 검증만 제공하고, 촛불 상태 집계는 직접 알지 않는다.
+- `CandleBlowSession` aggregate 상태 전이와 store mutation은 `CandleBlowService`가 담당하고, UseCase는 참여자 검증과 응답 변환 흐름을 조합한다.
 
 패키지 방향:
 

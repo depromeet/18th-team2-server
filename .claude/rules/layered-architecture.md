@@ -8,6 +8,7 @@ feature/
 ├── application/
 │   ├── usecase/      흐름 제어, @Transactional 경계
 │   ├── service/      Aggregate 단위 행위
+│   ├── port/         외부 adapter / store / cross-feature 선행 조건 인터페이스
 │   └── dto/          UseCase 입출력 모델 (Command / Result)
 ├── domain/
 │   ├── entity/       행동 있는 JPA 엔티티
@@ -20,16 +21,17 @@ feature/
 ## 의존 방향
 
 ```
-api → usecase → service → infrastructure
+api → usecase → service → port ◀── infrastructure
          │          │
          └── domain ◀┘
 ```
 
 - Controller → UseCase 호출만 허용 (UseCase 입출력용 `application/dto` 타입 참조는 허용)
-- UseCase → Service 조합, 다른 feature UseCase 허용
-- Service → 자기 Aggregate Repository/Domain만 허용
+- UseCase → Service 조합, Port 호출, 다른 feature UseCase 허용
+- Service → 자기 Aggregate Port/Domain만 허용
 - Service → Service 호출 금지 (어디든)
 - Service → 다른 feature 접근 금지
+- Infrastructure → application/port 구현 허용
 
 ## UseCase 규칙
 

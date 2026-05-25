@@ -53,8 +53,10 @@
 - Create: `src/main/kotlin/com/team2/server/burstgame/domain/candle/CandleState.kt`
 - Create: `src/main/kotlin/com/team2/server/burstgame/domain/candle/CandleBlowUpdateResult.kt`
 - Create: `src/main/kotlin/com/team2/server/burstgame/application/port/CandleBlowSessionStore.kt`
+- Create: `src/main/kotlin/com/team2/server/burstgame/application/service/CandleBlowService.kt`
 - Create: `src/main/kotlin/com/team2/server/burstgame/infrastructure/candle/InMemoryCandleBlowSessionStore.kt`
 - Test: `src/test/kotlin/com/team2/server/burstgame/domain/candle/CandleBlowSessionTest.kt`
+- Test: `src/test/kotlin/com/team2/server/burstgame/application/service/CandleBlowServiceTest.kt`
 - Test: `src/test/kotlin/com/team2/server/burstgame/infrastructure/candle/InMemoryCandleBlowSessionStoreTest.kt`
 
 - [x] `CANDLE_COUNT = 9`
@@ -62,6 +64,7 @@
 - [x] `DURATION_SECONDS = 45`
 - [x] 1차 store는 단일 app instance 전제의 in-memory 구현으로 둔다.
 - [x] 추후 store 구현 교체 가능성을 고려해 `CandleBlowSessionStore` 포트 뒤에 구현을 숨긴다.
+- [x] `CandleBlowSession` aggregate 상태 전이와 store mutation은 `CandleBlowService`가 담당하고, UseCase는 참여자 검증과 응답 변환 흐름만 조합한다.
 - [x] `candleId` 범위 `1..9` 검증
 - [x] 이미 꺼진 촛불은 멱등으로 현재 상태만 반환
 - [x] 전체 소등 시 `FINISHED / ALL_EXTINGUISHED`
@@ -74,16 +77,16 @@
 - Modify: `src/main/kotlin/com/team2/server/burstgame/api/BurstGameController.kt`
 - Create: `src/main/kotlin/com/team2/server/burstgame/application/usecase/GetCandleBlowStateUseCase.kt`
 - Create: `src/main/kotlin/com/team2/server/burstgame/application/usecase/BlowCandleUseCase.kt`
-- Create: `src/main/kotlin/com/team2/server/burstgame/application/dto/CandleBlowStateResponse.kt`
-- Create: `src/main/kotlin/com/team2/server/burstgame/application/dto/BlowCandleResponse.kt`
+- Create: `src/main/kotlin/com/team2/server/burstgame/application/dto/CandleBlowResponse.kt`
 - Modify: `src/main/kotlin/com/team2/server/common/exception/ErrorCode.kt`
 - Test: `src/test/kotlin/com/team2/server/burstgame/api/BurstGameControllerTest.kt`
 
 - [x] `GET /api/v1/parties/{partyId}/candle-blow`
 - [x] `POST /api/v1/parties/{partyId}/candle-blow/candles/{candleId}`
 - [x] JWT 또는 `X-Participant-Token` 참여자 검증 재사용
-- [x] `WAITING` 상태 blow 요청은 `CANDLE_BLOW_NOT_STARTED`
+- [x] `party.startedAt + 35초` 전 `WAITING` 상태 blow 요청은 `CANDLE_BLOW_NOT_STARTED`
 - [x] `FINISHED` 상태 blow 요청은 `200 OK` 멱등 응답
+- [x] `GetCandleBlowStateUseCase`, `BlowCandleUseCase`는 `CandleBlowService`에 상태 조회/전이 처리를 위임한다.
 
 ## Task 4: scheduler와 SSE 구현
 

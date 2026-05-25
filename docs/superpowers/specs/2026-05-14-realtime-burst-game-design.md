@@ -643,10 +643,11 @@ burstgame/
 │   └── dto/
 ├── application/
 │   ├── dto/
+│   ├── port/
+│   │   └── CandleBlowStatusReader.kt
 │   ├── service/
 │   │   ├── BurstGameSessionService.kt
 │   │   ├── BurstGameParticipantReader.kt
-│   │   ├── CandleBlowStatusReader.kt
 │   │   ├── BurstGameEventBroadcaster.kt
 │   │   └── BurstGameEndScheduler.kt
 │   └── usecase/
