@@ -55,7 +55,7 @@ class StartBurstGameUseCaseTest {
         val response = useCase(partyId = 1L, userId = null, participantToken = "tok")
 
         assertEquals(1L, response.partyId)
-        verify(startSideEffectHandler).completeStarted(1L, startResult, now)
+        verify(startSideEffectHandler).completeStartedAfterCommit(1L, startResult, now)
     }
 
     @Test
@@ -75,7 +75,7 @@ class StartBurstGameUseCaseTest {
             }
 
         assertEquals(ErrorCode.BURST_GAME_ALREADY_ENDED, ex.errorCode)
-        verify(startSideEffectHandler, never()).completeStarted(eq(1L), any(), any())
+        verify(startSideEffectHandler, never()).completeStartedAfterCommit(eq(1L), any(), any())
     }
 
     private fun resolved(participant: BurstGameParticipantInfo): ResolvedRealtimeParticipant =

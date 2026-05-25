@@ -34,7 +34,7 @@ class StartBurstGameUseCase(
                         now = now,
                     ),
             )
-        startSideEffectHandler.completeStarted(partyId, result, now)
+        startSideEffectHandler.completeStartedAfterCommit(partyId, result, now)
         return StartBurstGameResponse.from(result.snapshot)
     }
 }

@@ -18,6 +18,7 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDateTime
@@ -46,11 +47,36 @@ class BurstGameStartSideEffectHandlerTest {
         val snapshot = activeSnapshot()
         val result = BurstGameSessionService.StartResult.Started(snapshot, created = true)
 
-        handler.completeStarted(partyId = 1L, result = result, now = snapshot.startedAt)
+        handler.completeStartedAfterCommit(partyId = 1L, result = result, now = snapshot.startedAt)
 
         verify(endScheduler).schedule(eq(1L), eq(snapshot.endsAt), any())
         verify(eventBroadcaster).broadcastStarted(snapshot)
         verify(candleBlowSessionStore).removeByPartyId(1L)
+    }
+
+    @Test
+    fun `트랜잭션 동기화가 활성화되어 있으면 시작 후처리를 커밋 이후로 지연한다`() {
+        val snapshot = activeSnapshot()
+        val result = BurstGameSessionService.StartResult.Started(snapshot, created = true)
+
+        TransactionSynchronizationManager.initSynchronization()
+        try {
+            handler.completeStartedAfterCommit(partyId = 1L, result = result, now = snapshot.startedAt)
+
+            verify(endScheduler, never()).schedule(eq(1L), eq(snapshot.endsAt), any())
+            verify(eventBroadcaster, never()).broadcastStarted(snapshot)
+            verify(candleBlowSessionStore, never()).removeByPartyId(1L)
+
+            val synchronizations = TransactionSynchronizationManager.getSynchronizations()
+            assertEquals(1, synchronizations.size)
+            synchronizations.forEach { it.afterCommit() }
+
+            verify(endScheduler).schedule(eq(1L), eq(snapshot.endsAt), any())
+            verify(eventBroadcaster).broadcastStarted(snapshot)
+            verify(candleBlowSessionStore).removeByPartyId(1L)
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization()
+        }
     }
 
     @Test
@@ -60,7 +86,7 @@ class BurstGameStartSideEffectHandlerTest {
         whenever(candleBlowSessionStore.removeByPartyId(1L)).thenThrow(IllegalStateException("cleanup failed"))
 
         assertDoesNotThrow {
-            handler.completeStarted(partyId = 1L, result = result, now = snapshot.startedAt)
+            handler.completeStartedAfterCommit(partyId = 1L, result = result, now = snapshot.startedAt)
         }
 
         verify(endScheduler).schedule(eq(1L), eq(snapshot.endsAt), any())

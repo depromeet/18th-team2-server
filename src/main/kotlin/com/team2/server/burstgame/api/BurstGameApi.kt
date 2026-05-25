@@ -20,7 +20,13 @@ import io.swagger.v3.oas.annotations.enums.ParameterIn
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.tags.Tag
+import jakarta.validation.Valid
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Min
 import io.swagger.v3.oas.annotations.responses.ApiResponse as SwaggerApiResponse
+
+private const val MIN_CANDLE_ID = 1L
+private const val MAX_CANDLE_ID = 9L
 
 @Tag(name = "Burst Game", description = "실시간 파티 박터뜨리기 API")
 interface BurstGameApi {
@@ -73,7 +79,7 @@ interface BurstGameApi {
     @InternalServerErrorResponse
     fun blowCandle(
         @Parameter(description = "파티 ID") partyId: Long,
-        @Parameter(description = "촛불 번호") candleId: Int,
+        @Parameter(description = "촛불 번호") @Min(MIN_CANDLE_ID) @Max(MAX_CANDLE_ID) candleId: Int,
         @Parameter(hidden = true) principal: UserPrincipal?,
         @Parameter(description = "비로그인 참여자 토큰", `in` = ParameterIn.HEADER, name = "X-Participant-Token")
         participantToken: String?,
@@ -140,7 +146,7 @@ interface BurstGameApi {
         @Parameter(hidden = true) principal: UserPrincipal?,
         @Parameter(description = "비로그인 참여자 토큰", `in` = ParameterIn.HEADER, name = "X-Participant-Token")
         participantToken: String?,
-        request: SubmitBurstGameTapRequest,
+        @Valid request: SubmitBurstGameTapRequest,
     ): ApiResponse<SubmitBurstGameTapResponse>
 
     @Operation(

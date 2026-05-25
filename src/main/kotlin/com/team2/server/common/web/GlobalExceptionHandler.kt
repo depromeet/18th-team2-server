@@ -2,12 +2,14 @@ package com.team2.server.common.web
 
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
+import jakarta.validation.ConstraintViolationException
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.method.annotation.HandlerMethodValidationException
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 
 @RestControllerAdvice
@@ -28,6 +30,22 @@ class GlobalExceptionHandler {
                 .joinToString(", ") { "${it.field}: ${it.defaultMessage}" }
         val response = ErrorResponse.of(e.statusCode, "VALIDATION_ERROR", message)
         return ResponseEntity.status(e.statusCode).body(response)
+    }
+
+    @ExceptionHandler(HandlerMethodValidationException::class)
+    fun handleMethodValidationException(e: HandlerMethodValidationException): ResponseEntity<ErrorResponse> {
+        val response = ErrorResponse.of(e.statusCode, "VALIDATION_ERROR", "잘못된 요청 값입니다.")
+        return ResponseEntity.status(e.statusCode).body(response)
+    }
+
+    @ExceptionHandler(ConstraintViolationException::class)
+    fun handleConstraintViolationException(e: ConstraintViolationException): ResponseEntity<ErrorResponse> {
+        val message =
+            e.constraintViolations
+                .joinToString(", ") { it.message }
+                .ifBlank { "잘못된 요청 값입니다." }
+        val response = ErrorResponse.of(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", message)
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response)
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException::class)

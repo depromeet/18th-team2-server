@@ -6,6 +6,8 @@ import com.team2.server.burstgame.application.port.CandleBlowSessionStore
 import com.team2.server.burstgame.application.service.BurstGameSessionService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Clock
 import java.time.LocalDateTime
 
@@ -26,7 +28,26 @@ class BurstGameStartSideEffectHandler(
                 throwAlreadyEndedAfterBroadcast(eventBroadcaster, log, startResult)
         }
 
-    fun completeStarted(
+    fun completeStartedAfterCommit(
+        partyId: Long,
+        result: BurstGameSessionService.StartResult.Started,
+        now: LocalDateTime,
+    ) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            completeStarted(partyId, result, now)
+            return
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(
+            object : TransactionSynchronization {
+                override fun afterCommit() {
+                    completeStarted(partyId, result, now)
+                }
+            },
+        )
+    }
+
+    private fun completeStarted(
         partyId: Long,
         result: BurstGameSessionService.StartResult.Started,
         now: LocalDateTime,

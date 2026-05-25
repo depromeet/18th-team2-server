@@ -13,8 +13,8 @@ import com.team2.server.burstgame.application.usecase.GetCandleBlowStateUseCase
 import com.team2.server.burstgame.application.usecase.StartBurstGameUseCase
 import com.team2.server.burstgame.application.usecase.SubmitBurstGameTapUseCase
 import com.team2.server.common.web.ApiResponse
-import jakarta.validation.Valid
 import org.springframework.security.core.annotation.AuthenticationPrincipal
+import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RestController
 
+@Validated
 @RestController
 class BurstGameController(
     private val getCandleBlowStateUseCase: GetCandleBlowStateUseCase,
@@ -71,7 +72,7 @@ class BurstGameController(
         @PathVariable partyId: Long,
         @AuthenticationPrincipal principal: UserPrincipal?,
         @RequestHeader(value = "X-Participant-Token", required = false) participantToken: String?,
-        @RequestBody @Valid request: SubmitBurstGameTapRequest,
+        @RequestBody request: SubmitBurstGameTapRequest,
     ): ApiResponse<SubmitBurstGameTapResponse> =
         ApiResponse.success(
             submitBurstGameTapUseCase(

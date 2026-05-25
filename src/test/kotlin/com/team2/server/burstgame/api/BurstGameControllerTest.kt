@@ -84,6 +84,19 @@ class BurstGameControllerTest
         }
 
         @Test
+        fun `허용 범위 밖 candleId 요청은 400을 반환한다`() {
+            val fixture = saveRealtimeParticipant(startedAt = LocalDateTime.now().minusSeconds(40))
+
+            mockMvc
+                .post("/api/v1/parties/${fixture.partyId}/candle-blow/candles/0") {
+                    header("X-Participant-Token", fixture.participantToken)
+                }.andExpect {
+                    status { isBadRequest() }
+                    jsonPath("$.error.code") { value("VALIDATION_ERROR") }
+                }
+        }
+
+        @Test
         fun `이미 꺼진 촛불을 다시 꺼도 200 응답으로 현재 상태를 반환한다`() {
             val fixture = saveRealtimeParticipant(startedAt = LocalDateTime.now().minusSeconds(40))
 
