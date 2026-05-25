@@ -66,7 +66,11 @@ class StartBurstGameUseCase(
                 logStartFailure(result, ex)
                 throw ex
             }
-            candleBlowSessionStore.removeByPartyId(partyId)
+            runCatching {
+                candleBlowSessionStore.removeByPartyId(partyId)
+            }.onFailure { ex ->
+                log.warn("Failed to remove candle blow session after burst game start. partyId={}", partyId, ex)
+            }
         }
         return StartBurstGameResponse.from(result.snapshot)
     }

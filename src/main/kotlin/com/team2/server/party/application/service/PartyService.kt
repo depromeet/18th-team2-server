@@ -21,6 +21,7 @@ import com.team2.server.rollingpaper.repository.RollingPaperRepository
 import com.team2.server.user.entity.User
 import org.hibernate.Hibernate
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
 
 @Service
@@ -135,6 +136,7 @@ class PartyService(
         return Hibernate.unproxy(party) as RealtimeParty
     }
 
+    @Transactional(readOnly = true)
     fun findRealtimePartiesWaitingAutomaticEnding(startedAfter: LocalDateTime): List<RealtimeParty> =
         partyRepository.findRealtimePartiesWaitingAutomaticEnding(startedAfter)
 
