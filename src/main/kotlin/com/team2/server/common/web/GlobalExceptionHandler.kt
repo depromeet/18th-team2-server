@@ -9,6 +9,7 @@ import org.springframework.http.MediaType
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import tools.jackson.databind.ObjectMapper
 
@@ -54,6 +55,11 @@ class GlobalExceptionHandler(
             HttpStatus.BAD_REQUEST.value(),
             ErrorResponse.of(HttpStatus.BAD_REQUEST, "INVALID_INPUT", "잘못된 요청 값입니다: ${e.value}"),
         )
+    }
+
+    @ExceptionHandler(AsyncRequestNotUsableException::class)
+    fun handleAsyncRequestNotUsableException(e: AsyncRequestNotUsableException) {
+        log.debug("Client disconnected during async request", e)
     }
 
     @ExceptionHandler(Exception::class)
