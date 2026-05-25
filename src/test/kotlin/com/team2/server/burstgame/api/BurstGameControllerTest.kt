@@ -180,6 +180,20 @@ class BurstGameControllerTest
         }
 
         @Test
+        fun `촛불 세션이 없어도 촛불 종료 시각이 지난 파티는 박터뜨리기 시작 성공`() {
+            val fixture = saveRealtimeParticipant(startedAt = LocalDateTime.now().minusSeconds(90))
+
+            mockMvc
+                .post("/api/v1/parties/${fixture.partyId}/burst-game/start") {
+                    header("X-Participant-Token", fixture.participantToken)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.partyId") { value(fixture.partyId) }
+                    jsonPath("$.data.myParticipantId") { value(fixture.participantId) }
+                }
+        }
+
+        @Test
         fun `active 라운드가 있으면 start 재호출은 같은 party 상태를 반환한다`() {
             val fixture = saveRealtimeParticipant()
 

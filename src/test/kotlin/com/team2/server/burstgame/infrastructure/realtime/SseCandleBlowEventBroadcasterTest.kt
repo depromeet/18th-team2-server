@@ -14,12 +14,18 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter
+import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class SseCandleBlowEventBroadcasterTest {
     private val chatSseGateway: ChatSseGateway = mock()
     private val broadcaster = SseCandleBlowEventBroadcaster(chatSseGateway)
+
+    @AfterTest
+    fun tearDown() {
+        broadcaster.shutdown()
+    }
 
     @Test
     fun `started 이벤트는 한 번만 전송한다`() {

@@ -32,10 +32,18 @@ class StartBurstGameUseCase(
         userId: Long?,
         participantToken: String?,
     ): StartBurstGameResponse {
-        val participant = participantResolver.resolve(partyId, userId, participantToken)
+        val resolved = participantResolver.resolveWithParty(partyId, userId, participantToken)
         val now = LocalDateTime.now(clock)
         val result =
-            when (val startResult = sessionService.start(partyId, participant, now)) {
+            when (
+                val startResult =
+                    sessionService.start(
+                        partyId = partyId,
+                        partyStartedAt = resolved.party.startedAt,
+                        participant = resolved.participant,
+                        now = now,
+                    )
+            ) {
                 is BurstGameSessionService.StartResult.Started -> startResult
                 is BurstGameSessionService.StartResult.AlreadyEnded ->
                     throwAlreadyEndedAfterBroadcast(eventBroadcaster, log, startResult)

@@ -5,6 +5,7 @@ import java.time.LocalDateTime
 interface CandleBlowStatusReader {
     fun isCandleBlowFinished(
         partyId: Long,
+        partyStartedAt: LocalDateTime,
         now: LocalDateTime,
     ): Boolean
 }

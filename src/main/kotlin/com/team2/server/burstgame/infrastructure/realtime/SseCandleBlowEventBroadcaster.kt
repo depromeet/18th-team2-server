@@ -1,17 +1,25 @@
 package com.team2.server.burstgame.infrastructure.realtime
 
 import com.team2.server.burstgame.application.port.CandleBlowEventBroadcaster
+import com.team2.server.burstgame.domain.candle.CandleBlowPolicy
 import com.team2.server.burstgame.domain.candle.CandleBlowSnapshot
 import com.team2.server.burstgame.domain.candle.CandleState
 import com.team2.server.chat.infrastructure.sse.ChatSseGateway
+import jakarta.annotation.PreDestroy
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 @Component
 class SseCandleBlowEventBroadcaster(
     private val chatSseGateway: ChatSseGateway,
 ) : CandleBlowEventBroadcaster {
+    private val executor =
+        Executors.newSingleThreadScheduledExecutor { runnable ->
+            Thread(runnable, "candle-blow-broadcaster")
+        }
     private val partyLocks = Array(LOCK_STRIPE_COUNT) { Any() }
     private val startedParties = ConcurrentHashMap.newKeySet<Long>()
     private val endedParties = ConcurrentHashMap.newKeySet<Long>()
@@ -39,6 +47,23 @@ class SseCandleBlowEventBroadcaster(
             if (!endedParties.add(snapshot.partyId)) return
             emit(snapshot.partyId, EVENT_ENDED, CandleBlowPayload.from(snapshot))
         }
+        scheduleDedupeCleanup(snapshot.partyId, lock)
+    }
+
+    private fun scheduleDedupeCleanup(
+        partyId: Long,
+        lock: Any,
+    ) {
+        executor.schedule(
+            {
+                synchronized(lock) {
+                    startedParties.remove(partyId)
+                    endedParties.remove(partyId)
+                }
+            },
+            CandleBlowPolicy.SESSION_TTL.toMillis(),
+            TimeUnit.MILLISECONDS,
+        )
     }
 
     private fun emit(
@@ -57,6 +82,11 @@ class SseCandleBlowEventBroadcaster(
     }
 
     private fun lockFor(partyId: Long): Any = partyLocks[Math.floorMod(partyId.hashCode(), LOCK_STRIPE_COUNT)]
+
+    @PreDestroy
+    fun shutdown() {
+        executor.shutdownNow()
+    }
 
     data class CandleBlowPayload(
         val partyId: Long,

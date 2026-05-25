@@ -18,6 +18,7 @@ import kotlin.test.assertTrue
 
 class BurstGameSessionServiceTest {
     private val startedAt = LocalDateTime.of(2026, 5, 14, 20, 10)
+    private val partyStartedAt = startedAt.minusSeconds(80)
     private val candleBlowStatusReader = FakeCandleBlowStatusReader()
     private val sessionService =
         BurstGameSessionService(
@@ -31,7 +32,12 @@ class BurstGameSessionServiceTest {
         val executor = Executors.newFixedThreadPool(submitCount)
         val ready = CountDownLatch(submitCount)
         val start = CountDownLatch(1)
-        sessionService.start(partyId = 1L, participant = participant(0), now = startedAt)
+        sessionService.start(
+            partyId = 1L,
+            partyStartedAt = partyStartedAt,
+            participant = participant(0),
+            now = startedAt,
+        )
 
         try {
             val futures =
@@ -71,7 +77,12 @@ class BurstGameSessionServiceTest {
 
         val ex =
             assertThrows<BusinessException> {
-                sessionService.start(partyId = 1L, participant = participant(1), now = startedAt)
+                sessionService.start(
+                    partyId = 1L,
+                    partyStartedAt = partyStartedAt,
+                    participant = participant(1),
+                    now = startedAt,
+                )
             }
 
         assertEquals(ErrorCode.BURST_GAME_NOT_READY, ex.errorCode)
@@ -79,7 +90,13 @@ class BurstGameSessionServiceTest {
 
     @Test
     fun `촛불끄기가 끝났으면 start를 허용한다`() {
-        val result = sessionService.start(partyId = 1L, participant = participant(1), now = startedAt)
+        val result =
+            sessionService.start(
+                partyId = 1L,
+                partyStartedAt = partyStartedAt,
+                participant = participant(1),
+                now = startedAt,
+            )
 
         assertTrue(result is BurstGameSessionService.StartResult.Started)
         assertTrue(result.created)
@@ -88,10 +105,21 @@ class BurstGameSessionServiceTest {
 
     @Test
     fun `active session start 재호출은 촛불끄기 상태를 다시 검증하지 않는다`() {
-        sessionService.start(partyId = 1L, participant = participant(1), now = startedAt)
+        sessionService.start(
+            partyId = 1L,
+            partyStartedAt = partyStartedAt,
+            participant = participant(1),
+            now = startedAt,
+        )
         candleBlowStatusReader.finished = false
 
-        val result = sessionService.start(partyId = 1L, participant = participant(1), now = startedAt.plusSeconds(1))
+        val result =
+            sessionService.start(
+                partyId = 1L,
+                partyStartedAt = partyStartedAt,
+                participant = participant(1),
+                now = startedAt.plusSeconds(1),
+            )
 
         assertTrue(result is BurstGameSessionService.StartResult.Started)
         assertFalse(result.created)
@@ -99,9 +127,20 @@ class BurstGameSessionServiceTest {
 
     @Test
     fun `종료 시간이 지난 active session start 재호출은 종료 상태와 endedNow를 반환한다`() {
-        sessionService.start(partyId = 1L, participant = participant(1), now = startedAt)
+        sessionService.start(
+            partyId = 1L,
+            partyStartedAt = partyStartedAt,
+            participant = participant(1),
+            now = startedAt,
+        )
 
-        val result = sessionService.start(partyId = 1L, participant = participant(1), now = startedAt.plusSeconds(20))
+        val result =
+            sessionService.start(
+                partyId = 1L,
+                partyStartedAt = partyStartedAt,
+                participant = participant(1),
+                now = startedAt.plusSeconds(20),
+            )
 
         assertTrue(result is BurstGameSessionService.StartResult.AlreadyEnded)
         assertTrue(result.endedNow)
@@ -122,6 +161,7 @@ class BurstGameSessionServiceTest {
 
         override fun isCandleBlowFinished(
             partyId: Long,
+            partyStartedAt: LocalDateTime,
             now: LocalDateTime,
         ): Boolean = finished
     }

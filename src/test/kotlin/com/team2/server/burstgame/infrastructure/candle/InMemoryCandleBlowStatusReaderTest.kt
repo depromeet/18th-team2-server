@@ -16,14 +16,14 @@ class InMemoryCandleBlowStatusReaderTest {
 
     @Test
     fun `세션이 없으면 촛불끄기 미완료로 판단한다`() {
-        assertFalse(reader.isCandleBlowFinished(partyId = 1L, now = startedAt))
+        assertFalse(reader.isCandleBlowFinished(partyId = 1L, partyStartedAt = partyStartedAt, now = startedAt))
     }
 
     @Test
     fun `촛불끄기가 active이면 미완료로 판단한다`() {
         store.getOrCreateWithLock(1L, { session(1L) }) { _, _ -> }
 
-        assertFalse(reader.isCandleBlowFinished(partyId = 1L, now = startedAt))
+        assertFalse(reader.isCandleBlowFinished(partyId = 1L, partyStartedAt = partyStartedAt, now = startedAt))
     }
 
     @Test
@@ -34,7 +34,13 @@ class InMemoryCandleBlowStatusReaderTest {
             }
         }
 
-        assertTrue(reader.isCandleBlowFinished(partyId = 1L, now = startedAt.plusSeconds(10)))
+        assertTrue(
+            reader.isCandleBlowFinished(
+                partyId = 1L,
+                partyStartedAt = partyStartedAt,
+                now = startedAt.plusSeconds(10),
+            ),
+        )
     }
 
     @Test
@@ -44,6 +50,23 @@ class InMemoryCandleBlowStatusReaderTest {
         assertTrue(
             reader.isCandleBlowFinished(
                 partyId = 1L,
+                partyStartedAt = partyStartedAt,
+                now = startedAt.plusSeconds(CandleBlowPolicy.DURATION_SECONDS),
+            ),
+        )
+        assertTrue(
+            store.withSessionLock(1L) { session ->
+                session.finishedReason == CandleBlowFinishedReason.TIMEOUT
+            } == true,
+        )
+    }
+
+    @Test
+    fun `세션이 없어도 종료 시각이 지났으면 lazy 생성 후 완료로 판단한다`() {
+        assertTrue(
+            reader.isCandleBlowFinished(
+                partyId = 1L,
+                partyStartedAt = partyStartedAt,
                 now = startedAt.plusSeconds(CandleBlowPolicy.DURATION_SECONDS),
             ),
         )
