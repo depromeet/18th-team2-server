@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 실시간 파티에서 촛불끄기 종료 후 20초 동안 참여자 터치 수를 집계하고, 기존 파티 SSE 연결로 시작/진행/종료 이벤트를 브로드캐스트하는 박터뜨리기 기능을 추가한다.
+**Goal:** 실시간 파티에서 촛불끄기 완료 후 20초 동안 참여자 터치 수를 집계하고, 기존 파티 SSE 연결로 시작/진행/종료 이벤트를 브로드캐스트하는 박터뜨리기 기능을 추가한다.
 
 **Architecture:** 현재 `develop`에 반영된 4-layer 구조를 기준으로 `burstgame/api -> application/usecase -> domain -> infrastructure` 흐름을 따른다. feature 경계는 `burstgame`으로 분리하고, 기존 `party`, `chat` 기능과는 application service 또는 infrastructure gateway를 통해서만 연동한다.
 
@@ -13,8 +13,8 @@
 ## Decisions
 
 - 박터뜨리기는 `REALTIME` 파티에서만 동작한다.
-- 시작 조건은 촛불끄기 종료 상태다.
-- 촛불끄기가 종료됐다면 실시간 파티 참여자 누구나 start API를 호출할 수 있다.
+- 시작 조건은 촛불끄기 완료 상태다.
+- 촛불끄기가 완료됐다면 실시간 파티 참여자 누구나 start API를 호출할 수 있다.
 - 파티당 라운드는 1회만 허용한다. TTL 안의 ended session이 있으면 재시작하지 않는다.
 - 라운드는 서버 기준 20초 동안 진행한다.
 - 총 터치 수가 100회 이상이면 `colorChanged = true`가 되지만, 라운드는 계속 진행된다.
@@ -38,7 +38,7 @@
 - 성공: active session 상태 반환
 - 이미 active session이 있으면 촛불끄기 상태를 재검증하지 않고 기존 active 상태 반환
 - TTL 안의 ended session이 있으면 `BURST_GAME_ALREADY_ENDED`
-- 새 session 생성 시에만 `CandleBlowStatusReader`로 촛불끄기 종료 상태 확인
+- 새 session 생성 시에만 `CandleBlowStatusReader`(가칭)로 촛불끄기 완료 상태 확인
 
 ### Submit Taps
 
@@ -90,7 +90,7 @@ Request:
 | `src/main/kotlin/com/team2/server/burstgame/application/usecase/GetBurstGameSnapshotUseCase.kt` | 상태/결과 조회 |
 | `src/main/kotlin/com/team2/server/burstgame/application/service/BurstGameSessionService.kt` | session 생성/조회/종료 orchestration |
 | `src/main/kotlin/com/team2/server/burstgame/application/service/BurstGameParticipantReader.kt` | 실시간 파티 참여자 식별 인터페이스 |
-| `src/main/kotlin/com/team2/server/burstgame/application/port/CandleBlowStatusReader.kt` | 촛불끄기 종료 상태 조회 인터페이스 |
+| `src/main/kotlin/com/team2/server/burstgame/application/service/CandleBlowStatusReader.kt` | 촛불끄기 완료 상태 조회 인터페이스 |
 | `src/main/kotlin/com/team2/server/burstgame/application/service/BurstGameEventBroadcaster.kt` | 박터뜨리기 SSE 이벤트 발화 인터페이스 |
 | `src/main/kotlin/com/team2/server/burstgame/application/service/BurstGameEndScheduler.kt` | 라운드 종료 예약 인터페이스 |
 | `src/main/kotlin/com/team2/server/burstgame/infrastructure/candle/CandleBlowStatusReaderStub.kt` | 촛불끄기 feature 머지 전 임시 stub |
@@ -209,10 +209,10 @@ Run:
 - [ ] `partyOption != REALTIME`이면 `CHAT_NOT_SUPPORTED`.
 - [ ] 실시간 파티 진행 가능 구간이 아니면 `CHAT_NOT_ACTIVE`.
 - [ ] 프로필이 없으면 `UNAUTHORIZED`.
-- [ ] `CandleBlowStatusReader`는 촛불 종료 여부만 반환하는 application port 인터페이스다.
-- [ ] `CandleBlowStatusReader`는 `fun isCandleBlowFinished(partyId: Long): Boolean` 시그니처를 기본 계약으로 둔다.
-- [ ] 새 라운드 생성 시 `CandleBlowStatusReader`로 촛불 종료 상태를 확인한다.
-- [ ] 촛불 종료 전이면 `BURST_GAME_NOT_READY`.
+- [ ] `CandleBlowStatusReader`는 촛불 완료 여부만 반환하는 application service 인터페이스다.
+- [ ] `CandleBlowStatusReader`는 `fun isCandleBlowCompleted(partyId: Long): Boolean` 시그니처를 기본 계약으로 둔다.
+- [ ] 새 라운드 생성 시 `CandleBlowStatusReader`로 촛불 완료 상태를 확인한다.
+- [ ] 촛불 완료 전이면 `BURST_GAME_NOT_READY`.
 - [ ] active 라운드가 이미 있으면 촛불 상태를 재검증하지 않는다.
 - [ ] `BurstGameEventBroadcaster`는 start/progress/end 이벤트 발화를 추상화한다.
 - [ ] `BurstGameEndScheduler`는 `endsAt` 기준 종료 예약을 추상화한다.
@@ -242,7 +242,7 @@ Run:
 - [ ] request body 없이 처리한다.
 - [ ] active session이 있으면 기존 active 상태를 반환한다.
 - [ ] TTL 안의 ended session이 있으면 `BURST_GAME_ALREADY_ENDED`.
-- [ ] active/ended session이 없을 때만 촛불 종료 상태를 검증한다.
+- [ ] active/ended session이 없을 때만 촛불 완료 상태를 검증한다.
 - [ ] `startedAt`, `endsAt`, `stateVersion = 0`, `colorChanged = false`로 session을 생성한다.
 - [ ] `BurstGameEndScheduler` 인터페이스로 종료 scheduler를 등록한다.
 - [ ] `BurstGameEventBroadcaster` 인터페이스로 기존 파티 SSE 구독자에게 `burst-game-started`를 브로드캐스트한다.
@@ -389,12 +389,12 @@ Run:
 
 - start: 실시간 파티가 아니면 `CHAT_NOT_SUPPORTED`
 - start: 프로필 없는 호출자는 `UNAUTHORIZED`
-- start: 촛불끄기가 종료되지 않았으면 `BURST_GAME_NOT_READY`
+- start: 촛불끄기가 완료되지 않았으면 `BURST_GAME_NOT_READY`
 - start: active round가 있으면 기존 party 상태 반환
 - start: ended round가 있으면 `BURST_GAME_ALREADY_ENDED`
 - start: 실시간 파티 참여자는 누구나 호출 가능
 - start: 동시에 여러 명이 호출해도 partyId 단위 직렬화로 active session은 1개만 생성됨
-- start: active round가 이미 있으면 촛불끄기 종료 상태를 재검증하지 않고 기존 active 상태 반환
+- start: active round가 이미 있으면 촛불끄기 완료 상태를 재검증하지 않고 기존 active 상태 반환
 - submit: TTL 안의 ended session이면 `200 OK`, `accepted = false`, `ignoredReason = "ROUND_ENDED"`
 - submit: TTL 만료 또는 해당 파티에 session이 없으면 `BURST_GAME_NOT_FOUND`
 - submit: 요청 `tapCount`가 0 또는 31이면 `INVALID_INPUT`
