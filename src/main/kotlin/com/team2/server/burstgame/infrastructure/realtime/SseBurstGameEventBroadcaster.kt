@@ -4,8 +4,7 @@ import com.team2.server.burstgame.application.event.BurstGameEndedEvent
 import com.team2.server.burstgame.application.port.BurstGameEventBroadcaster
 import com.team2.server.burstgame.domain.BurstGameRankingEntry
 import com.team2.server.burstgame.domain.BurstGameSnapshot
-import com.team2.server.burstgame.domain.BurstGameWinner
-import com.team2.server.chat.infrastructure.sse.ChatSseGateway
+import com.team2.server.chat.application.port.PartySseEventPublisher
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
@@ -19,7 +18,7 @@ import java.util.concurrent.TimeUnit
 
 @Component
 class SseBurstGameEventBroadcaster(
-    private val chatSseGateway: ChatSseGateway,
+    private val partySseEventPublisher: PartySseEventPublisher,
     private val applicationEventPublisher: ApplicationEventPublisher,
 ) : BurstGameEventBroadcaster {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -111,7 +110,7 @@ class SseBurstGameEventBroadcaster(
         eventName: String,
         payload: Any,
     ) {
-        chatSseGateway.broadcastAfterCommit(
+        partySseEventPublisher.broadcastAfterCommit(
             partyId,
             SseEmitter
                 .event()
@@ -133,7 +132,6 @@ class SseBurstGameEventBroadcaster(
         val status: String,
         val startedAt: LocalDateTime,
         val endsAt: LocalDateTime,
-        val totalTapCount: Int,
         val colorChanged: Boolean,
         val stateVersion: Long,
         val serverTime: LocalDateTime,
@@ -145,7 +143,6 @@ class SseBurstGameEventBroadcaster(
                     status = snapshot.status.name,
                     startedAt = snapshot.startedAt,
                     endsAt = snapshot.endsAt,
-                    totalTapCount = snapshot.totalTapCount,
                     colorChanged = snapshot.colorChanged,
                     stateVersion = snapshot.stateVersion,
                     serverTime = snapshot.serverTime,
@@ -155,7 +152,6 @@ class SseBurstGameEventBroadcaster(
 
     data class BurstGameProgressPayload(
         val partyId: Long,
-        val totalTapCount: Int,
         val colorChanged: Boolean,
         val endsAt: LocalDateTime,
         val stateVersion: Long,
@@ -166,7 +162,6 @@ class SseBurstGameEventBroadcaster(
             fun from(snapshot: BurstGameSnapshot): BurstGameProgressPayload =
                 BurstGameProgressPayload(
                     partyId = snapshot.partyId,
-                    totalTapCount = snapshot.totalTapCount,
                     colorChanged = snapshot.colorChanged,
                     endsAt = snapshot.endsAt,
                     stateVersion = snapshot.stateVersion,
@@ -184,7 +179,7 @@ class SseBurstGameEventBroadcaster(
         val colorChanged: Boolean,
         val stateVersion: Long,
         val serverTime: LocalDateTime,
-        val winners: List<WinnerPayload>,
+        val rankings: List<RankingPayload>,
     ) {
         companion object {
             fun from(snapshot: BurstGameSnapshot): BurstGameEndedPayload =
@@ -196,7 +191,7 @@ class SseBurstGameEventBroadcaster(
                     colorChanged = snapshot.colorChanged,
                     stateVersion = snapshot.stateVersion,
                     serverTime = snapshot.serverTime,
-                    winners = snapshot.winners.map { WinnerPayload.from(it) },
+                    rankings = snapshot.rankings.map { RankingPayload.from(it) },
                 )
         }
     }
@@ -220,27 +215,6 @@ class SseBurstGameEventBroadcaster(
                     characterImageUrl = entry.characterImageUrl,
                     role = entry.role,
                     tapCount = entry.tapCount,
-                )
-        }
-    }
-
-    data class WinnerPayload(
-        val participantId: Long,
-        val nickname: String,
-        val characterId: Long?,
-        val characterImageUrl: String?,
-        val role: String,
-        val tapCount: Int,
-    ) {
-        companion object {
-            fun from(winner: BurstGameWinner): WinnerPayload =
-                WinnerPayload(
-                    participantId = winner.participantId,
-                    nickname = winner.nickname,
-                    characterId = winner.characterId,
-                    characterImageUrl = winner.characterImageUrl,
-                    role = winner.role,
-                    tapCount = winner.tapCount,
                 )
         }
     }

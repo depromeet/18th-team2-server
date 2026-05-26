@@ -18,7 +18,6 @@ data class BurstGameSnapshot(
     val serverTime: LocalDateTime,
     val remainingSeconds: Long,
     val rankings: List<BurstGameRankingEntry>,
-    val winners: List<BurstGameWinner>,
 ) {
     companion object {
         fun remainingSeconds(
