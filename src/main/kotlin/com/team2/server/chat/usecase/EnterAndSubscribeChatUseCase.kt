@@ -55,7 +55,7 @@ class EnterAndSubscribeChatUseCase(
             )
 
         val emitter = SseEmitter(EMITTER_TIMEOUT_MS)
-        chatSseGateway.subscribe(enterResult.partyId, emitter, enterResult.participantToken, enterResult.isCelebrant)
+        chatSseGateway.subscribe(enterResult.partyId, emitter, enterResult.participantToken)
         sendPartyState(emitter, enterResult.partyState)
         sendEntered(emitter, enterResult.participantToken, messages)
 

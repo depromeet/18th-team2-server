@@ -44,7 +44,7 @@
 | `src/main/kotlin/com/team2/server/party/api/dto/*Realtime*` | 종료 상태/요청/다음 행동 응답 DTO |
 | `src/main/kotlin/com/team2/server/party/application/usecase/*Realtime*` | 종료 요청, 상태 복구, 다음 행동 조회 |
 | `src/main/kotlin/com/team2/server/party/infrastructure/sse/PartyEndScheduler.kt` | startup recovery + event 기반 종료 이벤트 발송 |
-| `src/main/kotlin/com/team2/server/chat/infrastructure/sse/SseEmitterRegistry.kt` | 주최자 단독 알림, grace cleanup 지원 |
+| `src/main/kotlin/com/team2/server/chat/infrastructure/sse/SseEmitterRegistry.kt` | 실시간 파티 emitter 등록, broadcast, grace cleanup 지원 |
 | `src/main/kotlin/com/team2/server/chat/usecase/EnterAndSubscribeChatUseCase.kt` | 연결 직후 `party-state` 발송, `LIVE_ENDING` 재연결 허용 |
 | `src/main/kotlin/com/team2/server/auth/config/SecurityConfig.kt` | participant token 기반 복구 API 공개 경로 조정 |
 | `src/main/kotlin/com/team2/server/common/exception/ErrorCode.kt` | 실시간 종료 전용 에러 추가 |

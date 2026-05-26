@@ -73,7 +73,7 @@ class EnterAndSubscribeChatUseCaseTest {
         val emitter = useCase.enterAndSubscribe("tok", null, request)
 
         assertNotNull(emitter)
-        verify(chatSseGateway).subscribe(eq(1L), any(), eq("abc12345"), eq(false))
+        verify(chatSseGateway).subscribe(eq(1L), any(), eq("abc12345"))
         verify(chatSseGateway).broadcastAfterCommit(eq(1L), any(), eq("abc12345"))
     }
 
@@ -88,7 +88,7 @@ class EnterAndSubscribeChatUseCaseTest {
         val emitter = useCase.enterAndSubscribe("tok", null, request)
 
         assertNotNull(emitter)
-        verify(chatSseGateway).subscribe(eq(1L), any(), eq("abc12345"), eq(false))
+        verify(chatSseGateway).subscribe(eq(1L), any(), eq("abc12345"))
         verify(chatSseGateway).broadcastAfterCommit(eq(1L), any(), eq("abc12345"))
     }
 
@@ -104,6 +104,6 @@ class EnterAndSubscribeChatUseCaseTest {
         useCase.enterAndSubscribe("tok", null, request)
 
         verify(chatSseGateway).broadcastAfterCommit(eq(1L), any(), eq("abc12345"))
-        verify(chatSseGateway).subscribe(eq(1L), any(), eq("abc12345"), eq(true))
+        verify(chatSseGateway).subscribe(eq(1L), any(), eq("abc12345"))
     }
 }
