@@ -98,6 +98,15 @@ class PartyEndScheduler(
             ),
             emitEnding = true,
         )
+        val advanced = phaseStore.advance(event.partyId, PartyPhase.CLOSEABLE, PartyPhase.END, event.endingStartedAt)
+        if (advanced) {
+            realtimePartyEventBroadcaster.broadcastPhaseChanged(
+                partyId = event.partyId,
+                phase = PartyPhase.END,
+                phaseStartedAt = event.endingStartedAt,
+                serverNow = event.endingStartedAt,
+            )
+        }
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
@@ -117,6 +126,15 @@ class PartyEndScheduler(
     fun onBurstGameEnded(event: RealtimePartyBurstGameEndedEvent) {
         if (handleBurstGameEndedUseCase(event.partyId)) {
             sendHostEndAvailableIfNeeded(event.partyId, event.endedAt)
+        }
+        val advanced = phaseStore.advance(event.partyId, PartyPhase.BURST, PartyPhase.CLOSEABLE, event.endedAt)
+        if (advanced) {
+            realtimePartyEventBroadcaster.broadcastPhaseChanged(
+                partyId = event.partyId,
+                phase = PartyPhase.CLOSEABLE,
+                phaseStartedAt = event.endedAt,
+                serverNow = event.endedAt,
+            )
         }
     }
 
@@ -294,6 +312,7 @@ class PartyEndScheduler(
         taskScheduler.schedule(
             {
                 realtimePartyEventBroadcaster.completeParty(target.partyId)
+                phaseStore.removeByPartyId(target.partyId)
                 partyStates.remove(target.partyId, state)
             },
             Instant
