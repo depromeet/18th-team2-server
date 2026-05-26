@@ -122,9 +122,15 @@ class PartyPhaseControllerTest
                 }
         }
 
-        private data class HostFixture(val partyId: Long, val hostToken: String)
+        private data class HostFixture(
+            val partyId: Long,
+            val hostToken: String,
+        )
 
-        private data class ParticipantFixture(val partyId: Long, val participantToken: String)
+        private data class ParticipantFixture(
+            val partyId: Long,
+            val participantToken: String,
+        )
 
         private fun saveHostAndParty(): HostFixture {
             val host =
