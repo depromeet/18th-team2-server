@@ -48,7 +48,9 @@ class GetPartyPhaseUseCaseTest {
 
         val result = useCase(partyId, userId = 10L, participantToken = null)
 
+        assertEquals(partyId, result.partyId)
         assertEquals(PartyPhase.MUSIC, result.phase)
         assertEquals(phaseStartedAt, result.phaseStartedAt)
+        assertEquals(fixedNow, result.serverNow)
     }
 }
