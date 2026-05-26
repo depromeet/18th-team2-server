@@ -18,8 +18,6 @@ data class SubmitBurstGameTapResponse(
         nullable = true,
     )
     val ignoredReason: BurstGameTapIgnoredReason?,
-    @Schema(description = "현재까지 반영된 전체 터치 수입니다.", example = "42")
-    val totalTapCount: Int,
     @Schema(description = "요청한 사용자의 현재 라운드 누적 터치 수입니다.", example = "11")
     val myTapCount: Int,
     @Schema(description = "전체 터치 수가 색상 변경 기준에 도달했는지 여부입니다.", example = "false")
@@ -28,7 +26,7 @@ data class SubmitBurstGameTapResponse(
     val stateVersion: Long,
     @Schema(description = "응답 생성 시점의 서버 시각입니다.", example = "2026-05-14T20:10:07.120")
     val serverTime: LocalDateTime,
-    @Schema(description = "진행 중 상태에서 제공되는 상위 3개 rank group입니다.")
+    @Schema(description = "진행 중 상태에서 제공되는 상위 3명입니다.")
     val rankings: List<BurstGameRankingResponse>,
 ) {
     companion object {
@@ -39,12 +37,16 @@ data class SubmitBurstGameTapResponse(
                 myParticipantId = snapshot.myParticipantId,
                 accepted = result.accepted,
                 ignoredReason = result.ignoredReason,
-                totalTapCount = snapshot.totalTapCount,
                 myTapCount = snapshot.myTapCount,
                 colorChanged = snapshot.colorChanged,
                 stateVersion = snapshot.stateVersion,
                 serverTime = snapshot.serverTime,
-                rankings = snapshot.rankings.map { BurstGameRankingResponse.from(it) },
+                rankings =
+                    if (result.ignoredReason == BurstGameTapIgnoredReason.ROUND_ENDED) {
+                        emptyList()
+                    } else {
+                        snapshot.rankings.map { BurstGameRankingResponse.from(it) }
+                    },
             )
         }
     }

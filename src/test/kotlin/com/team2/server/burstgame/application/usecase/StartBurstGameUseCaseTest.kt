@@ -114,7 +114,6 @@ class StartBurstGameUseCaseTest {
             serverTime = startedAt,
             remainingSeconds = 20,
             rankings = emptyList(),
-            winners = emptyList(),
         )
     }
 
@@ -133,7 +132,6 @@ class StartBurstGameUseCaseTest {
             serverTime = startedAt.plusSeconds(20),
             remainingSeconds = 0,
             rankings = emptyList(),
-            winners = emptyList(),
         )
     }
 }

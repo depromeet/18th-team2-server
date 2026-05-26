@@ -8,9 +8,11 @@ import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.PartyOption
 import com.team2.server.party.infrastructure.persistence.PartyInviteRepository
 import com.team2.server.party.infrastructure.persistence.PartyRepository
-import com.team2.server.rollingpaper.dto.OwnerRollingPaperListResponse
-import com.team2.server.rollingpaper.dto.ParticipantRollingPaperListResponse
-import com.team2.server.rollingpaper.dto.RollingPaperListItemResponse
+import com.team2.server.rollingpaper.dto.OwnerRollingPaperListItemResult
+import com.team2.server.rollingpaper.dto.OwnerRollingPaperListResult
+import com.team2.server.rollingpaper.dto.ParticipantRollingPaperListItemResult
+import com.team2.server.rollingpaper.dto.ParticipantRollingPaperListResult
+import com.team2.server.rollingpaper.dto.RollingPaperPageInfoResult
 import com.team2.server.rollingpaper.entity.RollingPaper
 import com.team2.server.rollingpaper.repository.RollingPaperRepository
 import org.springframework.data.domain.PageRequest
@@ -31,12 +33,12 @@ class GetRollingPaperListUseCase(
     fun getParticipantList(
         inviteToken: String,
         page: Int,
-    ): ParticipantRollingPaperListResponse {
+    ): ParticipantRollingPaperListResult {
         val party =
             partyInviteRepository.findByToken(inviteToken)?.party
                 ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
         val pageResult = getPageResult(party, page)
-        return ParticipantRollingPaperListResponse(
+        return ParticipantRollingPaperListResult(
             partyOption = party.partyOption,
             liveEndAt =
                 if (party.partyOption == PartyOption.REALTIME) {
@@ -44,11 +46,15 @@ class GetRollingPaperListUseCase(
                 } else {
                     null
                 },
-            page = pageResult.page,
-            totalCount = pageResult.totalCount,
-            totalPages = pageResult.totalPages,
-            hasNext = pageResult.hasNext,
-            items = pageResult.items,
+            items =
+                pageResult.items.map { item ->
+                    ParticipantRollingPaperListItemResult(
+                        rollingPaperId = item.rollingPaperId,
+                        writerNickname = item.writerNickname,
+                        toppingImageUrl = item.toppingImageUrl,
+                    )
+                },
+            pageInfo = pageResult.toPageInfoResult(),
         )
     }
 
@@ -57,7 +63,7 @@ class GetRollingPaperListUseCase(
         partyId: Long,
         userId: Long,
         page: Int,
-    ): OwnerRollingPaperListResponse {
+    ): OwnerRollingPaperListResult {
         val party =
             partyRepository.findByIdOrNull(partyId)
                 ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
@@ -69,14 +75,20 @@ class GetRollingPaperListUseCase(
         }
 
         val pageResult = getPageResult(party, page)
-        return OwnerRollingPaperListResponse(
+        return OwnerRollingPaperListResult(
             celebrantNickname = party.celebrantNickname,
             partyEndAt = party.endedAt(),
-            page = pageResult.page,
-            totalCount = pageResult.totalCount,
-            totalPages = pageResult.totalPages,
-            hasNext = pageResult.hasNext,
-            items = pageResult.items,
+            items =
+                pageResult.items.map { item ->
+                    OwnerRollingPaperListItemResult(
+                        rollingPaperId = item.rollingPaperId,
+                        position = item.position,
+                        writerNickname = item.writerNickname,
+                        content = item.content,
+                        toppingImageUrl = item.toppingImageUrl,
+                    )
+                },
+            pageInfo = pageResult.toPageInfoResult(),
         )
     }
 
@@ -107,7 +119,7 @@ class GetRollingPaperListUseCase(
                 ),
             )
         val rollingPapers = rollingPaperPage.content
-        val imageUrlByWrapperId = findImageUrlByWrapperId(rollingPapers)
+        val imageUrlByToppingId = findImageUrlByToppingId(rollingPapers)
         return RollingPaperPageResult(
             page = page,
             totalCount = rollingPaperPage.totalElements,
@@ -115,12 +127,12 @@ class GetRollingPaperListUseCase(
             hasNext = rollingPaperPage.hasNext(),
             items =
                 rollingPapers.mapIndexed { index, rollingPaper ->
-                    RollingPaperListItemResponse(
+                    RollingPaperPageItem(
                         rollingPaperId = rollingPaper.id,
                         position = calculatePosition(page, index),
                         writerNickname = rollingPaper.writerNickname,
                         content = rollingPaper.content,
-                        wrapperImageUrl = imageUrlByWrapperId[rollingPaper.wrapper.id],
+                        toppingImageUrl = requireToppingImageUrl(imageUrlByToppingId, rollingPaper.topping.id),
                     )
                 },
         )
@@ -131,18 +143,41 @@ class GetRollingPaperListUseCase(
         index: Int,
     ): Long = ((page - 1) * PAGE_SIZE + index + 1).toLong()
 
-    private fun findImageUrlByWrapperId(rollingPapers: List<RollingPaper>): Map<Long, String> =
+    private fun findImageUrlByToppingId(rollingPapers: List<RollingPaper>): Map<Long, String> =
         imageUrlReader.findFirstImageUrlByTargetIds(
             ImageTargetType.ROLLING_PAPER_WRAPPER,
-            rollingPapers.map { it.wrapper.id },
+            rollingPapers.map { it.topping.id },
         )
+
+    private fun requireToppingImageUrl(
+        imageUrlByToppingId: Map<Long, String>,
+        toppingId: Long,
+    ): String =
+        imageUrlByToppingId[toppingId]
+            ?: throw BusinessException(ErrorCode.INTERNAL_SERVER_ERROR)
 
     private data class RollingPaperPageResult(
         val page: Int,
         val totalCount: Long,
         val totalPages: Int,
         val hasNext: Boolean,
-        val items: List<RollingPaperListItemResponse>,
+        val items: List<RollingPaperPageItem>,
+    ) {
+        fun toPageInfoResult(): RollingPaperPageInfoResult =
+            RollingPaperPageInfoResult(
+                page = page,
+                totalCount = totalCount,
+                totalPages = totalPages,
+                hasNext = hasNext,
+            )
+    }
+
+    private data class RollingPaperPageItem(
+        val rollingPaperId: Long,
+        val position: Long,
+        val writerNickname: String,
+        val content: String,
+        val toppingImageUrl: String,
     )
 
     companion object {

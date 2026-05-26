@@ -155,7 +155,6 @@ class BurstGameStartSideEffectHandlerTest {
             serverTime = startedAt,
             remainingSeconds = 20,
             rankings = emptyList(),
-            winners = emptyList(),
         )
     }
 

@@ -7,24 +7,27 @@ import jakarta.validation.ConstraintViolationException
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 import org.springframework.http.HttpStatus
+import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.validation.BeanPropertyBindingResult
 import org.springframework.validation.FieldError
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.method.annotation.HandlerMethodValidationException
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
+import tools.jackson.databind.ObjectMapper
 import kotlin.test.Test
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 
 class GlobalExceptionHandlerTest {
-    private val handler = GlobalExceptionHandler()
+    private val handler = GlobalExceptionHandler(ObjectMapper())
 
     @Test
     fun `business exception은 error code 상태와 메시지로 응답한다`() {
-        val response = handler.handleBusinessException(BusinessException(ErrorCode.BURST_GAME_NOT_READY))
+        val response = MockHttpServletResponse()
 
-        assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)
-        assertEquals("BURST_GAME_NOT_READY", response.body?.error?.code)
-        assertEquals(ErrorCode.BURST_GAME_NOT_READY.message, response.body?.error?.message)
+        handler.handleBusinessException(BusinessException(ErrorCode.BURST_GAME_NOT_READY), response)
+
+        assertError(response, HttpStatus.BAD_REQUEST, "BURST_GAME_NOT_READY", ErrorCode.BURST_GAME_NOT_READY.message)
     }
 
     @Test
@@ -32,45 +35,47 @@ class GlobalExceptionHandlerTest {
         val bindingResult = BeanPropertyBindingResult(Target(), "target")
         bindingResult.addError(FieldError("target", "name", "must not be blank"))
         bindingResult.addError(FieldError("target", "age", "must be greater than 0"))
+        val response = MockHttpServletResponse()
 
-        val response = handler.handleValidationException(MethodArgumentNotValidException(mock(), bindingResult))
+        handler.handleValidationException(MethodArgumentNotValidException(mock(), bindingResult), response)
 
-        assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)
-        assertEquals("VALIDATION_ERROR", response.body?.error?.code)
-        assertEquals("name: must not be blank, age: must be greater than 0", response.body?.error?.message)
+        assertError(
+            response,
+            HttpStatus.BAD_REQUEST,
+            "VALIDATION_ERROR",
+            "name: must not be blank, age: must be greater than 0",
+        )
     }
 
     @Test
     fun `method validation 실패는 공통 validation error로 응답한다`() {
         val exception: HandlerMethodValidationException = mock()
         whenever(exception.statusCode).thenReturn(HttpStatus.BAD_REQUEST)
+        val response = MockHttpServletResponse()
 
-        val response = handler.handleMethodValidationException(exception)
+        handler.handleMethodValidationException(exception, response)
 
-        assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)
-        assertEquals("VALIDATION_ERROR", response.body?.error?.code)
-        assertEquals("잘못된 요청 값입니다.", response.body?.error?.message)
+        assertError(response, HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "잘못된 요청 값입니다.")
     }
 
     @Test
     fun `constraint violation 메시지가 없으면 기본 validation 메시지로 응답한다`() {
-        val response = handler.handleConstraintViolationException(ConstraintViolationException(emptySet()))
+        val response = MockHttpServletResponse()
 
-        assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)
-        assertEquals("VALIDATION_ERROR", response.body?.error?.code)
-        assertEquals("잘못된 요청 값입니다.", response.body?.error?.message)
+        handler.handleConstraintViolationException(ConstraintViolationException(emptySet()), response)
+
+        assertError(response, HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "잘못된 요청 값입니다.")
     }
 
     @Test
     fun `constraint violation 메시지를 합쳐 응답한다`() {
         val first: ConstraintViolation<Target> = mock()
         whenever(first.message).thenReturn("first invalid")
+        val response = MockHttpServletResponse()
 
-        val response = handler.handleConstraintViolationException(ConstraintViolationException(setOf(first)))
+        handler.handleConstraintViolationException(ConstraintViolationException(setOf(first)), response)
 
-        assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)
-        assertEquals("VALIDATION_ERROR", response.body?.error?.code)
-        assertEquals("first invalid", response.body?.error?.message)
+        assertError(response, HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "first invalid")
     }
 
     @Test
@@ -83,21 +88,36 @@ class GlobalExceptionHandlerTest {
                 mock(),
                 IllegalArgumentException("invalid"),
             )
+        val response = MockHttpServletResponse()
 
-        val response = handler.handleTypeMismatchException(exception)
+        handler.handleTypeMismatchException(exception, response)
 
-        assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)
-        assertEquals("INVALID_INPUT", response.body?.error?.code)
-        assertEquals("잘못된 요청 값입니다: abc", response.body?.error?.message)
+        assertError(response, HttpStatus.BAD_REQUEST, "INVALID_INPUT", "잘못된 요청 값입니다: abc")
     }
 
     @Test
     fun `알 수 없는 exception은 internal server error로 응답한다`() {
-        val response = handler.handleException(IllegalStateException("unexpected"))
+        val response = MockHttpServletResponse()
 
-        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode)
-        assertEquals("INTERNAL_SERVER_ERROR", response.body?.error?.code)
-        assertEquals(ErrorCode.INTERNAL_SERVER_ERROR.message, response.body?.error?.message)
+        handler.handleException(IllegalStateException("unexpected"), response)
+
+        assertError(
+            response,
+            HttpStatus.INTERNAL_SERVER_ERROR,
+            "INTERNAL_SERVER_ERROR",
+            ErrorCode.INTERNAL_SERVER_ERROR.message,
+        )
+    }
+
+    private fun assertError(
+        response: MockHttpServletResponse,
+        status: HttpStatus,
+        code: String,
+        message: String,
+    ) {
+        assertEquals(status.value(), response.status)
+        assertContains(response.contentAsString, "\"code\":\"$code\"")
+        assertContains(response.contentAsString, "\"message\":\"$message\"")
     }
 
     private data class Target(

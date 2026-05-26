@@ -6,7 +6,7 @@
 
 - 참가자용은 초대 토큰 기반 공개 조회다.
 - 주최자용은 인증된 파티 소유자만 조회할 수 있다.
-- 두 API는 `content`, `position`을 포함하는 공통 목록 item을 사용한다.
+- 참가자용과 주최자용은 화면 권한에 맞춰 서로 다른 목록 item을 사용한다.
 - 상세 오버레이는 기본적으로 목록 page 응답으로 렌더링한다.
 - 주최자용 상세 조회 API는 딥링크, 새로고침 복구, 운영성 조회 같은 보조 플로우를 위해 유지한다.
 - 목록은 표준 page 기반 페이지네이션으로 조회하고, `PAGE_SIZE = 7`을 사용한다.
@@ -37,19 +37,19 @@ Response data:
 {
   "partyOption": "REALTIME",
   "liveEndAt": "2026-05-05T22:10:00",
-  "page": 1,
-  "totalCount": 12,
-  "totalPages": 2,
-  "hasNext": true,
   "items": [
     {
       "rollingPaperId": 10,
-      "position": 1,
       "writerNickname": "축하요정",
-      "content": "생일 축하해요!",
-      "wrapperImageUrl": "/images/rolling-paper-wrappers/Topping_Candle.svg"
+      "toppingImageUrl": "/images/rolling-paper-wrappers/Topping_Candle.svg"
     }
-  ]
+  ],
+  "pageInfo": {
+    "page": 1,
+    "totalCount": 12,
+    "totalPages": 2,
+    "hasNext": true
+  }
 }
 ```
 
@@ -68,19 +68,21 @@ Response data:
 {
   "celebrantNickname": "홍길동",
   "partyEndAt": "2026-05-12T14:30:00",
-  "page": 1,
-  "totalCount": 8,
-  "totalPages": 2,
-  "hasNext": true,
   "items": [
     {
       "rollingPaperId": 10,
       "position": 1,
       "writerNickname": "축하요정",
       "content": "생일 축하해요!",
-      "wrapperImageUrl": "/images/rolling-paper-wrappers/Topping_Candle.svg"
+      "toppingImageUrl": "/images/rolling-paper-wrappers/Topping_Candle.svg"
     }
-  ]
+  ],
+  "pageInfo": {
+    "page": 1,
+    "totalCount": 8,
+    "totalPages": 2,
+    "hasNext": true
+  }
 }
 ```
 
@@ -115,12 +117,13 @@ Response data:
    - `page < 1`은 1로 보정한다.
    - `totalCount = 0`이면 `totalPages = 0`, `items = []`, `hasNext = false`다.
    - `page > totalPages`이면 요청 page를 유지하고 `items = []`, `hasNext = false`다.
-   - 참가자용과 주최자용 모두 `totalCount`를 응답한다.
+   - 참가자용과 주최자용 모두 `pageInfo.totalCount`를 응답한다.
    - item의 `position`은 `(page - 1) * PAGE_SIZE + index + 1`로 계산한다.
-   - item에는 상세 오버레이용 `content`를 포함한다.
-   - item의 `content`는 작성 API의 `@Size(max = 100)` 제한을 그대로 따른다.
+   - 참가자용 item에는 `position`, `content`를 포함하지 않는다.
+   - 주최자용 item에는 상세 오버레이용 `position`, `content`를 포함한다.
+   - 주최자용 item의 `content`는 작성 API의 `@Size(max = 100)` 제한을 그대로 따른다.
    - `position`과 `totalCount`는 목록 응답 시점의 snapshot 기준이며, 상세 오버레이를 보는 동안 새 롤링페이퍼가 추가되는 eventual consistency는 허용한다.
-   - wrapper 이미지는 bulk 조회 후 `sortOrder ASC` 첫 번째 이미지를 매핑한다.
+   - 토핑 이미지는 bulk 조회 후 `sortOrder ASC` 첫 번째 이미지를 매핑한다.
 
 4. DTO, UseCase, Controller를 추가한다.
    - 참가자용 GET 경로는 `SecurityConfig`에 method/path-specific `permitAll`로 추가한다.
@@ -142,9 +145,8 @@ Response data:
   - `REALTIME`이면 `liveEndAt = startedAt + LIVE_DURATION_MINUTES`
   - `PAPER_ONLY`이면 `liveEndAt = null`
   - 파티 자체 종료 후에도 조회 성공
-  - `totalCount` 응답
-  - item에 `position`, `content` 응답
-  - item `content`는 최대 100자 계약을 따른다.
+  - `pageInfo.totalCount` 응답
+  - item에 `position`, `content`를 응답하지 않는다.
 
 - 주최자용 목록
   - 소유자 조회 성공
@@ -153,7 +155,7 @@ Response data:
   - `now == hostViewableAt()`이면 조회 성공
   - `PAPER_ONLY`는 22:00 기준 열람 가능
   - `REALTIME`은 live 종료 시각 기준 열람 가능
-  - `celebrantNickname`, `partyEndAt`, `totalCount`, `totalPages` 응답 확인
+  - `celebrantNickname`, `partyEndAt`, `pageInfo.totalCount`, `pageInfo.totalPages` 응답 확인
   - item에 `position`, `content` 응답
   - item `content`는 최대 100자 계약을 따른다.
 
@@ -165,8 +167,8 @@ Response data:
   - 초과 페이지: 요청 page 유지, `items = []`, `hasNext = false`
   - `position`은 전체 최신순 목록 기준 순번
   - 조회 이후 새 롤링페이퍼 추가로 인한 cached `position` / `totalCount`의 eventual consistency 허용
-  - wrapper 이미지는 bulk 조회 결과 중 `sortOrder ASC` 첫 번째 URL 사용
-  - 이미지 없으면 `wrapperImageUrl = null`
+  - 토핑 이미지는 bulk 조회 결과 중 `sortOrder ASC` 첫 번째 URL 사용
+  - 기본 토핑 seed 기준 `toppingImageUrl`은 non-null이다.
 
 - 주최자용 상세
   - 특정 롤링페이퍼 ID로 상세 조회 성공

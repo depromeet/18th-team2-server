@@ -13,8 +13,6 @@ data class StartBurstGameResponse(
     val startedAt: LocalDateTime,
     @Schema(description = "서버 기준 라운드 종료 시각입니다.", example = "2026-05-14T20:10:20")
     val endsAt: LocalDateTime,
-    @Schema(description = "현재까지 반영된 전체 터치 수입니다.", example = "0")
-    val totalTapCount: Int,
     @Schema(description = "전체 터치 수가 색상 변경 기준에 도달했는지 여부입니다.", example = "false")
     val colorChanged: Boolean,
     @Schema(description = "라운드 상태 변경 버전입니다. 실제 반영된 tap 또는 종료 전이마다 증가합니다.", example = "0")
@@ -29,7 +27,6 @@ data class StartBurstGameResponse(
                 myParticipantId = snapshot.myParticipantId,
                 startedAt = snapshot.startedAt,
                 endsAt = snapshot.endsAt,
-                totalTapCount = snapshot.totalTapCount,
                 colorChanged = snapshot.colorChanged,
                 stateVersion = snapshot.stateVersion,
                 serverTime = snapshot.serverTime,

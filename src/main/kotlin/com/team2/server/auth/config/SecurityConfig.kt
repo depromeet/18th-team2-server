@@ -50,7 +50,7 @@ class SecurityConfig(
                         "/api/dev/**",
                     ).permitAll()
                 auth.requestMatchers(HttpMethod.GET, "/api/v1/characters").permitAll()
-                auth.requestMatchers(HttpMethod.GET, "/api/v1/rolling-paper-wrappers").permitAll()
+                auth.requestMatchers(HttpMethod.GET, "/api/v1/rolling-paper-toppings").permitAll()
                 auth.requestMatchers(HttpMethod.GET, "/api/v1/party-invites/*").permitAll()
                 auth.requestMatchers(HttpMethod.GET, "/api/v1/party-invites/*/rolling-papers").permitAll()
                 auth.requestMatchers(HttpMethod.POST, "/api/v1/party-invites/*/rolling-papers").permitAll()

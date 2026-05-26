@@ -11,7 +11,7 @@ class CreateRollingPaperRequestTest {
             CreateRollingPaperRequest(
                 writerNickname = "  축하요정  ",
                 content = "  생일 축하해!  ",
-                wrapperId = 1L,
+                toppingId = 1L,
             )
 
         assertEquals("축하요정", request.trimmedWriterNickname())
@@ -19,15 +19,15 @@ class CreateRollingPaperRequestTest {
     }
 
     @Test
-    fun `wrapperId는 필수 값으로 반환한다`() {
+    fun `toppingId는 필수 값으로 반환한다`() {
         val request =
             CreateRollingPaperRequest(
                 writerNickname = "축하요정",
                 content = "생일 축하해!",
-                wrapperId = 10L,
+                toppingId = 10L,
             )
 
-        assertEquals(10L, request.requiredWrapperId())
+        assertEquals(10L, request.requiredToppingId())
     }
 
     @Test
@@ -36,7 +36,7 @@ class CreateRollingPaperRequestTest {
             CreateRollingPaperRequest(
                 writerNickname = null,
                 content = "생일 축하해!",
-                wrapperId = 1L,
+                toppingId = 1L,
             )
 
         assertFailsWith<IllegalArgumentException> {
@@ -50,7 +50,7 @@ class CreateRollingPaperRequestTest {
             CreateRollingPaperRequest(
                 writerNickname = "축하요정",
                 content = null,
-                wrapperId = 1L,
+                toppingId = 1L,
             )
 
         assertFailsWith<IllegalArgumentException> {
@@ -59,16 +59,16 @@ class CreateRollingPaperRequestTest {
     }
 
     @Test
-    fun `wrapperId가 null이면 필수 값 반환에 실패한다`() {
+    fun `toppingId가 null이면 필수 값 반환에 실패한다`() {
         val request =
             CreateRollingPaperRequest(
                 writerNickname = "축하요정",
                 content = "생일 축하해!",
-                wrapperId = null,
+                toppingId = null,
             )
 
         assertFailsWith<IllegalArgumentException> {
-            request.requiredWrapperId()
+            request.requiredToppingId()
         }
     }
 }

@@ -23,7 +23,7 @@ interface RollingPaperApi {
     @Operation(
         summary = "참가자용 롤링페이퍼 목록 조회",
         description =
-            "초대 토큰으로 롤링페이퍼 목록과 상세 오버레이용 본문을 조회한다. 인증 없이도 조회 가능하다. " +
+            "초대 토큰으로 롤링페이퍼 목록을 조회한다. 인증 없이도 조회 가능하다. " +
                 "Authorization header를 보낼 경우 유효한 Bearer token이어야 한다.",
         security = [
             SecurityRequirement(name = "Bearer Authentication"),
@@ -130,7 +130,7 @@ interface RollingPaperApi {
     )
     @SwaggerApiResponse(
         responseCode = "404",
-        description = "파티 또는 래퍼 없음",
+        description = "파티 또는 토핑 없음",
         content = [
             Content(
                 mediaType = "application/json",
@@ -149,13 +149,13 @@ interface RollingPaperApi {
                         """,
                     ),
                     ExampleObject(
-                        name = "래퍼 없음",
+                        name = "토핑 없음",
                         value = """
                             {
                               "status": 404,
                               "error": {
-                                "code": "ROLLING_PAPER_WRAPPER_NOT_FOUND",
-                                "message": "롤링페이퍼 래퍼를 찾을 수 없습니다"
+                                "code": "ROLLING_PAPER_TOPPING_NOT_FOUND",
+                                "message": "롤링페이퍼 토핑을 찾을 수 없습니다"
                               }
                             }
                         """,

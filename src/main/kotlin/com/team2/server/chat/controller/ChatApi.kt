@@ -8,7 +8,6 @@ import com.team2.server.chat.dto.EnterRealtimePartyRequest
 import com.team2.server.chat.dto.SendChatMessageRequest
 import com.team2.server.common.web.ApiResponse
 import com.team2.server.common.web.ErrorResponse
-import com.team2.server.common.web.swagger.AuthErrorResponses
 import com.team2.server.common.web.swagger.InternalServerErrorResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
@@ -128,16 +127,22 @@ curl -N -X POST http://localhost:8080/api/v1/party-invites/{inviteToken}/realtim
                 examples = [
                     ExampleObject(
                         name = "초대 링크 만료",
-                        value = """{"status":400,"error":{"code":"INVITE_LINK_EXPIRED","message":"초대 링크가 만료되었습니다"}}""",
+                        value = """{"status":400,"error":{"code":"INVITE_LINK_EXPIRED","message":"만료된 초대링크입니다"}}""",
                     ),
                     ExampleObject(
-                        name = "입장 가능 시간 이전",
-                        value = """{"status":400,"error":{"code":"CHAT_NOT_ACTIVE","message":"아직 입장할 수 없습니다"}}""",
+                        name = "입장 불가 상태 (파티 미시작·종료)",
+                        value =
+                            """{"status":400,"error":{"code":"CHAT_NOT_ACTIVE","message":"현재 채팅이 활성화된 시간이 아닙니다"}}""",
                     ),
                     ExampleObject(
                         name = "실시간 파티가 아님",
                         value =
-                            """{"status":400,"error":{"code":"CHAT_NOT_SUPPORTED","message":"실시간 채팅을 지원하지 않는 파티입니다"}}""",
+                            """{"status":400,"error":{"code":"CHAT_NOT_SUPPORTED","message":"채팅을 지원하지 않는 파티입니다"}}""",
+                    ),
+                    ExampleObject(
+                        name = "주최자 닉네임 변경 불가 (재입장 시)",
+                        value =
+                            """{"status":400,"error":{"code":"PARTY_HOST_NICKNAME_NOT_EDITABLE","message":"주최자 닉네임은 변경할 수 없습니다"}}""",
                     ),
                 ],
             ),
@@ -158,6 +163,22 @@ curl -N -X POST http://localhost:8080/api/v1/party-invites/{inviteToken}/realtim
                     ExampleObject(
                         name = "존재하지 않는 캐릭터",
                         value = """{"status":404,"error":{"code":"CHARACTER_NOT_FOUND","message":"캐릭터를 찾을 수 없습니다"}}""",
+                    ),
+                ],
+            ),
+        ],
+    )
+    @SwaggerApiResponse(
+        responseCode = "409",
+        description = "닉네임 중복",
+        content = [
+            Content(
+                mediaType = "application/json",
+                schema = Schema(implementation = ErrorResponse::class),
+                examples = [
+                    ExampleObject(
+                        value =
+                            """{"status":409,"error":{"code":"PARTY_NICKNAME_DUPLICATED","message":"이미 사용 중인 닉네임입니다"}}""",
                     ),
                 ],
             ),
@@ -195,13 +216,42 @@ curl -N -X POST http://localhost:8080/api/v1/party-invites/{inviteToken}/realtim
                 schema = Schema(implementation = ErrorResponse::class),
                 examples = [
                     ExampleObject(
-                        name = "파티가 활성 상태가 아님",
-                        value = """{"status":400,"error":{"code":"CHAT_NOT_ACTIVE","message":"현재 채팅을 사용할 수 없습니다"}}""",
+                        name = "파티가 LIVE_OPEN 상태가 아님",
+                        value =
+                            """{"status":400,"error":{"code":"CHAT_NOT_ACTIVE","message":"현재 채팅이 활성화된 시간이 아닙니다"}}""",
                     ),
                     ExampleObject(
                         name = "실시간 파티가 아님",
                         value =
-                            """{"status":400,"error":{"code":"CHAT_NOT_SUPPORTED","message":"실시간 채팅을 지원하지 않는 파티입니다"}}""",
+                            """{"status":400,"error":{"code":"CHAT_NOT_SUPPORTED","message":"채팅을 지원하지 않는 파티입니다"}}""",
+                    ),
+                ],
+            ),
+        ],
+    )
+    @SwaggerApiResponse(
+        responseCode = "401",
+        description = "인증 실패",
+        content = [
+            Content(
+                mediaType = "application/json",
+                schema = Schema(implementation = ErrorResponse::class),
+                examples = [
+                    ExampleObject(
+                        name = "인증 필요",
+                        value = """{"status":401,"error":{"code":"AUTH_UNAUTHORIZED","message":"인증이 필요합니다"}}""",
+                    ),
+                    ExampleObject(
+                        name = "만료된 토큰",
+                        value = """{"status":401,"error":{"code":"AUTH_EXPIRED_TOKEN","message":"만료된 토큰입니다"}}""",
+                    ),
+                    ExampleObject(
+                        name = "유효하지 않은 토큰",
+                        value = """{"status":401,"error":{"code":"AUTH_INVALID_TOKEN","message":"유효하지 않은 토큰입니다"}}""",
+                    ),
+                    ExampleObject(
+                        name = "JWT·참여자 토큰 미제공",
+                        value = """{"status":401,"error":{"code":"UNAUTHORIZED","message":"로그인이 필요합니다"}}""",
                     ),
                 ],
             ),
@@ -216,7 +266,7 @@ curl -N -X POST http://localhost:8080/api/v1/party-invites/{inviteToken}/realtim
                 schema = Schema(implementation = ErrorResponse::class),
                 examples = [
                     ExampleObject(
-                        value = """{"status":403,"error":{"code":"PARTY_FORBIDDEN","message":"파티에 접근할 수 없습니다"}}""",
+                        value = """{"status":403,"error":{"code":"PARTY_FORBIDDEN","message":"파티에 대한 권한이 없습니다"}}""",
                     ),
                 ],
             ),
@@ -237,7 +287,6 @@ curl -N -X POST http://localhost:8080/api/v1/party-invites/{inviteToken}/realtim
             ),
         ],
     )
-    @AuthErrorResponses
     @InternalServerErrorResponse
     fun sendMessage(
         @Parameter(description = "파티 ID") partyId: Long,
@@ -257,7 +306,80 @@ curl -N -X POST http://localhost:8080/api/v1/party-invites/{inviteToken}/realtim
 """,
     )
     @SwaggerApiResponse(responseCode = "204", description = "퇴장 성공")
-    @AuthErrorResponses
+    @SwaggerApiResponse(
+        responseCode = "400",
+        description = "실시간 파티가 아님",
+        content = [
+            Content(
+                mediaType = "application/json",
+                schema = Schema(implementation = ErrorResponse::class),
+                examples = [
+                    ExampleObject(
+                        value =
+                            """{"status":400,"error":{"code":"CHAT_NOT_SUPPORTED","message":"채팅을 지원하지 않는 파티입니다"}}""",
+                    ),
+                ],
+            ),
+        ],
+    )
+    @SwaggerApiResponse(
+        responseCode = "401",
+        description = "인증 실패",
+        content = [
+            Content(
+                mediaType = "application/json",
+                schema = Schema(implementation = ErrorResponse::class),
+                examples = [
+                    ExampleObject(
+                        name = "인증 필요",
+                        value = """{"status":401,"error":{"code":"AUTH_UNAUTHORIZED","message":"인증이 필요합니다"}}""",
+                    ),
+                    ExampleObject(
+                        name = "만료된 토큰",
+                        value = """{"status":401,"error":{"code":"AUTH_EXPIRED_TOKEN","message":"만료된 토큰입니다"}}""",
+                    ),
+                    ExampleObject(
+                        name = "유효하지 않은 토큰",
+                        value = """{"status":401,"error":{"code":"AUTH_INVALID_TOKEN","message":"유효하지 않은 토큰입니다"}}""",
+                    ),
+                    ExampleObject(
+                        name = "JWT·참여자 토큰 미제공",
+                        value = """{"status":401,"error":{"code":"UNAUTHORIZED","message":"로그인이 필요합니다"}}""",
+                    ),
+                ],
+            ),
+        ],
+    )
+    @SwaggerApiResponse(
+        responseCode = "403",
+        description = "해당 파티의 참여자가 아님",
+        content = [
+            Content(
+                mediaType = "application/json",
+                schema = Schema(implementation = ErrorResponse::class),
+                examples = [
+                    ExampleObject(
+                        value = """{"status":403,"error":{"code":"PARTY_FORBIDDEN","message":"파티에 대한 권한이 없습니다"}}""",
+                    ),
+                ],
+            ),
+        ],
+    )
+    @SwaggerApiResponse(
+        responseCode = "404",
+        description = "파티 없음",
+        content = [
+            Content(
+                mediaType = "application/json",
+                schema = Schema(implementation = ErrorResponse::class),
+                examples = [
+                    ExampleObject(
+                        value = """{"status":404,"error":{"code":"PARTY_NOT_FOUND","message":"파티를 찾을 수 없습니다"}}""",
+                    ),
+                ],
+            ),
+        ],
+    )
     @InternalServerErrorResponse
     fun leaveParty(
         @Parameter(description = "파티 ID") partyId: Long,
