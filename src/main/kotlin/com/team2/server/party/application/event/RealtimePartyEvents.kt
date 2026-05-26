@@ -22,3 +22,8 @@ data class RealtimePartyEndingStartedEvent(
     val endingStartedAt: LocalDateTime,
     val endedAt: LocalDateTime,
 )
+
+data class RealtimePartyBurstGameStartedEvent(
+    val partyId: Long,
+    val startedAt: LocalDateTime,
+)

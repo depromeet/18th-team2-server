@@ -8,6 +8,7 @@ import com.team2.server.party.application.event.RealtimePartyBurstGameEndedEvent
 import com.team2.server.party.application.event.RealtimePartyCreatedEvent
 import com.team2.server.party.application.event.RealtimePartyEndingStartedEvent
 import com.team2.server.party.application.event.RealtimePartyHostEndAvailableScheduleRequestedEvent
+import com.team2.server.party.application.port.PartyPhaseStore
 import com.team2.server.party.application.port.RealtimePartyEventBroadcaster
 import com.team2.server.party.application.usecase.HandleBurstGameEndedUseCase
 import com.team2.server.party.application.usecase.RecoverRealtimePartyEndScheduleUseCase
@@ -35,6 +36,7 @@ class PartyEndSchedulerTest {
     private val recoverRealtimePartyEndScheduleUseCase: RecoverRealtimePartyEndScheduleUseCase = mock()
     private val startAutomaticRealtimePartyEndUseCase: StartAutomaticRealtimePartyEndUseCase = mock()
     private val handleBurstGameEndedUseCase: HandleBurstGameEndedUseCase = mock()
+    private val phaseStore: PartyPhaseStore = mock()
     private val zone = ZoneId.of("Asia/Seoul")
     private val now = LocalDateTime.of(2026, 5, 18, 14, 20)
     private val clock = Clock.fixed(now.atZone(zone).toInstant(), zone)
@@ -53,6 +55,7 @@ class PartyEndSchedulerTest {
                 startAutomaticRealtimePartyEndUseCase = startAutomaticRealtimePartyEndUseCase,
                 handleBurstGameEndedUseCase = handleBurstGameEndedUseCase,
                 clock = clock,
+                phaseStore = phaseStore,
             )
         whenever(taskScheduler.schedule(any<Runnable>(), any<Instant>())).thenAnswer { invocation ->
             scheduledTasks.add(invocation.getArgument(0))

@@ -2,14 +2,17 @@ package com.team2.server.party.infrastructure.sse
 
 import com.team2.server.party.application.dto.RealtimeEndingScheduleTarget
 import com.team2.server.party.application.event.RealtimePartyBurstGameEndedEvent
+import com.team2.server.party.application.event.RealtimePartyBurstGameStartedEvent
 import com.team2.server.party.application.event.RealtimePartyCreatedEvent
 import com.team2.server.party.application.event.RealtimePartyEndingStartedEvent
 import com.team2.server.party.application.event.RealtimePartyHostEndAvailableScheduleRequestedEvent
+import com.team2.server.party.application.port.PartyPhaseStore
 import com.team2.server.party.application.port.RealtimePartyEventBroadcaster
 import com.team2.server.party.application.usecase.HandleBurstGameEndedUseCase
 import com.team2.server.party.application.usecase.RecoverRealtimePartyEndScheduleUseCase
 import com.team2.server.party.application.usecase.StartAutomaticRealtimePartyEndUseCase
 import com.team2.server.party.domain.entity.RealtimeParty
+import com.team2.server.party.domain.vo.PartyPhase
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
@@ -33,6 +36,7 @@ class PartyEndScheduler(
     private val startAutomaticRealtimePartyEndUseCase: StartAutomaticRealtimePartyEndUseCase,
     private val handleBurstGameEndedUseCase: HandleBurstGameEndedUseCase,
     private val clock: Clock,
+    private val phaseStore: PartyPhaseStore,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val partyStates = ConcurrentHashMap<Long, PartyEndScheduleState>()
@@ -94,6 +98,19 @@ class PartyEndScheduler(
             ),
             emitEnding = true,
         )
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
+    fun onBurstGameStarted(event: RealtimePartyBurstGameStartedEvent) {
+        val advanced = phaseStore.advance(event.partyId, PartyPhase.CANDLE, PartyPhase.BURST, event.startedAt)
+        if (advanced) {
+            realtimePartyEventBroadcaster.broadcastPhaseChanged(
+                partyId = event.partyId,
+                phase = PartyPhase.BURST,
+                phaseStartedAt = event.startedAt,
+                serverNow = event.startedAt,
+            )
+        }
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)

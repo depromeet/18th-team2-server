@@ -1,6 +1,7 @@
 package com.team2.server.burstgame.infrastructure.realtime
 
 import com.team2.server.burstgame.application.event.BurstGameEndedEvent
+import com.team2.server.burstgame.application.event.BurstGameStartedEvent
 import com.team2.server.burstgame.application.port.BurstGameEventBroadcaster
 import com.team2.server.burstgame.domain.BurstGameRankingEntry
 import com.team2.server.burstgame.domain.BurstGameSnapshot
@@ -33,6 +34,7 @@ class SseBurstGameEventBroadcaster(
 
     override fun broadcastStarted(snapshot: BurstGameSnapshot) {
         emit(snapshot.partyId, EVENT_STARTED, BurstGameStartedPayload.from(snapshot))
+        applicationEventPublisher.publishEvent(BurstGameStartedEvent(snapshot.partyId, snapshot.serverTime))
     }
 
     override fun broadcastProgress(snapshot: BurstGameSnapshot) {
