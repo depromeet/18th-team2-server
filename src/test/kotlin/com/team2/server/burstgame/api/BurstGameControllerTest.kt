@@ -48,7 +48,7 @@ class BurstGameControllerTest
 
         @Test
         fun `participantToken으로 촛불끄기 상태 조회 성공`() {
-            val fixture = saveRealtimeParticipant(startedAt = LocalDateTime.now().minusSeconds(40))
+            val fixture = saveRealtimeParticipant(startedAt = activeCandleBlowStartedAt())
 
             mockMvc
                 .get("/api/v1/parties/${fixture.partyId}/candle-blow") {
@@ -68,7 +68,7 @@ class BurstGameControllerTest
 
         @Test
         fun `participantToken으로 촛불 끄기 성공`() {
-            val fixture = saveRealtimeParticipant(startedAt = LocalDateTime.now().minusSeconds(40))
+            val fixture = saveRealtimeParticipant(startedAt = activeCandleBlowStartedAt())
 
             mockMvc
                 .post("/api/v1/parties/${fixture.partyId}/candle-blow/candles/3") {
@@ -86,7 +86,7 @@ class BurstGameControllerTest
 
         @Test
         fun `허용 범위 밖 candleId 요청은 400을 반환한다`() {
-            val fixture = saveRealtimeParticipant(startedAt = LocalDateTime.now().minusSeconds(40))
+            val fixture = saveRealtimeParticipant(startedAt = activeCandleBlowStartedAt())
 
             mockMvc
                 .post("/api/v1/parties/${fixture.partyId}/candle-blow/candles/0") {
@@ -99,7 +99,7 @@ class BurstGameControllerTest
 
         @Test
         fun `이미 꺼진 촛불을 다시 꺼도 200 응답으로 현재 상태를 반환한다`() {
-            val fixture = saveRealtimeParticipant(startedAt = LocalDateTime.now().minusSeconds(40))
+            val fixture = saveRealtimeParticipant(startedAt = activeCandleBlowStartedAt())
 
             blowCandle(fixture, candleId = 3)
 
@@ -129,7 +129,7 @@ class BurstGameControllerTest
 
         @Test
         fun `모든 촛불이 꺼진 뒤 촛불 끄기 요청은 200 응답으로 종료 상태를 반환한다`() {
-            val fixture = saveRealtimeParticipant(startedAt = LocalDateTime.now().minusSeconds(40))
+            val fixture = saveRealtimeParticipant(startedAt = activeCandleBlowStartedAt())
 
             (1..CandleBlowPolicy.CANDLE_COUNT).forEach { candleId ->
                 blowCandle(fixture, candleId)
@@ -411,6 +411,9 @@ class BurstGameControllerTest
                 participantToken = profile.participantToken,
             )
         }
+
+        private fun activeCandleBlowStartedAt(): LocalDateTime =
+            LocalDateTime.now().minusSeconds(CandleBlowPolicy.START_DELAY_SECONDS + 1L)
 
         private fun saveRealtimeParticipants(): List<BurstGameFixture> {
             val party =

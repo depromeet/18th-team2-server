@@ -113,7 +113,7 @@ class InMemoryCandleBlowSessionStoreTest {
                             session
                                 .blow(
                                     candleId = candleId,
-                                    now = partyStartedAt.plusSeconds(40),
+                                    now = partyStartedAt.plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS),
                                 ).changed
                         } == true
                     }
@@ -125,7 +125,7 @@ class InMemoryCandleBlowSessionStoreTest {
             assertTrue(futures.all { it.get(1, TimeUnit.SECONDS) })
             val remainingCount =
                 store.withSessionLock(1L) {
-                    it.snapshot(partyStartedAt.plusSeconds(41)).remainingCount
+                    it.snapshot(partyStartedAt.plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS)).remainingCount
                 }
             assertEquals(0, remainingCount)
         } finally {

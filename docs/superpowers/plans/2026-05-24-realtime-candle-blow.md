@@ -2,7 +2,7 @@
 
 > 단계별로 진행한다. 각 단계가 끝나면 커밋하지 않고 변경 내용과 검증 결과를 공유한다.
 
-**Goal:** 실시간 파티 시작 35초 뒤 공유 촛불 9개를 끄는 단계를 시작하고, 9개 모두 꺼짐 또는 45초 타임아웃으로 종료한 뒤 기존 박터뜨리기 start API를 열어준다.
+**Goal:** 실시간 파티 시작 41초 뒤 공유 촛불 9개를 끄는 단계를 시작하고, 9개 모두 꺼짐 또는 45초 타임아웃으로 종료한 뒤 기존 박터뜨리기 start API를 열어준다.
 
 **Architecture:** 기존 `burstgame` feature 안에 촛불 phase를 추가한다. HTTP 진입점은 `api`, 흐름/트랜잭션은 `application/usecase`, 공유 상태와 정책은 `domain`, in-memory store/scheduler/SSE adapter는 `infrastructure`에 둔다.
 
@@ -13,7 +13,7 @@
 ## Decisions
 
 - 촛불끄기는 `REALTIME` 파티에서만 동작한다.
-- 시작 시각은 `party.startedAt + 35초`다.
+- 시작 시각은 `party.startedAt + 41초`다.
 - 제한 시간은 45초다.
 - 촛불 수는 9개 고정이고 외부 입력으로 바꾸지 않는다.
 - 실시간 파티 참여자라면 누구나 촛불을 끌 수 있다.
@@ -60,7 +60,7 @@
 - Test: `src/test/kotlin/com/team2/server/burstgame/infrastructure/candle/InMemoryCandleBlowSessionStoreTest.kt`
 
 - [x] `CANDLE_COUNT = 9`
-- [x] `START_DELAY_SECONDS = 35`
+- [x] `START_DELAY_SECONDS = 41`
 - [x] `DURATION_SECONDS = 45`
 - [x] 1차 store는 단일 app instance 전제의 in-memory 구현으로 둔다.
 - [x] 추후 store 구현 교체 가능성을 고려해 `CandleBlowSessionStore` 포트 뒤에 구현을 숨긴다.
@@ -84,7 +84,7 @@
 - [x] `GET /api/v1/parties/{partyId}/candle-blow`
 - [x] `POST /api/v1/parties/{partyId}/candle-blow/candles/{candleId}`
 - [x] JWT 또는 `X-Participant-Token` 참여자 검증 재사용
-- [x] `party.startedAt + 35초` 전 `WAITING` 상태 blow 요청은 `CANDLE_BLOW_NOT_STARTED`
+- [x] `party.startedAt + 41초` 전 `WAITING` 상태 blow 요청은 `CANDLE_BLOW_NOT_STARTED`
 - [x] `FINISHED` 상태 blow 요청은 `200 OK` 멱등 응답
 - [x] `GetCandleBlowStateUseCase`, `BlowCandleUseCase`는 `CandleBlowService`에 상태 조회/전이 처리를 위임한다.
 
