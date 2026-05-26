@@ -1,6 +1,7 @@
 package com.team2.server.chat.infrastructure.sse
 
 import com.team2.server.party.application.port.RealtimePartyEventBroadcaster
+import com.team2.server.party.domain.vo.PartyPhase
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 import java.time.LocalDateTime
@@ -61,6 +62,22 @@ class ChatRealtimePartyEventBroadcaster(
         sseEmitterRegistry.completeAll(partyId)
     }
 
+    override fun broadcastPhaseChanged(
+        partyId: Long,
+        phase: PartyPhase,
+        phaseStartedAt: LocalDateTime,
+        serverNow: LocalDateTime,
+    ) {
+        sseEmitterRegistry.broadcast(
+            partyId,
+            SseEmitter
+                .event()
+                .name("party-phase-changed")
+                .data(PhaseChangedPayload(partyId, phase, phaseStartedAt, serverNow))
+                .build(),
+        )
+    }
+
     data class HostEndAvailablePayload(
         val partyId: Long,
         val availableAt: LocalDateTime,
@@ -75,5 +92,12 @@ class ChatRealtimePartyEventBroadcaster(
     data class PartyEndedPayload(
         val partyId: Long,
         val endedAt: LocalDateTime,
+    )
+
+    data class PhaseChangedPayload(
+        val partyId: Long,
+        val phase: PartyPhase,
+        val phaseStartedAt: LocalDateTime,
+        val serverNow: LocalDateTime,
     )
 }
