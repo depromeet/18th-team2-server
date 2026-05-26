@@ -29,7 +29,7 @@ import java.util.Locale
 class RollingPaper(
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "wrapper_id", nullable = false)
-    var wrapper: RollingPaperWrapper,
+    var topping: RollingPaperTopping,
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "writer_participant_id", nullable = false)
     var writer: Participant,

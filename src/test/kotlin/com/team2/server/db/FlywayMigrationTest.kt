@@ -23,6 +23,7 @@ class FlywayMigrationTest {
             assertEquals(5, connection.countRows("avatar"))
             assertEquals(3, connection.countRows("rolling_paper_wrapper"))
             assertEquals(13, connection.countRows("image"))
+            assertEquals(0, connection.countRollingPaperToppingsMissingImage())
             assertEquals(
                 ColumnDefinition(dataType = "datetime", datetimePrecision = 6, nullable = true),
                 connection.findColumn("realtime_party", "live_ending_started_at"),
@@ -39,6 +40,27 @@ class FlywayMigrationTest {
             }
         }
     }
+
+    private fun java.sql.Connection.countRollingPaperToppingsMissingImage(): Int =
+        createStatement().use { statement ->
+            statement
+                .executeQuery(
+                    """
+                    select count(*)
+                    from rolling_paper_wrapper rpw
+                    where not exists (
+                        select 1
+                        from image i
+                        where i.target_type = 'ROLLING_PAPER_WRAPPER'
+                          and i.target_id = rpw.id
+                          and i.image_url is not null
+                    )
+                    """.trimIndent(),
+                ).use { resultSet ->
+                    resultSet.next()
+                    resultSet.getInt(1)
+                }
+        }
 
     private companion object {
         private val COUNTABLE_TABLES = setOf("avatar", "rolling_paper_wrapper", "image")

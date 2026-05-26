@@ -16,7 +16,7 @@ import jakarta.persistence.UniqueConstraint
         ),
     ],
 )
-class RollingPaperWrapper(
+class RollingPaperTopping(
     @Column(nullable = false)
     var name: String,
 ) : BaseEntity()

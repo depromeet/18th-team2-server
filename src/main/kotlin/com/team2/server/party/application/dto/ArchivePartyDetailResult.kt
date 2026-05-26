@@ -19,7 +19,7 @@ data class ArchivePartyDetailResult(
     val myPaperWritten: Boolean,
     val myPaperContent: String?,
     val myPaperWriterNickname: String?,
-    val myPaperWrapperImageUrl: String?,
+    val myPaperToppingImageUrl: String?,
 )
 
 data class ArchiveParticipantItem(

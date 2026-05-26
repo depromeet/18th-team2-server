@@ -16,14 +16,14 @@ data class CreateRollingPaperRequest(
     @field:Size(max = 100, message = "내용은 100자 이하여야 합니다")
     @Schema(description = "롤링페이퍼 내용", example = "생일 축하해!")
     val content: String?,
-    @field:NotNull(message = "래퍼 선택은 필수입니다")
-    @field:Positive(message = "래퍼 ID는 양수여야 합니다")
-    @Schema(description = "래퍼 ID", example = "1")
-    val wrapperId: Long?,
+    @field:NotNull(message = "토핑 선택은 필수입니다")
+    @field:Positive(message = "토핑 ID는 양수여야 합니다")
+    @Schema(description = "토핑 ID", example = "1")
+    val toppingId: Long?,
 ) {
     fun trimmedWriterNickname(): String = requireNotNull(writerNickname).trim()
 
     fun trimmedContent(): String = requireNotNull(content).trim()
 
-    fun requiredWrapperId(): Long = requireNotNull(wrapperId)
+    fun requiredToppingId(): Long = requireNotNull(toppingId)
 }

@@ -7,7 +7,7 @@ import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.PartyRepository
 import com.team2.server.rollingpaper.entity.RollingPaper
-import com.team2.server.rollingpaper.entity.RollingPaperWrapper
+import com.team2.server.rollingpaper.entity.RollingPaperTopping
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
 import com.team2.server.user.repository.UserRepository
@@ -25,7 +25,7 @@ class RollingPaperRepositoryTest
     @Autowired
     constructor(
         private val rollingPaperRepository: RollingPaperRepository,
-        private val rollingPaperWrapperRepository: RollingPaperWrapperRepository,
+        private val rollingPaperToppingRepository: RollingPaperToppingRepository,
         private val participantRepository: ParticipantRepository,
         private val partyRepository: PartyRepository,
         private val userRepository: UserRepository,
@@ -53,10 +53,10 @@ class RollingPaperRepositoryTest
                     ),
                 )
             val participant = participantRepository.save(Participant(party = party, user = user))
-            val wrapper = rollingPaperWrapperRepository.save(RollingPaperWrapper(name = "Topping_Candle"))
+            val topping = rollingPaperToppingRepository.save(RollingPaperTopping(name = "Topping_Candle"))
             rollingPaperRepository.save(
                 RollingPaper(
-                    wrapper = wrapper,
+                    topping = topping,
                     writer = participant,
                     party = party,
                     writerNickname = "해파리",

@@ -30,7 +30,11 @@ class RollingPaperController(
         @PathVariable inviteToken: String,
         @RequestParam(defaultValue = "1") page: Int,
     ): ApiResponse<ParticipantRollingPaperListResponse> =
-        ApiResponse.success(getRollingPaperListUseCase.getParticipantList(inviteToken, page))
+        ApiResponse.success(
+            ParticipantRollingPaperListResponse.from(
+                getRollingPaperListUseCase.getParticipantList(inviteToken, page),
+            ),
+        )
 
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping("/{inviteToken}/rolling-papers")
