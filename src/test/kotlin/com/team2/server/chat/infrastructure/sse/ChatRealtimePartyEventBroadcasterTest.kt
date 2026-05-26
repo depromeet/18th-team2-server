@@ -1,7 +1,6 @@
 package com.team2.server.chat.infrastructure.sse
 
 import org.junit.jupiter.api.Test
-import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.eq
