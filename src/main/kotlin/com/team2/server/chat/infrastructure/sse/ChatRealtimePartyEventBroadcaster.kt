@@ -9,20 +9,6 @@ import java.time.LocalDateTime
 class ChatRealtimePartyEventBroadcaster(
     private val sseEmitterRegistry: SseEmitterRegistry,
 ) : RealtimePartyEventBroadcaster {
-    override fun broadcastHostEndAvailable(
-        partyId: Long,
-        availableAt: LocalDateTime,
-    ) {
-        sseEmitterRegistry.broadcastHost(
-            partyId,
-            SseEmitter
-                .event()
-                .name("host-end-available")
-                .data(HostEndAvailablePayload(partyId = partyId, availableAt = availableAt))
-                .build(),
-        )
-    }
-
     override fun broadcastPartyEnding(
         partyId: Long,
         endingStartedAt: LocalDateTime,
@@ -60,11 +46,6 @@ class ChatRealtimePartyEventBroadcaster(
     override fun completeParty(partyId: Long) {
         sseEmitterRegistry.completeAll(partyId)
     }
-
-    data class HostEndAvailablePayload(
-        val partyId: Long,
-        val availableAt: LocalDateTime,
-    )
 
     data class PartyEndingPayload(
         val partyId: Long,

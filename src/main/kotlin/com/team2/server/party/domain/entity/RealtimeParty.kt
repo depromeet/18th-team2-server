@@ -24,8 +24,6 @@ class RealtimeParty(
 
     fun automaticEndingStartedAt(): LocalDateTime = startedAt.plusMinutes(LIVE_DURATION_MINUTES)
 
-    fun hostEndAvailableAt(): LocalDateTime = startedAt.plusMinutes(HOST_END_AVAILABLE_AFTER_MINUTES)
-
     fun effectiveEndingStartedAt(): LocalDateTime = liveEndingStartedAt ?: automaticEndingStartedAt()
 
     fun effectiveLiveEndedAt(): LocalDateTime = effectiveEndingStartedAt().plusSeconds(LIVE_END_COUNTDOWN_SECONDS)
@@ -46,7 +44,6 @@ class RealtimeParty(
 
     companion object {
         const val LIVE_DURATION_MINUTES: Long = 10
-        const val HOST_END_AVAILABLE_AFTER_MINUTES: Long = 4
         const val LIVE_END_COUNTDOWN_SECONDS: Long = 60
         const val ENTERABLE_BEFORE_MINUTES: Long = 5
         const val MAX_PARTICIPANTS: Int = 14
