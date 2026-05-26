@@ -132,11 +132,10 @@ class BurstGameSession(
             remainingSeconds = BurstGameSnapshot.remainingSeconds(endsAt, now),
             rankings =
                 if (status == BurstGameRoundStatus.ACTIVE) {
-                    BurstGameRankingPolicy.rankings(scores)
+                    BurstGameRankingPolicy.progressRankings(scores)
                 } else {
-                    emptyList()
+                    BurstGameRankingPolicy.finalRankings(scores)
                 },
-            winners = if (status == BurstGameRoundStatus.ENDED) BurstGameRankingPolicy.winners(scores) else emptyList(),
         )
     }
 

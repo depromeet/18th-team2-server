@@ -25,7 +25,11 @@ class RollingPaperOwnerController(
         @PathVariable partyId: Long,
         @RequestParam(defaultValue = "1") page: Int,
     ): ApiResponse<OwnerRollingPaperListResponse> =
-        ApiResponse.success(getRollingPaperListUseCase.getOwnerList(partyId, principal.userId, page))
+        ApiResponse.success(
+            OwnerRollingPaperListResponse.from(
+                getRollingPaperListUseCase.getOwnerList(partyId, principal.userId, page),
+            ),
+        )
 
     @GetMapping("/{partyId}/rolling-papers/{rollingPaperId}")
     override fun getOwnerRollingPaperDetail(

@@ -51,7 +51,7 @@ class GetArchivedPartyDetailUseCase(
             myPaperWritten = myPaper.myPaperWritten,
             myPaperContent = myPaper.myPaperContent,
             myPaperWriterNickname = myPaper.myPaperWriterNickname,
-            myPaperWrapperImageUrl = myPaper.myPaperWrapperImageUrl,
+            myPaperToppingImageUrl = myPaper.myPaperToppingImageUrl,
         )
     }
 

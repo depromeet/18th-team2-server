@@ -1,7 +1,6 @@
 package com.team2.server.burstgame.application.dto
 
 import com.team2.server.burstgame.domain.BurstGameRankingEntry
-import com.team2.server.burstgame.domain.BurstGameWinner
 import io.swagger.v3.oas.annotations.media.Schema
 
 data class BurstGameRankingResponse(
@@ -30,33 +29,6 @@ data class BurstGameRankingResponse(
                 characterImageUrl = entry.characterImageUrl,
                 role = entry.role,
                 tapCount = entry.tapCount,
-            )
-    }
-}
-
-data class BurstGameWinnerResponse(
-    @Schema(description = "공동 1등 참여자 ID입니다.", example = "37")
-    val participantId: Long,
-    @Schema(description = "공동 1등 참여자 닉네임입니다.", example = "토끼왕")
-    val nickname: String,
-    @Schema(description = "공동 1등 참여자의 선택 캐릭터 ID입니다.", example = "2", nullable = true)
-    val characterId: Long?,
-    @Schema(description = "공동 1등 참여자의 캐릭터 이미지 URL입니다.", example = "https://example.com/rabbit.png", nullable = true)
-    val characterImageUrl: String?,
-    @Schema(description = "공동 1등 참여자 역할입니다.", example = "CELEBRANT", allowableValues = ["CELEBRANT", "PARTICIPANT"])
-    val role: String,
-    @Schema(description = "공동 1등 참여자의 최종 누적 터치 수입니다.", example = "52")
-    val tapCount: Int,
-) {
-    companion object {
-        fun from(winner: BurstGameWinner): BurstGameWinnerResponse =
-            BurstGameWinnerResponse(
-                participantId = winner.participantId,
-                nickname = winner.nickname,
-                characterId = winner.characterId,
-                characterImageUrl = winner.characterImageUrl,
-                role = winner.role,
-                tapCount = winner.tapCount,
             )
     }
 }

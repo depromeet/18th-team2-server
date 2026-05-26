@@ -1,10 +1,12 @@
 package com.team2.server.burstgame.application.dto
 
+import com.fasterxml.jackson.annotation.JsonInclude
 import com.team2.server.burstgame.domain.BurstGameRoundStatus
 import com.team2.server.burstgame.domain.BurstGameSnapshot
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 data class BurstGameStateResponse(
     @Schema(description = "박터뜨리기 라운드가 속한 파티 ID입니다.", example = "10")
     val partyId: Long,
@@ -16,8 +18,8 @@ data class BurstGameStateResponse(
     val startedAt: LocalDateTime,
     @Schema(description = "서버 기준 라운드 종료 시각입니다.", example = "2026-05-14T20:10:20")
     val endsAt: LocalDateTime,
-    @Schema(description = "현재까지 반영된 전체 터치 수입니다.", example = "42")
-    val totalTapCount: Int,
+    @Schema(description = "종료 상태에서 확정된 전체 터치 수입니다. 진행 중 상태에서는 내려주지 않습니다.", example = "137", nullable = true)
+    val totalTapCount: Int?,
     @Schema(description = "요청한 사용자의 현재 라운드 누적 터치 수입니다.", example = "11")
     val myTapCount: Int,
     @Schema(description = "전체 터치 수가 색상 변경 기준에 도달했는지 여부입니다.", example = "false")
@@ -28,10 +30,8 @@ data class BurstGameStateResponse(
     val serverTime: LocalDateTime,
     @Schema(description = "서버 기준 남은 라운드 시간입니다. 종료 상태에서는 0입니다.", example = "13")
     val remainingSeconds: Long,
-    @Schema(description = "진행 중 상태에서만 제공되는 상위 3개 rank group입니다. 종료 상태에서는 비어 있습니다.")
+    @Schema(description = "진행 중에는 상위 3명, 종료 상태에서는 1회 이상 터치한 참가자 전체 최종 순위입니다.")
     val rankings: List<BurstGameRankingResponse>,
-    @Schema(description = "종료 상태에서만 제공되는 공동 1등 목록입니다. 진행 중에는 비어 있습니다.")
-    val winners: List<BurstGameWinnerResponse>,
 ) {
     companion object {
         fun from(snapshot: BurstGameSnapshot): BurstGameStateResponse =
@@ -41,14 +41,13 @@ data class BurstGameStateResponse(
                 ended = snapshot.status.isEnded(),
                 startedAt = snapshot.startedAt,
                 endsAt = snapshot.endsAt,
-                totalTapCount = snapshot.totalTapCount,
+                totalTapCount = snapshot.totalTapCount.takeIf { snapshot.status.isEnded() },
                 myTapCount = snapshot.myTapCount,
                 colorChanged = snapshot.colorChanged,
                 stateVersion = snapshot.stateVersion,
                 serverTime = snapshot.serverTime,
                 remainingSeconds = snapshot.remainingSeconds,
                 rankings = snapshot.rankings.map { BurstGameRankingResponse.from(it) },
-                winners = snapshot.winners.map { BurstGameWinnerResponse.from(it) },
             )
 
         private fun BurstGameRoundStatus.isEnded(): Boolean = this == BurstGameRoundStatus.ENDED

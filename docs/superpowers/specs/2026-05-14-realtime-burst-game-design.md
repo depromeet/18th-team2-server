@@ -2,7 +2,7 @@
 
 - 작성일: 2026-05-14
 - 기준 브랜치: `develop`
-- 목적: 실시간 파티에서 채팅/촛불끄기 종료 이후 20초 동안 참여자가 함께 원을 터치하고, 총 터치 수와 실시간 순위를 집계하는 박터뜨리기 기능 설계
+- 목적: 실시간 파티에서 채팅/촛불끄기 종료 이후 20초 동안 참여자가 함께 원을 터치하고, 개인 터치 수와 실시간 순위를 집계하는 박터뜨리기 기능 설계
 - 구현 반영 상태: 구현 브랜치 기준 API 응답/이벤트 계약과 맞춰 갱신한다.
 
 ---
@@ -12,8 +12,9 @@
 핵심 동작:
 
 - 실시간 파티 SSE 연결을 유지한 상태에서 20초 동안 터치 수를 집계한다.
-- 진행 중에는 모두의 총 터치 수와 상위 3개 rank group의 순위 entry를 `burst-game-progress`로 브로드캐스트한다.
-- 종료 시에는 최종 총 터치 수와 공동 1등 `winners`만 `burst-game-ended`로 브로드캐스트한다.
+- 진행 중에는 순위 entry 기준 상위 3명까지만 `burst-game-progress`로 브로드캐스트한다.
+- 진행 중 합산 터치 수는 노출하지 않고, 호출자 개인 터치 수(`myTapCount`)를 submit/state 응답으로 제공한다.
+- 종료 시에는 최종 총 터치 수와 1회 이상 터치한 참가자 전체 최종 순위를 `burst-game-ended`로 브로드캐스트한다.
 - 100회 달성은 종료 조건이 아니며, `colorChanged = true`로만 상태를 내려준다.
 - 1차 구현은 DB 저장 없이 in-memory session + 5분 TTL로 처리한다.
 
@@ -21,7 +22,7 @@
 
 - [x] 시작 권한: 촛불끄기가 종료된 상태라면 실시간 파티 참여자 누구나 시작 가능
 - [x] 재시작 정책: 파티당 1회만 허용
-- [x] 동점 처리: 공동 순위 허용. 최종 공동 1등은 모두 `winners`에 포함
+- [x] 동점 처리: 공동 순위 허용. 진행 중은 entry 기준 상위 3명까지만, 종료 결과는 1회 이상 터치한 참가자 전체 순위 제공
 
 기본값으로 진행 가능한 기술 결정:
 
@@ -40,7 +41,7 @@
 
 실시간 파티(`REALTIME`) 진행 중 "촛불끄기"가 종료된 다음 단계로 20초짜리 박터뜨리기 라운드를 시작한다.
 
-참여자들은 20초 동안 터치 액션을 전송한다. 서버는 모든 참여자의 터치 수를 합산해 총 터치 수를 만들고, 진행 중에는 전체 참여자에게 모두의 총 터치 수와 상위 3개 rank group의 순위 entry를 실시간으로 브로드캐스트한다. 20초가 끝나면 최종 총 터치 수와 공동 1등 `winners`만 브로드캐스트한다.
+참여자들은 20초 동안 터치 액션을 전송한다. 서버는 모든 참여자의 터치 수를 집계하고, 진행 중에는 전체 참여자에게 순위 entry 기준 상위 3명까지만 실시간으로 브로드캐스트한다. 진행 중 화면에서 필요한 개인 터치 수는 submit/state 응답의 `myTapCount`를 기준으로 보여준다. 20초가 끝나면 최종 총 터치 수와 1회 이상 터치한 참가자 전체 최종 순위를 브로드캐스트한다.
 
 핵심 정책:
 
@@ -49,7 +50,8 @@
 - 총 터치 수가 100회 이상이 되면 `colorChanged = true`로 본다. 이 값은 진행 상태 판단을 위한 서버 집계값이다.
 - 100회 기준값은 서버 정책 상수로 관리하고, 응답에는 `colorChanged`만 내려준다.
 - 100회 달성은 종료 조건이 아니다. 100회 이후에도 20초가 끝날 때까지 계속 터치할 수 있다.
-- 진행 중에는 모두의 총 터치 수(`totalTapCount`)와 상위 3개 rank group의 순위 entry를 함께 실시간 갱신한다.
+- 진행 중 순위는 rank group 기준이 아니라 정렬된 entry 기준 상위 3명까지만 실시간 갱신한다.
+- 진행 중 합산 터치 수(`totalTapCount`)는 표시용 계약에서 제외하고, 개인 터치 수는 `myTapCount`로 제공한다.
 - 백엔드가 tap batch를 집계하고 SSE로 `burst-game-progress` 이벤트를 브로드캐스트한다.
 
 ---
@@ -62,7 +64,7 @@
 | 참여자 검증 | JWT 또는 `X-Participant-Token`으로 실시간 파티 참여자와 프로필 존재 여부 확인 |
 | 선행 단계 검증 | 촛불끄기 종료 상태인지 확인 |
 | 시간 검증 | 20초 진행 구간 안에서만 tap batch 반영 |
-| 터치 수 집계 | 참가자별 터치 수, 모두의 총 터치 수, 상위 3개 rank group의 순위 entry 계산 |
+| 터치 수 집계 | 참가자별 터치 수, 전체 합산 터치 수, 진행 중 상위 3명 순위, 종료 시 1회 이상 터치한 참가자 전체 순위 계산 |
 | 중복 batch 방지 | 참가자별 `clientSequence`를 기준으로 동일 batch 재처리 방지 |
 | 실시간 브로드캐스트 | 실시간 파티 입장 시 이미 연결된 기존 SSE 스트림으로 진행/종료 이벤트 전송 |
 | 결과 유지 | 라운드 종료 후 짧은 시간 동안 결과 재조회가 가능하도록 메모리에 TTL 유지 |
@@ -89,11 +91,11 @@
   │                                    │
   │── POST /parties/{id}/burst-game/   │
   │   taps { tapCount, sequence } ────►│  4. tap batch 반영
-  │◄── { totalTapCount, myTapCount } ─│
-  │◄── event: burst-game-progress ────│  5. 기존 SSE로 총 터치 수 + 순위 entry 갱신
+  │◄── { myTapCount, rankings } ──────│
+  │◄── event: burst-game-progress ────│  5. 기존 SSE로 상위 3명 순위 entry 갱신
   │                                    │
   │ 20초 종료                           │
-  │◄── event: burst-game-ended ───────│  6. 기존 SSE로 공동 1등 + 총합 브로드캐스트
+  │◄── event: burst-game-ended ───────│  6. 기존 SSE로 최종 총합 + 1회 이상 터치한 참가자 전체 순위 브로드캐스트
 ```
 
 박터뜨리기는 별도 SSE 연결을 새로 만들지 않는다. 사용자는 실시간 파티 입장 시점부터 이미 SSE 연결을 유지하고 있고, 박터뜨리기 start/progress/end 이벤트도 같은 파티 SSE 채널로 흘러간다.
@@ -131,7 +133,6 @@ X-Participant-Token: {participantToken}
   "myParticipantId": 37,
   "startedAt": "2026-05-14T20:10:00",
   "endsAt": "2026-05-14T20:10:20",
-  "totalTapCount": 0,
   "colorChanged": false,
   "stateVersion": 0,
   "serverTime": "2026-05-14T20:10:00"
@@ -199,7 +200,6 @@ X-Participant-Token: {participantToken}
   "myParticipantId": 37,
   "accepted": true,
   "ignoredReason": null,
-  "totalTapCount": 42,
   "myTapCount": 11,
   "colorChanged": false,
   "stateVersion": 13,
@@ -241,13 +241,15 @@ X-Participant-Token: {participantToken}
 - 파티에 진행 중이거나 TTL 안에 남은 라운드가 없으면 `BURST_GAME_NOT_FOUND`.
 - TTL 안에 ended session이 남아 있는 종료 라운드에 submit하면 `200 OK`로 submit 응답 스키마를 유지한다.
   - 해당 batch는 반영하지 않는다.
-  - `accepted = false`, `ignoredReason = "ROUND_ENDED"`와 종료 시점의 aggregate 상태를 반환한다.
+  - `accepted = false`, `ignoredReason = "ROUND_ENDED"`와 종료 시점의 개인 상태를 반환한다.
+  - submit 응답의 `rankings`는 빈 배열로 내려준다.
   - TTL 만료로 session이 제거됐거나 해당 파티에 session이 없으면 `BURST_GAME_NOT_FOUND`.
 - 참가자가 해당 파티의 실시간 프로필을 갖고 있지 않으면 `UNAUTHORIZED`.
 - 요청 시점에 `now >= endsAt`이면 lazy 종료를 먼저 수행하고, 해당 batch는 반영하지 않는다.
   - 응답은 submit 응답 스키마를 유지한다.
-  - `accepted = false`, `ignoredReason = "ROUND_ENDED"`와 종료 시점의 aggregate 상태를 반환한다.
-  - 최종 `winners`가 필요한 호출자는 상태 및 결과 조회 API 또는 `burst-game-ended` 이벤트를 사용한다.
+  - `accepted = false`, `ignoredReason = "ROUND_ENDED"`와 종료 시점의 개인 상태를 반환한다.
+  - submit 응답의 `rankings`는 빈 배열로 내려준다.
+  - 최종 순위가 필요한 호출자는 상태 및 결과 조회 API 또는 `burst-game-ended` 이벤트를 사용한다.
 - `clientSequence`는 참가자별 순서 보장 수단이 아니라 batch 멱등성 키로 사용한다.
 - 참가자별로 이미 처리한 `clientSequence` 집합을 유지한다.
 - `clientSequence`가 이미 처리된 값이면 중복 요청으로 본다.
@@ -293,23 +295,41 @@ SSE 재연결, `burst-game-started` 이벤트 유실, 종료 직후 재조회에
 {
   "partyId": 10,
   "myParticipantId": 37,
-  "myTapCount": 52,
   "ended": true,
+  "myTapCount": 52,
   "startedAt": "2026-05-14T20:10:00",
   "endsAt": "2026-05-14T20:10:20",
   "totalTapCount": 137,
   "colorChanged": true,
   "stateVersion": 58,
   "serverTime": "2026-05-14T20:10:21.000",
-  "rankings": [],
-  "winners": [
+  "rankings": [
     {
+      "rank": 1,
       "participantId": 37,
       "nickname": "토끼왕",
       "characterId": 2,
       "characterImageUrl": "https://example.com/rabbit.png",
       "role": "CELEBRANT",
       "tapCount": 52
+    },
+    {
+      "rank": 2,
+      "participantId": 38,
+      "nickname": "곰돌이",
+      "characterId": 1,
+      "characterImageUrl": "https://example.com/bear.png",
+      "role": "PARTICIPANT",
+      "tapCount": 44
+    },
+    {
+      "rank": 3,
+      "participantId": 39,
+      "nickname": "고양이",
+      "characterId": 3,
+      "characterImageUrl": "https://example.com/cat.png",
+      "role": "PARTICIPANT",
+      "tapCount": 41
     }
   ]
 }
@@ -319,12 +339,13 @@ SSE 재연결, `burst-game-started` 이벤트 유실, 종료 직후 재조회에
 
 - 파티에 active session 또는 TTL 안의 ended session이 없으면 `BURST_GAME_NOT_FOUND`.
 - 호출자가 해당 파티의 실시간 프로필을 갖고 있지 않으면 `UNAUTHORIZED`.
-- `ended = false`이면 진행 중 상태이며, `rankings`는 6절 순위 정책에 따라 상위 3개 rank group에 속한 모든 entry를 내려준다.
-  - 공동 순위가 있으면 `rankings` 길이는 3개를 초과할 수 있다.
+- `ended = false`이면 진행 중 상태이며, `rankings`는 6절 순위 정책에 따라 정렬된 entry 기준 상위 3명까지만 내려준다.
+  - 공동 1등이 5명이더라도 `rankings`는 그중 표시 순서상 앞선 3명까지만 포함한다.
   - 현재 참여자 수가 3명보다 적으면 그 수만큼만 내려준다.
-  - 진행 중에는 `winners = []`로 내려준다.
-- `ended = true`이면 종료 결과이며, `rankings = []`로 내려주고 공동 1등만 `winners`에 포함한다.
-  - 전원 0회로 종료된 경우에는 `winners = []`로 내려준다.
+- `ended = true`이면 종료 결과이며, 최종 `totalTapCount`와 1회 이상 터치한 참가자 전체 순위를 `rankings`에 내려준다.
+  - 종료 결과의 `rankings`는 상위 3명 제한을 적용하지 않는다.
+  - 최종 1등은 `rankings`에서 `rank = 1`인 entry로 판단한다.
+  - 전원 0회로 종료된 경우에는 `rankings = []`로 내려준다.
 - 외부 응답에서는 `endedAt`을 내려주지 않는다.
   - 게임 종료 기준은 항상 `endsAt`이다.
   - scheduler 지연이나 lazy 종료로 실제 종료 commit 시각이 늦어져도, 그 시간은 사용자가 플레이한 시간으로 보이지 않도록 서버 내부 로그/메트릭에서만 다룬다.
@@ -356,7 +377,6 @@ SSE 재연결, `burst-game-started` 이벤트 유실, 종료 직후 재조회에
   "status": "ACTIVE",
   "startedAt": "2026-05-14T20:10:00",
   "endsAt": "2026-05-14T20:10:20",
-  "totalTapCount": 0,
   "colorChanged": false,
   "stateVersion": 0,
   "serverTime": "2026-05-14T20:10:00"
@@ -367,12 +387,11 @@ SSE 재연결, `burst-game-started` 이벤트 유실, 종료 직후 재조회에
 
 tap batch 반영 후 해당 파티의 기존 SSE 구독자에게 전송한다.
 
-이 이벤트는 진행 중 집계 상태의 기준이다. `totalTapCount`는 모두의 총 터치 수이고, `rankings`는 상위 3개 rank group의 순위 entry와 각 순위자의 터치 수다.
+이 이벤트는 진행 중 순위 표시의 기준이다. `rankings`는 정렬된 entry 기준 상위 3명까지의 순위 entry와 각 순위자의 터치 수다. 진행 중 합산 터치 수는 노출하지 않는다.
 
 ```json
 {
   "partyId": 10,
-  "totalTapCount": 42,
   "colorChanged": false,
   "endsAt": "2026-05-14T20:10:20",
   "stateVersion": 13,
@@ -427,7 +446,7 @@ tap batch 반영 후 해당 파티의 기존 SSE 구독자에게 전송한다.
 
 ### 5-3. `burst-game-ended`
 
-20초가 끝나면 해당 파티의 기존 SSE 구독자에게 전송한다. 종료 이벤트는 최종 공동 1등만 알려주며, 진행 중 순위 목록(`rankings`)은 포함하지 않는다.
+20초가 끝나면 해당 파티의 기존 SSE 구독자에게 전송한다. 종료 이벤트는 최종 총 터치 수와 1회 이상 터치한 참가자 전체 최종 순위를 함께 알려준다.
 
 ```json
 {
@@ -437,8 +456,9 @@ tap batch 반영 후 해당 파티의 기존 SSE 구독자에게 전송한다.
   "colorChanged": true,
   "stateVersion": 58,
   "serverTime": "2026-05-14T20:10:20.000",
-  "winners": [
+  "rankings": [
     {
+      "rank": 1,
       "participantId": 37,
       "nickname": "토끼왕",
       "characterId": 2,
@@ -447,12 +467,22 @@ tap batch 반영 후 해당 파티의 기존 SSE 구독자에게 전송한다.
       "tapCount": 52
     },
     {
+      "rank": 1,
       "participantId": 38,
       "nickname": "곰돌이",
       "characterId": 1,
       "characterImageUrl": "https://example.com/bear.png",
       "role": "PARTICIPANT",
       "tapCount": 52
+    },
+    {
+      "rank": 2,
+      "participantId": 39,
+      "nickname": "고양이",
+      "characterId": 3,
+      "characterImageUrl": "https://example.com/cat.png",
+      "role": "PARTICIPANT",
+      "tapCount": 33
     }
   ]
 }
@@ -471,25 +501,24 @@ tap batch 반영 후 해당 파티의 기존 SSE 구독자에게 전송한다.
 
 batch 단위 전송 구조에서는 "특정 tap 수에 정확히 먼저 도달한 시각"을 알 수 없다. 따라서 숨은 시간 기준으로 우열을 가르지 않고 공동 순위를 허용한다.
 
-진행 중 이벤트는 상위 3개 rank group에 속한 모든 순위 entry를 내려준다.
+진행 중 이벤트는 정렬된 순위 entry 기준 상위 3명까지만 내려준다.
 
-공동 순위가 있으면 같은 rank에 속한 참가자를 전부 내려준다. 따라서 `rankings` 배열은 3개 entry를 초과할 수 있다.
+공동 순위가 있더라도 같은 rank에 속한 참가자를 전부 내려주지 않는다. 따라서 `rankings` 배열은 최대 3개 entry다.
 
 예:
 
 - 1등 2명, 다음 참가자 2등이면 `rankings = [rank 1, rank 1, rank 2]`
-- 1등 5명이면 `rankings`에는 공동 1등 5명을 모두 포함한다.
-- 1등 2명, 2등 4명, 3등 2명이면 `rankings`에는 rank 1 참가자 2명, rank 2 참가자 4명, rank 3 참가자 2명을 모두 포함한다.
-- 1등 3명, 다음 rank group이 2등이면 `rankings`에는 rank 1 참가자 3명과 rank 2 참가자를 포함한다.
-- 응답 소비자는 `rankings.length === 3`을 가정하지 않는다. 공동 순위 규모에 따라 3개보다 많거나 적을 수 있다.
+- 1등 5명이면 `rankings`에는 표시 순서상 앞선 공동 1등 3명만 포함한다.
+- 1등 2명, 2등 4명이면 `rankings`에는 rank 1 참가자 2명과 rank 2 참가자 1명만 포함한다.
+- 1등 3명, 다음 rank group이 2등이면 `rankings`에는 rank 1 참가자 3명만 포함한다.
+- 응답 소비자는 진행 중 `rankings.length <= 3`만 가정한다. 참여자가 3명보다 적거나 아직 유효한 tap count가 없으면 3개보다 적을 수 있다.
 
 공동 순위 내 정렬은 `participant.id ASC`로 고정한다. 공동 순위 자체는 유지하되 표시 순서를 안정적으로 만들기 위한 정렬이다.
 
-최종 결과는 `winners`로 공동 1등 전체 요약만 제공한다. 종료 상태/종료 이벤트에서는 전체 순위나 상위 3개 rank group을 내려주지 않고 `rankings = []`로 둔다.
+최종 결과는 `rankings`로 1회 이상 터치한 참가자 전체 순위를 제공한다. 종료 상태/종료 이벤트에서는 진행 중 상위 3명 제한을 적용하지 않는다.
 
-전원 0회로 종료되면 유효한 1등이 없는 것으로 본다.
+전원 0회로 종료되면 유효한 최종 순위가 없는 것으로 본다.
 
-- `winners = []`
 - `rankings = []`
 - `totalTapCount = 0`
 - `colorChanged = false`
@@ -512,20 +541,21 @@ batch 단위 전송 구조에서는 "특정 tap 수에 정확히 먼저 도달�
 - `myTapCount`는 개인화된 값이므로 전체 브로드캐스트 SSE에는 포함하지 않는다.
 - `submit taps` 응답과 상태 및 결과 조회 응답에는 호출자 기준 `myTapCount`를 포함한다.
 - 진행 중 개인 tap count는 호출자가 보유한 임시 값을 먼저 반영하고, `submit taps` 응답 또는 상태 및 결과 조회 응답의 `myTapCount`로 보정하는 전제를 둔다.
-- 본인이 `rankings`에 포함되면 SSE ranking entry의 `tapCount`로도 확인할 수 있지만, 상위 3개 rank group 밖일 수 있으므로 개인 count의 기준 응답은 `submit taps`/상태 조회다.
+- 본인이 `rankings`에 포함되면 SSE ranking entry의 `tapCount`로도 확인할 수 있지만, 진행 중 상위 3명 밖일 수 있으므로 개인 count의 기준 응답은 `submit taps`/상태 조회다.
 
-최종 공동 1등 요약(`winners[]`) 필드:
+최종 1회 이상 터치한 참가자 전체 순위(`rankings[]`) 필드:
 
 | 필드 | 설명 |
 |---|---|
-| `participantId` | 공동 1등 participant id |
-| `nickname` | 공동 1등 닉네임 |
-| `characterId` | 공동 1등 선택 캐릭터 |
-| `characterImageUrl` | 공동 1등 캐릭터 이미지 URL |
-| `role` | 공동 1등 역할 |
-| `tapCount` | 공동 1등 누적 터치 수 |
+| `rank` | 공동 순위를 허용하는 최종 순위 |
+| `participantId` | participant id |
+| `nickname` | 닉네임 |
+| `characterId` | 선택 캐릭터 |
+| `characterImageUrl` | 캐릭터 이미지 URL |
+| `role` | 역할 |
+| `tapCount` | 누적 터치 수 |
 
-`winners`는 `ended = true`인 상태/결과 조회 응답과 `burst-game-ended` 이벤트에만 포함한다. 진행 중 상태에서는 빈 배열로 둔다. 공동 1등이 여러 명이면 `winners`에는 공동 1등 전체를 모두 포함한다. 단, `tapCount = 0`인 참가자는 1등으로 인정하지 않는다.
+최종 표시 계약에는 별도 `winners` 필드를 두지 않는다. 최종 1등은 `rankings`에서 `rank = 1`인 entry로 판단한다.
 
 ---
 
@@ -599,7 +629,7 @@ DB 저장이 필요한 조건:
   - rate limit 검증
   - 참가자별 tap count 반영
   - `totalTapCount` 반영
-  - ranking/winners 재계산
+  - ranking 재계산
   - `stateVersion` 증가
   - broadcast snapshot 생성
 - lock 밖에서는 이미 만들어진 immutable snapshot만 SSE로 전송한다.
@@ -610,7 +640,7 @@ DB 저장이 필요한 조건:
   - 클라이언트는 reconnect 후 상태 및 결과 조회 API를 호출해 최신 aggregate 상태로 복구한다.
   - 즉, SSE broadcast 실패는 round state를 롤백하거나 `stateVersion`을 되돌리지 않는다.
 
-이렇게 해야 동시 submit 요청에서도 `stateVersion`, `totalTapCount`, `rankings`가 서로 다른 시점의 값으로 섞이지 않는다.
+이렇게 해야 동시 submit 요청에서도 `stateVersion`, 개인/전체 tap count, `rankings`가 서로 다른 시점의 값으로 섞이지 않는다.
 
 ### 7-5. 종료 신뢰성
 
@@ -622,8 +652,8 @@ DB 저장이 필요한 조건:
 - `submit taps`와 상태 조회도 매 호출마다 `now >= endsAt`이면 lazy 종료를 시도한다.
 - scheduler와 lazy 종료 중 먼저 lock을 획득한 쪽만 `ACTIVE -> ENDED` 전이를 commit한다.
 - 이미 `ENDED`인 session에 대해서는 종료 처리를 다시 수행하지 않는다.
-- lazy 종료가 submit 요청에서 발생하거나 이미 `ENDED`인 session에 submit하면 해당 tap batch는 반영하지 않고 submit 응답 스키마로 `accepted = false`, `ignoredReason = "ROUND_ENDED"`를 반환한다.
-  - 종료 후 `winners`가 필요한 호출자는 상태 및 결과 조회 API를 조회하거나 `burst-game-ended` 이벤트를 사용한다.
+- lazy 종료가 submit 요청에서 발생하거나 이미 `ENDED`인 session에 submit하면 해당 tap batch는 반영하지 않고 submit 응답 스키마로 `accepted = false`, `ignoredReason = "ROUND_ENDED"`, `rankings = []`를 반환한다.
+  - 종료 후 최종 순위가 필요한 호출자는 상태 및 결과 조회 API를 조회하거나 `burst-game-ended` 이벤트를 사용한다.
 
 이 정책으로 GC pause, scheduler 지연, 요청 타이밍 차이로 active session이 오래 남는 문제를 줄인다.
 
@@ -633,7 +663,7 @@ DB 저장이 필요한 조건:
 
 현재 `develop`에 반영된 4-layer 구조를 기준으로 한다.
 
-신규 feature 패키지 후보:
+현재 feature 패키지 구조:
 
 ```text
 burstgame/
@@ -641,15 +671,21 @@ burstgame/
 │   ├── BurstGameApi.kt
 │   ├── BurstGameController.kt
 │   └── dto/
+│       └── SubmitBurstGameTapRequest.kt
 ├── application/
 │   ├── dto/
+│   ├── event/
+│   │   └── BurstGameEndedEvent.kt
 │   ├── port/
+│   │   ├── BurstGameEndScheduler.kt
+│   │   ├── BurstGameEventBroadcaster.kt
+│   │   ├── BurstGameSessionStore.kt
 │   │   └── CandleBlowStatusReader.kt
 │   ├── service/
-│   │   ├── BurstGameSessionService.kt
-│   │   ├── BurstGameParticipantReader.kt
-│   │   ├── BurstGameEventBroadcaster.kt
-│   │   └── BurstGameEndScheduler.kt
+│   │   └── BurstGameSessionService.kt
+│   ├── support/
+│   │   ├── BurstGameParticipantResolver.kt
+│   │   └── BurstGameStartSupport.kt
 │   └── usecase/
 │       ├── StartBurstGameUseCase.kt
 │       ├── SubmitBurstGameTapUseCase.kt
@@ -657,16 +693,16 @@ burstgame/
 ├── domain/
 │   ├── policy/
 │   │   └── BurstGameRankingPolicy.kt
-│   └── vo/
-│       ├── BurstGameRoundStatus.kt
-│       ├── BurstGameSession.kt
-│       ├── BurstGameRankingEntry.kt
-│       └── BurstGameWinner.kt
+│   ├── BurstGameRoundStatus.kt
+│   ├── BurstGameSession.kt
+│   ├── BurstGameSnapshot.kt
+│   └── BurstGameRankingEntry.kt
 └── infrastructure/
+    ├── candle/
     ├── memory/
-    │   └── InMemoryBurstGameSessionStore.kt
+    ├── party/
+    ├── realtime/
     └── scheduler/
-        └── BurstGameEndScheduler.kt
 ```
 
 `party` 하위에 넣지 않고 `burstgame` feature로 분리하는 이유:
@@ -677,10 +713,12 @@ burstgame/
 
 cross-feature 의존:
 
-- `burstgame.application.usecase`는 `party.application.service`를 통해 실시간 파티/참여자 프로필을 조회한다.
+- `burstgame.application.usecase`는 `BurstGameParticipantResolver`를 통해 실시간 파티/참여자 프로필 식별을 위임한다.
+- `BurstGameParticipantResolver`는 현재 `party.application.usecase`의 실시간 파티/프로필 해석 UseCase를 재사용한다.
 - `burstgame`은 `party.infrastructure.persistence`에 직접 의존하지 않는다.
-- SSE 브로드캐스트는 현재 `develop`의 `chat.infrastructure.sse.ChatSseGateway`를 우선 재사용한다.
-  - `burstgame`은 `SseEmitterRegistry`에 직접 의존하지 않고 `BurstGameEventBroadcaster` 구현체 뒤에서 `ChatSseGateway`를 호출한다.
+- `BurstGameEventBroadcaster` 구현체는 `chat.application.port.PartySseEventPublisher`를 통해 기존 파티 SSE 채널에 이벤트를 발행한다.
+  - 실제 SSE registry 호출은 `chat.infrastructure.sse.ChatSseGateway` 구현체가 담당한다.
+  - `burstgame`은 `chat.infrastructure`나 `SseEmitterRegistry`를 직접 참조하지 않는다.
 
 ---
 
@@ -732,7 +770,7 @@ cross-feature 의존:
 6. 종료되지 않은 active session이면 처리된 `clientSequence` 집합 기준으로 중복 여부 확인
 7. 참가자별 rate limit 확인
 8. 요청 `tapCount`를 참가자별 count와 total count에 반영
-9. ranking/winners 재계산
+9. ranking 재계산
 10. `stateVersion` 증가
 11. immutable aggregate snapshot 생성
 12. 최신 aggregate response 반환
@@ -749,7 +787,7 @@ cross-feature 의존:
 
 1. scheduler 또는 lazy 종료 경로가 `endsAt` 이후 종료 시도
 2. session lock 안에서 `ACTIVE -> ENDED` 전이를 원자적으로 commit
-3. 최종 total/winners 계산
+3. 최종 total/rankings 계산
 4. 최종 `stateVersion` 확정
 5. immutable ended snapshot 생성
 6. 기존 파티 SSE 구독자에게 `burst-game-ended` 브로드캐스트
@@ -783,18 +821,18 @@ cross-feature 의존:
 3. 순위 동점 처리
    - 결정: 공동 순위를 허용한다.
    - 백엔드 처리: 같은 `tapCount`는 같은 rank를 부여한다.
-   - 종료 처리: 공동 1등은 모두 `winners` 배열에 포함한다.
+   - 진행 중 처리: 동점자가 많아도 entry 기준 상위 3명까지만 내려준다.
+   - 종료 처리: 상위 제한 없이 1회 이상 터치한 참가자 전체 순위를 `rankings`로 내려준다.
 
 ### 12-2. 확정된 제품 정책
 
 - 100회 달성 시 서버는 `colorChanged = true`를 내려준다.
 - 100회 이후에도 20초가 끝날 때까지 계속 터치하고 순위를 집계한다.
-- 진행 중에도 상위 3개 rank group의 순위 entry와 각 순위자의 터치 수를 표시한다.
-- 공동 순위가 있으면 해당 rank의 참가자를 전부 표시한다.
-- 종료 이벤트와 ended 상태/결과 조회에는 최종 공동 1등 `winners`를 별도 포함한다.
-- `winners[]`는 닉네임, 프로필 이미지, 터치 수를 포함한다.
-- 공동 1등은 `tapCount > 0`인 참가자만 인정한다.
-- 전원 0회면 `winners = []`, `rankings = []`로 내려준다.
+- 진행 중에는 정렬된 순위 entry 기준 상위 3명과 각 순위자의 터치 수만 표시한다.
+- 공동 순위가 있어도 진행 중에는 최대 3명까지만 표시한다.
+- 진행 중 합산 터치 수는 표시하지 않고, 개인 터치 수는 `myTapCount`로 표시한다.
+- 종료 이벤트와 ended 상태/결과 조회에는 최종 총 터치 수와 1회 이상 터치한 참가자 전체 순위를 포함한다.
+- 전원 0회면 `rankings = []`로 내려준다.
 - 현재 기획에서는 파티 종료 후 박터뜨리기 결과를 다른 기능에서 재사용하지 않는다.
 
 ### 12-3. 기본값으로 진행 가능한 기술 정책
@@ -818,8 +856,8 @@ cross-feature 의존:
 - 실시간 파티 입장 시 유지 중인 기존 SSE stream에 `burst-game-started`, `burst-game-progress`, `burst-game-ended` 이벤트 추가
 - active aggregate는 in-memory session으로 구현
 - 종료 결과는 DB 저장 없이 in-memory ended session에 5분 TTL로 유지
-- 진행 중 ranking은 상위 3개 rank group의 순위 entry와 각 순위자의 터치 수를 반환
-- 종료 이벤트/상태 결과 조회는 최종 winners만 반환하고 rankings는 비워둔다
+- 진행 중 ranking은 entry 기준 상위 3명과 각 순위자의 터치 수만 반환
+- 종료 이벤트/상태 결과 조회는 최종 총 터치 수와 1회 이상 터치한 참가자 전체 순위를 반환
 - SSE progress/end 이벤트에 `stateVersion`, `serverTime` 포함
 - 참가자별 최소 rate limit 적용
 

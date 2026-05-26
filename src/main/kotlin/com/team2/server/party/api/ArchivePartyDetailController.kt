@@ -43,7 +43,7 @@ class ArchivePartyDetailController(
             myPaperWritten = myPaperWritten,
             myPaperContent = myPaperContent,
             myPaperWriterNickname = myPaperWriterNickname,
-            myPaperWrapperImageUrl = myPaperWrapperImageUrl,
+            myPaperToppingImageUrl = myPaperToppingImageUrl,
         )
 
     private fun ArchiveParticipantItem.toResponse(): ArchiveParticipantResponse =

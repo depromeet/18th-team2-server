@@ -6,7 +6,7 @@ import com.team2.server.party.domain.entity.PartyPurpose
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.rollingpaper.entity.RollingPaper
-import com.team2.server.rollingpaper.entity.RollingPaperWrapper
+import com.team2.server.rollingpaper.entity.RollingPaperTopping
 import com.team2.server.support.JpaSliceTestSupport
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
@@ -118,11 +118,11 @@ class ParticipantRepositoryTest
                         nickname = "작성당시닉네임",
                     ),
                 )
-            val wrapper = RollingPaperWrapper(name = "기본테마")
-            entityManager.persist(wrapper)
+            val topping = RollingPaperTopping(name = "기본테마")
+            entityManager.persist(topping)
             val rollingPaper =
                 RollingPaper(
-                    wrapper = wrapper,
+                    topping = topping,
                     writer = participant,
                     party = party,
                     writerNickname = profile.nickname,

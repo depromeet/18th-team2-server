@@ -21,20 +21,20 @@ class GetArchiveMyPaperSectionUseCase(
     ): ArchiveMyPaperSectionResult {
         val paperCount = rollingPaperRepository.countByParty(party)
         val myPaper = rollingPaperRepository.findByWriter(myParticipant)
-        val myPaperWrapperImageUrl: String? =
+        val myPaperToppingImageUrl: String? =
             myPaper?.let {
                 imageUrlReader
                     .findFirstImageUrlByTargetIds(
                         ImageTargetType.ROLLING_PAPER_WRAPPER,
-                        listOf(it.wrapper.id),
-                    )[it.wrapper.id]
+                        listOf(it.topping.id),
+                    )[it.topping.id]
             }
         return ArchiveMyPaperSectionResult(
             paperCount = paperCount,
             myPaperWritten = myPaper != null,
             myPaperContent = myPaper?.content,
             myPaperWriterNickname = myPaper?.writerNickname,
-            myPaperWrapperImageUrl = myPaperWrapperImageUrl,
+            myPaperToppingImageUrl = myPaperToppingImageUrl,
         )
     }
 }
