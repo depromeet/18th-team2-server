@@ -5,18 +5,6 @@ import com.team2.server.party.domain.entity.RealtimePartyStatus
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 
-@Schema(description = "주최자 실시간 파티 종료 상태 조회 응답")
-data class RealtimePartyEndStatusResult(
-    @Schema(description = "주최자 수동 종료 가능 여부", example = "true")
-    val canEnd: Boolean,
-    @Schema(description = "시간 기준 주최자 수동 종료 가능 시각", example = "2026-05-19T20:04:00")
-    val availableAt: LocalDateTime,
-    @Schema(description = "종료 카운트다운 시작 시각. 아직 시작되지 않았으면 null", nullable = true, example = "2026-05-19T20:10:00")
-    val endingStartedAt: LocalDateTime?,
-    @Schema(description = "실시간 라이브 종료 시각. 아직 종료 시작 전이면 null", nullable = true, example = "2026-05-19T20:11:00")
-    val endedAt: LocalDateTime?,
-)
-
 @Schema(description = "실시간 파티 종료 카운트다운 시작 응답")
 data class RealtimePartyEndResult(
     @Schema(description = "파티 ID", example = "1")
