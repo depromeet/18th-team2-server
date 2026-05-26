@@ -21,7 +21,7 @@ class RecoverCandleBlowScheduleUseCase(
         return findRealtimePartiesWaitingAutomaticEndingUseCase(startedAfter)
             .map { party ->
                 CandleBlowScheduleTarget(
-                    partyId = party.id,
+                    partyId = party.partyId,
                     partyStartedAt = party.startedAt,
                 )
             }

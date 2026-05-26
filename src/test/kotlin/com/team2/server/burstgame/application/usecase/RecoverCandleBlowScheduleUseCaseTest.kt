@@ -1,8 +1,8 @@
 package com.team2.server.burstgame.application.usecase
 
 import com.team2.server.burstgame.domain.candle.CandleBlowPolicy
+import com.team2.server.party.application.dto.RealtimePartyScheduleData
 import com.team2.server.party.application.usecase.FindRealtimePartiesWaitingAutomaticEndingUseCase
-import com.team2.server.party.domain.entity.RealtimeParty
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -28,19 +28,13 @@ class RecoverCandleBlowScheduleUseCaseTest {
         val now = LocalDateTime.ofInstant(clock.instant(), clock.zone)
         val startedAfter = now.minusSeconds(CandleBlowPolicy.START_DELAY_SECONDS + CandleBlowPolicy.DURATION_SECONDS)
         val partyStartedAt = LocalDateTime.of(2026, 5, 24, 20, 0)
-        val party =
-            RealtimeParty(
-                ownerId = 1L,
-                name = "실시간 파티",
-                celebrantNickname = "주인공",
-                startedAt = partyStartedAt,
-            )
+        val party = RealtimePartyScheduleData(partyId = 10L, startedAt = partyStartedAt)
         whenever(findRealtimePartiesWaitingAutomaticEndingUseCase(startedAfter)).thenReturn(listOf(party))
 
         val targets = useCase()
 
         assertEquals(1, targets.size)
-        assertEquals(party.id, targets[0].partyId)
+        assertEquals(party.partyId, targets[0].partyId)
         assertEquals(partyStartedAt, targets[0].partyStartedAt)
         verify(findRealtimePartiesWaitingAutomaticEndingUseCase).invoke(startedAfter)
     }

@@ -1,5 +1,6 @@
 package com.team2.server.party.application.usecase
 
+import com.team2.server.party.application.dto.RealtimePartyScheduleData
 import com.team2.server.party.application.service.PartyService
 import com.team2.server.party.domain.entity.RealtimeParty
 import org.mockito.kotlin.mock
@@ -27,7 +28,7 @@ class FindRealtimePartiesWaitingAutomaticEndingUseCaseTest {
 
         val result = useCase(startedAfter)
 
-        assertEquals(listOf(party), result)
+        assertEquals(listOf(RealtimePartyScheduleData.from(party)), result)
         verify(partyService).findRealtimePartiesWaitingAutomaticEnding(startedAfter)
     }
 }

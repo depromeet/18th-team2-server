@@ -34,61 +34,60 @@ class StartScheduledCandleBlowUseCaseTest {
 
     @Test
     fun `시작 시간이 되면 세션을 생성하고 started 이벤트를 발행한다`() {
-        val snapshot =
+        val result =
             useCase(
                 partyId = 1L,
                 partyStartedAt = partyStartedAt,
                 now = candleStartedAt(),
             )
 
-        assertEquals(CandleBlowStatus.ACTIVE, snapshot.status)
-        verify(eventBroadcaster).broadcastStarted(snapshot)
+        assertEquals(CandleBlowStatus.ACTIVE, result.status)
+        verify(eventBroadcaster).broadcastStarted(any())
         verify(eventBroadcaster, never()).broadcastEnded(any())
     }
 
     @Test
     fun `시작 실행 시 이미 종료 시간이 지났으면 ended 이벤트를 발행한다`() {
-        val snapshot =
+        val result =
             useCase(
                 partyId = 1L,
                 partyStartedAt = partyStartedAt,
                 now = candleEndedAt(),
             )
 
-        assertEquals(CandleBlowStatus.FINISHED, snapshot.status)
-        assertEquals(CandleBlowFinishedReason.TIMEOUT, snapshot.finishedReason)
-        verify(eventBroadcaster).broadcastEnded(snapshot)
+        assertEquals(CandleBlowStatus.FINISHED, result.status)
+        assertEquals(CandleBlowFinishedReason.TIMEOUT, result.finishedReason)
+        verify(eventBroadcaster).broadcastEnded(any())
         verify(eventBroadcaster, never()).broadcastStarted(any())
     }
 
     @Test
     fun `같은 세션의 started 이벤트는 한 번만 발행한다`() {
-        val first =
-            useCase(
-                partyId = 1L,
-                partyStartedAt = partyStartedAt,
-                now = candleStartedAt(),
-            )
+        useCase(
+            partyId = 1L,
+            partyStartedAt = partyStartedAt,
+            now = candleStartedAt(),
+        )
         useCase(
             partyId = 1L,
             partyStartedAt = partyStartedAt,
             now = candleStartedAt().plusSeconds(1),
         )
 
-        verify(eventBroadcaster, times(1)).broadcastStarted(first)
+        verify(eventBroadcaster, times(1)).broadcastStarted(any())
         verify(eventBroadcaster, never()).broadcastEnded(any())
     }
 
     @Test
     fun `시작 시간 전이면 이벤트를 발행하지 않는다`() {
-        val snapshot =
+        val result =
             useCase(
                 partyId = 1L,
                 partyStartedAt = partyStartedAt,
                 now = candleStartedAt().minusNanos(1),
             )
 
-        assertEquals(CandleBlowStatus.WAITING, snapshot.status)
+        assertEquals(CandleBlowStatus.WAITING, result.status)
         verify(eventBroadcaster, never()).broadcastStarted(any())
         verify(eventBroadcaster, never()).broadcastEnded(any())
     }

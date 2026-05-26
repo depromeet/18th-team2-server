@@ -1,13 +1,11 @@
 package com.team2.server.burstgame.application.usecase
 
 import com.team2.server.burstgame.application.dto.CandleBlowResponse
-import com.team2.server.burstgame.application.port.CandleBlowEventBroadcaster
 import com.team2.server.burstgame.application.port.CandleBlowSessionStore
 import com.team2.server.burstgame.application.support.BurstGameParticipantResolver
+import com.team2.server.burstgame.application.support.CandleBlowUpdateEventPublisher
 import com.team2.server.burstgame.domain.candle.CandleBlowSession
-import com.team2.server.burstgame.domain.candle.CandleBlowSnapshot
 import com.team2.server.burstgame.domain.candle.CandleBlowStatus
-import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
@@ -17,11 +15,9 @@ import java.time.LocalDateTime
 class BlowCandleUseCase(
     private val participantResolver: BurstGameParticipantResolver,
     private val sessionStore: CandleBlowSessionStore,
-    private val eventBroadcaster: CandleBlowEventBroadcaster,
+    private val updateEventPublisher: CandleBlowUpdateEventPublisher,
     private val clock: Clock,
 ) {
-    private val log = LoggerFactory.getLogger(javaClass)
-
     @Transactional
     operator fun invoke(
         partyId: Long,
@@ -41,7 +37,7 @@ class BlowCandleUseCase(
             },
         ) { session, _ ->
             val result = session.blow(candleId, now)
-            broadcastUpdate(
+            updateEventPublisher.publish(
                 changed = result.changed,
                 shouldBroadcastEnded =
                     result.finishedNow &&
@@ -49,23 +45,6 @@ class BlowCandleUseCase(
                 snapshot = result.snapshot,
             )
             CandleBlowResponse.from(result.snapshot)
-        }
-    }
-
-    private fun broadcastUpdate(
-        changed: Boolean,
-        shouldBroadcastEnded: Boolean,
-        snapshot: CandleBlowSnapshot,
-    ) {
-        if (!changed && !shouldBroadcastEnded) return
-        runCatching {
-            if (shouldBroadcastEnded) {
-                eventBroadcaster.broadcastEnded(snapshot)
-            } else {
-                eventBroadcaster.broadcastProgress(snapshot)
-            }
-        }.onFailure { ex ->
-            log.error("Failed to broadcast candle blow update. partyId={}", snapshot.partyId, ex)
         }
     }
 }

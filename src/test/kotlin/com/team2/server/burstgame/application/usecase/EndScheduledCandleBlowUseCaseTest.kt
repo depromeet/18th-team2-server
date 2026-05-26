@@ -42,11 +42,11 @@ class EndScheduledCandleBlowUseCaseTest {
     fun `종료 시간이 지나면 TIMEOUT으로 종료하고 ended 이벤트를 발행한다`() {
         createSession()
 
-        val snapshot = useCase(partyId = 1L, now = candleEndedAt())
+        val result = useCase(partyId = 1L, now = candleEndedAt())
 
-        assertEquals(CandleBlowStatus.FINISHED, snapshot?.status)
-        assertEquals(CandleBlowFinishedReason.TIMEOUT, snapshot?.finishedReason)
-        verify(eventBroadcaster).broadcastEnded(snapshot!!)
+        assertEquals(CandleBlowStatus.FINISHED, result?.status)
+        assertEquals(CandleBlowFinishedReason.TIMEOUT, result?.finishedReason)
+        verify(eventBroadcaster).broadcastEnded(any())
     }
 
     @Test
@@ -57,9 +57,9 @@ class EndScheduledCandleBlowUseCaseTest {
             }
         }
 
-        val snapshot = useCase(partyId = 1L, now = candleEndedAt())
+        val result = useCase(partyId = 1L, now = candleEndedAt())
 
-        assertEquals(CandleBlowFinishedReason.ALL_EXTINGUISHED, snapshot?.finishedReason)
+        assertEquals(CandleBlowFinishedReason.ALL_EXTINGUISHED, result?.finishedReason)
         verify(eventBroadcaster, never()).broadcastEnded(any())
     }
 

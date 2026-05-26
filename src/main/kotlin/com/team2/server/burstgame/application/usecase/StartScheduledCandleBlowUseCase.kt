@@ -1,5 +1,6 @@
 package com.team2.server.burstgame.application.usecase
 
+import com.team2.server.burstgame.application.dto.CandleBlowScheduleResult
 import com.team2.server.burstgame.application.port.CandleBlowEventBroadcaster
 import com.team2.server.burstgame.application.port.CandleBlowSessionStore
 import com.team2.server.burstgame.domain.candle.CandleBlowSession
@@ -22,7 +23,7 @@ class StartScheduledCandleBlowUseCase(
         partyId: Long,
         partyStartedAt: LocalDateTime,
         now: LocalDateTime,
-    ): CandleBlowSnapshot =
+    ): CandleBlowScheduleResult =
         sessionStore.getOrCreateWithLock(
             partyId = partyId,
             sessionFactory = {
@@ -36,7 +37,7 @@ class StartScheduledCandleBlowUseCase(
             if (session.markAndCheckBroadcastNeeded(snapshot.status)) {
                 broadcastStartOrEnd(snapshot)
             }
-            snapshot
+            CandleBlowScheduleResult.from(snapshot)
         }
 
     private fun broadcastStartOrEnd(snapshot: CandleBlowSnapshot) {

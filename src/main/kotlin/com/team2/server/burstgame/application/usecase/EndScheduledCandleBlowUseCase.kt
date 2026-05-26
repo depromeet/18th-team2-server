@@ -1,8 +1,8 @@
 package com.team2.server.burstgame.application.usecase
 
+import com.team2.server.burstgame.application.dto.CandleBlowScheduleResult
 import com.team2.server.burstgame.application.port.CandleBlowEventBroadcaster
 import com.team2.server.burstgame.application.port.CandleBlowSessionStore
-import com.team2.server.burstgame.domain.candle.CandleBlowSnapshot
 import com.team2.server.burstgame.domain.candle.CandleBlowStatus
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -20,7 +20,7 @@ class EndScheduledCandleBlowUseCase(
     operator fun invoke(
         partyId: Long,
         now: LocalDateTime,
-    ): CandleBlowSnapshot? =
+    ): CandleBlowScheduleResult? =
         sessionStore.withSessionLock(partyId) { session ->
             val endedNow = session.finishIfTimedOut(now)
             val snapshot = session.snapshot(now)
@@ -31,6 +31,6 @@ class EndScheduledCandleBlowUseCase(
                     log.error("Failed to broadcast scheduled candle blow end. partyId={}", partyId, ex)
                 }
             }
-            snapshot
+            CandleBlowScheduleResult.from(snapshot)
         }
 }
