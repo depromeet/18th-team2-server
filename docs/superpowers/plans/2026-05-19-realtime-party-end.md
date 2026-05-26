@@ -25,7 +25,8 @@
 - `PartyEndScheduler`는 1초 반복 polling을 사용하지 않고, startup recovery + after-commit event + `TaskScheduler` 예약으로 `party-ending`, `party-ended`를 발송한다.
 - 비회원 참가자의 `rollingPaperWritten`은 `participantToken -> RealtimeParticipantProfile -> Participant.hasWrittenPaper`로 계산한다.
 - 참가자용 `inviteToken`은 `PartyInviteService`를 통해 조회한다. 요청 초대 토큰이 없으면 해당 party의 만료되지 않은 초대 토큰 중 최신 1개를 선택한다.
-- 박터뜨리기 종료는 수동 종료 가능 상태만 열고 자동 종료는 시작하지 않는다.
+- 주최자는 `LIVE_OPEN` 동안 별도 시간 제한이나 박터뜨리기 종료 조건 없이 수동 종료할 수 있다.
+- 박터뜨리기 종료는 실시간 파티 종료 가능 여부에 영향을 주지 않는다.
 
 ---
 
@@ -39,9 +40,9 @@
 | `src/main/kotlin/com/team2/server/party/domain/entity/RealtimeParty.kt` | 종료 상수, 상태 계산, `hostViewableAt()` 수정 |
 | `src/main/kotlin/com/team2/server/party/infrastructure/persistence/PartyRepository.kt` | 종료 복구 조회/조건부 update 쿼리 |
 | `src/main/kotlin/com/team2/server/party/api/PartyApi.kt` | 실시간 종료 API Swagger 계약 |
-| `src/main/kotlin/com/team2/server/party/api/PartyController.kt` | 주최자 종료 조회/요청, 상태/다음 행동 조회 |
+| `src/main/kotlin/com/team2/server/party/api/PartyController.kt` | 주최자 종료 요청, 상태/다음 행동 조회 |
 | `src/main/kotlin/com/team2/server/party/api/dto/*Realtime*` | 종료 상태/요청/다음 행동 응답 DTO |
-| `src/main/kotlin/com/team2/server/party/application/usecase/*Realtime*` | 종료 가능 조회, 종료 요청, 상태 복구, 다음 행동 조회 |
+| `src/main/kotlin/com/team2/server/party/application/usecase/*Realtime*` | 종료 요청, 상태 복구, 다음 행동 조회 |
 | `src/main/kotlin/com/team2/server/party/infrastructure/sse/PartyEndScheduler.kt` | startup recovery + event 기반 종료 이벤트 발송 |
 | `src/main/kotlin/com/team2/server/chat/infrastructure/sse/SseEmitterRegistry.kt` | 주최자 단독 알림, grace cleanup 지원 |
 | `src/main/kotlin/com/team2/server/chat/usecase/EnterAndSubscribeChatUseCase.kt` | 연결 직후 `party-state` 발송, `LIVE_ENDING` 재연결 허용 |
@@ -61,7 +62,6 @@
 - Test: `src/test/kotlin/com/team2/server/db/FlywayMigrationTest.kt`
 
 - [ ] `realtime_party.live_ending_started_at DATETIME NULL` 컬럼을 추가한다.
-- [ ] `RealtimeParty.HOST_END_AVAILABLE_AFTER_MINUTES = 4`를 추가한다.
 - [ ] `RealtimeParty.LIVE_END_COUNTDOWN_SECONDS = 60`을 추가한다.
 - [ ] `RealtimePartyStatus.LIVE_ENDING`을 추가한다.
 - [ ] `effectiveEndingStartedAt()`은 `liveEndingStartedAt ?: startedAt.plusMinutes(LIVE_DURATION_MINUTES)`로 계산한다.
@@ -87,12 +87,10 @@ Run:
 - [ ] 자동 종료용 조건부 update를 추가한다: `live_ending_started_at = startedAt + 10분` only when null and `startedAt + 10분 <= now`.
 - [ ] startup recovery용 조회를 추가한다: 자동 종료 예약 대상과 이미 종료 countdown이 시작된 realtime party 목록.
 - [ ] `PartyEndScheduler`가 repository를 직접 주입받지 않도록 복구/조건부 종료 UseCase를 제공한다.
-- [ ] 종료 가능 조회는 주최자 권한, `REALTIME` 타입, 4분 경과 또는 박터뜨리기 종료 여부를 검증한다.
-- [ ] 종료 가능 조회의 `canEnd`는 `status(now) == LIVE_OPEN && liveEndingStartedAt == null && (now >= startedAt + 4분 || 박터뜨리기 종료)`일 때만 true다.
-- [ ] 박터뜨리기 완료 상태는 이벤트/상태 provider로 분리해 연결하고, 도메인이 없으면 false를 기본값으로 둔다.
 - [ ] 종료 요청은 `LIVE_CLOSED`를 먼저 거부하고 `REALTIME_PARTY_ALREADY_ENDED`를 반환한다.
-- [ ] 이미 `LIVE_ENDING`이면 수동 종료 가능 조건을 다시 검사하지 않고 기존 `endingStartedAt`, `endedAt`을 반환한다.
-- [ ] `LIVE_OPEN`일 때만 수동 종료 가능 조건을 검사하고, 실패하면 `REALTIME_PARTY_END_NOT_AVAILABLE`을 반환한다.
+- [ ] 이미 `LIVE_ENDING`이면 기존 `endingStartedAt`, `endedAt`을 반환한다.
+- [ ] `LIVE_OPEN`이면 주최자 권한만 확인하고 별도 unlock 조건 없이 종료 카운트다운을 시작한다.
+- [ ] 시작 전 등 `LIVE_OPEN`이 아닌 상태에서 종료 요청하면 `REALTIME_PARTY_INVALID_STATE`를 반환한다.
 
 Run:
 
@@ -110,7 +108,6 @@ Run:
 - Modify: `src/main/kotlin/com/team2/server/common/exception/ErrorCode.kt`
 - Test: party controller tests
 
-- [ ] `GET /api/v1/parties/{partyId}/realtime-end`를 추가한다. 인증된 주최자만 호출한다.
 - [ ] `POST /api/v1/parties/{partyId}/realtime-end`를 추가한다. 인증된 주최자만 호출한다.
 - [ ] `GET /api/v1/parties/{partyId}/realtime-state`를 추가한다. `Authorization` 또는 `X-Participant-Token` 중 하나로 파티 소속을 확인한다.
 - [ ] `GET /api/v1/parties/{partyId}/realtime-next-action`을 추가한다. `LIVE_CLOSED`에서만 성공한다.
@@ -121,7 +118,7 @@ Run:
 - [ ] 비회원 참가자는 `ParticipantService` 또는 `RealtimeParticipantProfileService`를 통해 participant token에 연결된 profile과 participant를 찾는다.
 - [ ] 참가자 `inviteToken`은 `PartyInviteService`를 통해 조회한다. 요청 초대 토큰이 있으면 그 값을 우선 사용하고, 없으면 해당 party의 유효 초대 토큰 중 최신 1개를 선택한다.
 - [ ] 참가자 `rollingPaperWritten`은 resolved participant의 `hasWrittenPaper`로 응답한다.
-- [ ] `REALTIME_PARTY_END_NOT_AVAILABLE(400)`, `REALTIME_PARTY_ALREADY_ENDED(409)`를 추가한다.
+- [ ] `REALTIME_PARTY_INVALID_STATE(400)`, `REALTIME_PARTY_ALREADY_ENDED(409)`를 추가한다.
 - [ ] 컨트롤러 테스트는 기존 MockMvc 통합 테스트 패턴을 따라 `@Import(TestcontainersConfiguration::class)`를 포함한다.
 
 Run:
@@ -144,7 +141,6 @@ Run:
 - [ ] 신규 입장은 `LIVE_OPEN`에서만 허용한다.
 - [ ] 기존 participantToken 기반 재연결은 `LIVE_ENDING`에서도 허용한다.
 - [ ] `LIVE_CLOSED`에서는 SSE 연결을 거부하고 REST 복구 API 사용을 유도한다.
-- [ ] 주최자 emitter를 식별하거나 owner participant를 통해 `host-end-available`을 주최자에게만 보낼 수 있게 한다.
 - [ ] `party-ended` 발송 후 즉시 complete하지 않고 grace time 후 남은 emitter를 정리한다.
 
 Run:
@@ -179,16 +175,15 @@ Run:
 ./gradlew test --tests '*PartyEndScheduler*'
 ```
 
-## Task 6: 박터뜨리기 종료 이벤트 연결
+## Task 6: 박터뜨리기 종료와 실시간 종료 분리 확인
 
 **Files:**
-- Create/Modify burst game event type when the burst game module is available
-- Create listener/usecase in party or chat boundary
+- Modify/remove party-side burst game end listener or provider if present
+- Test: realtime party end and burstgame boundary tests
 
-- [ ] 박터뜨리기 종료 시 `BurstGameEndedEvent(partyId)`를 발행한다.
-- [ ] 이벤트 listener는 해당 party가 realtime이고 아직 `LIVE_OPEN`이면 주최자에게 `host-end-available`을 보낸다.
-- [ ] 이 이벤트는 `liveEndingStartedAt`을 저장하지 않는다.
-- [ ] 이벤트가 먼저 오고 4분도 경과하면 `realtime-end` 조회는 `canEnd = true`를 반환한다.
+- [ ] 실시간 파티 종료 도메인이 박터뜨리기 완료 여부를 조회하지 않도록 제거한다.
+- [ ] 박터뜨리기 종료 이벤트가 `host-end-available` 또는 수동 종료 가능 상태를 만들지 않도록 제거한다.
+- [ ] 박터뜨리기 종료 이벤트는 박터뜨리기 결과/상태 이벤트로만 유지한다.
 
 Run:
 
@@ -208,19 +203,15 @@ Run:
   - 수동 종료 없으면 `hostViewableAt() == startedAt + 10분`
 
 - 주최자 종료 API
-  - 4분 전 수동 종료 요청 실패
-  - 4분 경과 후 수동 종료 성공
-  - 박터뜨리기 종료 후 4분 전에도 수동 종료 성공
+  - `LIVE_OPEN`이면 4분 경과 전에도 수동 종료 성공
   - 소유자가 아니면 403
   - `PAPER_ONLY`이면 `CHAT_NOT_SUPPORTED`
   - 이미 `LIVE_ENDING`이면 기존 종료 시각 반환
-  - `LIVE_ENDING` 재요청은 4분/박터뜨리기 조건을 다시 검사하지 않음
   - 이미 `LIVE_CLOSED`이면 `REALTIME_PARTY_ALREADY_ENDED`
-  - `liveEndingStartedAt`이 있으면 `realtime-end` 조회의 `canEnd = false`
+  - 시작 전에는 `REALTIME_PARTY_INVALID_STATE`
   - 동시 요청에서 하나만 update 성공
 
 - 복구/다음 행동 API
-  - 주최자 `realtime-end` 복구 조회 성공
   - 회원 participant `realtime-state` 조회 성공
   - 비회원 participant token으로 `realtime-state` 조회 성공
   - `LIVE_OPEN`, `LIVE_ENDING`에서 `realtime-next-action` 실패
@@ -230,7 +221,6 @@ Run:
 
 - SSE / scheduler
   - 연결 직후 `party-state` 전송
-  - 4분 도달 시 주최자에게 `host-end-available`
   - 자동 종료 시작 시 `party-ending`
   - 자동 종료 저장값은 scheduler 실행 시각이 아니라 `startedAt + 10분`
   - 60초 경과 후 `party-ended`
