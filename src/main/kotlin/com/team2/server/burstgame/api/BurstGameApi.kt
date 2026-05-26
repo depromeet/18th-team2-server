@@ -5,6 +5,7 @@ package com.team2.server.burstgame.api
 import com.team2.server.auth.principal.UserPrincipal
 import com.team2.server.burstgame.api.dto.SubmitBurstGameTapRequest
 import com.team2.server.burstgame.application.dto.BurstGameStateResponse
+import com.team2.server.burstgame.application.dto.CandleBlowResponse
 import com.team2.server.burstgame.application.dto.StartBurstGameResponse
 import com.team2.server.burstgame.application.dto.SubmitBurstGameTapResponse
 import com.team2.server.common.web.ApiResponse
@@ -18,10 +19,71 @@ import io.swagger.v3.oas.annotations.enums.ParameterIn
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.tags.Tag
+import jakarta.validation.Valid
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Min
 import io.swagger.v3.oas.annotations.responses.ApiResponse as SwaggerApiResponse
+
+private const val MIN_CANDLE_ID = 1L
+private const val MAX_CANDLE_ID = 9L
 
 @Tag(name = "Burst Game", description = "실시간 파티 박터뜨리기 API")
 interface BurstGameApi {
+    @Operation(
+        summary = "촛불끄기 상태 조회",
+        description = """
+실시간 파티의 촛불끄기 상태를 조회합니다.
+
+로그인 사용자는 `Authorization: Bearer {token}` 헤더를, 비로그인 참여자는 `X-Participant-Token: {participantToken}` 헤더를 사용합니다.
+시작 전에는 WAITING, 진행 중에는 ACTIVE, 모두 꺼졌거나 타임아웃되면 FINISHED를 반환합니다.
+""",
+    )
+    @SwaggerApiResponse(responseCode = "200", description = "촛불끄기 상태 조회 성공")
+    @AuthErrorResponses
+    @SwaggerApiResponse(
+        responseCode = "404",
+        description = "파티 없음",
+        content = [Content(schema = Schema(implementation = ErrorResponse::class))],
+    )
+    @InternalServerErrorResponse
+    fun getCandleBlowState(
+        @Parameter(description = "파티 ID") partyId: Long,
+        @Parameter(hidden = true) principal: UserPrincipal?,
+        @Parameter(description = "비로그인 참여자 토큰", `in` = ParameterIn.HEADER, name = "X-Participant-Token")
+        participantToken: String?,
+    ): ApiResponse<CandleBlowResponse>
+
+    @Operation(
+        summary = "촛불 끄기",
+        description = """
+실시간 파티의 공유 촛불 1개를 끕니다.
+
+`candleId`는 1부터 9까지 허용합니다.
+이미 꺼진 촛불이거나 촛불끄기가 종료된 뒤의 요청도 실패가 아니라 200 OK와 현재 상태로 응답합니다.
+""",
+    )
+    @SwaggerApiResponse(responseCode = "200", description = "촛불 끄기 처리 성공")
+    @ValidationErrorResponse
+    @AuthErrorResponses
+    @SwaggerApiResponse(
+        responseCode = "400",
+        description = "시작 전 요청 또는 잘못된 candleId",
+        content = [Content(schema = Schema(implementation = ErrorResponse::class))],
+    )
+    @SwaggerApiResponse(
+        responseCode = "404",
+        description = "파티 없음",
+        content = [Content(schema = Schema(implementation = ErrorResponse::class))],
+    )
+    @InternalServerErrorResponse
+    fun blowCandle(
+        @Parameter(description = "파티 ID") partyId: Long,
+        @Parameter(description = "촛불 번호") @Min(MIN_CANDLE_ID) @Max(MAX_CANDLE_ID) candleId: Int,
+        @Parameter(hidden = true) principal: UserPrincipal?,
+        @Parameter(description = "비로그인 참여자 토큰", `in` = ParameterIn.HEADER, name = "X-Participant-Token")
+        participantToken: String?,
+    ): ApiResponse<CandleBlowResponse>
+
     @Operation(
         summary = "박터뜨리기 시작",
         description = """
@@ -83,7 +145,7 @@ interface BurstGameApi {
         @Parameter(hidden = true) principal: UserPrincipal?,
         @Parameter(description = "비로그인 참여자 토큰", `in` = ParameterIn.HEADER, name = "X-Participant-Token")
         participantToken: String?,
-        request: SubmitBurstGameTapRequest,
+        @Valid request: SubmitBurstGameTapRequest,
     ): ApiResponse<SubmitBurstGameTapResponse>
 
     @Operation(
