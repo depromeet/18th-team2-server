@@ -8,6 +8,7 @@ import com.team2.server.burstgame.infrastructure.candle.InMemoryCandleBlowSessio
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
+import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import java.time.LocalDateTime
 import kotlin.test.BeforeTest
@@ -58,6 +59,24 @@ class StartScheduledCandleBlowUseCaseTest {
         assertEquals(CandleBlowFinishedReason.TIMEOUT, snapshot.finishedReason)
         verify(eventBroadcaster).broadcastEnded(snapshot)
         verify(eventBroadcaster, never()).broadcastStarted(any())
+    }
+
+    @Test
+    fun `같은 세션의 started 이벤트는 한 번만 발행한다`() {
+        val first =
+            useCase(
+                partyId = 1L,
+                partyStartedAt = partyStartedAt,
+                now = candleStartedAt(),
+            )
+        useCase(
+            partyId = 1L,
+            partyStartedAt = partyStartedAt,
+            now = candleStartedAt().plusSeconds(1),
+        )
+
+        verify(eventBroadcaster, times(1)).broadcastStarted(first)
+        verify(eventBroadcaster, never()).broadcastEnded(any())
     }
 
     @Test

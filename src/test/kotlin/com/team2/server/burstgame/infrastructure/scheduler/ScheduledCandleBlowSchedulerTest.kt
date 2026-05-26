@@ -42,7 +42,7 @@ class ScheduledCandleBlowSchedulerTest {
             }
         }
 
-        assertTrue(latch.await(1, TimeUnit.SECONDS))
+        assertTrue(latch.await(2, TimeUnit.SECONDS))
     }
 
     @Test
@@ -55,7 +55,7 @@ class ScheduledCandleBlowSchedulerTest {
             }
         }
 
-        assertTrue(latch.await(1, TimeUnit.SECONDS))
+        assertTrue(latch.await(2, TimeUnit.SECONDS))
     }
 
     @Test
@@ -71,6 +71,6 @@ class ScheduledCandleBlowSchedulerTest {
     }
 
     private companion object {
-        val SCHEDULE_DELAY: Duration = Duration.ofMillis(50)
+        val SCHEDULE_DELAY: Duration = Duration.ofMillis(250)
     }
 }

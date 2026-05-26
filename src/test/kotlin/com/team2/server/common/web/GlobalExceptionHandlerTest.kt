@@ -4,6 +4,7 @@ import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import jakarta.validation.ConstraintViolation
 import jakarta.validation.ConstraintViolationException
+import jakarta.validation.Path
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 import org.springframework.http.HttpStatus
@@ -70,12 +71,15 @@ class GlobalExceptionHandlerTest {
     @Test
     fun `constraint violation 메시지를 합쳐 응답한다`() {
         val first: ConstraintViolation<Target> = mock()
+        val path: Path = mock()
+        whenever(path.toString()).thenReturn("name")
+        whenever(first.propertyPath).thenReturn(path)
         whenever(first.message).thenReturn("first invalid")
         val response = MockHttpServletResponse()
 
         handler.handleConstraintViolationException(ConstraintViolationException(setOf(first)), response)
 
-        assertError(response, HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "first invalid")
+        assertError(response, HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "name: first invalid")
     }
 
     @Test

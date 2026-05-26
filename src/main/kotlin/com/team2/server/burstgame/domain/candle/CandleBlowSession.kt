@@ -20,6 +20,8 @@ class CandleBlowSession(
         private set
 
     private val extinguishedCandleIds = TreeSet<Int>()
+    private var startedBroadcasted = false
+    private var endedBroadcasted = false
 
     fun blow(
         candleId: Int,
@@ -79,6 +81,19 @@ class CandleBlowSession(
             isFinished() -> CandleBlowStatus.FINISHED
             now.isBefore(startedAt) -> CandleBlowStatus.WAITING
             else -> CandleBlowStatus.ACTIVE
+        }
+
+    fun markAndCheckBroadcastNeeded(status: CandleBlowStatus): Boolean =
+        when {
+            status == CandleBlowStatus.ACTIVE && !startedBroadcasted -> {
+                startedBroadcasted = true
+                true
+            }
+            status == CandleBlowStatus.FINISHED && !endedBroadcasted -> {
+                endedBroadcasted = true
+                true
+            }
+            else -> false
         }
 
     private fun finishIfAllExtinguished(): Boolean {

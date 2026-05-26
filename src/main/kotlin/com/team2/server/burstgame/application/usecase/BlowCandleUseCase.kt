@@ -6,6 +6,7 @@ import com.team2.server.burstgame.application.port.CandleBlowSessionStore
 import com.team2.server.burstgame.application.support.BurstGameParticipantResolver
 import com.team2.server.burstgame.domain.candle.CandleBlowSession
 import com.team2.server.burstgame.domain.candle.CandleBlowSnapshot
+import com.team2.server.burstgame.domain.candle.CandleBlowStatus
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -40,19 +41,25 @@ class BlowCandleUseCase(
             },
         ) { session, _ ->
             val result = session.blow(candleId, now)
-            broadcastUpdate(result.changed, result.finishedNow, result.snapshot)
+            broadcastUpdate(
+                changed = result.changed,
+                shouldBroadcastEnded =
+                    result.finishedNow &&
+                        session.markAndCheckBroadcastNeeded(CandleBlowStatus.FINISHED),
+                snapshot = result.snapshot,
+            )
             CandleBlowResponse.from(result.snapshot)
         }
     }
 
     private fun broadcastUpdate(
         changed: Boolean,
-        finishedNow: Boolean,
+        shouldBroadcastEnded: Boolean,
         snapshot: CandleBlowSnapshot,
     ) {
-        if (!changed && !finishedNow) return
+        if (!changed && !shouldBroadcastEnded) return
         runCatching {
-            if (finishedNow) {
+            if (shouldBroadcastEnded) {
                 eventBroadcaster.broadcastEnded(snapshot)
             } else {
                 eventBroadcaster.broadcastProgress(snapshot)

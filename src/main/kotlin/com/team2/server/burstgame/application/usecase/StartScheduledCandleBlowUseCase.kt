@@ -33,7 +33,9 @@ class StartScheduledCandleBlowUseCase(
             },
         ) { session, _ ->
             val snapshot = session.snapshot(now)
-            broadcastStartOrEnd(snapshot)
+            if (session.markAndCheckBroadcastNeeded(snapshot.status)) {
+                broadcastStartOrEnd(snapshot)
+            }
             snapshot
         }
 

@@ -64,10 +64,17 @@ class GlobalExceptionHandler(
         e: ConstraintViolationException,
         response: HttpServletResponse,
     ) {
-        val message =
+        val violationMessage =
             e.constraintViolations
-                .joinToString(", ") { it.message }
-                .ifBlank { "잘못된 요청 값입니다." }
+                .joinToString(", ") { violation ->
+                    val propertyPath = violation.propertyPath?.toString().orEmpty()
+                    if (propertyPath.isBlank()) {
+                        violation.message
+                    } else {
+                        "$propertyPath: ${violation.message}"
+                    }
+                }
+        val message = violationMessage.ifBlank { "잘못된 요청 값입니다." }
         writeErrorResponse(
             response,
             HttpStatus.BAD_REQUEST.value(),

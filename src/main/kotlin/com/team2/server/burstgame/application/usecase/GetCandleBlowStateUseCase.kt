@@ -6,6 +6,7 @@ import com.team2.server.burstgame.application.support.BurstGameParticipantResolv
 import com.team2.server.burstgame.application.support.CandleBlowEndEventPublisher
 import com.team2.server.burstgame.domain.candle.CandleBlowSession
 import com.team2.server.burstgame.domain.candle.CandleBlowSnapshot
+import com.team2.server.burstgame.domain.candle.CandleBlowStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
@@ -40,7 +41,12 @@ class GetCandleBlowStateUseCase(
                 val snapshot = session.snapshot(now)
                 CandleBlowStateLookupResult(
                     response = CandleBlowResponse.from(snapshot),
-                    endedSnapshot = snapshot.takeIf { !wasFinished && it.finishedReason != null },
+                    endedSnapshot =
+                        snapshot.takeIf {
+                            !wasFinished &&
+                                it.finishedReason != null &&
+                                session.markAndCheckBroadcastNeeded(CandleBlowStatus.FINISHED)
+                        },
                 )
             }
         result.endedSnapshot?.let(endEventPublisher::publishEndedAfterCommit)

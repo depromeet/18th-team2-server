@@ -40,7 +40,7 @@ class RecoverCandleBlowScheduleUseCaseTest {
         val targets = useCase()
 
         assertEquals(1, targets.size)
-        assertEquals(0L, targets[0].partyId)
+        assertEquals(party.id, targets[0].partyId)
         assertEquals(partyStartedAt, targets[0].partyStartedAt)
         verify(findRealtimePartiesWaitingAutomaticEndingUseCase).invoke(startedAfter)
     }

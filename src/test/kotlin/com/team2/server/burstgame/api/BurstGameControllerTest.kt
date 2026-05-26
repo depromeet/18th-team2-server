@@ -3,6 +3,7 @@ package com.team2.server.burstgame.api
 import com.team2.server.burstgame.application.port.BurstGameSessionStore
 import com.team2.server.burstgame.application.port.CandleBlowSessionStore
 import com.team2.server.burstgame.application.service.BurstGameSessionService
+import com.team2.server.burstgame.domain.candle.CandleBlowPolicy
 import com.team2.server.common.DatabaseCleanup
 import com.team2.server.config.TestcontainersConfiguration
 import com.team2.server.party.domain.entity.Participant
@@ -130,7 +131,7 @@ class BurstGameControllerTest
         fun `모든 촛불이 꺼진 뒤 촛불 끄기 요청은 200 응답으로 종료 상태를 반환한다`() {
             val fixture = saveRealtimeParticipant(startedAt = LocalDateTime.now().minusSeconds(40))
 
-            (1..9).forEach { candleId ->
+            (1..CandleBlowPolicy.CANDLE_COUNT).forEach { candleId ->
                 blowCandle(fixture, candleId)
             }
 
@@ -342,7 +343,7 @@ class BurstGameControllerTest
         }
 
         private fun prepareCandleBlowFinished(fixture: BurstGameFixture) {
-            (1..9).forEach { candleId ->
+            (1..CandleBlowPolicy.CANDLE_COUNT).forEach { candleId ->
                 blowCandle(fixture, candleId)
             }
         }

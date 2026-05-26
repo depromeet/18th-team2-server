@@ -3,6 +3,7 @@ package com.team2.server.burstgame.application.usecase
 import com.team2.server.burstgame.application.port.CandleBlowEventBroadcaster
 import com.team2.server.burstgame.application.port.CandleBlowSessionStore
 import com.team2.server.burstgame.domain.candle.CandleBlowSnapshot
+import com.team2.server.burstgame.domain.candle.CandleBlowStatus
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -23,7 +24,7 @@ class EndScheduledCandleBlowUseCase(
         sessionStore.withSessionLock(partyId) { session ->
             val endedNow = session.finishIfTimedOut(now)
             val snapshot = session.snapshot(now)
-            if (endedNow) {
+            if (endedNow && session.markAndCheckBroadcastNeeded(CandleBlowStatus.FINISHED)) {
                 runCatching {
                     eventBroadcaster.broadcastEnded(snapshot)
                 }.onFailure { ex ->
