@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component
 class CandleBlowStatusReaderUnavailable : CandleBlowStatusReader {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    override fun isCandleBlowCompleted(partyId: Long): Boolean {
+    override fun isCandleBlowFinished(partyId: Long): Boolean {
         log.warn("CandleBlowStatusReader is not configured for prod. partyId={}", partyId)
         return false
     }

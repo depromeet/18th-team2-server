@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component
 class CandleBlowStatusReaderStub : CandleBlowStatusReader {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    override fun isCandleBlowCompleted(partyId: Long): Boolean {
+    override fun isCandleBlowFinished(partyId: Long): Boolean {
         log.warn("Using CandleBlowStatusReaderStub. partyId={}", partyId)
         return true
     }

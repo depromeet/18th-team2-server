@@ -81,6 +81,6 @@ class BurstGameSessionServiceTest {
         )
 
     private object AlwaysReadyCandleBlowStatusReader : CandleBlowStatusReader {
-        override fun isCandleBlowCompleted(partyId: Long): Boolean = true
+        override fun isCandleBlowFinished(partyId: Long): Boolean = true
     }
 }
