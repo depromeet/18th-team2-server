@@ -13,7 +13,12 @@ class InMemoryPartyPhaseStore : PartyPhaseStore {
 
     override fun getEntry(partyId: Long): PartyPhaseStore.PhaseEntry? = entries[partyId]
 
-    override fun advance(partyId: Long, from: PartyPhase, to: PartyPhase, now: LocalDateTime): Boolean {
+    override fun advance(
+        partyId: Long,
+        from: PartyPhase,
+        to: PartyPhase,
+        now: LocalDateTime,
+    ): Boolean {
         val lock = lockFor(partyId)
         return synchronized(lock) {
             val current = entries[partyId]?.phase ?: PartyPhase.ENTRY

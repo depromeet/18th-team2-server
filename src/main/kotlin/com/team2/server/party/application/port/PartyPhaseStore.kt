@@ -7,7 +7,12 @@ interface PartyPhaseStore {
     fun getEntry(partyId: Long): PhaseEntry?
 
     // CAS: entries[partyId].phase == from 일 때만 to로 전환. 성공 시 true 반환.
-    fun advance(partyId: Long, from: PartyPhase, to: PartyPhase, now: LocalDateTime): Boolean
+    fun advance(
+        partyId: Long,
+        from: PartyPhase,
+        to: PartyPhase,
+        now: LocalDateTime,
+    ): Boolean
 
     fun removeByPartyId(partyId: Long)
 
