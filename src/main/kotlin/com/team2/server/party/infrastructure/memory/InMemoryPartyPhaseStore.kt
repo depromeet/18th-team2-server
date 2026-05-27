@@ -29,7 +29,9 @@ class InMemoryPartyPhaseStore : PartyPhaseStore {
     }
 
     override fun removeByPartyId(partyId: Long) {
-        entries.remove(partyId)
+        synchronized(lockFor(partyId)) {
+            entries.remove(partyId)
+        }
     }
 
     override fun clear() {

@@ -43,18 +43,22 @@ class AdvancePartyPhaseUseCase(
         }
 
         val advanced = phaseStore.advance(partyId, currentPhase, nextPhase, now)
-        val entry = phaseStore.getEntry(partyId)
-        val phase = entry?.phase ?: PartyPhase.ENTRY
-        val phaseStartedAt = entry?.startedAt ?: party.startedAt
 
         if (advanced) {
-            eventBroadcaster.broadcastPhaseChanged(partyId, phase, phaseStartedAt, now)
+            eventBroadcaster.broadcastPhaseChanged(partyId, nextPhase, now, now)
+            return PartyPhaseResult(
+                partyId = partyId,
+                phase = nextPhase,
+                phaseStartedAt = now,
+                serverNow = now,
+            )
         }
 
+        val entry = phaseStore.getEntry(partyId)
         return PartyPhaseResult(
             partyId = partyId,
-            phase = phase,
-            phaseStartedAt = phaseStartedAt,
+            phase = entry?.phase ?: PartyPhase.ENTRY,
+            phaseStartedAt = entry?.startedAt ?: party.startedAt,
             serverNow = now,
         )
     }
