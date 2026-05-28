@@ -1,5 +1,7 @@
 package com.team2.server.chat.usecase
 
+import com.team2.server.chat.application.port.RealtimePartyEntryProfileResult
+import com.team2.server.chat.application.support.RealtimePartyEntryProfileResolver
 import com.team2.server.chat.dto.EnterRealtimePartyRequest
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
@@ -8,7 +10,6 @@ import com.team2.server.party.application.service.PartyInviteService
 import com.team2.server.party.application.usecase.MarkRealtimePartyHostEnteredUseCase
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.PartyOption
-import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.domain.entity.RealtimePartyStatus
 import org.hibernate.Hibernate
@@ -49,26 +50,25 @@ class EnterRealtimePartyUseCase(
         }
 
         val entryProfile = profileResolver.resolve(realtimeParty, userId, request, now)
-        val profile = entryProfile.profile
-        markHostEnteredIfNeeded(realtimeParty, profile, now)
+        markHostEnteredIfNeeded(realtimeParty, entryProfile, now)
 
         return EnterResult(
-            participantToken = profile.participantToken,
+            participantToken = entryProfile.participantToken,
             partyId = invite.party.id,
             startedAt = invite.party.startedAt,
-            isCelebrant = profile.participant.isCelebrant,
-            nickname = profile.nickname,
-            characterId = entryProfile.character.id,
+            isCelebrant = entryProfile.isCelebrant,
+            nickname = entryProfile.nickname,
+            characterId = entryProfile.characterId,
             partyState = RealtimePartyStateResult.from(realtimeParty, now),
         )
     }
 
     private fun markHostEnteredIfNeeded(
         party: RealtimeParty,
-        profile: RealtimeParticipantProfile,
+        entryProfile: RealtimePartyEntryProfileResult,
         now: LocalDateTime,
     ) {
-        if (!profile.participant.isCelebrant) return
+        if (!entryProfile.isCelebrant) return
         party.hostEnteredAt = markRealtimePartyHostEnteredUseCase(party.id, now) ?: return
     }
 

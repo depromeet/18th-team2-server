@@ -1,6 +1,7 @@
 package com.team2.server.burstgame.application.usecase
 
 import com.team2.server.burstgame.application.dto.CandleBlowResponse
+import com.team2.server.burstgame.application.dto.CandleBlowStateLookupResult
 import com.team2.server.burstgame.application.port.CandleBlowSessionStore
 import com.team2.server.burstgame.application.support.BurstGameParticipantResolver
 import com.team2.server.burstgame.application.support.CandleBlowEndEventPublisher
@@ -11,7 +12,6 @@ import com.team2.server.burstgame.domain.candle.CandleBlowStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
-import java.time.LocalDateTime
 
 @Service
 class GetCandleBlowStateUseCase(
@@ -28,10 +28,9 @@ class GetCandleBlowStateUseCase(
         participantToken: String?,
     ): CandleBlowResponse {
         val context = participantResolver.resolveWithParty(partyId, userId, participantToken)
-        val now = LocalDateTime.now(clock)
+        val now = java.time.LocalDateTime.now(clock)
         val hostEnteredAt =
-            context.party.hostEnteredAt
-                ?: return CandleBlowResponse.from(CandleBlowSnapshot.waiting(partyId))
+            context.party.hostEnteredAt ?: return CandleBlowResponse.from(CandleBlowSnapshot.waiting(partyId))
         val result =
             sessionStore.getOrCreateWithLock(
                 partyId = partyId,
@@ -58,9 +57,4 @@ class GetCandleBlowStateUseCase(
         result.endedSnapshot?.let(endEventPublisher::publishEndedAfterCommit)
         return result.response
     }
-
-    private data class CandleBlowStateLookupResult(
-        val response: CandleBlowResponse,
-        val endedSnapshot: CandleBlowSnapshot?,
-    )
 }
