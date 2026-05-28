@@ -11,6 +11,7 @@ import org.mockito.kotlin.eq
 import org.mockito.kotlin.isNull
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter
 import java.time.LocalDateTime
 import kotlin.test.AfterTest
@@ -19,7 +20,8 @@ import kotlin.test.assertEquals
 
 class SseBurstGameEventBroadcasterTest {
     private val partySseEventPublisher: PartySseEventPublisher = mock()
-    private val broadcaster = SseBurstGameEventBroadcaster(partySseEventPublisher)
+    private val applicationEventPublisher: ApplicationEventPublisher = mock()
+    private val broadcaster = SseBurstGameEventBroadcaster(partySseEventPublisher, applicationEventPublisher)
 
     @AfterTest
     fun tearDown() {

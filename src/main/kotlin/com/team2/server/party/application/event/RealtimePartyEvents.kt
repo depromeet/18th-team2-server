@@ -17,3 +17,13 @@ data class RealtimePartyEndingStartedEvent(
     val endingStartedAt: LocalDateTime,
     val endedAt: LocalDateTime,
 )
+
+data class RealtimePartyBurstGameStartedEvent(
+    val partyId: Long,
+    val startedAt: LocalDateTime,
+)
+
+data class RealtimePartyBurstGameEndedEvent(
+    val partyId: Long,
+    val endedAt: LocalDateTime,
+)

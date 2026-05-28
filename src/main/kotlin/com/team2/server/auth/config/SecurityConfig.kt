@@ -70,6 +70,8 @@ class SecurityConfig(
                 auth.requestMatchers(HttpMethod.GET, "/api/v1/parties/*/realtime-state").permitAll()
                 auth.requestMatchers(HttpMethod.GET, "/api/v1/parties/*/realtime-next-action").permitAll()
                 auth.requestMatchers(HttpMethod.GET, "/api/v1/parties/*/participants").permitAll()
+                auth.requestMatchers(HttpMethod.GET, "/api/v1/parties/*/phase").permitAll()
+                auth.requestMatchers(HttpMethod.POST, "/api/v1/parties/*/phase/advance").permitAll()
                 auth.anyRequest().authenticated()
             }.oauth2Login { oauth ->
                 oauth.userInfoEndpoint { it.userService(customOAuth2UserService) }

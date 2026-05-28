@@ -1,11 +1,14 @@
 package com.team2.server.burstgame.infrastructure.realtime
 
+import com.team2.server.burstgame.application.event.BurstGameEndedEvent
+import com.team2.server.burstgame.application.event.BurstGameStartedEvent
 import com.team2.server.burstgame.application.port.BurstGameEventBroadcaster
 import com.team2.server.burstgame.domain.BurstGameRankingEntry
 import com.team2.server.burstgame.domain.BurstGameSnapshot
 import com.team2.server.chat.application.port.PartySseEventPublisher
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 import java.time.LocalDateTime
@@ -17,6 +20,7 @@ import java.util.concurrent.TimeUnit
 @Component
 class SseBurstGameEventBroadcaster(
     private val partySseEventPublisher: PartySseEventPublisher,
+    private val applicationEventPublisher: ApplicationEventPublisher,
 ) : BurstGameEventBroadcaster {
     private val log = LoggerFactory.getLogger(javaClass)
     private val executor =
@@ -30,6 +34,7 @@ class SseBurstGameEventBroadcaster(
 
     override fun broadcastStarted(snapshot: BurstGameSnapshot) {
         emit(snapshot.partyId, EVENT_STARTED, BurstGameStartedPayload.from(snapshot))
+        applicationEventPublisher.publishEvent(BurstGameStartedEvent(snapshot.partyId, snapshot.serverTime))
     }
 
     override fun broadcastProgress(snapshot: BurstGameSnapshot) {
@@ -58,6 +63,7 @@ class SseBurstGameEventBroadcaster(
             emit(snapshot.partyId, EVENT_ENDED, BurstGameEndedPayload.from(snapshot))
         }
         scheduleEndedRoundCleanup(snapshot.partyId, snapshot.startedAt, lock)
+        applicationEventPublisher.publishEvent(BurstGameEndedEvent(snapshot.partyId, snapshot.serverTime))
     }
 
     private fun scheduleProgress(
