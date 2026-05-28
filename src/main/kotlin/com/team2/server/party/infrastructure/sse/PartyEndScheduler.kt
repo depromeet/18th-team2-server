@@ -98,28 +98,12 @@ class PartyEndScheduler(
             ),
             emitEnding = true,
         )
-        val advanced = phaseStore.advance(event.partyId, PartyPhase.CLOSEABLE, PartyPhase.END, event.endingStartedAt)
-        if (advanced) {
-            realtimePartyEventBroadcaster.broadcastPhaseChanged(
-                partyId = event.partyId,
-                phase = PartyPhase.END,
-                phaseStartedAt = event.endingStartedAt,
-                serverNow = event.endingStartedAt,
-            )
-        }
+        phaseStore.advance(event.partyId, PartyPhase.CLOSEABLE, PartyPhase.END, event.endingStartedAt)
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     fun onBurstGameStarted(event: RealtimePartyBurstGameStartedEvent) {
-        val advanced = phaseStore.advance(event.partyId, PartyPhase.CANDLE, PartyPhase.BURST, event.startedAt)
-        if (advanced) {
-            realtimePartyEventBroadcaster.broadcastPhaseChanged(
-                partyId = event.partyId,
-                phase = PartyPhase.BURST,
-                phaseStartedAt = event.startedAt,
-                serverNow = event.startedAt,
-            )
-        }
+        phaseStore.advance(event.partyId, PartyPhase.CANDLE, PartyPhase.BURST, event.startedAt)
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
@@ -127,15 +111,7 @@ class PartyEndScheduler(
         if (handleBurstGameEndedUseCase(event.partyId)) {
             sendHostEndAvailableIfNeeded(event.partyId, event.endedAt)
         }
-        val advanced = phaseStore.advance(event.partyId, PartyPhase.BURST, PartyPhase.CLOSEABLE, event.endedAt)
-        if (advanced) {
-            realtimePartyEventBroadcaster.broadcastPhaseChanged(
-                partyId = event.partyId,
-                phase = PartyPhase.CLOSEABLE,
-                phaseStartedAt = event.endedAt,
-                serverNow = event.endedAt,
-            )
-        }
+        phaseStore.advance(event.partyId, PartyPhase.BURST, PartyPhase.CLOSEABLE, event.endedAt)
     }
 
     fun sendHostEndAvailable(
