@@ -2,7 +2,7 @@
 
 > 단계별로 진행한다. 각 단계가 끝나면 커밋하지 않고 변경 내용과 검증 결과를 공유한다.
 
-**Goal:** 실시간 파티 시작 41초 뒤 공유 촛불 9개를 끄는 단계를 시작하고, 9개 모두 꺼짐 또는 5분 타임아웃으로 종료한 뒤 기존 박터뜨리기 start API를 열어준다.
+**Goal:** 주최자가 실시간 파티에 처음 입장한 시각부터 41초 뒤 공유 촛불 9개를 끄는 단계를 시작하고, 9개 모두 꺼짐 또는 환경별 타임아웃으로 종료한 뒤 기존 박터뜨리기 start API를 열어준다.
 
 **Architecture:** 기존 `burstgame` feature 안에 촛불 phase를 추가한다. HTTP 진입점은 `api`, 흐름/트랜잭션은 `application/usecase`, 공유 상태와 정책은 `domain`, in-memory store/scheduler/SSE adapter는 `infrastructure`에 둔다.
 
@@ -13,8 +13,9 @@
 ## Decisions
 
 - 촛불끄기는 `REALTIME` 파티에서만 동작한다.
-- 시작 시각은 `party.startedAt + 41초`다.
-- 제한 시간은 개발 기간 동안 5분이다.
+- 시작 시각은 `realtime_party.host_entered_at + 41초`다.
+- `host_entered_at`은 주최자가 실시간 파티에 처음 입장할 때 한 번만 저장한다.
+- 제한 시간은 기본/개발 환경 5분, 운영 환경 45초다.
 - 촛불 수는 9개 고정이고 외부 입력으로 바꾸지 않는다.
 - 실시간 파티 참여자라면 누구나 촛불을 끌 수 있다.
 - 이미 꺼진 촛불 클릭은 `200 OK` 멱등 응답으로 처리한다.
@@ -22,7 +23,7 @@
 - 촛불 종료 후 박터뜨리기는 자동 시작하지 않는다.
 - 다음 버튼을 누른 참여자 중 가장 먼저 도착한 기존 `burst-game/start` 요청이 박터뜨리기 라운드를 생성한다.
 - 박터뜨리기 선행 조건은 촛불 `finished`다.
-- 1차 구현은 DB 저장 없이 in-memory session으로 처리한다.
+- 촛불 세션 상태는 in-memory로 처리하되, 시작 기준 시각은 DB에 저장해 서버 재시작 후 스케줄 복구가 가능하게 한다.
 - 확장성을 고려해 촛불 상태 접근은 `CandleBlowSessionStore` 포트 뒤에 둔다.
 
 ---
@@ -61,7 +62,7 @@
 
 - [x] `CANDLE_COUNT = 9`
 - [x] `START_DELAY_SECONDS = 41`
-- [x] `DURATION_SECONDS = 300`
+- [x] 기본 `duration-seconds = 300`, 운영 `duration-seconds = 45`
 - [x] 1차 store는 단일 app instance 전제의 in-memory 구현으로 둔다.
 - [x] 추후 store 구현 교체 가능성을 고려해 `CandleBlowSessionStore` 포트 뒤에 구현을 숨긴다.
 - [x] `CandleBlowSession` aggregate 상태 전이와 store mutation은 `CandleBlowService`가 담당하고, UseCase는 참여자 검증과 응답 변환 흐름만 조합한다.
@@ -84,7 +85,7 @@
 - [x] `GET /api/v1/parties/{partyId}/candle-blow`
 - [x] `POST /api/v1/parties/{partyId}/candle-blow/candles/{candleId}`
 - [x] JWT 또는 `X-Participant-Token` 참여자 검증 재사용
-- [x] `party.startedAt + 41초` 전 `WAITING` 상태 blow 요청은 `CANDLE_BLOW_NOT_STARTED`
+- [x] `hostEnteredAt + 41초` 전 `WAITING` 상태 blow 요청은 `CANDLE_BLOW_NOT_STARTED`
 - [x] `FINISHED` 상태 blow 요청은 `200 OK` 멱등 응답
 - [x] `GetCandleBlowStateUseCase`, `BlowCandleUseCase`는 `CandleBlowService`에 상태 조회/전이 처리를 위임한다.
 
