@@ -118,16 +118,6 @@ class CandleBlowSession(
         )
 
     companion object {
-        fun fromPartyStartedAt(
-            partyId: Long,
-            partyStartedAt: LocalDateTime,
-        ): CandleBlowSession =
-            fromHostEnteredAt(
-                partyId = partyId,
-                hostEnteredAt = partyStartedAt,
-                durationSeconds = CandleBlowPolicy.DEFAULT_DURATION_SECONDS,
-            )
-
         fun fromHostEnteredAt(
             partyId: Long,
             hostEnteredAt: LocalDateTime,

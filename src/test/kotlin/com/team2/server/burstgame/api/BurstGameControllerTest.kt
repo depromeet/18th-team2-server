@@ -39,6 +39,8 @@ class BurstGameControllerTest
         private val candleBlowSessionStore: CandleBlowSessionStore,
         private val databaseCleanup: DatabaseCleanup,
     ) {
+        private val candleBlowDurationSeconds = 300L
+
         @BeforeEach
         fun setUp() {
             databaseCleanup.execute()
@@ -153,7 +155,7 @@ class BurstGameControllerTest
                     startedAt =
                         LocalDateTime
                             .now()
-                            .minusSeconds(CandleBlowPolicy.START_DELAY_SECONDS + CandleBlowPolicy.DURATION_SECONDS + 5),
+                            .minusSeconds(CandleBlowPolicy.START_DELAY_SECONDS + candleBlowDurationSeconds + 5),
                 )
 
             mockMvc
@@ -206,7 +208,7 @@ class BurstGameControllerTest
                     startedAt =
                         LocalDateTime
                             .now()
-                            .minusSeconds(CandleBlowPolicy.START_DELAY_SECONDS + CandleBlowPolicy.DURATION_SECONDS + 5),
+                            .minusSeconds(CandleBlowPolicy.START_DELAY_SECONDS + candleBlowDurationSeconds + 5),
                 )
 
             mockMvc

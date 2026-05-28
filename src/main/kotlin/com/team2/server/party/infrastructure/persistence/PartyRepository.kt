@@ -30,7 +30,7 @@ interface PartyRepository : JpaRepository<Party, Long> {
         endingStartedAt: LocalDateTime,
     ): Int
 
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Modifying(flushAutomatically = true)
     @Query(
         """
         UPDATE RealtimeParty party

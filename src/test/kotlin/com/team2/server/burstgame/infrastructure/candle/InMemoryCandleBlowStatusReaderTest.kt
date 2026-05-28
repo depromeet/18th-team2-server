@@ -12,8 +12,9 @@ import kotlin.test.assertTrue
 class InMemoryCandleBlowStatusReaderTest {
     private val hostEnteredAt = LocalDateTime.of(2026, 5, 24, 20, 0)
     private val startedAt = hostEnteredAt.plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS)
+    private val candleBlowProperties = CandleBlowProperties()
     private val store = InMemoryCandleBlowSessionStore()
-    private val reader = InMemoryCandleBlowStatusReader(store, CandleBlowProperties())
+    private val reader = InMemoryCandleBlowStatusReader(store, candleBlowProperties)
 
     @Test
     fun `세션이 없으면 촛불끄기 미완료로 판단한다`() {
@@ -52,7 +53,7 @@ class InMemoryCandleBlowStatusReaderTest {
             reader.isCandleBlowFinished(
                 partyId = 1L,
                 hostEnteredAt = hostEnteredAt,
-                now = startedAt.plusSeconds(CandleBlowPolicy.DURATION_SECONDS),
+                now = startedAt.plusSeconds(candleBlowProperties.durationSeconds),
             ),
         )
         assertTrue(
@@ -68,7 +69,7 @@ class InMemoryCandleBlowStatusReaderTest {
             reader.isCandleBlowFinished(
                 partyId = 1L,
                 hostEnteredAt = hostEnteredAt,
-                now = startedAt.plusSeconds(CandleBlowPolicy.DURATION_SECONDS),
+                now = startedAt.plusSeconds(candleBlowProperties.durationSeconds),
             ),
         )
         assertTrue(
@@ -82,6 +83,6 @@ class InMemoryCandleBlowStatusReaderTest {
         CandleBlowSession.fromHostEnteredAt(
             partyId = partyId,
             hostEnteredAt = hostEnteredAt,
-            durationSeconds = CandleBlowPolicy.DEFAULT_DURATION_SECONDS,
+            durationSeconds = candleBlowProperties.durationSeconds,
         )
 }

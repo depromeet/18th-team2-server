@@ -16,7 +16,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class EndScheduledCandleBlowUseCaseTest {
-    private val partyStartedAt = LocalDateTime.of(2026, 5, 24, 20, 0)
+    private val hostEnteredAt = LocalDateTime.of(2026, 5, 24, 20, 0)
+    private val durationSeconds = 300L
     private lateinit var sessionStore: InMemoryCandleBlowSessionStore
     private lateinit var eventBroadcaster: CandleBlowEventBroadcaster
     private lateinit var useCase: EndScheduledCandleBlowUseCase
@@ -67,9 +68,10 @@ class EndScheduledCandleBlowUseCaseTest {
         sessionStore.getOrCreateWithLock(
             partyId = 1L,
             sessionFactory = {
-                CandleBlowSession.fromPartyStartedAt(
+                CandleBlowSession.fromHostEnteredAt(
                     partyId = 1L,
-                    partyStartedAt = partyStartedAt,
+                    hostEnteredAt = hostEnteredAt,
+                    durationSeconds = durationSeconds,
                 )
             },
         ) { session, _ ->
@@ -77,7 +79,7 @@ class EndScheduledCandleBlowUseCaseTest {
         }
     }
 
-    private fun candleStartedAt(): LocalDateTime = partyStartedAt.plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS)
+    private fun candleStartedAt(): LocalDateTime = hostEnteredAt.plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS)
 
-    private fun candleEndedAt(): LocalDateTime = candleStartedAt().plusSeconds(CandleBlowPolicy.DURATION_SECONDS)
+    private fun candleEndedAt(): LocalDateTime = candleStartedAt().plusSeconds(durationSeconds)
 }

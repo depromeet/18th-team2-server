@@ -31,12 +31,13 @@ class GetCandleBlowStateUseCaseTest {
     private val sessionStore = InMemoryCandleBlowSessionStore()
     private val eventBroadcaster: CandleBlowEventBroadcaster = mock()
     private val clock: Clock = Clock.fixed(Instant.parse("2026-05-21T11:02:00Z"), ZoneId.of("Asia/Seoul"))
+    private val candleBlowProperties = CandleBlowProperties()
     private val useCase =
         GetCandleBlowStateUseCase(
             participantResolver = participantResolver,
             sessionStore = sessionStore,
             endEventPublisher = CandleBlowEndEventPublisher(eventBroadcaster),
-            candleBlowProperties = CandleBlowProperties(),
+            candleBlowProperties = candleBlowProperties,
             clock = clock,
         )
 
@@ -48,7 +49,7 @@ class GetCandleBlowStateUseCaseTest {
                     hostEnteredAt =
                         LocalDateTime
                             .now(clock)
-                            .minusSeconds(CandleBlowPolicy.START_DELAY_SECONDS + CandleBlowPolicy.DURATION_SECONDS),
+                            .minusSeconds(CandleBlowPolicy.START_DELAY_SECONDS + candleBlowProperties.durationSeconds),
                 ),
             )
 
