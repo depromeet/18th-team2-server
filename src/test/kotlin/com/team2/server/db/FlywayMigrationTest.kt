@@ -28,6 +28,10 @@ class FlywayMigrationTest {
                 ColumnDefinition(dataType = "datetime", datetimePrecision = 6, nullable = true),
                 connection.findColumn("realtime_party", "live_ending_started_at"),
             )
+            assertEquals(
+                ColumnDefinition(dataType = "datetime", datetimePrecision = 6, nullable = true),
+                connection.findColumn("realtime_party", "host_entered_at"),
+            )
         }
     }
 

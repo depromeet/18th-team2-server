@@ -20,7 +20,7 @@ import kotlin.test.assertTrue
 
 class BurstGameSessionServiceTest {
     private val startedAt = LocalDateTime.of(2026, 5, 14, 20, 10)
-    private val partyStartedAt = startedAt.minusSeconds(80)
+    private val hostEnteredAt = startedAt.minusSeconds(80)
     private val candleBlowStatusReader = FakeCandleBlowStatusReader()
     private val sessionService =
         BurstGameSessionService(
@@ -36,7 +36,7 @@ class BurstGameSessionServiceTest {
         val start = CountDownLatch(1)
         sessionService.start(
             partyId = 1L,
-            partyStartedAt = partyStartedAt,
+            hostEnteredAt = hostEnteredAt,
             participant = participant(0),
             now = startedAt,
         )
@@ -81,7 +81,7 @@ class BurstGameSessionServiceTest {
             assertThrows<BusinessException> {
                 sessionService.start(
                     partyId = 1L,
-                    partyStartedAt = partyStartedAt,
+                    hostEnteredAt = hostEnteredAt,
                     participant = participant(1),
                     now = startedAt,
                 )
@@ -95,7 +95,7 @@ class BurstGameSessionServiceTest {
         val result =
             sessionService.start(
                 partyId = 1L,
-                partyStartedAt = partyStartedAt,
+                hostEnteredAt = hostEnteredAt,
                 participant = participant(1),
                 now = startedAt,
             )
@@ -109,7 +109,7 @@ class BurstGameSessionServiceTest {
     fun `active session start 재호출은 촛불끄기 상태를 다시 검증하지 않는다`() {
         sessionService.start(
             partyId = 1L,
-            partyStartedAt = partyStartedAt,
+            hostEnteredAt = hostEnteredAt,
             participant = participant(1),
             now = startedAt,
         )
@@ -118,7 +118,7 @@ class BurstGameSessionServiceTest {
         val result =
             sessionService.start(
                 partyId = 1L,
-                partyStartedAt = partyStartedAt,
+                hostEnteredAt = hostEnteredAt,
                 participant = participant(1),
                 now = startedAt.plusSeconds(1),
             )
@@ -131,7 +131,7 @@ class BurstGameSessionServiceTest {
     fun `종료 시간이 지난 active session start 재호출은 종료 상태와 endedNow를 반환한다`() {
         sessionService.start(
             partyId = 1L,
-            partyStartedAt = partyStartedAt,
+            hostEnteredAt = hostEnteredAt,
             participant = participant(1),
             now = startedAt,
         )
@@ -139,7 +139,7 @@ class BurstGameSessionServiceTest {
         val result =
             sessionService.start(
                 partyId = 1L,
-                partyStartedAt = partyStartedAt,
+                hostEnteredAt = hostEnteredAt,
                 participant = participant(1),
                 now = startedAt.plusSeconds(20),
             )
@@ -153,13 +153,13 @@ class BurstGameSessionServiceTest {
     fun `이미 종료된 session start 재호출은 endedNow false를 반환한다`() {
         sessionService.start(
             partyId = 1L,
-            partyStartedAt = partyStartedAt,
+            hostEnteredAt = hostEnteredAt,
             participant = participant(1),
             now = startedAt,
         )
         sessionService.start(
             partyId = 1L,
-            partyStartedAt = partyStartedAt,
+            hostEnteredAt = hostEnteredAt,
             participant = participant(1),
             now = startedAt.plusSeconds(20),
         )
@@ -167,7 +167,7 @@ class BurstGameSessionServiceTest {
         val result =
             sessionService.start(
                 partyId = 1L,
-                partyStartedAt = partyStartedAt,
+                hostEnteredAt = hostEnteredAt,
                 participant = participant(1),
                 now = startedAt.plusSeconds(21),
             )
@@ -181,7 +181,7 @@ class BurstGameSessionServiceTest {
     fun `종료 시간이 지난 submit은 라운드를 종료하고 accepted false를 반환한다`() {
         sessionService.start(
             partyId = 1L,
-            partyStartedAt = partyStartedAt,
+            hostEnteredAt = hostEnteredAt,
             participant = participant(1),
             now = startedAt,
         )
@@ -230,7 +230,7 @@ class BurstGameSessionServiceTest {
     fun `snapshot 조회 시 종료 시간이 지났으면 라운드를 lazy 종료한다`() {
         sessionService.start(
             partyId = 1L,
-            partyStartedAt = partyStartedAt,
+            hostEnteredAt = hostEnteredAt,
             participant = participant(1),
             now = startedAt,
         )
@@ -246,7 +246,7 @@ class BurstGameSessionServiceTest {
         assertNull(sessionService.end(404L, startedAt))
         sessionService.start(
             partyId = 1L,
-            partyStartedAt = partyStartedAt,
+            hostEnteredAt = hostEnteredAt,
             participant = participant(1),
             now = startedAt,
         )
@@ -262,7 +262,7 @@ class BurstGameSessionServiceTest {
         assertFalse(sessionService.removeStarted(404L, startedAt, startedAt))
         sessionService.start(
             partyId = 1L,
-            partyStartedAt = partyStartedAt,
+            hostEnteredAt = hostEnteredAt,
             participant = participant(1),
             now = startedAt,
         )
@@ -293,7 +293,7 @@ class BurstGameSessionServiceTest {
 
         override fun isCandleBlowFinished(
             partyId: Long,
-            partyStartedAt: LocalDateTime,
+            hostEnteredAt: LocalDateTime?,
             now: LocalDateTime,
         ): Boolean = finished
     }

@@ -3,6 +3,7 @@ package com.team2.server.burstgame.infrastructure.scheduler
 import com.team2.server.burstgame.application.usecase.EndScheduledCandleBlowUseCase
 import com.team2.server.burstgame.application.usecase.RecoverCandleBlowScheduleUseCase
 import com.team2.server.burstgame.application.usecase.StartScheduledCandleBlowUseCase
+import com.team2.server.burstgame.config.CandleBlowProperties
 import org.mockito.kotlin.mock
 import java.time.Clock
 import java.time.Duration
@@ -25,6 +26,7 @@ class ScheduledCandleBlowSchedulerTest {
             recoverCandleBlowScheduleUseCase = recoverCandleBlowScheduleUseCase,
             startScheduledCandleBlowUseCase = startScheduledCandleBlowUseCase,
             endScheduledCandleBlowUseCase = endScheduledCandleBlowUseCase,
+            candleBlowProperties = CandleBlowProperties(),
         )
 
     @AfterTest

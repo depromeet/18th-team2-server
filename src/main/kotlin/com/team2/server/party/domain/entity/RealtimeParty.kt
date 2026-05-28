@@ -17,6 +17,8 @@ class RealtimeParty(
     startedAt: LocalDateTime,
     @Column(name = "live_ending_started_at")
     var liveEndingStartedAt: LocalDateTime? = null,
+    @Column(name = "host_entered_at")
+    var hostEnteredAt: LocalDateTime? = null,
 ) : Party(ownerId, name, celebrantNickname, startedAt, purpose) {
     override val partyOption: PartyOption get() = PartyOption.REALTIME
 

@@ -30,6 +30,20 @@ interface PartyRepository : JpaRepository<Party, Long> {
         endingStartedAt: LocalDateTime,
     ): Int
 
+    @Modifying(flushAutomatically = true)
+    @Query(
+        """
+        UPDATE RealtimeParty party
+        SET party.hostEnteredAt = :hostEnteredAt
+        WHERE party.id = :partyId
+          AND party.hostEnteredAt IS NULL
+        """,
+    )
+    fun markHostEnteredIfAbsent(
+        partyId: Long,
+        hostEnteredAt: LocalDateTime,
+    ): Int
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(
         value =
@@ -61,6 +75,17 @@ interface PartyRepository : JpaRepository<Party, Long> {
         """,
     )
     fun findRealtimePartiesWaitingAutomaticEnding(startedAfter: LocalDateTime): List<RealtimeParty>
+
+    @Query(
+        """
+        SELECT party
+        FROM RealtimeParty party
+        WHERE party.liveEndingStartedAt IS NULL
+          AND party.hostEnteredAt IS NOT NULL
+          AND party.hostEnteredAt > :hostEnteredAfter
+        """,
+    )
+    fun findRealtimePartiesWithHostEnteredAfter(hostEnteredAfter: LocalDateTime): List<RealtimeParty>
 
     @Query(
         """

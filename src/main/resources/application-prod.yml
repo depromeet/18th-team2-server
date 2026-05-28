@@ -28,3 +28,6 @@ loki:
 
 app:
   env: prod
+
+candle-blow:
+  duration-seconds: 45

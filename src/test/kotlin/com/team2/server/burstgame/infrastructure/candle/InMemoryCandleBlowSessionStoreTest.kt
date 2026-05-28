@@ -11,7 +11,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class InMemoryCandleBlowSessionStoreTest {
-    private val partyStartedAt = LocalDateTime.of(2026, 5, 24, 20, 0)
+    private val hostEnteredAt = LocalDateTime.of(2026, 5, 24, 20, 0)
+    private val durationSeconds = 300L
     private val store = InMemoryCandleBlowSessionStore()
 
     @Test
@@ -113,7 +114,7 @@ class InMemoryCandleBlowSessionStoreTest {
                             session
                                 .blow(
                                     candleId = candleId,
-                                    now = partyStartedAt.plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS),
+                                    now = hostEnteredAt.plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS),
                                 ).changed
                         } == true
                     }
@@ -125,7 +126,7 @@ class InMemoryCandleBlowSessionStoreTest {
             assertTrue(futures.all { it.get(1, TimeUnit.SECONDS) })
             val remainingCount =
                 store.withSessionLock(1L) {
-                    it.snapshot(partyStartedAt.plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS)).remainingCount
+                    it.snapshot(hostEnteredAt.plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS)).remainingCount
                 }
             assertEquals(0, remainingCount)
         } finally {
@@ -140,8 +141,8 @@ class InMemoryCandleBlowSessionStoreTest {
         store.getOrCreateWithLock(1L, { session(1L) }) { _, _ -> }
 
         store.removeExpired(
-            partyStartedAt
-                .plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS + CandleBlowPolicy.DURATION_SECONDS)
+            hostEnteredAt
+                .plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS + durationSeconds)
                 .plus(CandleBlowPolicy.SESSION_TTL),
         )
 
@@ -153,8 +154,8 @@ class InMemoryCandleBlowSessionStoreTest {
         store.getOrCreateWithLock(1L, { session(1L) }) { _, _ -> }
 
         store.removeExpired(
-            partyStartedAt
-                .plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS + CandleBlowPolicy.DURATION_SECONDS)
+            hostEnteredAt
+                .plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS + durationSeconds)
                 .plus(CandleBlowPolicy.SESSION_TTL)
                 .minusNanos(1),
         )
@@ -163,8 +164,9 @@ class InMemoryCandleBlowSessionStoreTest {
     }
 
     private fun session(partyId: Long): CandleBlowSession =
-        CandleBlowSession.fromPartyStartedAt(
+        CandleBlowSession.fromHostEnteredAt(
             partyId = partyId,
-            partyStartedAt = partyStartedAt,
+            hostEnteredAt = hostEnteredAt,
+            durationSeconds = durationSeconds,
         )
 }

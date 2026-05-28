@@ -39,6 +39,8 @@ class BurstGameControllerTest
         private val candleBlowSessionStore: CandleBlowSessionStore,
         private val databaseCleanup: DatabaseCleanup,
     ) {
+        private val candleBlowDurationSeconds = 300L
+
         @BeforeEach
         fun setUp() {
             databaseCleanup.execute()
@@ -148,7 +150,13 @@ class BurstGameControllerTest
 
         @Test
         fun `종료 시각이 지난 촛불끄기 조회는 TIMEOUT 종료 상태를 반환한다`() {
-            val fixture = saveRealtimeParticipant(startedAt = LocalDateTime.now().minusSeconds(90))
+            val fixture =
+                saveRealtimeParticipant(
+                    startedAt =
+                        LocalDateTime
+                            .now()
+                            .minusSeconds(CandleBlowPolicy.START_DELAY_SECONDS + candleBlowDurationSeconds + 5),
+                )
 
             mockMvc
                 .get("/api/v1/parties/${fixture.partyId}/candle-blow") {
@@ -195,7 +203,13 @@ class BurstGameControllerTest
 
         @Test
         fun `촛불 세션이 없어도 촛불 종료 시각이 지난 파티는 박터뜨리기 시작 성공`() {
-            val fixture = saveRealtimeParticipant(startedAt = LocalDateTime.now().minusSeconds(90))
+            val fixture =
+                saveRealtimeParticipant(
+                    startedAt =
+                        LocalDateTime
+                            .now()
+                            .minusSeconds(CandleBlowPolicy.START_DELAY_SECONDS + candleBlowDurationSeconds + 5),
+                )
 
             mockMvc
                 .post("/api/v1/parties/${fixture.partyId}/burst-game/start") {
@@ -394,6 +408,7 @@ class BurstGameControllerTest
                         name = "실시간 파티",
                         celebrantNickname = "주인공",
                         startedAt = startedAt,
+                        hostEnteredAt = startedAt,
                     ),
                 )
             val participant = participantRepository.saveAndFlush(Participant(party = party, isCelebrant = true))
@@ -423,6 +438,7 @@ class BurstGameControllerTest
                         name = "실시간 파티",
                         celebrantNickname = "주인공",
                         startedAt = LocalDateTime.now().minusMinutes(1),
+                        hostEnteredAt = LocalDateTime.now().minusMinutes(1),
                     ),
                 )
             return listOf(

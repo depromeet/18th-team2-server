@@ -4,8 +4,10 @@ import com.team2.server.burstgame.application.port.CandleBlowEventBroadcaster
 import com.team2.server.burstgame.application.support.BurstGameParticipantResolver
 import com.team2.server.burstgame.application.support.BurstGameParticipantResolver.ResolvedRealtimeParticipant
 import com.team2.server.burstgame.application.support.CandleBlowEndEventPublisher
+import com.team2.server.burstgame.config.CandleBlowProperties
 import com.team2.server.burstgame.domain.BurstGameParticipantInfo
 import com.team2.server.burstgame.domain.candle.CandleBlowFinishedReason
+import com.team2.server.burstgame.domain.candle.CandleBlowPolicy
 import com.team2.server.burstgame.infrastructure.candle.InMemoryCandleBlowSessionStore
 import com.team2.server.party.domain.entity.RealtimeParty
 import org.junit.jupiter.api.extension.ExtendWith
@@ -29,18 +31,27 @@ class GetCandleBlowStateUseCaseTest {
     private val sessionStore = InMemoryCandleBlowSessionStore()
     private val eventBroadcaster: CandleBlowEventBroadcaster = mock()
     private val clock: Clock = Clock.fixed(Instant.parse("2026-05-21T11:02:00Z"), ZoneId.of("Asia/Seoul"))
+    private val candleBlowProperties = CandleBlowProperties()
     private val useCase =
         GetCandleBlowStateUseCase(
             participantResolver = participantResolver,
             sessionStore = sessionStore,
             endEventPublisher = CandleBlowEndEventPublisher(eventBroadcaster),
+            candleBlowProperties = candleBlowProperties,
             clock = clock,
         )
 
     @Test
     fun `조회로 촛불끄기 timeout 종료가 발생하면 ended 이벤트를 커밋 이후 발행한다`() {
         whenever(participantResolver.resolveWithParty(1L, null, "tok"))
-            .thenReturn(resolved(partyStartedAt = LocalDateTime.of(2026, 5, 21, 20, 0)))
+            .thenReturn(
+                resolved(
+                    hostEnteredAt =
+                        LocalDateTime
+                            .now(clock)
+                            .minusSeconds(CandleBlowPolicy.START_DELAY_SECONDS + candleBlowProperties.durationSeconds),
+                ),
+            )
 
         TransactionSynchronizationManager.initSynchronization()
         try {
@@ -57,14 +68,15 @@ class GetCandleBlowStateUseCaseTest {
         }
     }
 
-    private fun resolved(partyStartedAt: LocalDateTime): ResolvedRealtimeParticipant =
+    private fun resolved(hostEnteredAt: LocalDateTime): ResolvedRealtimeParticipant =
         ResolvedRealtimeParticipant(
             party =
                 RealtimeParty(
                     ownerId = 1L,
                     name = "실시간 파티",
                     celebrantNickname = "주인공",
-                    startedAt = partyStartedAt,
+                    startedAt = hostEnteredAt.minusMinutes(1),
+                    hostEnteredAt = hostEnteredAt,
                 ),
             participant =
                 BurstGameParticipantInfo(

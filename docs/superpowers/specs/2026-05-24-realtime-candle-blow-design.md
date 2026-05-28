@@ -10,18 +10,18 @@
 
 핵심 동작:
 
-- 실시간 파티가 시작된 뒤 41초가 지나면 촛불끄기 단계가 서버 기준으로 시작된다.
+- 주최자가 실시간 파티에 처음 입장한 뒤 41초가 지나면 촛불끄기 단계가 서버 기준으로 시작된다.
 - 촛불은 파티 전체가 공유하는 9개 고정 슬롯이다.
 - 실시간 파티 참여자라면 누구나 촛불을 끌 수 있다.
 - 이미 꺼진 촛불을 다시 누르면 실패가 아니라 `200 OK`로 현재 상태를 반환한다.
-- 9개 촛불이 모두 꺼지거나 시작 후 45초가 지나면 촛불끄기 단계는 종료된다.
+- 9개 촛불이 모두 꺼지거나 환경별 제한 시간이 지나면 촛불끄기 단계는 종료된다.
 - 촛불끄기 종료는 박터뜨리기 자동 시작이 아니다. 참여자 중 누군가가 다음 버튼으로 기존 박터뜨리기 start API를 호출해야 한다.
 
 기본 정책:
 
 ```kotlin
 CANDLE_BLOW_START_DELAY_SECONDS = 41
-CANDLE_BLOW_DURATION_SECONDS = 45
+CANDLE_BLOW_DURATION_SECONDS = default/dev/test 300, prod 45
 CANDLE_COUNT = 9
 ```
 
@@ -30,7 +30,7 @@ CANDLE_COUNT = 9
 | 값 | 설명 |
 |---|---|
 | `ALL_EXTINGUISHED` | 9개 촛불이 모두 꺼져 즉시 종료 |
-| `TIMEOUT` | 시작 후 45초가 지나 자동 종료 |
+| `TIMEOUT` | 시작 후 환경별 제한 시간이 지나 자동 종료 |
 
 용어:
 
@@ -46,7 +46,7 @@ CANDLE_COUNT = 9
   │                                    │
   │ 실시간 파티 입장 + SSE 연결         │
   │                                    │
-  │ party.startedAt + 41초              │
+  │ hostEnteredAt + 41초                │
   │◄── event: candle-blow-started ─────│
   │                                    │
   │── POST /parties/{id}/              │
@@ -54,7 +54,7 @@ CANDLE_COUNT = 9
   │◄── 200 OK 현재 촛불 상태 ─────────│
   │◄── event: candle-blow-progress ───│
   │                                    │
-  │ 9개 모두 꺼짐 또는 45초 경과        │
+  │ 9개 모두 꺼짐 또는 제한 시간 경과   │
   │◄── event: candle-blow-ended ──────│
   │                                    │
   │ 참여자 중 누군가 다음 버튼 클릭      │
@@ -71,12 +71,12 @@ CANDLE_COUNT = 9
 
 | 영역 | 설명 |
 |---|---|
-| 시작 예약 | `party.startedAt + 41초`에 촛불끄기 시작 예약 및 SSE 발송 |
-| 복구 | 앱 재시작, SSE 유실, 늦은 입장 시 상태 조회 또는 입장 이벤트로 현재 단계 복구 |
+| 시작 예약 | `hostEnteredAt + 41초`에 촛불끄기 시작 예약 및 SSE 발송 |
+| 복구 | `realtime_party.host_entered_at` 기준으로 앱 재시작 후 스케줄을 복구하고, SSE 유실/늦은 입장 시 상태 조회로 현재 단계 복구 |
 | 참여자 검증 | JWT 또는 `X-Participant-Token`으로 실시간 파티 참여자 확인 |
 | 공유 상태 관리 | 파티별 9개 촛불의 extinguished 상태를 단일 aggregate로 관리 |
 | 멱등 처리 | 이미 꺼진 촛불 클릭은 `200 OK`로 현재 촛불 상태를 그대로 반환 |
-| 종료 처리 | 9개 모두 꺼짐 또는 45초 타임아웃 시 finished 상태 전이 |
+| 종료 처리 | 9개 모두 꺼짐 또는 환경별 타임아웃 시 finished 상태 전이 |
 | 박터뜨리기 연동 | `CandleBlowStatusReader` 계열 계약은 `finished` 여부를 반환하도록 정렬 |
 
 ---
@@ -122,7 +122,7 @@ X-Participant-Token: {participantToken}
 
 | 값 | 설명 |
 |---|---|
-| `WAITING` | `party.startedAt + 41초` 전 |
+| `WAITING` | 주최자 미입장 또는 `hostEnteredAt + 41초` 전 |
 | `ACTIVE` | 촛불끄기 입력 가능 |
 | `FINISHED` | `ALL_EXTINGUISHED` 또는 `TIMEOUT`으로 종료 |
 
@@ -134,7 +134,7 @@ X-Participant-Token: {participantToken}
 - 아직 시작 전이면 `WAITING` 상태를 반환한다.
 - 시작/종료 예약 이벤트가 유실됐더라도 조회 시점의 서버 시간으로 lazy transition을 수행할 수 있다.
 - 조회 lazy transition은 party 단위 lock 또는 compare-and-set 안에서 수행한다.
-  - `status == WAITING && now >= party.startedAt + 41초`이면 `transitionToActiveOnce()`와 `emitStartedEventOnce()`를 같은 critical section에서 예약한다.
+  - `status == WAITING && hostEnteredAt != null && now >= hostEnteredAt + 41초`이면 `transitionToActiveOnce()`와 `emitStartedEventOnce()`를 같은 critical section에서 예약한다.
   - `status == ACTIVE && now >= endsAt`이면 `transitionToFinishedOnce()`와 `emitEndedEventOnce()`를 같은 critical section에서 예약한다.
   - persisted store로 교체할 때는 동등한 deduplication marker로 `candle-blow-started`, `candle-blow-ended`가 각각 정확히 1회만 발행되도록 보장한다.
 
@@ -193,8 +193,8 @@ X-Participant-Token: {participantToken}
 처리 정책:
 
 - `candleId`는 `1..9`만 허용한다. 범위를 벗어나면 `INVALID_INPUT`.
-- `WAITING` 상태이고 `now < party.startedAt + 41초`이면 `CANDLE_BLOW_NOT_STARTED`.
-- `WAITING` 상태지만 `now >= party.startedAt + 41초`이면 party 단위 lock 또는 compare-and-set 안에서 lazy `transitionToActiveOnce()`와 `emitStartedEventOnce()`를 예약한 뒤 촛불 끄기 요청을 처리한다.
+- `WAITING` 상태이고 주최자 미입장 또는 `now < hostEnteredAt + 41초`이면 `CANDLE_BLOW_NOT_STARTED`.
+- `WAITING` 상태지만 `hostEnteredAt != null && now >= hostEnteredAt + 41초`이면 party 단위 lock 또는 compare-and-set 안에서 lazy `transitionToActiveOnce()`와 `emitStartedEventOnce()`를 예약한 뒤 촛불 끄기 요청을 처리한다.
 - `FINISHED` 상태에서 호출하면 `200 OK`와 현재 종료 상태를 반환한다.
 - 이미 꺼진 촛불이면 `200 OK`와 현재 상태를 반환한다.
 - 새 촛불이 꺼지면 현재 9개 촛불 상태를 반환하고 progress SSE 발송 대상이 된다.
@@ -215,13 +215,13 @@ data: {"partyId":1,"status":"ACTIVE","candles":[{"candleId":1,"extinguished":fal
 
 발생 조건:
 
-- `party.startedAt + 41초` 도달
+- `hostEnteredAt + 41초` 도달
 - 서버 재시작 후 복구 시 이미 시작 시간이 지났지만 아직 종료 시간이 지나지 않은 경우
 - 상태 조회 또는 촛불 끄기 요청에서 `WAITING` lazy transition이 발생한 경우
 
 정확히 1회 발송 조건:
 
-- scheduler 시작, 서버 재시작 복구, 상태 조회 lazy transition, 촛불 끄기 요청이 동시에 시작을 시도해도 party 단위 lock 또는 compare-and-set에서 `status == WAITING && now >= party.startedAt + 41초`를 획득한 하나의 경로만 `transitionToActiveOnce()`를 수행한다.
+- scheduler 시작, 서버 재시작 복구, 상태 조회 lazy transition, 촛불 끄기 요청이 동시에 시작을 시도해도 party 단위 lock 또는 compare-and-set에서 `status == WAITING && hostEnteredAt != null && now >= hostEnteredAt + 41초`를 획득한 하나의 경로만 `transitionToActiveOnce()`를 수행한다.
 - 같은 critical section 안에서 started snapshot과 `emitStartedEventOnce()` 예약 여부를 결정한다.
 - persisted store 구현으로 교체할 경우에는 status 전이와 event deduplication marker 저장을 하나의 원자적 연산으로 처리한다.
 
@@ -247,7 +247,7 @@ data: {"partyId":1,"status":"FINISHED","candles":[{"candleId":1,"extinguished":t
 발생 조건:
 
 - 9개 촛불이 모두 꺼짐
-- 시작 후 45초 경과
+- 시작 후 환경별 제한 시간 경과
 
 정확히 1회 발송 조건:
 
@@ -280,7 +280,7 @@ interface CandleBlowStatusReader {
 
 ## 6. 상태 저장 전략 [구현]
 
-1차 구현은 DB 저장 없이 in-memory session으로 처리한다.
+촛불 세션 상태는 in-memory로 처리한다. 단, 촛불 시작 기준인 `realtime_party.host_entered_at`은 DB에 저장해 서버 재시작 후 시작/종료 스케줄을 복구할 수 있게 한다.
 
 전제:
 
@@ -334,12 +334,12 @@ burstgame/infrastructure/scheduler
 
 ## 8. 테스트 포인트
 
-- `party.startedAt + 41초` 전 상태 조회는 `WAITING`.
-- `party.startedAt + 41초` 이후 상태 조회는 `ACTIVE`.
+- 주최자 미입장 또는 `hostEnteredAt + 41초` 전 상태 조회는 `WAITING`.
+- `hostEnteredAt + 41초` 이후 상태 조회는 `ACTIVE`.
 - 촛불 1개 끄기 성공 시 해당 `candleId`의 `extinguished`가 `true`로 바뀐다.
 - 이미 꺼진 촛불 재클릭은 `200 OK`와 현재 9개 촛불 상태를 반환한다.
 - 9개가 모두 꺼지면 `FINISHED`, `finishedReason=ALL_EXTINGUISHED`.
-- 45초가 지나면 `FINISHED`, `finishedReason=TIMEOUT`.
+- 환경별 제한 시간이 지나면 `FINISHED`, `finishedReason=TIMEOUT`.
 - 종료 후 클릭은 `200 OK`와 현재 종료 상태를 반환한다.
 - `FINISHED` 상태에서는 박터뜨리기 start가 가능하다.
 - `WAITING`/`ACTIVE` 상태에서는 박터뜨리기 start가 `BURST_GAME_NOT_READY`.

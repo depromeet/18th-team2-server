@@ -1,5 +1,6 @@
 package com.team2.server.burstgame.infrastructure.candle
 
+import com.team2.server.burstgame.config.CandleBlowProperties
 import com.team2.server.burstgame.domain.candle.CandleBlowFinishedReason
 import com.team2.server.burstgame.domain.candle.CandleBlowPolicy
 import com.team2.server.burstgame.domain.candle.CandleBlowSession
@@ -9,21 +10,22 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class InMemoryCandleBlowStatusReaderTest {
-    private val partyStartedAt = LocalDateTime.of(2026, 5, 24, 20, 0)
-    private val startedAt = partyStartedAt.plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS)
+    private val hostEnteredAt = LocalDateTime.of(2026, 5, 24, 20, 0)
+    private val startedAt = hostEnteredAt.plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS)
+    private val candleBlowProperties = CandleBlowProperties()
     private val store = InMemoryCandleBlowSessionStore()
-    private val reader = InMemoryCandleBlowStatusReader(store)
+    private val reader = InMemoryCandleBlowStatusReader(store, candleBlowProperties)
 
     @Test
     fun `세션이 없으면 촛불끄기 미완료로 판단한다`() {
-        assertFalse(reader.isCandleBlowFinished(partyId = 1L, partyStartedAt = partyStartedAt, now = startedAt))
+        assertFalse(reader.isCandleBlowFinished(partyId = 1L, hostEnteredAt = hostEnteredAt, now = startedAt))
     }
 
     @Test
     fun `촛불끄기가 active이면 미완료로 판단한다`() {
         store.getOrCreateWithLock(1L, { session(1L) }) { _, _ -> }
 
-        assertFalse(reader.isCandleBlowFinished(partyId = 1L, partyStartedAt = partyStartedAt, now = startedAt))
+        assertFalse(reader.isCandleBlowFinished(partyId = 1L, hostEnteredAt = hostEnteredAt, now = startedAt))
     }
 
     @Test
@@ -37,7 +39,7 @@ class InMemoryCandleBlowStatusReaderTest {
         assertTrue(
             reader.isCandleBlowFinished(
                 partyId = 1L,
-                partyStartedAt = partyStartedAt,
+                hostEnteredAt = hostEnteredAt,
                 now = startedAt.plusSeconds(10),
             ),
         )
@@ -50,8 +52,8 @@ class InMemoryCandleBlowStatusReaderTest {
         assertTrue(
             reader.isCandleBlowFinished(
                 partyId = 1L,
-                partyStartedAt = partyStartedAt,
-                now = startedAt.plusSeconds(CandleBlowPolicy.DURATION_SECONDS),
+                hostEnteredAt = hostEnteredAt,
+                now = startedAt.plusSeconds(candleBlowProperties.durationSeconds),
             ),
         )
         assertTrue(
@@ -66,8 +68,8 @@ class InMemoryCandleBlowStatusReaderTest {
         assertTrue(
             reader.isCandleBlowFinished(
                 partyId = 1L,
-                partyStartedAt = partyStartedAt,
-                now = startedAt.plusSeconds(CandleBlowPolicy.DURATION_SECONDS),
+                hostEnteredAt = hostEnteredAt,
+                now = startedAt.plusSeconds(candleBlowProperties.durationSeconds),
             ),
         )
         assertTrue(
@@ -78,8 +80,9 @@ class InMemoryCandleBlowStatusReaderTest {
     }
 
     private fun session(partyId: Long): CandleBlowSession =
-        CandleBlowSession.fromPartyStartedAt(
+        CandleBlowSession.fromHostEnteredAt(
             partyId = partyId,
-            partyStartedAt = partyStartedAt,
+            hostEnteredAt = hostEnteredAt,
+            durationSeconds = candleBlowProperties.durationSeconds,
         )
 }

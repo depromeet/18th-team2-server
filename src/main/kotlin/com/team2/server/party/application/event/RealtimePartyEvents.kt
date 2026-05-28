@@ -7,6 +7,11 @@ data class RealtimePartyCreatedEvent(
     val startedAt: LocalDateTime,
 )
 
+data class RealtimePartyHostEnteredEvent(
+    val partyId: Long,
+    val hostEnteredAt: LocalDateTime,
+)
+
 data class RealtimePartyEndingStartedEvent(
     val partyId: Long,
     val endingStartedAt: LocalDateTime,
