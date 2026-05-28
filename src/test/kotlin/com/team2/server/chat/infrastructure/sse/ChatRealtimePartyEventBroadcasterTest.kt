@@ -1,7 +1,6 @@
 package com.team2.server.chat.infrastructure.sse
 
 import org.junit.jupiter.api.Test
-import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.eq
@@ -19,13 +18,11 @@ class ChatRealtimePartyEventBroadcasterTest {
 
     @Test
     fun `broadcasts realtime party events through chat SSE registry`() {
-        broadcaster.broadcastHostEndAvailable(partyId = 1L, availableAt = now)
         broadcaster.broadcastPartyEnding(partyId = 1L, endingStartedAt = now, endedAt = now.plusSeconds(60))
         broadcaster.broadcastPartyEnded(partyId = 1L, endedAt = now.plusSeconds(60))
         broadcaster.completeParty(partyId = 1L)
 
         val eventCaptor = argumentCaptor<Set<ResponseBodyEmitter.DataWithMediaType>>()
-        verify(sseEmitterRegistry).broadcastHost(eq(1L), any())
         verify(sseEmitterRegistry, times(2)).broadcast(eq(1L), eventCaptor.capture(), anyOrNull())
         verify(sseEmitterRegistry).completeAll(1L)
         assertEquals(listOf("party-ending", "party-ended"), eventCaptor.allValues.map(::eventName))

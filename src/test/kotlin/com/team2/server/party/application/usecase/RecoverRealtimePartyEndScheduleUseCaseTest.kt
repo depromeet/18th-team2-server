@@ -2,7 +2,6 @@ package com.team2.server.party.application.usecase
 
 import com.team2.server.party.application.dto.RealtimeAutomaticEndSchedule
 import com.team2.server.party.application.dto.RealtimeEndingScheduleTarget
-import com.team2.server.party.application.dto.RealtimeHostEndAvailableSchedule
 import com.team2.server.party.application.dto.RealtimePartyEndRecoverySchedules
 import com.team2.server.party.application.service.RealtimePartyEndService
 import org.junit.jupiter.api.Test
@@ -26,7 +25,6 @@ class RecoverRealtimePartyEndScheduleUseCaseTest {
         whenever(realtimePartyEndService.findRecoverySchedules(now))
             .thenReturn(
                 RealtimePartyEndRecoverySchedules(
-                    hostEndAvailableSchedules = listOf(RealtimeHostEndAvailableSchedule(3L, now.minusMinutes(1))),
                     automaticEndSchedules = listOf(RealtimeAutomaticEndSchedule(1L, now.plusMinutes(1))),
                 ),
             )
@@ -36,8 +34,6 @@ class RecoverRealtimePartyEndScheduleUseCaseTest {
         val result = useCase()
 
         verify(realtimePartyEndService).startDueAutomaticEndings(now)
-        assertEquals(3L, result.hostEndAvailableSchedules.single().partyId)
-        assertEquals(now.minusMinutes(1), result.hostEndAvailableSchedules.single().startedAt)
         assertEquals(1L, result.automaticEndSchedules.single().partyId)
         assertEquals(now.plusMinutes(1), result.automaticEndSchedules.single().endingStartedAt)
         assertEquals(2L, result.endingTargets.single().partyId)

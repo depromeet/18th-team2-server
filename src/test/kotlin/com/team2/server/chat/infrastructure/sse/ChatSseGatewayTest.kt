@@ -26,18 +26,9 @@ class ChatSseGatewayTest {
     fun `subscribe delegates to registry`() {
         val emitter = SseEmitter()
 
-        gateway.subscribe(1L, emitter, "tok", isHost = true)
-
-        verify(sseEmitterRegistry).subscribe(1L, emitter, "tok", true)
-    }
-
-    @Test
-    fun `subscribe uses participant role by default`() {
-        val emitter = SseEmitter()
-
         gateway.subscribe(1L, emitter, "tok")
 
-        verify(sseEmitterRegistry).subscribe(1L, emitter, "tok", false)
+        verify(sseEmitterRegistry).subscribe(1L, emitter, "tok")
     }
 
     @Test

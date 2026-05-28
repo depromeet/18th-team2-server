@@ -4,7 +4,6 @@ import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.dto.RealtimePartyEndStartResult
 import com.team2.server.party.application.event.RealtimePartyEndingEventPublisher
-import com.team2.server.party.application.port.BurstGameCompletionReader
 import com.team2.server.party.application.service.PartyService
 import com.team2.server.party.application.service.RealtimePartyEndService
 import com.team2.server.party.domain.entity.Party
@@ -23,7 +22,6 @@ import kotlin.test.assertEquals
 class StartRealtimePartyEndUseCaseTest {
     private val partyService: PartyService = mock()
     private val realtimePartyEndService: RealtimePartyEndService = mock()
-    private val burstGameCompletionReader: BurstGameCompletionReader = mock()
     private val eventPublisher: RealtimePartyEndingEventPublisher = mock()
     private val zone = ZoneId.of("Asia/Seoul")
     private val now = LocalDateTime.of(2026, 5, 23, 10, 0)
@@ -32,7 +30,6 @@ class StartRealtimePartyEndUseCaseTest {
         StartRealtimePartyEndUseCase(
             partyService,
             realtimePartyEndService,
-            burstGameCompletionReader,
             eventPublisher,
             clock,
         )
@@ -58,20 +55,20 @@ class StartRealtimePartyEndUseCaseTest {
     }
 
     @Test
-    fun `LIVE_OPEN before host available time cannot start ending`() {
-        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(1))
+    fun `ROLLING_PAPER_OPEN party cannot start ending`() {
+        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.plusMinutes(1))
         whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
 
         val ex = assertThrows<BusinessException> { useCase(1L, userId = 1L) }
 
-        assertEquals(ErrorCode.REALTIME_PARTY_END_NOT_AVAILABLE, ex.errorCode)
+        assertEquals(ErrorCode.REALTIME_PARTY_INVALID_STATE, ex.errorCode)
     }
 
     @Test
     fun `LIVE_OPEN host starts ending and publishes event when newly persisted`() {
         val endingStartedAt = now
-        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(5))
-        val endedParty = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(5), endingStartedAt)
+        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(1))
+        val endedParty = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(1), endingStartedAt)
         whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
         whenever(realtimePartyEndService.startIfNotStarted(1L, endingStartedAt))
             .thenReturn(RealtimePartyEndStartResult(affected = 1, party = endedParty))
@@ -80,26 +77,6 @@ class StartRealtimePartyEndUseCaseTest {
 
         assertEquals(endingStartedAt, result.endingStartedAt)
         verify(eventPublisher).publish(result)
-    }
-
-    @Test
-    fun `LIVE_OPEN host can start ending before four minutes when burst game ended`() {
-        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(1))
-        val endedParty =
-            realtimeParty(
-                id = 1L,
-                ownerId = 1L,
-                startedAt = now.minusMinutes(1),
-                liveEndingStartedAt = now,
-            )
-        whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
-        whenever(burstGameCompletionReader.isCompleted(1L, now)).thenReturn(true)
-        whenever(realtimePartyEndService.startIfNotStarted(1L, now))
-            .thenReturn(RealtimePartyEndStartResult(affected = 1, party = endedParty))
-
-        val result = useCase(1L, userId = 1L)
-
-        assertEquals(now, result.endingStartedAt)
     }
 
     @Test

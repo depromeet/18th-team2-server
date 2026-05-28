@@ -4,11 +4,6 @@ import com.team2.server.party.domain.vo.PartyPhase
 import java.time.LocalDateTime
 
 interface RealtimePartyEventBroadcaster {
-    fun broadcastHostEndAvailable(
-        partyId: Long,
-        availableAt: LocalDateTime,
-    )
-
     fun broadcastPartyEnding(
         partyId: Long,
         endingStartedAt: LocalDateTime,

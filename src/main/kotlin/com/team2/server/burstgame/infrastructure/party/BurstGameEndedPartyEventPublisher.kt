@@ -14,10 +14,7 @@ class BurstGameEndedPartyEventPublisher(
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     fun onBurstGameEnded(event: BurstGameEndedEvent) {
         applicationEventPublisher.publishEvent(
-            RealtimePartyBurstGameEndedEvent(
-                partyId = event.partyId,
-                endedAt = event.endedAt,
-            ),
+            RealtimePartyBurstGameEndedEvent(partyId = event.partyId, endedAt = event.endedAt),
         )
     }
 }

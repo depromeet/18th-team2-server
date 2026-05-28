@@ -1,6 +1,5 @@
 package com.team2.server.burstgame.infrastructure.realtime
 
-import com.team2.server.burstgame.application.event.BurstGameEndedEvent
 import com.team2.server.burstgame.domain.BurstGameRankingEntry
 import com.team2.server.burstgame.domain.BurstGameRoundStatus
 import com.team2.server.burstgame.domain.BurstGameSnapshot
@@ -11,16 +10,13 @@ import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.isNull
 import org.mockito.kotlin.mock
-import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
-import org.mockito.kotlin.whenever
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter
 import java.time.LocalDateTime
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 
 class SseBurstGameEventBroadcasterTest {
     private val partySseEventPublisher: PartySseEventPublisher = mock()
@@ -71,9 +67,6 @@ class SseBurstGameEventBroadcasterTest {
         broadcaster.broadcastEnded(endedSnapshot)
 
         verify(partySseEventPublisher, timeout(400).times(1)).broadcastAfterCommit(eq(1L), anyEvent(), isNull())
-        verify(applicationEventPublisher).publishEvent(
-            BurstGameEndedEvent(1L, endedSnapshot.serverTime),
-        )
     }
 
     @Test
@@ -90,28 +83,6 @@ class SseBurstGameEventBroadcasterTest {
             ),
         )
         broadcaster.broadcastProgress(snapshot(totalTapCount = 2, stateVersion = 1, startedAt = newStartedAt))
-
-        verify(partySseEventPublisher, timeout(1_000).times(2)).broadcastAfterCommit(eq(1L), anyEvent(), isNull())
-    }
-
-    @Test
-    fun `ended 이벤트 발행 실패 시에도 ended round cleanup을 예약한다`() {
-        val endedStartedAt = LocalDateTime.of(2026, 5, 18, 14, 20)
-        whenever(applicationEventPublisher.publishEvent(any<BurstGameEndedEvent>()))
-            .thenThrow(RuntimeException("publish failed"))
-
-        assertFailsWith<RuntimeException> {
-            broadcaster.broadcastEnded(
-                snapshot(
-                    status = BurstGameRoundStatus.ENDED,
-                    totalTapCount = 1,
-                    stateVersion = 2,
-                    startedAt = endedStartedAt,
-                ),
-            )
-        }
-        Thread.sleep(300)
-        broadcaster.broadcastProgress(snapshot(totalTapCount = 2, stateVersion = 3, startedAt = endedStartedAt))
 
         verify(partySseEventPublisher, timeout(1_000).times(2)).broadcastAfterCommit(eq(1L), anyEvent(), isNull())
     }

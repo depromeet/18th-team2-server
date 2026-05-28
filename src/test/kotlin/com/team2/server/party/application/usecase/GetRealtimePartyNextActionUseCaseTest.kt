@@ -36,7 +36,7 @@ class GetRealtimePartyNextActionUseCaseTest {
         )
 
     @Test
-    fun `LIVE_OPEN party throws REALTIME_PARTY_END_NOT_AVAILABLE`() {
+    fun `LIVE_OPEN party throws REALTIME_PARTY_INVALID_STATE`() {
         val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(1))
         whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
 
@@ -45,7 +45,7 @@ class GetRealtimePartyNextActionUseCaseTest {
                 useCase(1L, userId = 1L, participantToken = null)
             }
 
-        assertEquals(ErrorCode.REALTIME_PARTY_END_NOT_AVAILABLE, ex.errorCode)
+        assertEquals(ErrorCode.REALTIME_PARTY_INVALID_STATE, ex.errorCode)
     }
 
     @Test

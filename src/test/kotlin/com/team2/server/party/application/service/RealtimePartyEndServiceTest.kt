@@ -15,10 +15,8 @@ import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertSame
-import kotlin.test.assertTrue
 
 class RealtimePartyEndServiceTest {
     private val partyRepository: PartyRepository = mock()
@@ -77,7 +75,7 @@ class RealtimePartyEndServiceTest {
     }
 
     @Test
-    fun `findRecoverySchedules maps automatic and host end available schedules from one waiting party query`() {
+    fun `findRecoverySchedules maps automatic schedules from waiting party query`() {
         val party = realtimeParty(id = 2L)
         whenever(partyRepository.findRealtimePartiesWaitingAutomaticEnding(any())).thenReturn(listOf(party))
 
@@ -85,8 +83,6 @@ class RealtimePartyEndServiceTest {
 
         assertEquals(2L, result.automaticEndSchedules.single().partyId)
         assertEquals(party.automaticEndingStartedAt(), result.automaticEndSchedules.single().endingStartedAt)
-        assertEquals(2L, result.hostEndAvailableSchedules.single().partyId)
-        assertEquals(startedAt, result.hostEndAvailableSchedules.single().startedAt)
         verify(partyRepository).findRealtimePartiesWaitingAutomaticEnding(any())
     }
 
@@ -102,25 +98,6 @@ class RealtimePartyEndServiceTest {
         assertEquals(endingStartedAt, result.single().endingStartedAt)
         assertEquals(endingStartedAt.plusSeconds(RealtimeParty.LIVE_END_COUNTDOWN_SECONDS), result.single().endedAt)
         assertEquals(false, result.single().startedNow)
-    }
-
-    @Test
-    fun `canNotifyHostEndAvailable returns true only for live open realtime party without ending`() {
-        val party = realtimeParty(id = 4L)
-        whenever(partyRepository.findPartyById(4L)).thenReturn(party)
-
-        assertTrue(service.canNotifyHostEndAvailable(4L, startedAt.plusMinutes(1)))
-    }
-
-    @Test
-    fun `canNotifyHostEndAvailable returns false for non realtime or ending party`() {
-        val paperOnly = PaperOnlyParty(ownerId = 1L, startedAt = startedAt)
-        val endingParty = realtimeParty(id = 5L, liveEndingStartedAt = startedAt.plusMinutes(1))
-        whenever(partyRepository.findPartyById(4L)).thenReturn(paperOnly)
-        whenever(partyRepository.findPartyById(5L)).thenReturn(endingParty)
-
-        assertFalse(service.canNotifyHostEndAvailable(4L, startedAt.plusMinutes(1)))
-        assertFalse(service.canNotifyHostEndAvailable(5L, startedAt.plusMinutes(1)))
     }
 
     @Test

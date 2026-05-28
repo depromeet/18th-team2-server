@@ -6,7 +6,6 @@ import com.team2.server.chat.infrastructure.sse.ChatSseGateway
 import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.common.image.persistence.ImageUrlReader
 import com.team2.server.party.application.dto.RealtimePartyStateResult
-import com.team2.server.party.application.event.RealtimePartyHostEndAvailableScheduleRequestedEvent
 import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
@@ -20,7 +19,6 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
-import org.springframework.context.ApplicationEventPublisher
 import java.time.LocalDateTime
 import kotlin.test.assertNotNull
 
@@ -33,8 +31,6 @@ class EnterAndSubscribeChatUseCaseTest {
     @Mock lateinit var imageUrlReader: ImageUrlReader
 
     @Mock lateinit var chatSseGateway: ChatSseGateway
-
-    @Mock lateinit var applicationEventPublisher: ApplicationEventPublisher
 
     @InjectMocks
     lateinit var useCase: EnterAndSubscribeChatUseCase
@@ -77,11 +73,8 @@ class EnterAndSubscribeChatUseCaseTest {
         val emitter = useCase.enterAndSubscribe("tok", null, request)
 
         assertNotNull(emitter)
-        verify(chatSseGateway).subscribe(eq(1L), any(), eq("abc12345"), eq(false))
+        verify(chatSseGateway).subscribe(eq(1L), any(), eq("abc12345"))
         verify(chatSseGateway).broadcastAfterCommit(eq(1L), any(), eq("abc12345"))
-        verify(applicationEventPublisher).publishEvent(
-            RealtimePartyHostEndAvailableScheduleRequestedEvent(enterResult.partyId, enterResult.startedAt),
-        )
     }
 
     @Test
@@ -95,11 +88,8 @@ class EnterAndSubscribeChatUseCaseTest {
         val emitter = useCase.enterAndSubscribe("tok", null, request)
 
         assertNotNull(emitter)
-        verify(chatSseGateway).subscribe(eq(1L), any(), eq("abc12345"), eq(false))
+        verify(chatSseGateway).subscribe(eq(1L), any(), eq("abc12345"))
         verify(chatSseGateway).broadcastAfterCommit(eq(1L), any(), eq("abc12345"))
-        verify(applicationEventPublisher).publishEvent(
-            RealtimePartyHostEndAvailableScheduleRequestedEvent(enterResult.partyId, enterResult.startedAt),
-        )
     }
 
     @Test
@@ -114,9 +104,6 @@ class EnterAndSubscribeChatUseCaseTest {
         useCase.enterAndSubscribe("tok", null, request)
 
         verify(chatSseGateway).broadcastAfterCommit(eq(1L), any(), eq("abc12345"))
-        verify(chatSseGateway).subscribe(eq(1L), any(), eq("abc12345"), eq(true))
-        verify(applicationEventPublisher).publishEvent(
-            RealtimePartyHostEndAvailableScheduleRequestedEvent(enterResult.partyId, enterResult.startedAt),
-        )
+        verify(chatSseGateway).subscribe(eq(1L), any(), eq("abc12345"))
     }
 }

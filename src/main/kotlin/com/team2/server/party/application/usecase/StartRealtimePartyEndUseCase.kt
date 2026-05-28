@@ -4,7 +4,6 @@ import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.dto.RealtimePartyEndResult
 import com.team2.server.party.application.dto.RealtimePartyEndStartResult
 import com.team2.server.party.application.event.RealtimePartyEndingEventPublisher
-import com.team2.server.party.application.port.BurstGameCompletionReader
 import com.team2.server.party.application.service.PartyService
 import com.team2.server.party.application.service.RealtimePartyEndService
 import com.team2.server.party.domain.entity.RealtimePartyStatus
@@ -17,7 +16,6 @@ import java.time.LocalDateTime
 class StartRealtimePartyEndUseCase(
     private val partyService: PartyService,
     private val realtimePartyEndService: RealtimePartyEndService,
-    private val burstGameCompletionReader: BurstGameCompletionReader,
     private val realtimePartyEndingEventPublisher: RealtimePartyEndingEventPublisher,
     private val clock: Clock,
 ) {
@@ -38,15 +36,9 @@ class StartRealtimePartyEndUseCase(
                         party.liveEndingStartedAt ?: party.automaticEndingStartedAt(),
                     ),
                 )
-            RealtimePartyStatus.LIVE_OPEN -> {
-                if (
-                    (now.isBefore(party.hostEndAvailableAt()) && !burstGameCompletionReader.isCompleted(party.id, now))
-                ) {
-                    throwPartyBusiness(ErrorCode.REALTIME_PARTY_END_NOT_AVAILABLE)
-                }
+            RealtimePartyStatus.LIVE_OPEN ->
                 toResultAndPublish(realtimePartyEndService.startIfNotStarted(party.id, now))
-            }
-            else -> throwPartyBusiness(ErrorCode.REALTIME_PARTY_END_NOT_AVAILABLE)
+            else -> throwPartyBusiness(ErrorCode.REALTIME_PARTY_INVALID_STATE)
         }
     }
 
