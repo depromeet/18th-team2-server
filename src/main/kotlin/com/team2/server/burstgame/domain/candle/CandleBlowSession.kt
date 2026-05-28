@@ -121,12 +121,23 @@ class CandleBlowSession(
         fun fromPartyStartedAt(
             partyId: Long,
             partyStartedAt: LocalDateTime,
+        ): CandleBlowSession =
+            fromHostEnteredAt(
+                partyId = partyId,
+                hostEnteredAt = partyStartedAt,
+                durationSeconds = CandleBlowPolicy.DEFAULT_DURATION_SECONDS,
+            )
+
+        fun fromHostEnteredAt(
+            partyId: Long,
+            hostEnteredAt: LocalDateTime,
+            durationSeconds: Long,
         ): CandleBlowSession {
-            val startedAt = partyStartedAt.plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS)
+            val startedAt = hostEnteredAt.plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS)
             return CandleBlowSession(
                 partyId = partyId,
                 startedAt = startedAt,
-                endsAt = startedAt.plusSeconds(CandleBlowPolicy.DURATION_SECONDS),
+                endsAt = startedAt.plusSeconds(durationSeconds),
             )
         }
     }

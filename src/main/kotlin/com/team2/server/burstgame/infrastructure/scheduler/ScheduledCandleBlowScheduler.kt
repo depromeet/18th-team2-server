@@ -4,9 +4,10 @@ import com.team2.server.burstgame.application.port.CandleBlowScheduler
 import com.team2.server.burstgame.application.usecase.EndScheduledCandleBlowUseCase
 import com.team2.server.burstgame.application.usecase.RecoverCandleBlowScheduleUseCase
 import com.team2.server.burstgame.application.usecase.StartScheduledCandleBlowUseCase
+import com.team2.server.burstgame.config.CandleBlowProperties
 import com.team2.server.burstgame.domain.candle.CandleBlowPolicy
 import com.team2.server.burstgame.domain.candle.CandleBlowStatus
-import com.team2.server.party.application.event.RealtimePartyCreatedEvent
+import com.team2.server.party.application.event.RealtimePartyHostEnteredEvent
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
@@ -28,6 +29,7 @@ class ScheduledCandleBlowScheduler(
     private val recoverCandleBlowScheduleUseCase: RecoverCandleBlowScheduleUseCase,
     private val startScheduledCandleBlowUseCase: StartScheduledCandleBlowUseCase,
     private val endScheduledCandleBlowUseCase: EndScheduledCandleBlowUseCase,
+    private val candleBlowProperties: CandleBlowProperties,
 ) : CandleBlowScheduler {
     private val log = LoggerFactory.getLogger(javaClass)
     private val executor =
@@ -60,7 +62,7 @@ class ScheduledCandleBlowScheduler(
 
     private fun recoverSchedulesOnce() {
         recoverCandleBlowScheduleUseCase().forEach { target ->
-            scheduleParty(target.partyId, target.partyStartedAt)
+            scheduleParty(target.partyId, target.hostEnteredAt)
         }
     }
 
@@ -74,21 +76,21 @@ class ScheduledCandleBlowScheduler(
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    fun onRealtimePartyCreated(event: RealtimePartyCreatedEvent) {
-        scheduleParty(event.partyId, event.startedAt)
+    fun onRealtimePartyHostEntered(event: RealtimePartyHostEnteredEvent) {
+        scheduleParty(event.partyId, event.hostEnteredAt)
     }
 
     fun scheduleParty(
         partyId: Long,
-        partyStartedAt: LocalDateTime,
+        hostEnteredAt: LocalDateTime,
     ) {
-        val startsAt = partyStartedAt.plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS)
-        val endsAt = startsAt.plusSeconds(CandleBlowPolicy.DURATION_SECONDS)
+        val startsAt = hostEnteredAt.plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS)
+        val endsAt = startsAt.plusSeconds(candleBlowProperties.durationSeconds)
         scheduleStart(partyId, startsAt) { scheduledPartyId ->
             val snapshot =
                 startScheduledCandleBlowUseCase(
                     partyId = scheduledPartyId,
-                    partyStartedAt = partyStartedAt,
+                    hostEnteredAt = hostEnteredAt,
                     now = LocalDateTime.now(clock),
                 )
             if (snapshot.status != CandleBlowStatus.FINISHED) {

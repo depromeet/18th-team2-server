@@ -1,6 +1,7 @@
 package com.team2.server.burstgame.application.usecase
 
 import com.team2.server.burstgame.application.port.CandleBlowEventBroadcaster
+import com.team2.server.burstgame.config.CandleBlowProperties
 import com.team2.server.burstgame.domain.candle.CandleBlowFinishedReason
 import com.team2.server.burstgame.domain.candle.CandleBlowPolicy
 import com.team2.server.burstgame.domain.candle.CandleBlowStatus
@@ -16,7 +17,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class StartScheduledCandleBlowUseCaseTest {
-    private val partyStartedAt = LocalDateTime.of(2026, 5, 24, 20, 0)
+    private val hostEnteredAt = LocalDateTime.of(2026, 5, 24, 20, 0)
     private lateinit var sessionStore: InMemoryCandleBlowSessionStore
     private lateinit var eventBroadcaster: CandleBlowEventBroadcaster
     private lateinit var useCase: StartScheduledCandleBlowUseCase
@@ -29,6 +30,7 @@ class StartScheduledCandleBlowUseCaseTest {
             StartScheduledCandleBlowUseCase(
                 sessionStore = sessionStore,
                 eventBroadcaster = eventBroadcaster,
+                candleBlowProperties = CandleBlowProperties(),
             )
     }
 
@@ -37,7 +39,7 @@ class StartScheduledCandleBlowUseCaseTest {
         val result =
             useCase(
                 partyId = 1L,
-                partyStartedAt = partyStartedAt,
+                hostEnteredAt = hostEnteredAt,
                 now = candleStartedAt(),
             )
 
@@ -51,7 +53,7 @@ class StartScheduledCandleBlowUseCaseTest {
         val result =
             useCase(
                 partyId = 1L,
-                partyStartedAt = partyStartedAt,
+                hostEnteredAt = hostEnteredAt,
                 now = candleEndedAt(),
             )
 
@@ -65,12 +67,12 @@ class StartScheduledCandleBlowUseCaseTest {
     fun `같은 세션의 started 이벤트는 한 번만 발행한다`() {
         useCase(
             partyId = 1L,
-            partyStartedAt = partyStartedAt,
+            hostEnteredAt = hostEnteredAt,
             now = candleStartedAt(),
         )
         useCase(
             partyId = 1L,
-            partyStartedAt = partyStartedAt,
+            hostEnteredAt = hostEnteredAt,
             now = candleStartedAt().plusSeconds(1),
         )
 
@@ -83,7 +85,7 @@ class StartScheduledCandleBlowUseCaseTest {
         val result =
             useCase(
                 partyId = 1L,
-                partyStartedAt = partyStartedAt,
+                hostEnteredAt = hostEnteredAt,
                 now = candleStartedAt().minusNanos(1),
             )
 
@@ -92,7 +94,7 @@ class StartScheduledCandleBlowUseCaseTest {
         verify(eventBroadcaster, never()).broadcastEnded(any())
     }
 
-    private fun candleStartedAt(): LocalDateTime = partyStartedAt.plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS)
+    private fun candleStartedAt(): LocalDateTime = hostEnteredAt.plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS)
 
     private fun candleEndedAt(): LocalDateTime = candleStartedAt().plusSeconds(CandleBlowPolicy.DURATION_SECONDS)
 }

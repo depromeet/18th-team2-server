@@ -28,7 +28,7 @@ import kotlin.test.assertEquals
 
 @ExtendWith(MockitoExtension::class)
 class StartBurstGameUseCaseTest {
-    private val partyStartedAt = LocalDateTime.of(2026, 5, 21, 20, 9)
+    private val hostEnteredAt = LocalDateTime.of(2026, 5, 21, 20, 9)
     private val participantResolver: BurstGameParticipantResolver = mock()
     private val sessionService: BurstGameSessionService = mock()
     private val startSideEffectHandler: BurstGameStartSideEffectHandler = mock()
@@ -48,7 +48,7 @@ class StartBurstGameUseCaseTest {
         val startResult = BurstGameSessionService.StartResult.Started(snapshot, created = true)
         val now = LocalDateTime.ofInstant(clock.instant(), clock.zone)
         whenever(participantResolver.resolveWithParty(1L, null, "tok")).thenReturn(resolved(participant))
-        whenever(sessionService.start(eq(1L), eq(partyStartedAt), eq(participant), any()))
+        whenever(sessionService.start(eq(1L), eq(hostEnteredAt), eq(participant), any()))
             .thenReturn(startResult)
         whenever(startSideEffectHandler.resolve(startResult)).thenReturn(startResult)
 
@@ -64,7 +64,7 @@ class StartBurstGameUseCaseTest {
         val snapshot = endedSnapshot()
         val startResult = BurstGameSessionService.StartResult.AlreadyEnded(snapshot, endedNow = true)
         whenever(participantResolver.resolveWithParty(1L, null, "tok")).thenReturn(resolved(participant))
-        whenever(sessionService.start(eq(1L), eq(partyStartedAt), eq(participant), any()))
+        whenever(sessionService.start(eq(1L), eq(hostEnteredAt), eq(participant), any()))
             .thenReturn(startResult)
         whenever(startSideEffectHandler.resolve(startResult))
             .thenThrow(BusinessException(ErrorCode.BURST_GAME_ALREADY_ENDED))
@@ -85,7 +85,8 @@ class StartBurstGameUseCaseTest {
                     ownerId = 1L,
                     name = "실시간 파티",
                     celebrantNickname = "주인공",
-                    startedAt = partyStartedAt,
+                    startedAt = hostEnteredAt.minusMinutes(1),
+                    hostEnteredAt = hostEnteredAt,
                 ),
             participant = participant,
         )

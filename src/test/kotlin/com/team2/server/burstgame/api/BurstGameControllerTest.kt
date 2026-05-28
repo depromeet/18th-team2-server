@@ -406,6 +406,7 @@ class BurstGameControllerTest
                         name = "실시간 파티",
                         celebrantNickname = "주인공",
                         startedAt = startedAt,
+                        hostEnteredAt = startedAt,
                     ),
                 )
             val participant = participantRepository.saveAndFlush(Participant(party = party, isCelebrant = true))
@@ -435,6 +436,7 @@ class BurstGameControllerTest
                         name = "실시간 파티",
                         celebrantNickname = "주인공",
                         startedAt = LocalDateTime.now().minusMinutes(1),
+                        hostEnteredAt = LocalDateTime.now().minusMinutes(1),
                     ),
                 )
             return listOf(

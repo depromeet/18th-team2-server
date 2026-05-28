@@ -4,5 +4,5 @@ import java.time.LocalDateTime
 
 data class CandleBlowScheduleTarget(
     val partyId: Long,
-    val partyStartedAt: LocalDateTime,
+    val hostEnteredAt: LocalDateTime,
 )

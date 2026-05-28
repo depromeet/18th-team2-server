@@ -38,3 +38,6 @@ spring:
 # 배포 전 환경별 yml(application-prod.yml 등)에서 실제 운영 URL로 반드시 override
 support:
   chat-url: "https://open.kakao.com/o/placeholder"
+
+candle-blow:
+  duration-seconds: 300

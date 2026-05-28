@@ -4,8 +4,11 @@ import com.team2.server.burstgame.application.dto.CandleBlowResponse
 import com.team2.server.burstgame.application.port.CandleBlowSessionStore
 import com.team2.server.burstgame.application.support.BurstGameParticipantResolver
 import com.team2.server.burstgame.application.support.CandleBlowUpdateEventPublisher
+import com.team2.server.burstgame.config.CandleBlowProperties
 import com.team2.server.burstgame.domain.candle.CandleBlowSession
 import com.team2.server.burstgame.domain.candle.CandleBlowStatus
+import com.team2.server.common.exception.BusinessException
+import com.team2.server.common.exception.ErrorCode
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
@@ -16,6 +19,7 @@ class BlowCandleUseCase(
     private val participantResolver: BurstGameParticipantResolver,
     private val sessionStore: CandleBlowSessionStore,
     private val updateEventPublisher: CandleBlowUpdateEventPublisher,
+    private val candleBlowProperties: CandleBlowProperties,
     private val clock: Clock,
 ) {
     @Transactional
@@ -27,12 +31,16 @@ class BlowCandleUseCase(
     ): CandleBlowResponse {
         val context = participantResolver.resolveWithParty(partyId, userId, participantToken)
         val now = LocalDateTime.now(clock)
+        val hostEnteredAt =
+            context.party.hostEnteredAt
+                ?: throw BusinessException(ErrorCode.CANDLE_BLOW_NOT_STARTED)
         return sessionStore.getOrCreateWithLock(
             partyId = partyId,
             sessionFactory = {
-                CandleBlowSession.fromPartyStartedAt(
+                CandleBlowSession.fromHostEnteredAt(
                     partyId = partyId,
-                    partyStartedAt = context.party.startedAt,
+                    hostEnteredAt = hostEnteredAt,
+                    durationSeconds = candleBlowProperties.durationSeconds,
                 )
             },
         ) { session, _ ->

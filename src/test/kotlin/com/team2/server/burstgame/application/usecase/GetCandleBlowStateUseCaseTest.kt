@@ -4,6 +4,7 @@ import com.team2.server.burstgame.application.port.CandleBlowEventBroadcaster
 import com.team2.server.burstgame.application.support.BurstGameParticipantResolver
 import com.team2.server.burstgame.application.support.BurstGameParticipantResolver.ResolvedRealtimeParticipant
 import com.team2.server.burstgame.application.support.CandleBlowEndEventPublisher
+import com.team2.server.burstgame.config.CandleBlowProperties
 import com.team2.server.burstgame.domain.BurstGameParticipantInfo
 import com.team2.server.burstgame.domain.candle.CandleBlowFinishedReason
 import com.team2.server.burstgame.domain.candle.CandleBlowPolicy
@@ -35,6 +36,7 @@ class GetCandleBlowStateUseCaseTest {
             participantResolver = participantResolver,
             sessionStore = sessionStore,
             endEventPublisher = CandleBlowEndEventPublisher(eventBroadcaster),
+            candleBlowProperties = CandleBlowProperties(),
             clock = clock,
         )
 
@@ -43,7 +45,7 @@ class GetCandleBlowStateUseCaseTest {
         whenever(participantResolver.resolveWithParty(1L, null, "tok"))
             .thenReturn(
                 resolved(
-                    partyStartedAt =
+                    hostEnteredAt =
                         LocalDateTime
                             .now(clock)
                             .minusSeconds(CandleBlowPolicy.START_DELAY_SECONDS + CandleBlowPolicy.DURATION_SECONDS),
@@ -65,14 +67,15 @@ class GetCandleBlowStateUseCaseTest {
         }
     }
 
-    private fun resolved(partyStartedAt: LocalDateTime): ResolvedRealtimeParticipant =
+    private fun resolved(hostEnteredAt: LocalDateTime): ResolvedRealtimeParticipant =
         ResolvedRealtimeParticipant(
             party =
                 RealtimeParty(
                     ownerId = 1L,
                     name = "실시간 파티",
                     celebrantNickname = "주인공",
-                    startedAt = partyStartedAt,
+                    startedAt = hostEnteredAt.minusMinutes(1),
+                    hostEnteredAt = hostEnteredAt,
                 ),
             participant =
                 BurstGameParticipantInfo(
