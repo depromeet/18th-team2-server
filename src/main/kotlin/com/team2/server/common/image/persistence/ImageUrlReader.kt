@@ -1,13 +1,14 @@
 package com.team2.server.common.image.persistence
 
+import com.team2.server.common.image.application.port.ImageUrlPort
 import com.team2.server.common.image.entity.ImageTargetType
 import org.springframework.stereotype.Component
 
 @Component
 class ImageUrlReader(
     private val imageRepository: ImageRepository,
-) {
-    fun findFirstImageUrlByTargetIds(
+) : ImageUrlPort {
+    override fun findFirstImageUrlByTargetIds(
         targetType: ImageTargetType,
         targetIds: Collection<Long>,
     ): Map<Long, String> {
