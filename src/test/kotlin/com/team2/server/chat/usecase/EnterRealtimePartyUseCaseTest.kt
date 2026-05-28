@@ -3,9 +3,11 @@ package com.team2.server.chat.usecase
 import com.team2.server.chat.dto.EnterRealtimePartyRequest
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
+import com.team2.server.party.application.event.RealtimePartyHostEnteredEvent
 import com.team2.server.party.application.service.CharacterService
 import com.team2.server.party.application.service.ParticipantService
 import com.team2.server.party.application.service.PartyInviteService
+import com.team2.server.party.application.service.PartyService
 import com.team2.server.party.application.service.RealtimeParticipantProfileService
 import com.team2.server.party.domain.entity.Character
 import com.team2.server.party.domain.entity.PaperOnlyParty
@@ -24,6 +26,7 @@ import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
+import org.springframework.context.ApplicationEventPublisher
 import java.time.Clock
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -36,9 +39,13 @@ class EnterRealtimePartyUseCaseTest {
 
     @Mock lateinit var participantService: ParticipantService
 
+    @Mock lateinit var partyService: PartyService
+
     @Mock lateinit var realtimeParticipantProfileService: RealtimeParticipantProfileService
 
     @Mock lateinit var characterService: CharacterService
+
+    @Mock lateinit var applicationEventPublisher: ApplicationEventPublisher
 
     lateinit var useCase: EnterRealtimePartyUseCase
 
@@ -53,8 +60,10 @@ class EnterRealtimePartyUseCaseTest {
             EnterRealtimePartyUseCase(
                 partyInviteService = partyInviteService,
                 participantService = participantService,
+                partyService = partyService,
                 realtimeParticipantProfileService = realtimeParticipantProfileService,
                 characterService = characterService,
+                applicationEventPublisher = applicationEventPublisher,
                 clock = clock,
             )
     }
@@ -146,6 +155,7 @@ class EnterRealtimePartyUseCaseTest {
         whenever(characterService.requireCharacter(1L)).thenReturn(character)
         whenever(participantService.resolveUser(1L)).thenReturn(user)
         whenever(participantService.joinAnonymousOrMember(party, user)).thenReturn(participant)
+        whenever(partyService.markHostEnteredIfAbsent(party.id, now)).thenReturn(true)
         whenever(
             realtimeParticipantProfileService.upsert(
                 participant = participant,
@@ -163,6 +173,14 @@ class EnterRealtimePartyUseCaseTest {
             character = character,
             isHostNicknameLocked = true,
         )
+        verify(partyService).markHostEnteredIfAbsent(party.id, now)
+        verify(applicationEventPublisher).publishEvent(
+            RealtimePartyHostEnteredEvent(
+                partyId = party.id,
+                hostEnteredAt = now,
+            ),
+        )
+        assertEquals(now, party.hostEnteredAt)
     }
 
     @Test

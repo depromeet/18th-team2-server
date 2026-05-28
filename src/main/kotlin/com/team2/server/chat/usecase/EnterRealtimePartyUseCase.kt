@@ -4,9 +4,11 @@ import com.team2.server.chat.dto.EnterRealtimePartyRequest
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.dto.RealtimePartyStateResult
+import com.team2.server.party.application.event.RealtimePartyHostEnteredEvent
 import com.team2.server.party.application.service.CharacterService
 import com.team2.server.party.application.service.ParticipantService
 import com.team2.server.party.application.service.PartyInviteService
+import com.team2.server.party.application.service.PartyService
 import com.team2.server.party.application.service.RealtimeParticipantProfileService
 import com.team2.server.party.domain.entity.Character
 import com.team2.server.party.domain.entity.Party
@@ -15,6 +17,7 @@ import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.domain.entity.RealtimePartyStatus
 import org.hibernate.Hibernate
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
@@ -24,8 +27,10 @@ import java.time.LocalDateTime
 class EnterRealtimePartyUseCase(
     private val partyInviteService: PartyInviteService,
     private val participantService: ParticipantService,
+    private val partyService: PartyService,
     private val realtimeParticipantProfileService: RealtimeParticipantProfileService,
     private val characterService: CharacterService,
+    private val applicationEventPublisher: ApplicationEventPublisher,
     private val clock: Clock,
 ) {
     data class EnterResult(
@@ -73,6 +78,7 @@ class EnterRealtimePartyUseCase(
                     isHostNicknameLocked = participant.isCelebrant,
                 )
             }
+        markHostEnteredIfNeeded(realtimeParty, profile, now)
 
         return EnterResult(
             participantToken = profile.participantToken,
@@ -82,6 +88,22 @@ class EnterRealtimePartyUseCase(
             nickname = profile.nickname,
             characterId = character.id,
             partyState = RealtimePartyStateResult.from(realtimeParty, now),
+        )
+    }
+
+    private fun markHostEnteredIfNeeded(
+        party: RealtimeParty,
+        profile: RealtimeParticipantProfile,
+        now: LocalDateTime,
+    ) {
+        if (!profile.participant.isCelebrant) return
+        if (!partyService.markHostEnteredIfAbsent(party.id, now)) return
+        party.hostEnteredAt = now
+        applicationEventPublisher.publishEvent(
+            RealtimePartyHostEnteredEvent(
+                partyId = party.id,
+                hostEnteredAt = now,
+            ),
         )
     }
 
