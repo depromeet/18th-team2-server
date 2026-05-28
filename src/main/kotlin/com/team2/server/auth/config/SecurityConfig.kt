@@ -61,6 +61,7 @@ class SecurityConfig(
                         HttpMethod.POST,
                         "/api/v1/party-invites/*/realtime-participants/stream",
                     ).permitAll()
+                auth.requestMatchers(HttpMethod.DELETE, "/api/v1/parties/*/realtime-participants").permitAll()
                 auth.requestMatchers(HttpMethod.POST, "/api/v1/parties/*/chat-messages").permitAll()
                 auth.requestMatchers(HttpMethod.GET, "/api/v1/parties/*/candle-blow").permitAll()
                 auth.requestMatchers(HttpMethod.POST, "/api/v1/parties/*/candle-blow/candles/*").permitAll()
