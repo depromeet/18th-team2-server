@@ -6,6 +6,7 @@ import com.team2.server.burstgame.application.support.BurstGameParticipantResolv
 import com.team2.server.burstgame.application.support.CandleBlowEndEventPublisher
 import com.team2.server.burstgame.domain.BurstGameParticipantInfo
 import com.team2.server.burstgame.domain.candle.CandleBlowFinishedReason
+import com.team2.server.burstgame.domain.candle.CandleBlowPolicy
 import com.team2.server.burstgame.infrastructure.candle.InMemoryCandleBlowSessionStore
 import com.team2.server.party.domain.entity.RealtimeParty
 import org.junit.jupiter.api.extension.ExtendWith
@@ -40,7 +41,14 @@ class GetCandleBlowStateUseCaseTest {
     @Test
     fun `조회로 촛불끄기 timeout 종료가 발생하면 ended 이벤트를 커밋 이후 발행한다`() {
         whenever(participantResolver.resolveWithParty(1L, null, "tok"))
-            .thenReturn(resolved(partyStartedAt = LocalDateTime.of(2026, 5, 21, 20, 0)))
+            .thenReturn(
+                resolved(
+                    partyStartedAt =
+                        LocalDateTime
+                            .now(clock)
+                            .minusSeconds(CandleBlowPolicy.START_DELAY_SECONDS + CandleBlowPolicy.DURATION_SECONDS),
+                ),
+            )
 
         TransactionSynchronizationManager.initSynchronization()
         try {
