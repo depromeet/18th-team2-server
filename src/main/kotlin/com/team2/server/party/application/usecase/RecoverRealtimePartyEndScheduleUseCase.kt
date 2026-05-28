@@ -18,7 +18,6 @@ class RecoverRealtimePartyEndScheduleUseCase(
         realtimePartyEndService.startDueAutomaticEndings(now)
         val recoverySchedules = realtimePartyEndService.findRecoverySchedules(now)
         return RealtimePartyEndRecoveryResult(
-            hostEndAvailableSchedules = recoverySchedules.hostEndAvailableSchedules,
             automaticEndSchedules = recoverySchedules.automaticEndSchedules,
             endingTargets = realtimePartyEndService.findEndingTargets(now),
         )

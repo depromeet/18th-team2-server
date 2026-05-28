@@ -10,10 +10,7 @@ import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.common.image.entity.ImageTargetType
 import com.team2.server.common.image.persistence.ImageUrlReader
 import com.team2.server.party.application.dto.RealtimePartyStateResult
-import com.team2.server.party.application.event.RealtimePartyHostEndAvailableScheduleRequestedEvent
 import com.team2.server.party.domain.entity.RealtimeParty
-import com.team2.server.party.domain.entity.RealtimePartyStatus
-import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
@@ -24,7 +21,6 @@ class EnterAndSubscribeChatUseCase(
     private val chatMessageRepository: ChatMessageRepository,
     private val imageUrlReader: ImageUrlReader,
     private val chatSseGateway: ChatSseGateway,
-    private val applicationEventPublisher: ApplicationEventPublisher,
 ) {
     @Transactional
     fun enterAndSubscribe(
@@ -59,7 +55,7 @@ class EnterAndSubscribeChatUseCase(
             )
 
         val emitter = SseEmitter(EMITTER_TIMEOUT_MS)
-        chatSseGateway.subscribe(enterResult.partyId, emitter, enterResult.participantToken, enterResult.isCelebrant)
+        chatSseGateway.subscribe(enterResult.partyId, emitter, enterResult.participantToken)
         sendPartyState(emitter, enterResult.partyState)
         sendEntered(emitter, enterResult.participantToken, messages)
 
@@ -72,14 +68,6 @@ class EnterAndSubscribeChatUseCase(
                 .build(),
             excludeToken = enterResult.participantToken,
         )
-        if (enterResult.partyState.status == RealtimePartyStatus.LIVE_OPEN) {
-            applicationEventPublisher.publishEvent(
-                RealtimePartyHostEndAvailableScheduleRequestedEvent(
-                    partyId = enterResult.partyId,
-                    startedAt = enterResult.startedAt,
-                ),
-            )
-        }
         return emitter
     }
 

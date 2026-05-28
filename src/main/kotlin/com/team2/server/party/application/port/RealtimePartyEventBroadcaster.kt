@@ -3,11 +3,6 @@ package com.team2.server.party.application.port
 import java.time.LocalDateTime
 
 interface RealtimePartyEventBroadcaster {
-    fun broadcastHostEndAvailable(
-        partyId: Long,
-        availableAt: LocalDateTime,
-    )
-
     fun broadcastPartyEnding(
         partyId: Long,
         endingStartedAt: LocalDateTime,

@@ -3,8 +3,6 @@ package com.team2.server.party.api
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
-import com.team2.server.burstgame.application.port.BurstGameSessionStore
-import com.team2.server.burstgame.domain.BurstGameSession
 import com.team2.server.common.DatabaseCleanup
 import com.team2.server.config.TestcontainersConfiguration
 import com.team2.server.party.domain.entity.Character
@@ -20,7 +18,6 @@ import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProf
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
 import com.team2.server.user.repository.UserRepository
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -50,23 +47,15 @@ class PartyControllerTest
         private val characterRepository: CharacterRepository,
         private val databaseCleanup: DatabaseCleanup,
         private val jwtProperties: JwtProperties,
-        private val burstGameSessionStore: BurstGameSessionStore,
     ) {
         private val tokenProvider = JwtTokenProvider(jwtProperties)
         private val objectMapper = ObjectMapper()
-        private val burstGameSessionPartyIds = mutableListOf<Long>()
         private var defaultCharacterId: Long = 1L
 
         @BeforeEach
         fun setUp() {
             databaseCleanup.execute()
             defaultCharacterId = characterRepository.save(Character(name = "Default")).id
-        }
-
-        @AfterEach
-        fun tearDown() {
-            burstGameSessionPartyIds.forEach { burstGameSessionStore.removeByPartyId(it) }
-            burstGameSessionPartyIds.clear()
         }
 
         @Test
@@ -232,55 +221,9 @@ class PartyControllerTest
         }
 
         @Test
-        fun `주최자는 실시간 파티 종료 가능 상태를 조회할 수 있다`() {
-            val owner = saveUser("kakao-realtime-end-status", "end-status@kakao.local")
-            val party = saveRealtimeParty(owner, LocalDateTime.now().minusMinutes(5))
-
-            mockMvc
-                .get("/api/v1/parties/${party.id}/realtime-end") {
-                    header("Authorization", "Bearer ${tokenProvider.issue(owner)}")
-                }.andExpect {
-                    status { isOk() }
-                    jsonPath("$.data.canEnd") { value(true) }
-                    jsonPath("$.data.availableAt") { exists() }
-                }
-        }
-
-        @Test
-        fun `박터뜨리기가 종료되면 4분 전에도 실시간 파티를 종료할 수 있다`() {
-            val owner = saveUser("kakao-realtime-end-burst", "end-burst@kakao.local")
-            val now = LocalDateTime.now()
-            val party = saveRealtimeParty(owner, now.minusMinutes(1))
-            burstGameSessionStore.start(party.id, now) {
-                BurstGameSession(
-                    partyId = party.id,
-                    startedAt = now.minusMinutes(1),
-                    endsAt = now.minusSeconds(1),
-                )
-            }
-            burstGameSessionPartyIds.add(party.id)
-
-            mockMvc
-                .get("/api/v1/parties/${party.id}/realtime-end") {
-                    header("Authorization", "Bearer ${tokenProvider.issue(owner)}")
-                }.andExpect {
-                    status { isOk() }
-                    jsonPath("$.data.canEnd") { value(true) }
-                }
-
-            mockMvc
-                .post("/api/v1/parties/${party.id}/realtime-end") {
-                    header("Authorization", "Bearer ${tokenProvider.issue(owner)}")
-                }.andExpect {
-                    status { isOk() }
-                    jsonPath("$.data.partyId") { value(party.id.toInt()) }
-                }
-        }
-
-        @Test
-        fun `주최자는 실시간 파티 종료를 시작할 수 있다`() {
+        fun `주최자는 LIVE_OPEN이면 4분 전에도 실시간 파티 종료를 시작할 수 있다`() {
             val owner = saveUser("kakao-realtime-end-start", "end-start@kakao.local")
-            val party = saveRealtimeParty(owner, LocalDateTime.now().minusMinutes(5))
+            val party = saveRealtimeParty(owner, LocalDateTime.now().minusMinutes(1))
 
             mockMvc
                 .post("/api/v1/parties/${party.id}/realtime-end") {
@@ -340,7 +283,7 @@ class PartyControllerTest
                     header("Authorization", "Bearer ${tokenProvider.issue(owner)}")
                 }.andExpect {
                     status { isBadRequest() }
-                    jsonPath("$.error.code") { value("REALTIME_PARTY_END_NOT_AVAILABLE") }
+                    jsonPath("$.error.code") { value("REALTIME_PARTY_INVALID_STATE") }
                 }
         }
 

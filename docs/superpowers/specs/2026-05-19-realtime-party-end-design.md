@@ -9,8 +9,8 @@
 실시간 파티 종료는 `Party.endedAt()`과 별개의 실시간 세션 종료이다.
 
 - 주최자만 수동 종료 가능
-- 수동 종료 가능 조건: `startedAt + 4분` 도달 또는 박터뜨리기 종료
-- 박터뜨리기 종료는 수동 종료 가능 상태만 열고 자동 종료를 시작하지 않음
+- 수동 종료 가능 조건: `LIVE_OPEN` 상태의 주최자는 별도 시간 제한이나 박터뜨리기 종료 조건 없이 언제든 종료 가능
+- 박터뜨리기 종료는 실시간 파티 종료 가능 여부에 영향을 주지 않음
 - 자동 종료 트리거: `startedAt + 10분`
 - 종료 트리거 후 즉시 종료하지 않고 60초 카운트다운 진행
 - `party-ending` 전송 후 60초 뒤 `party-ended` 전송
@@ -22,7 +22,6 @@
 
 ```kotlin
 RealtimeParty.LIVE_DURATION_MINUTES = 10
-RealtimeParty.HOST_END_AVAILABLE_AFTER_MINUTES = 4
 RealtimeParty.LIVE_END_COUNTDOWN_SECONDS = 60
 ```
 
@@ -66,32 +65,7 @@ override fun hostViewableAt(): LocalDateTime =
 
 ## 3. API
 
-### 3-1. 주최자 종료 상태 복구 조회
-
-```http
-GET /api/v1/parties/{partyId}/realtime-end
-Authorization: Bearer {accessToken}
-```
-
-SSE 유실, 새로고침, 화면 재진입 시 주최자 화면 상태를 복구한다.
-주최자 클라이언트는 SSE 연결 직후 이 API를 호출해 종료 가능 상태를 맞춘다.
-
-```json
-{
-  "canEnd": true,
-  "availableAt": "2026-05-19T20:04:00",
-  "endingStartedAt": null,
-  "endedAt": null
-}
-```
-
-`canEnd` 계산:
-
-- `liveEndingStartedAt != null`이면 이미 종료 절차가 시작된 상태이므로 `canEnd = false`
-- 그 외에는 `status(now) == RealtimePartyStatus.LIVE_OPEN`이고, `now >= startedAt + 4분` 또는 박터뜨리기 종료 상태이면 `canEnd = true`
-- 위 조건을 만족하지 않으면 `canEnd = false`
-
-### 3-2. 주최자 종료 요청
+### 3-1. 주최자 종료 요청
 
 ```http
 POST /api/v1/parties/{partyId}/realtime-end
@@ -112,10 +86,10 @@ Authorization: Bearer {accessToken}
 2. `partyOption == REALTIME`
 3. 요청자가 주최자
 4. `LIVE_CLOSED`이면 `REALTIME_PARTY_ALREADY_ENDED`
-5. `LIVE_ENDING`이면 수동 종료 가능 조건을 다시 검사하지 않고 기존 `endingStartedAt`, `endedAt` 반환
-6. `LIVE_OPEN`이면 수동 종료 가능 조건 검사
-7. 수동 종료 가능 조건을 만족하지 않으면 `REALTIME_PARTY_END_NOT_AVAILABLE`
-8. 조건부 update 실행 후 affected row 기준으로 신규 시작 또는 기존 카운트다운 반환
+5. `LIVE_ENDING`이면 기존 `endingStartedAt`, `endedAt` 반환
+6. `LIVE_OPEN`이면 별도 unlock 조건 없이 조건부 update 실행
+7. 그 외 상태이면 `REALTIME_PARTY_INVALID_STATE`
+8. affected row 기준으로 신규 시작 또는 기존 카운트다운 반환
 
 동시성:
 
@@ -130,7 +104,7 @@ WHERE id = :partyId
 - affected row `0`: 이미 시작된 카운트다운 조회 후 반환
 - 자동 종료 트리거도 조건부 update를 사용하되 저장값은 현재 시각이 아니라 `startedAt + 10분`
 
-### 3-3. 실시간 상태 복구 조회
+### 3-2. 실시간 상태 복구 조회
 
 ```http
 GET /api/v1/parties/{partyId}/realtime-state
@@ -149,7 +123,7 @@ Authorization: Bearer {accessToken} 또는 X-Participant-Token: {participantToke
 }
 ```
 
-### 3-4. 종료 후 다음 행동 조회
+### 3-3. 종료 후 다음 행동 조회
 
 ```http
 GET /api/v1/parties/{partyId}/realtime-next-action
@@ -165,7 +139,7 @@ Authorization: Bearer {accessToken} 또는 X-Participant-Token: {participantToke
 - 회원 참가자: `Authorization` 또는 `X-Participant-Token`
 - 비회원 참가자: `X-Participant-Token` 필요
 - 파티 소속이 아니면 `PARTY_FORBIDDEN`
-- `LIVE_OPEN`, `LIVE_ENDING`에서 호출하면 `REALTIME_PARTY_END_NOT_AVAILABLE`
+- `LIVE_OPEN`, `LIVE_ENDING`에서 호출하면 `REALTIME_PARTY_INVALID_STATE`
 
 주최자:
 
@@ -196,20 +170,6 @@ SSE 연결 직후 항상 현재 상태를 1회 전송한다.
 event: party-state
 data: {"partyId":1,"status":"LIVE_ENDING","liveStartAt":"2026-05-19T20:00:00","endingStartedAt":"2026-05-19T20:10:00","endedAt":"2026-05-19T20:11:00"}
 ```
-
-### host-end-available
-
-주최자에게만 전송한다.
-
-```text
-event: host-end-available
-data: {"partyId":1,"availableAt":"2026-05-19T20:04:00"}
-```
-
-발생 조건:
-
-- `startedAt + 4분`
-- `BurstGameEndedEvent` 수신
 
 ### party-ending
 
@@ -310,11 +270,11 @@ fun isLiveOpen(now: LocalDateTime): Boolean =
 | 파티 없음 | `PARTY_NOT_FOUND` |
 | 실시간 파티가 아님 | `CHAT_NOT_SUPPORTED` |
 | 주최자가 아님 | `PARTY_FORBIDDEN` |
-| 아직 종료 가능 시점이 아님 | `REALTIME_PARTY_END_NOT_AVAILABLE` |
+| 현재 실시간 파티 상태에서 요청할 수 없음 | `REALTIME_PARTY_INVALID_STATE` |
 | 이미 종료됨 | `REALTIME_PARTY_ALREADY_ENDED` |
 
 ```kotlin
-REALTIME_PARTY_END_NOT_AVAILABLE(HttpStatus.BAD_REQUEST, "아직 실시간 파티를 종료할 수 없습니다")
+REALTIME_PARTY_INVALID_STATE(HttpStatus.BAD_REQUEST, "현재 실시간 파티 상태에서는 요청할 수 없습니다")
 REALTIME_PARTY_ALREADY_ENDED(HttpStatus.CONFLICT, "이미 종료된 실시간 파티입니다")
 ```
 
@@ -324,19 +284,18 @@ REALTIME_PARTY_ALREADY_ENDED(HttpStatus.CONFLICT, "이미 종료된 실시간 �
 2. Flyway migration 추가
 3. `RealtimePartyStatus.LIVE_ENDING` 추가
 4. `RealtimeParty.hostViewableAt()` 수정
-5. 종료 가능 상태 복구 조회 API 추가
-6. 주최자 종료 요청 API 추가
-7. 실시간 상태 복구 API 추가
-8. 종료 후 다음 행동 조회 API 추가
-9. `host-end-available`, `party-state`, `party-ending`, `party-ended` SSE 처리
-10. `PartyEndScheduler`를 startup recovery + event 기반 예약 구조로 변경
-11. 기존 `WARN_BEFORE_END_MINUTES`와 9분 트리거 제거
-12. 종료 시작 조건부 update 구현
-13. `party-ended` 후 grace cleanup 적용
-14. 신규 입장/채팅 검증에서 `LIVE_ENDING`, `LIVE_CLOSED` 차단
-15. 기존 참가자 `LIVE_ENDING` SSE 재연결 허용
-16. 박터뜨리기 종료 시 `BurstGameEndedEvent` 발행/구독 연결
-17. 테스트 추가
+5. 주최자 종료 요청 API 추가
+6. 실시간 상태 복구 API 추가
+7. 종료 후 다음 행동 조회 API 추가
+8. `party-state`, `party-ending`, `party-ended` SSE 처리
+9. `PartyEndScheduler`를 startup recovery + event 기반 예약 구조로 변경
+10. 기존 `WARN_BEFORE_END_MINUTES`, 9분 트리거, `host-end-available` 제거
+11. 종료 시작 조건부 update 구현
+12. `party-ended` 후 grace cleanup 적용
+13. 신규 입장/채팅 검증에서 `LIVE_ENDING`, `LIVE_CLOSED` 차단
+14. 기존 참가자 `LIVE_ENDING` SSE 재연결 허용
+15. 박터뜨리기 종료와 실시간 파티 종료 가능 여부 연결 제거
+16. 테스트 추가
 
 ## 9. 참가자 next action 계산 기준
 

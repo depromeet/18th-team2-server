@@ -57,5 +57,5 @@ class GetRealtimePartyNextActionUseCase(
     }
 
     private fun throwRealtimePartyEndNotAvailable(): Nothing =
-        throw BusinessException(ErrorCode.REALTIME_PARTY_END_NOT_AVAILABLE)
+        throw BusinessException(ErrorCode.REALTIME_PARTY_INVALID_STATE)
 }

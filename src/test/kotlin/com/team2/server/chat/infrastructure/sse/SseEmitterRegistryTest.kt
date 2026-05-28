@@ -103,29 +103,6 @@ class SseEmitterRegistryTest {
     }
 
     @Test
-    fun `broadcastHost는 host emitter에만 전송한다`() {
-        val host = RecordingSseEmitter()
-        val participant = RecordingSseEmitter()
-        registry.subscribe(1L, host, "host", isHost = true)
-        registry.subscribe(1L, participant, "participant", isHost = false)
-
-        registry.broadcastHost(1L, event())
-
-        assertEquals(1, host.sendCount)
-        assertEquals(0, participant.sendCount)
-    }
-
-    @Test
-    fun `broadcastHost 실패 emitter는 일반 목록에서도 제거한다`() {
-        val host = FailingSseEmitter()
-        registry.subscribe(1L, host, "host", isHost = true)
-
-        registry.broadcastHost(1L, event())
-
-        assertEquals(0, registry.count(1L))
-    }
-
-    @Test
     fun `onBroadcast delegates to broadcast`() {
         val emitter = RecordingSseEmitter()
         val event = event()

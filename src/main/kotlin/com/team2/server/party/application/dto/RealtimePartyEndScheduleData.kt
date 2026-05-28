@@ -20,18 +20,11 @@ data class RealtimeAutomaticEndSchedule(
     val endingStartedAt: LocalDateTime,
 )
 
-data class RealtimeHostEndAvailableSchedule(
-    val partyId: Long,
-    val startedAt: LocalDateTime,
-)
-
 data class RealtimePartyEndRecoverySchedules(
-    val hostEndAvailableSchedules: List<RealtimeHostEndAvailableSchedule>,
     val automaticEndSchedules: List<RealtimeAutomaticEndSchedule>,
 )
 
 data class RealtimePartyEndRecoveryResult(
-    val hostEndAvailableSchedules: List<RealtimeHostEndAvailableSchedule>,
     val automaticEndSchedules: List<RealtimeAutomaticEndSchedule>,
     val endingTargets: List<RealtimeEndingScheduleTarget>,
 )
