@@ -27,11 +27,7 @@ event: fireworks
 data: {
   "partyId": 1,
   "participantId": 5,
-  "nickname": "토끼왕",
-  "characterId": 2,
-  "characterImageUrl": "https://cdn.example.com/char2.png",
-  "role": "PARTICIPANT",
-  "serverTime": "2026-05-29T10:00:00"
+  "nickname": "토끼왕"
 }
 ```
 """,
