@@ -23,6 +23,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.Clock
@@ -173,6 +174,62 @@ class EnterRealtimePartyUseCaseTest {
         )
         verify(markRealtimePartyHostEnteredUseCase).invoke(party.id, now)
         assertEquals(now, party.hostEnteredAt)
+    }
+
+    @Test
+    fun `주최자가 아니면 입장해도 주최자 입장 시각을 기록하지 않는다`() {
+        val party = RealtimeParty(ownerId = 1L, startedAt = now.minusMinutes(1))
+        val invite = PartyInvite(party = party, token = "tok", expiresAt = now.plusDays(7))
+        val character = Character(name = "토끼")
+        val participant = Participant(party = party, isCelebrant = false)
+        val profile = RealtimeParticipantProfile(participant = participant, nickname = "참여자", character = character)
+
+        whenever(partyInviteService.findUsableInvite(any(), any())).thenReturn(invite)
+        whenever(characterService.requireCharacter(1L)).thenReturn(character)
+        whenever(participantService.joinAnonymousOrMember(party, null)).thenReturn(participant)
+        whenever(
+            realtimeParticipantProfileService.upsert(
+                participant = participant,
+                nickname = "토끼왕",
+                character = character,
+                isHostNicknameLocked = false,
+            ),
+        ).thenReturn(profile)
+
+        useCase.enter("tok", userId = null, request)
+
+        verify(markRealtimePartyHostEnteredUseCase, never()).invoke(any(), any())
+        assertEquals(null, party.hostEnteredAt)
+    }
+
+    @Test
+    fun `주최자 입장 시각이 이미 저장되어 있으면 기존 값을 유지한다`() {
+        val existingHostEnteredAt = now.minusSeconds(10)
+        val party = RealtimeParty(ownerId = 1L, startedAt = now.minusMinutes(1), hostEnteredAt = existingHostEnteredAt)
+        val invite = PartyInvite(party = party, token = "tok", expiresAt = now.plusDays(7))
+        val character = Character(name = "토끼")
+        val participant = Participant(party = party, isCelebrant = true)
+        val profile = RealtimeParticipantProfile(participant = participant, nickname = "주최자", character = character)
+        val user = user()
+
+        whenever(partyInviteService.findUsableInvite(any(), any())).thenReturn(invite)
+        whenever(characterService.requireCharacter(1L)).thenReturn(character)
+        whenever(participantService.resolveUser(1L)).thenReturn(user)
+        whenever(participantService.joinAnonymousOrMember(party, user)).thenReturn(participant)
+        whenever(markRealtimePartyHostEnteredUseCase(party.id, now)).thenReturn(null)
+        whenever(
+            realtimeParticipantProfileService.upsert(
+                participant = participant,
+                nickname = "토끼왕",
+                character = character,
+                isHostNicknameLocked = true,
+            ),
+        ).thenReturn(profile)
+
+        useCase.enter("tok", userId = 1L, request)
+
+        verify(markRealtimePartyHostEnteredUseCase).invoke(party.id, now)
+        assertEquals(existingHostEnteredAt, party.hostEnteredAt)
     }
 
     @Test

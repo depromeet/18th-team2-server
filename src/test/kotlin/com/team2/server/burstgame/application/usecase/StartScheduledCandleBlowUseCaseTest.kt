@@ -65,6 +65,34 @@ class StartScheduledCandleBlowUseCaseTest {
     }
 
     @Test
+    fun `종료 시각은 설정된 durationSeconds로 계산한다`() {
+        val customDurationSeconds = 45L
+        val customUseCase =
+            StartScheduledCandleBlowUseCase(
+                sessionStore = InMemoryCandleBlowSessionStore(),
+                eventBroadcaster = eventBroadcaster,
+                candleBlowProperties = CandleBlowProperties(durationSeconds = customDurationSeconds),
+            )
+
+        val activeResult =
+            customUseCase(
+                partyId = 10L,
+                hostEnteredAt = hostEnteredAt,
+                now = candleStartedAt().plusSeconds(customDurationSeconds - 1),
+            )
+        val finishedResult =
+            customUseCase(
+                partyId = 11L,
+                hostEnteredAt = hostEnteredAt,
+                now = candleStartedAt().plusSeconds(customDurationSeconds),
+            )
+
+        assertEquals(CandleBlowStatus.ACTIVE, activeResult.status)
+        assertEquals(CandleBlowStatus.FINISHED, finishedResult.status)
+        assertEquals(CandleBlowFinishedReason.TIMEOUT, finishedResult.finishedReason)
+    }
+
+    @Test
     fun `같은 세션의 started 이벤트는 한 번만 발행한다`() {
         useCase(
             partyId = 1L,
