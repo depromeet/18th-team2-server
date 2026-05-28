@@ -148,7 +148,7 @@ class BurstGameControllerTest
 
         @Test
         fun `종료 시각이 지난 촛불끄기 조회는 TIMEOUT 종료 상태를 반환한다`() {
-            val fixture = saveRealtimeParticipant(startedAt = LocalDateTime.now().minusSeconds(90))
+            val fixture = saveRealtimeParticipant(startedAt = LocalDateTime.now().minusSeconds(340))
 
             mockMvc
                 .get("/api/v1/parties/${fixture.partyId}/candle-blow") {
@@ -195,7 +195,7 @@ class BurstGameControllerTest
 
         @Test
         fun `촛불 세션이 없어도 촛불 종료 시각이 지난 파티는 박터뜨리기 시작 성공`() {
-            val fixture = saveRealtimeParticipant(startedAt = LocalDateTime.now().minusSeconds(90))
+            val fixture = saveRealtimeParticipant(startedAt = LocalDateTime.now().minusSeconds(340))
 
             mockMvc
                 .post("/api/v1/parties/${fixture.partyId}/burst-game/start") {

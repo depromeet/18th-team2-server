@@ -7,7 +7,7 @@ import java.time.Duration
 object CandleBlowPolicy {
     const val CANDLE_COUNT = 9
     const val START_DELAY_SECONDS = 35L
-    const val DURATION_SECONDS = 45L
+    const val DURATION_SECONDS = 300L
     private const val SESSION_TTL_MINUTES = 10L
     val SESSION_TTL: Duration = Duration.ofMinutes(SESSION_TTL_MINUTES)
 
