@@ -1,6 +1,9 @@
 package com.team2.server.common.config
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.KotlinModule
 import com.team2.server.common.web.swagger.OptionalAuth
+import io.swagger.v3.core.jackson.ModelResolver
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType
 import io.swagger.v3.oas.annotations.security.SecurityScheme
 import io.swagger.v3.oas.models.OpenAPI
@@ -21,6 +24,12 @@ import java.lang.reflect.Method
     bearerFormat = "JWT",
 )
 class SwaggerConfig {
+    @Bean
+    fun kotlinModelResolver(): ModelResolver {
+        val mapper = ObjectMapper().registerModule(KotlinModule.Builder().build())
+        return ModelResolver(mapper)
+    }
+
     @Bean
     fun openAPI(): OpenAPI =
         OpenAPI().info(
