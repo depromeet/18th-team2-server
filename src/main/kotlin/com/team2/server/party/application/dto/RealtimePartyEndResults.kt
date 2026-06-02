@@ -67,7 +67,7 @@ data class RealtimePartyStateResult(
 
 @Schema(
     description = "실시간 파티 종료 후 다음 행동 조회 응답",
-    oneOf = [RealtimePartyNextActionResult.Host::class, RealtimePartyNextActionResult.Participant::class],
+    oneOf = [RealtimePartyNextActionHostSchema::class, RealtimePartyNextActionParticipantSchema::class],
 )
 sealed interface RealtimePartyNextActionResult {
     @get:Schema(
@@ -95,3 +95,29 @@ sealed interface RealtimePartyNextActionResult {
         override val type: String = "PARTICIPANT_ROLLING_PAPER_WRITE"
     }
 }
+
+@Schema(name = "Host", description = "주최자용 다음 행동 응답")
+data class RealtimePartyNextActionHostSchema(
+    @Schema(
+        description = "다음 행동 타입",
+        allowableValues = ["HOST_ROLLING_PAPER_LIST"],
+        example = "HOST_ROLLING_PAPER_LIST",
+    )
+    val type: String,
+    @Schema(description = "롤링페이퍼 목록으로 이동할 파티 ID", example = "1")
+    val partyId: Long,
+)
+
+@Schema(name = "Participant", description = "참가자용 다음 행동 응답")
+data class RealtimePartyNextActionParticipantSchema(
+    @Schema(
+        description = "다음 행동 타입",
+        allowableValues = ["PARTICIPANT_ROLLING_PAPER_WRITE"],
+        example = "PARTICIPANT_ROLLING_PAPER_WRITE",
+    )
+    val type: String,
+    @Schema(description = "롤링페이퍼 작성 화면 진입에 사용할 유효 초대 토큰", example = "exampletoken0000")
+    val inviteToken: String,
+    @Schema(description = "현재 참가자의 롤링페이퍼 작성 완료 여부", example = "false")
+    val rollingPaperWritten: Boolean,
+)
