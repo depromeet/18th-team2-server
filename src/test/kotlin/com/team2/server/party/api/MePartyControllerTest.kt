@@ -59,7 +59,7 @@ class MePartyControllerTest
         }
 
         @Test
-        fun `내가 참여 중이고 종료되지 않은 파티 목록을 조회한다`() {
+        fun `내가 참여 중이고 종료되지 않은 파티 목록을 시작일 가까운 순으로 조회한다`() {
             val user = saveUser("kakao-upcoming-member", "upcoming-member@kakao.local")
             val other = saveUser("kakao-upcoming-other", "upcoming-other@kakao.local")
             val token = tokenProvider.issue(user)
@@ -115,8 +115,8 @@ class MePartyControllerTest
                 }.andExpect {
                     status { isOk() }
                     jsonPath("$.data.length()") { value(2) }
-                    expectPaperOnlyParty(paperOnlyParty, index = 0)
-                    expectRealtimeParty(realtimeParty, liveStartAt, index = 1)
+                    expectRealtimeParty(realtimeParty, liveStartAt, index = 0)
+                    expectPaperOnlyParty(paperOnlyParty, index = 1)
                 }
         }
 

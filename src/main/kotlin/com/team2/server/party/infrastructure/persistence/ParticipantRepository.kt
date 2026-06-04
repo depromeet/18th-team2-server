@@ -38,7 +38,7 @@ interface ParticipantRepository : JpaRepository<Participant, Long> {
         JOIN FETCH participant.party party
         WHERE participant.user.id = :userId
           AND party.startedAt > :startedAfter
-        ORDER BY participant.createdAt DESC, participant.id DESC
+        ORDER BY party.startedAt ASC, participant.createdAt DESC, participant.id DESC
         """,
     )
     fun findNotEndedByUserId(
