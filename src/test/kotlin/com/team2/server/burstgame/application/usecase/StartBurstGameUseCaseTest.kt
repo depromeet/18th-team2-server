@@ -1,6 +1,5 @@
 package com.team2.server.burstgame.application.usecase
 
-import com.team2.server.burstgame.application.dto.BurstGameStartResult
 import com.team2.server.burstgame.application.service.BurstGameSessionService
 import com.team2.server.burstgame.application.support.BurstGameParticipantResolver
 import com.team2.server.burstgame.application.support.BurstGameParticipantResolver.ResolvedRealtimeParticipant
@@ -46,7 +45,7 @@ class StartBurstGameUseCaseTest {
     fun `박터뜨리기 시작 성공 후 후처리를 실행한다`() {
         val participant = participant(10L)
         val snapshot = activeSnapshot()
-        val startResult = BurstGameStartResult.Started(snapshot, created = true)
+        val startResult = BurstGameSessionService.StartResult.Started(snapshot, created = true)
         val now = LocalDateTime.ofInstant(clock.instant(), clock.zone)
         whenever(participantResolver.resolveWithParty(1L, null, "tok")).thenReturn(resolved(participant))
         whenever(sessionService.start(eq(1L), eq(hostEnteredAt), eq(participant), any()))
@@ -63,7 +62,7 @@ class StartBurstGameUseCaseTest {
     fun `start 재시도에서 lazy 종료가 발생하면 후처리 예외를 전파한다`() {
         val participant = participant(10L)
         val snapshot = endedSnapshot()
-        val startResult = BurstGameStartResult.AlreadyEnded(snapshot, endedNow = true)
+        val startResult = BurstGameSessionService.StartResult.AlreadyEnded(snapshot, endedNow = true)
         whenever(participantResolver.resolveWithParty(1L, null, "tok")).thenReturn(resolved(participant))
         whenever(sessionService.start(eq(1L), eq(hostEnteredAt), eq(participant), any()))
             .thenReturn(startResult)
