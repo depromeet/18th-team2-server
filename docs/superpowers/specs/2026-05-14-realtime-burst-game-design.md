@@ -11,26 +11,28 @@
 
 핵심 동작:
 
+- start 요청 후 서버 기준 5초 카운트다운을 거친 뒤 실제 터치를 허용한다.
 - 실시간 파티 SSE 연결을 유지한 상태에서 20초 동안 터치 수를 집계한다.
 - 진행 중에는 순위 entry 기준 상위 3명까지만 `burst-game-progress`로 브로드캐스트한다.
 - 진행 중 합산 터치 수는 노출하지 않고, 호출자 개인 터치 수(`myTapCount`)를 submit/state 응답으로 제공한다.
 - 종료 시에는 최종 총 터치 수와 1회 이상 터치한 참가자 전체 최종 순위를 `burst-game-ended`로 브로드캐스트한다.
 - 100회 달성은 종료 조건이 아니며, `colorChanged = true`로만 상태를 내려준다.
-- 1차 구현은 DB 저장 없이 in-memory session + 5분 TTL로 처리한다.
+- 라운드는 in-memory session으로 집계하고 종료 결과를 5분 TTL로 유지한다.
 
-블로커 결정 사항:
+확정 정책:
 
 - [x] 시작 권한: 촛불끄기가 종료된 상태라면 실시간 파티 참여자 누구나 시작 가능
 - [x] 재시작 정책: 파티당 1회만 허용
 - [x] 동점 처리: 공동 순위 허용. 진행 중은 entry 기준 상위 3명까지만, 종료 결과는 1회 이상 터치한 참가자 전체 순위 제공
 
-기본값으로 진행 가능한 기술 결정:
+기술 정책:
 
 - 박터뜨리기 라운드는 파티당 1회 정책이므로 외부 API는 `partyId` 기준으로 식별한다.
 - `stateVersion`은 라운드 session lock 안에서 집계 반영과 함께 증가
 - progress SSE는 throttle로 중간 버전이 누락될 수 있는 최신 aggregate snapshot
 - 종료는 scheduler와 submit/상태 조회 lazy 종료 체크를 모두 둔다.
 - 박터뜨리기 start는 촛불끄기 종료 상태를 선행 조건으로 검증한다.
+- 카운트다운은 `ACTIVE` 상태와 미래의 `startedAt`으로 표현한다.
 - 참가자별 tap rate limit은 독립된 두 제약으로 검사한다.
   - 초당 제한: 참가자별 token bucket 기준 초당 20회 refill, burst capacity 30회까지 반영
   - 라운드 누적 제한: 참가자별 라운드 누적 400회까지 반영
@@ -39,13 +41,15 @@
 
 ## 1. 기능 요약 [기획]
 
-실시간 파티(`REALTIME`) 진행 중 "촛불끄기"가 종료된 다음 단계로 20초짜리 박터뜨리기 라운드를 시작한다.
+실시간 파티(`REALTIME`) 진행 중 "촛불끄기"가 종료된 다음 단계로 박터뜨리기 라운드를 시작한다. start 요청 후 서버 기준 5초 카운트다운을 거치고, 이후 20초 동안 터치를 허용한다.
 
 참여자들은 20초 동안 터치 액션을 전송한다. 서버는 모든 참여자의 터치 수를 집계하고, 진행 중에는 전체 참여자에게 순위 entry 기준 상위 3명까지만 실시간으로 브로드캐스트한다. 진행 중 화면에서 필요한 개인 터치 수는 submit/state 응답의 `myTapCount`를 기준으로 보여준다. 20초가 끝나면 최종 총 터치 수와 1회 이상 터치한 참가자 전체 최종 순위를 브로드캐스트한다.
 
 핵심 정책:
 
 - 라운드 시간은 서버 기준 20초다.
+- 카운트다운 시간은 서버 기준 5초다.
+- `startedAt`은 실제 터치 허용 시작 시각이며, `endsAt`은 `startedAt + 20초`다.
 - 상태 변경 기준 터치 수는 100회다.
 - 총 터치 수가 100회 이상이 되면 `colorChanged = true`로 본다. 이 값은 진행 상태 판단을 위한 서버 집계값이다.
 - 100회 기준값은 서버 정책 상수로 관리하고, 응답에는 `colorChanged`만 내려준다.
@@ -60,10 +64,10 @@
 
 | 영역 | 설명 |
 |---|---|
-| 라운드 시작 | 서버 기준 시작/종료 시각 확정 |
+| 라운드 시작 | 서버 기준 카운트다운 종료 시각(`startedAt`)과 라운드 종료 시각(`endsAt`) 확정 |
 | 참여자 검증 | JWT 또는 `X-Participant-Token`으로 실시간 파티 참여자와 프로필 존재 여부 확인 |
 | 선행 단계 검증 | 촛불끄기 종료 상태인지 확인 |
-| 시간 검증 | 20초 진행 구간 안에서만 tap batch 반영 |
+| 시간 검증 | `startedAt <= now < endsAt`인 20초 진행 구간 안에서만 tap batch 반영 |
 | 터치 수 집계 | 참가자별 터치 수, 전체 합산 터치 수, 진행 중 상위 3명 순위, 종료 시 1회 이상 터치한 참가자 전체 순위 계산 |
 | 중복 batch 방지 | 참가자별 `clientSequence`를 기준으로 동일 batch 재처리 방지 |
 | 실시간 브로드캐스트 | 실시간 파티 입장 시 이미 연결된 기존 SSE 스트림으로 진행/종료 이벤트 전송 |
@@ -88,6 +92,7 @@
   │                                    │  2. 라운드 생성 또는 기존 active 라운드 반환
   │◄── { partyId, startedAt, endsAt } ─│
   │◄── event: burst-game-started ─────│  3. 기존 SSE 구독자에게 시작 이벤트
+  │ 5초 카운트다운                    │
   │                                    │
   │── POST /parties/{id}/burst-game/   │
   │   taps { tapCount, sequence } ────►│  4. tap batch 반영
@@ -119,7 +124,7 @@ X-Participant-Token: {participantToken}
 
 권한:
 
-- 현재 결정: **촛불끄기가 종료된 상태라면 실시간 파티 참여자 누구나 시작 가능**
+- **촛불끄기가 종료된 상태라면 실시간 파티 참여자 누구나 시작 가능**
   - 이유: 박터뜨리기는 촛불끄기 다음 단계이고, 시작 권한보다 선행 단계 종료 여부가 핵심 조건이다.
   - 여러 참여자가 동시에 호출해도 서버는 active 라운드 1개만 생성하고 나머지는 기존 active 라운드를 반환한다.
 
@@ -131,8 +136,8 @@ X-Participant-Token: {participantToken}
 {
   "partyId": 10,
   "myParticipantId": 37,
-  "startedAt": "2026-05-14T20:10:00",
-  "endsAt": "2026-05-14T20:10:20",
+  "startedAt": "2026-05-14T20:10:05",
+  "endsAt": "2026-05-14T20:10:25",
   "colorChanged": false,
   "stateVersion": 0,
   "serverTime": "2026-05-14T20:10:00"
@@ -147,22 +152,25 @@ X-Participant-Token: {participantToken}
 - 참여자 프로필이 없으면 `UNAUTHORIZED`.
 - 이미 active 라운드가 있으면 새로 만들지 않고 기존 라운드를 반환한다.
   - active 라운드가 있다는 것은 이미 선행 조건 검증을 통과했다는 뜻이므로 촛불끄기 종료 상태를 다시 검증하지 않는다.
+  - 카운트다운 중 재호출은 최초 `startedAt`, `endsAt`을 반환한다.
 - 이미 ended session이 TTL 안에 있으면 기존 결과를 반환하지 않고 `BURST_GAME_ALREADY_ENDED (409)`로 막는다.
 - active/ended session이 없고 새 라운드를 생성해야 할 때 촛불끄기 종료 상태를 검증한다.
   - 촛불끄기가 종료되지 않았으면 `BURST_GAME_NOT_READY`.
   - `ALL_EXTINGUISHED`, `TIMEOUT` 모두 촛불끄기 종료 상태로 본다.
   - 선행 조건 조회 포트는 `com.team2.server.burstgame.application.port.CandleBlowStatusReader`로 둔다.
   - 포트 계약은 `fun isCandleBlowFinished(partyId: Long): Boolean`이며, `ALL_EXTINGUISHED`, `TIMEOUT` 모두 `true`로 해석한다.
-  - 촛불끄기 feature가 아직 머지되지 않은 개발/테스트 단계에서는 항상 `true`를 반환하고 warning log를 남기는 `CandleBlowStatusReaderStub`을 임시 adapter로 둔다.
-  - stub은 `local`, `dev`, `test` profile 또는 명시적 feature flag에서만 bean으로 등록하고, prod profile에는 등록하지 않는다.
 - 종료 결과 조회는 start API가 아니라 상태 및 결과 조회 API를 사용한다.
 - 일반 참가자가 진행 중 라운드 상태를 복구해야 하는 경우 start API가 아니라 `GET /api/v1/parties/{partyId}/burst-game`을 사용한다.
 - 파티당 1회 정책이므로 외부 응답과 submit 경로에는 별도 `roundId`를 노출하지 않는다.
+- 새 라운드 생성 시 `startedAt = now + 5초`, `endsAt = startedAt + 20초`로 확정한다.
+- 5초 카운트다운의 상태는 `ACTIVE`다.
+- 파티 단계는 start 요청 직후 `CANDLE -> BURST`로 전환한다.
 
 Start API side effect 경계:
 
 - Start API handler는 호출자가 "게임을 시작하려는 의도"를 가진 요청으로 본다.
 - active session이 없으면 새 round를 만들고 `burst-game-started` SSE를 1회 브로드캐스트한다.
+- `burst-game-started`는 start 요청 직후 발행하며, payload의 미래 `startedAt`으로 모든 참여자에게 동일한 실제 시작 시각을 알린다.
 - active session이 있으면 기존 active 상태만 반환하고 start SSE를 재발화하지 않는다.
 - start 호출 자체는 권한/참여자/파티 상태 검증과 start attempt 로그/메트릭을 남길 수 있다.
 - round 생성 성공 시에는 start success 로그/메트릭을 남길 수 있다.
@@ -239,6 +247,11 @@ X-Participant-Token: {participantToken}
 처리 정책:
 
 - 파티에 진행 중이거나 TTL 안에 남은 라운드가 없으면 `BURST_GAME_NOT_FOUND`.
+- 요청 시점에 `now < startedAt`이면 카운트다운 중인 요청으로 처리한다.
+  - 응답은 `200 OK`.
+  - `accepted = false`, `ignoredReason = "ROUND_NOT_STARTED"`를 반환한다.
+  - 해당 `clientSequence`는 실제 시작 후 재사용할 수 있다.
+  - tap 수와 `stateVersion`은 기존 값을 유지한다.
 - TTL 안에 ended session이 남아 있는 종료 라운드에 submit하면 `200 OK`로 submit 응답 스키마를 유지한다.
   - 해당 batch는 반영하지 않는다.
   - `accepted = false`, `ignoredReason = "ROUND_ENDED"`와 종료 시점의 개인 상태를 반환한다.
@@ -260,12 +273,12 @@ X-Participant-Token: {participantToken}
   - 예: 현재 최대 accepted sequence가 10이고 6~9가 늦게 도착했더라도, 아직 처리된 적이 없으면 중복으로 보지 않는다.
   - 중간 sequence 누락은 모바일 네트워크/재시도 상황에서 자연스럽게 발생할 수 있으므로 서버가 막지 않는다.
 - 단, `clientSequence > maxAcceptedSequence + MAX_SEQUENCE_GAP`이면 잘못된 요청으로 본다.
-  - 1차 기본값: `MAX_SEQUENCE_GAP = 1000`
+  - `MAX_SEQUENCE_GAP = 1000`
   - 응답은 `INVALID_INPUT`.
   - 에러 메시지는 `"clientSequence gap too large"`처럼 원인을 알 수 있게 둔다.
 - 요청 `tapCount`는 너무 큰 값 전송을 막기 위해 1~30으로 제한한다.
 - 요청 `tapCount` 제한과 별도로 참가자별 초당 반영 가능한 tap 수를 제한한다.
-  - 1차 기본값: token bucket refill 초당 20회, burst capacity 30회, 참가자별 라운드 누적 400회.
+  - token bucket refill 초당 20회, burst capacity 30회, 참가자별 라운드 누적 400회.
   - 두 제한은 독립적으로 검사한다.
   - 예: 라운드 시작 직후 `tapCount = 30` 단일 batch는 burst capacity 안에 있으므로 허용할 수 있다.
   - 예: 1초 안에 여러 batch로 31회 이상이 들어오면 token bucket 잔여량을 초과한 batch를 거부한다.
@@ -282,12 +295,12 @@ Authorization: Bearer {token}
 X-Participant-Token: {participantToken}
 ```
 
-SSE 재연결, `burst-game-started` 이벤트 유실, 종료 직후 재조회에 모두 사용한다. 파티에 연결된 라운드가 진행 중이면 현재 진행 상태를, 종료됐으면 TTL 안의 최종 결과를 반환한다.
+SSE 재연결, `burst-game-started` 이벤트 유실, 카운트다운 복구, 종료 직후 재조회에 모두 사용한다. 카운트다운 중에도 `200 OK`로 현재 상태를 반환하고, 종료됐으면 TTL 안의 최종 결과를 반환한다.
 
 경로를 party 중심으로 둔 이유:
 
 - 이 기능은 파티당 active/ended session을 최대 1개만 유지하는 정책이므로 party 기준 조회가 자연스럽다.
-- `GET /api/v1/burst-game/rounds/{roundId}`는 1차 범위에서 제공하지 않는다. 상태/결과 복구는 party 기준 API 하나로 통일한다.
+- 상태와 결과 복구 경로는 `GET /api/v1/parties/{partyId}/burst-game`으로 통일한다.
 
 응답:
 
@@ -303,6 +316,7 @@ SSE 재연결, `burst-game-started` 이벤트 유실, 종료 직후 재조회에
   "colorChanged": true,
   "stateVersion": 58,
   "serverTime": "2026-05-14T20:10:21.000",
+  "remainingSeconds": 0,
   "rankings": [
     {
       "rank": 1,
@@ -339,6 +353,8 @@ SSE 재연결, `burst-game-started` 이벤트 유실, 종료 직후 재조회에
 
 - 파티에 active session 또는 TTL 안의 ended session이 없으면 `BURST_GAME_NOT_FOUND`.
 - 호출자가 해당 파티의 실시간 프로필을 갖고 있지 않으면 `UNAUTHORIZED`.
+- 카운트다운 중에도 `ended = false`, 미래의 `startedAt`, 현재 `serverTime`, 실제 플레이 시간 기준 `remainingSeconds = 20`을 반환한다.
+- 클라이언트는 `startedAt - 보정된 서버 현재 시각`으로 남은 카운트다운을 계산한다.
 - `ended = false`이면 진행 중 상태이며, `rankings`는 6절 순위 정책에 따라 정렬된 entry 기준 상위 3명까지만 내려준다.
   - 공동 1등이 5명이더라도 `rankings`는 그중 표시 순서상 앞선 3명까지만 포함한다.
   - 현재 참여자 수가 3명보다 적으면 그 수만큼만 내려준다.
@@ -369,14 +385,14 @@ SSE 재연결, `burst-game-started` 이벤트 유실, 종료 직후 재조회에
 
 ### 5-1. `burst-game-started`
 
-라운드가 시작되면 해당 파티의 기존 SSE 구독자에게 전송한다.
+start 요청으로 라운드가 생성되면 해당 파티의 기존 SSE 구독자에게 즉시 전송한다. `startedAt`은 이벤트 발행 시점보다 5초 뒤이며, 모든 참여자는 같은 `startedAt`을 실제 탭 허용 시작 시각으로 사용한다.
 
 ```json
 {
   "partyId": 10,
   "status": "ACTIVE",
-  "startedAt": "2026-05-14T20:10:00",
-  "endsAt": "2026-05-14T20:10:20",
+  "startedAt": "2026-05-14T20:10:05",
+  "endsAt": "2026-05-14T20:10:25",
   "colorChanged": false,
   "stateVersion": 0,
   "serverTime": "2026-05-14T20:10:00"
@@ -437,7 +453,7 @@ tap batch 반영 후 해당 파티의 기존 SSE 구독자에게 전송한다.
 - progress 이벤트의 `stateVersion`은 연속적이지 않을 수 있다. 예를 들어 수신자가 13 다음에 18을 받아도 정상이며, 마지막으로 처리한 값보다 크면 최신 상태로 받아들이면 된다.
 - 이벤트 수신자는 `stateVersion`이 마지막으로 처리한 값보다 작거나 같으면 stale 이벤트로 보고 무시할 수 있다.
 - `stateVersion`은 party session별 단조 증가 값이다. tap batch가 실제로 반영될 때 증가하고, 중복 batch 무시는 증가시키지 않는다.
-- in-memory 1차 구현에서는 party session 단위 lock 안에서 tap count 반영, ranking 재계산, `stateVersion` 증가, broadcast snapshot 생성을 하나의 원자적 구간으로 묶는다.
+- in-memory session은 party 단위 lock 안에서 tap count 반영, ranking 재계산, `stateVersion` 증가, broadcast snapshot 생성을 하나의 원자적 구간으로 묶는다.
 - 최종 종료 이벤트는 throttle과 무관하게 반드시 전송한다.
 - end 이벤트의 `stateVersion`은 마지막 progress 이벤트의 `stateVersion`보다 클 수 있다. 이벤트 수신자는 end 이벤트를 최종 결과로 채택한다.
 - progress 이벤트는 라운드 종료 기준 시각인 `endsAt`을 내려준다.
@@ -563,47 +579,28 @@ batch 단위 전송 구조에서는 "특정 tap 수에 정확히 먼저 도달�
 
 ### 7-1. active round 집계
 
-20초 동안의 active 집계는 애플리케이션 메모리에서 처리하는 것을 추천한다.
+20초 동안의 active 집계는 애플리케이션 메모리에서 처리한다.
 
 이유:
 
 - 터치 이벤트는 짧은 시간에 많이 들어온다.
-- 매 터치를 DB에 insert/update하면 불필요하게 쓰기 부하가 커진다.
-- 현재 기능은 실시간 표시가 중요하고, raw tap event의 영구 보존 필요가 낮다.
-- 파티 종료 후 보관함/회고/관리자 기능 등에서 박터뜨리기 결과를 재사용하지 않는다.
-
-따라서 1차 구현에서는 DB 테이블을 만들지 않고, 라운드 session을 메모리에 두는 편이 낫다.
-
-단, 이 방식은 단일 active application 인스턴스를 전제로 한다. 서버가 여러 대에서 동시에 요청을 받는 구조가 되면 Redis 같은 공유 저장소가 필요하다.
-
-현재 배포가 active slot 하나로 트래픽을 받는 구조라면 in-memory session으로 시작할 수 있다. 추후 horizontal scale이 필요해지면 `BurstGameSessionStore` 인터페이스 뒤 구현을 Redis로 교체한다.
+- 메모리 session에서 tap count, ranking, `stateVersion`을 함께 갱신한다.
+- `BurstGameSessionStore`가 party별 active/ended session을 관리한다.
 
 ### 7-2. 종료 결과 유지
 
-라운드 종료 후 결과는 DB에 저장하지 않고, 메모리에 짧은 TTL로 유지한다.
+라운드 종료 결과는 메모리에 5분 TTL로 유지한다.
 
-추천 TTL:
+목적:
 
-- 1차 기본값: 5분
-- 목적: 종료 이벤트를 놓친 호출자의 결과 재조회, 종료 직후 짧은 재조회 대응
+- 종료 이벤트를 놓친 호출자의 결과 재조회
+- 종료 직후 상태 및 결과 조회
 
-TTL 이후:
-
-- 결과 조회 API는 `BURST_GAME_NOT_FOUND`를 반환한다.
-- 파티 종료 후 어디에서도 결과를 재사용하지 않는다는 현재 기획과 맞다.
-
-DB 저장이 필요한 조건:
-
-- 보관함/회고 기능에서 결과를 다시 보여줘야 한다.
-- 운영자가 결과를 확인해야 한다.
-- 이벤트 결과를 통계/분석에 사용해야 한다.
-- 서버 재시작 중에도 결과 조회를 보장해야 한다.
-
-위 조건이 생기면 그때 `burst_game_round`, `burst_game_participant_score` 테이블을 추가한다.
+TTL이 만료된 session의 결과 조회 API는 `BURST_GAME_NOT_FOUND`를 반환한다.
 
 ### 7-3. 라운드 식별자
 
-파티당 1회 정책이므로 1차 구현은 외부 API에서 별도 라운드 식별자를 사용하지 않는다.
+파티당 1회 정책에 따라 외부 API는 `partyId`로 라운드를 식별한다.
 
 이유:
 
@@ -615,7 +612,7 @@ DB 저장이 필요한 조건:
 
 파티별 session은 동일 파티의 tap 반영을 직렬화해야 한다.
 
-1차 구현 기준:
+동시성 제어:
 
 - start 요청도 `partyId` 단위 lock 또는 `ConcurrentHashMap.compute(partyId) { ... }`로 직렬화한다.
   - 촛불끄기 종료 직후 여러 참여자가 동시에 start를 호출해도 active session은 1개만 생성되어야 한다.
@@ -649,6 +646,7 @@ DB 저장이 필요한 조건:
 정책:
 
 - 라운드 시작 시 `endsAt` 기준 종료 scheduler를 등록한다.
+- `now < startedAt`인 submit은 `ROUND_NOT_STARTED`로 응답하며, 해당 `clientSequence`는 실제 시작 후 재사용할 수 있다.
 - `submit taps`와 상태 조회도 매 호출마다 `now >= endsAt`이면 lazy 종료를 시도한다.
 - scheduler와 lazy 종료 중 먼저 lock을 획득한 쪽만 `ACTIVE -> ENDED` 전이를 commit한다.
 - 이미 `ENDED`인 session에 대해서는 종료 처리를 다시 수행하지 않는다.
@@ -724,7 +722,7 @@ cross-feature 의존:
 
 ## 9. 에러 코드 [API/구현]
 
-신규 ErrorCode 후보:
+박터뜨리기 ErrorCode:
 
 | ErrorCode | HTTP | 상황 |
 |---|---|---|
@@ -756,7 +754,8 @@ cross-feature 의존:
 5. TTL 안의 ended round가 있으면 `BURST_GAME_ALREADY_ENDED`
 6. active/ended round가 없으면 촛불끄기 종료 상태 확인
 7. in-memory session 생성
-9. 20초 뒤 종료 scheduler 등록
+8. `startedAt = now + 5초`, `endsAt = startedAt + 20초`로 확정
+9. `endsAt` 기준 종료 scheduler 등록
 10. 기존 파티 SSE 구독자에게 `burst-game-started` 브로드캐스트
 11. start response 반환
 
@@ -765,23 +764,25 @@ cross-feature 의존:
 1. `partyId`로 session 조회
 2. 호출자를 `RealtimeParticipantProfile`로 식별
 3. session lock 안에서 이미 `ENDED`면 해당 batch는 반영하지 않고 `accepted = false`, `ignoredReason = "ROUND_ENDED"` 반환
-4. `ACTIVE`이지만 `now >= endsAt`이면 lazy 종료 시도
-5. lazy 종료가 발생했으면 해당 batch는 반영하지 않고 `accepted = false`, `ignoredReason = "ROUND_ENDED"` 반환
-6. 종료되지 않은 active session이면 처리된 `clientSequence` 집합 기준으로 중복 여부 확인
-7. 참가자별 rate limit 확인
-8. 요청 `tapCount`를 참가자별 count와 total count에 반영
-9. ranking 재계산
-10. `stateVersion` 증가
-11. immutable aggregate snapshot 생성
-12. 최신 aggregate response 반환
-13. throttle 정책에 따라 기존 파티 SSE 구독자에게 `burst-game-progress` 브로드캐스트
+4. `ACTIVE`이지만 `now < startedAt`이면 `accepted = false`, `ignoredReason = "ROUND_NOT_STARTED"`를 반환하고 해당 `clientSequence`를 재사용 가능 상태로 유지
+5. `ACTIVE`이지만 `now >= endsAt`이면 lazy 종료 시도
+6. lazy 종료가 발생했으면 해당 batch는 반영하지 않고 `accepted = false`, `ignoredReason = "ROUND_ENDED"` 반환
+7. 실제 진행 구간의 active session이면 처리된 `clientSequence` 집합 기준으로 중복 여부 확인
+8. 참가자별 rate limit 확인
+9. 요청 `tapCount`를 참가자별 count와 total count에 반영
+10. ranking 재계산
+11. `stateVersion` 증가
+12. immutable aggregate snapshot 생성
+13. 최신 aggregate response 반환
+14. throttle 정책에 따라 기존 파티 SSE 구독자에게 `burst-game-progress` 브로드캐스트
 
 ### state/result lookup
 
 1. `partyId`로 active 또는 TTL 안의 ended session 조회
 2. 호출자를 `RealtimeParticipantProfile`로 식별
 3. active session이면 session lock 안에서 `now >= endsAt` lazy 종료 시도
-4. 현재 상태 또는 종료 결과 반환
+4. 카운트다운 중이면 미래의 `startedAt`과 실제 플레이 시간 기준 `remainingSeconds = 20`을 포함한 현재 상태 반환
+5. 현재 상태 또는 종료 결과 반환
 
 ### end
 
@@ -806,17 +807,16 @@ cross-feature 의존:
 
 ## 12. 결정 사항 [기획/PM]
 
-### 12-1. 확정된 블로커 결정
+### 12-1. 시작과 순위 정책
 
 1. 박터뜨리기 시작 조건
    - 결정: 촛불끄기가 종료된 상태라면 실시간 파티 참여자 누구나 시작 가능하다.
    - 백엔드 처리: start API에서 촛불끄기 종료 상태를 검증한다.
-   - 촛불끄기 기능이 별도 PR이라면 박터뜨리기는 `CandleBlowStatusReader` 같은 조회 계약에 의존하고, 촛불 상태 생성/집계 자체는 촛불 기능 범위로 둔다.
+   - 박터뜨리기는 `CandleBlowStatusReader` 조회 계약으로 촛불 종료 상태를 확인한다.
 
 2. 라운드 재시작 가능 여부
    - 결정: 파티당 1회만 가능하다.
    - 백엔드 처리: TTL 안의 ended session이 있으면 `BURST_GAME_ALREADY_ENDED`.
-   - 운영 리스크: 호스트가 실수로 일찍 시작해도 재시작할 수 없다. 정책 변경이 필요하면 별도 후속 PR에서 강제 재시작 API를 검토한다.
 
 3. 순위 동점 처리
    - 결정: 공동 순위를 허용한다.
@@ -826,6 +826,9 @@ cross-feature 의존:
 
 ### 12-2. 확정된 제품 정책
 
+- start 요청 후 서버 기준 5초 카운트다운을 진행하고, 모든 참여자는 동일한 `startedAt`부터 터치할 수 있다.
+- 카운트다운 중에도 상태 조회 API를 허용한다.
+- 카운트다운 중 submit은 `ROUND_NOT_STARTED`로 응답하고 해당 `clientSequence`를 실제 시작 후 재사용할 수 있다.
 - 100회 달성 시 서버는 `colorChanged = true`를 내려준다.
 - 100회 이후에도 20초가 끝날 때까지 계속 터치하고 순위를 집계한다.
 - 진행 중에는 정렬된 순위 entry 기준 상위 3명과 각 순위자의 터치 수만 표시한다.
@@ -833,37 +836,11 @@ cross-feature 의존:
 - 진행 중 합산 터치 수는 표시하지 않고, 개인 터치 수는 `myTapCount`로 표시한다.
 - 종료 이벤트와 ended 상태/결과 조회에는 최종 총 터치 수와 1회 이상 터치한 참가자 전체 순위를 포함한다.
 - 전원 0회면 `rankings = []`로 내려준다.
-- 현재 기획에서는 파티 종료 후 박터뜨리기 결과를 다른 기능에서 재사용하지 않는다.
 
-### 12-3. 기본값으로 진행 가능한 기술 정책
+### 12-3. 기술 정책
 
 - 최종 결과는 DB 저장 없이 메모리에 5분 TTL로 유지한다.
-- active app instance가 하나면 in-memory aggregate로 시작한다.
-- 여러 app instance가 동시에 트래픽을 받으면 Redis 기반 aggregate로 전환한다.
-- tap rate limit 1차 기본값은 참가자별 token bucket refill 초당 20회, burst capacity 30회, 참가자별 라운드 누적 400회다.
+- active aggregate는 in-memory session으로 관리한다.
+- tap rate limit은 참가자별 token bucket refill 초당 20회, burst capacity 30회, 참가자별 라운드 누적 400회다.
   - 두 제약은 독립적으로 검사한다.
   - 초당 제한은 token bucket, 라운드 누적 제한은 accepted tap count 합계 기준으로 적용한다.
-- rate limit 수치는 QA 중 모바일 입력감에 맞춰 조정 가능하다.
-
----
-
-## 13. 1차 구현 범위 제안 [구현]
-
-1차 PR:
-
-- `burstgame` feature 패키지 추가
-- start / submit taps / 상태 및 결과 조회 API 추가
-- 실시간 파티 입장 시 유지 중인 기존 SSE stream에 `burst-game-started`, `burst-game-progress`, `burst-game-ended` 이벤트 추가
-- active aggregate는 in-memory session으로 구현
-- 종료 결과는 DB 저장 없이 in-memory ended session에 5분 TTL로 유지
-- 진행 중 ranking은 entry 기준 상위 3명과 각 순위자의 터치 수만 반환
-- 종료 이벤트/상태 결과 조회는 최종 총 터치 수와 1회 이상 터치한 참가자 전체 순위를 반환
-- SSE progress/end 이벤트에 `stateVersion`, `serverTime` 포함
-- 참가자별 최소 rate limit 적용
-
-2차 PR 후보:
-
-- Redis session store 전환
-- anti-cheat 고도화
-- 보관함/아카이브에서 박터뜨리기 결과 노출이 필요해질 때 DB 저장 추가
-- 미니게임 공통 stage 모델 도입
