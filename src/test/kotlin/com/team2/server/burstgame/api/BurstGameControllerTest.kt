@@ -3,7 +3,9 @@ package com.team2.server.burstgame.api
 import com.team2.server.burstgame.application.port.BurstGameSessionStore
 import com.team2.server.burstgame.application.port.CandleBlowSessionStore
 import com.team2.server.burstgame.application.service.BurstGameSessionService
+import com.team2.server.burstgame.domain.BurstGameSession
 import com.team2.server.burstgame.domain.candle.CandleBlowPolicy
+import com.team2.server.burstgame.domain.policy.BurstGamePolicy
 import com.team2.server.common.DatabaseCleanup
 import com.team2.server.config.TestcontainersConfiguration
 import com.team2.server.party.domain.entity.Participant
@@ -189,6 +191,40 @@ class BurstGameControllerTest
         }
 
         @Test
+        fun `카운트다운 중 상태 조회는 실제 플레이 시간 기준 remainingSeconds를 반환한다`() {
+            val fixture = saveRealtimeParticipant()
+            startCountdownGame(fixture)
+
+            mockMvc
+                .get("/api/v1/parties/${fixture.partyId}/burst-game") {
+                    header("X-Participant-Token", fixture.participantToken)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.ended") { value(false) }
+                    jsonPath("$.data.remainingSeconds") { value(BurstGamePolicy.ROUND_DURATION_SECONDS) }
+                }
+        }
+
+        @Test
+        fun `카운트다운 중 터치 batch는 ROUND_NOT_STARTED로 무시한다`() {
+            val fixture = saveRealtimeParticipant()
+            startCountdownGame(fixture)
+
+            mockMvc
+                .post("/api/v1/parties/${fixture.partyId}/burst-game/taps") {
+                    contentType = MediaType.APPLICATION_JSON
+                    header("X-Participant-Token", fixture.participantToken)
+                    content = """{"tapCount":7,"clientSequence":1}"""
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.accepted") { value(false) }
+                    jsonPath("$.data.ignoredReason") { value("ROUND_NOT_STARTED") }
+                    jsonPath("$.data.myTapCount") { value(0) }
+                    jsonPath("$.data.stateVersion") { value(0) }
+                }
+        }
+
+        @Test
         fun `촛불끄기가 끝나기 전 박터뜨리기 시작은 400을 반환한다`() {
             val fixture = saveRealtimeParticipant()
 
@@ -244,7 +280,7 @@ class BurstGameControllerTest
         fun `터치 batch 제출 후 진행 상태에 rankings를 반환한다`() {
             val fixture = saveRealtimeParticipant()
             prepareCandleBlowFinished(fixture)
-            startGame(fixture)
+            startPlayableGame(fixture)
 
             mockMvc
                 .post("/api/v1/parties/${fixture.partyId}/burst-game/taps") {
@@ -266,7 +302,7 @@ class BurstGameControllerTest
         fun `중복 clientSequence는 200 응답에서 DUPLICATE_SEQUENCE로 무시한다`() {
             val fixture = saveRealtimeParticipant()
             prepareCandleBlowFinished(fixture)
-            startGame(fixture)
+            startPlayableGame(fixture)
             submitTap(fixture, clientSequence = 1)
 
             mockMvc
@@ -287,7 +323,7 @@ class BurstGameControllerTest
         fun `종료 라운드 submit은 ROUND_ENDED와 빈 rankings를 반환한다`() {
             val fixture = saveRealtimeParticipant()
             prepareCandleBlowFinished(fixture)
-            startGame(fixture)
+            startPlayableGame(fixture)
             submitTap(fixture, clientSequence = 1)
             sessionService.end(fixture.partyId, LocalDateTime.now().plusSeconds(21))
 
@@ -309,7 +345,7 @@ class BurstGameControllerTest
         fun `종료 상태 조회는 터치한 참가자 전체 rankings와 totalTapCount를 반환한다`() {
             val fixture = saveRealtimeParticipant()
             prepareCandleBlowFinished(fixture)
-            startGame(fixture)
+            startPlayableGame(fixture)
             submitTap(fixture, clientSequence = 1)
 
             sessionService.end(fixture.partyId, LocalDateTime.now().plusSeconds(21))
@@ -334,7 +370,7 @@ class BurstGameControllerTest
             val firstParticipant = fixtures[0]
             val secondParticipant = fixtures[1]
             prepareCandleBlowFinished(firstParticipant)
-            startGame(firstParticipant)
+            startPlayableGame(firstParticipant)
             submitTap(firstParticipant, tapCount = 7, clientSequence = 1)
             submitTap(secondParticipant, tapCount = 14, clientSequence = 1)
 
@@ -369,6 +405,30 @@ class BurstGameControllerTest
                 }.andExpect {
                     status { isOk() }
                 }
+        }
+
+        private fun startPlayableGame(fixture: BurstGameFixture) {
+            val now = LocalDateTime.now()
+            val startedAt = now.minusSeconds(1)
+            sessionStore.start(fixture.partyId, now) {
+                BurstGameSession(
+                    partyId = fixture.partyId,
+                    startedAt = startedAt,
+                    endsAt = startedAt.plusSeconds(BurstGamePolicy.ROUND_DURATION_SECONDS),
+                )
+            }
+        }
+
+        private fun startCountdownGame(fixture: BurstGameFixture) {
+            val now = LocalDateTime.now()
+            val startedAt = now.plusMinutes(1)
+            sessionStore.start(fixture.partyId, now) {
+                BurstGameSession(
+                    partyId = fixture.partyId,
+                    startedAt = startedAt,
+                    endsAt = startedAt.plusSeconds(BurstGamePolicy.ROUND_DURATION_SECONDS),
+                )
+            }
         }
 
         private fun submitTap(

@@ -35,16 +35,27 @@ class BurstGameSession(
     ): BurstGameTapResult {
         validateTapInput(tapCount, clientSequence)
         return when {
-            status == BurstGameRoundStatus.ENDED || !now.isBefore(endsAt) -> {
-                val endedNow = status == BurstGameRoundStatus.ACTIVE
-                if (endedNow) {
-                    end(now)
-                }
+            status == BurstGameRoundStatus.ENDED ->
                 BurstGameTapResult(
                     accepted = false,
                     ignoredReason = BurstGameTapIgnoredReason.ROUND_ENDED,
                     snapshot = snapshotFor(participant.participantId, now),
-                    endedNow = endedNow,
+                )
+
+            now.isBefore(startedAt) ->
+                BurstGameTapResult(
+                    accepted = false,
+                    ignoredReason = BurstGameTapIgnoredReason.ROUND_NOT_STARTED,
+                    snapshot = snapshotFor(participant.participantId, now),
+                )
+
+            !now.isBefore(endsAt) -> {
+                end(now)
+                BurstGameTapResult(
+                    accepted = false,
+                    ignoredReason = BurstGameTapIgnoredReason.ROUND_ENDED,
+                    snapshot = snapshotFor(participant.participantId, now),
+                    endedNow = true,
                 )
             }
 
@@ -129,7 +140,7 @@ class BurstGameSession(
             colorChanged = totalTapCount >= BurstGamePolicy.COLOR_CHANGE_TAP_COUNT,
             stateVersion = stateVersion,
             serverTime = now,
-            remainingSeconds = BurstGameSnapshot.remainingSeconds(endsAt, now),
+            remainingSeconds = BurstGameSnapshot.remainingSeconds(startedAt, endsAt, now),
             rankings =
                 if (status == BurstGameRoundStatus.ACTIVE) {
                     BurstGameRankingPolicy.progressRankings(scores)

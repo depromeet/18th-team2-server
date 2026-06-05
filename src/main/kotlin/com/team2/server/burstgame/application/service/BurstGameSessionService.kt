@@ -47,10 +47,11 @@ class BurstGameSessionService(
         val result =
             sessionStore.start(partyId, now) {
                 validateCandleBlowFinished(partyId, hostEnteredAt, now)
+                val startedAt = now.plusSeconds(BurstGamePolicy.COUNTDOWN_DURATION_SECONDS)
                 BurstGameSession(
                     partyId = partyId,
-                    startedAt = now,
-                    endsAt = now.plusSeconds(BurstGamePolicy.ROUND_DURATION_SECONDS),
+                    startedAt = startedAt,
+                    endsAt = startedAt.plusSeconds(BurstGamePolicy.ROUND_DURATION_SECONDS),
                 )
             }
         val session =

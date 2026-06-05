@@ -3,6 +3,7 @@ package com.team2.server.burstgame.domain.policy
 import java.time.Duration
 
 object BurstGamePolicy {
+    const val COUNTDOWN_DURATION_SECONDS = 5L
     const val ROUND_DURATION_SECONDS = 20L
     const val COLOR_CHANGE_TAP_COUNT = 100
     const val MAX_BATCH_TAP_COUNT = 30L

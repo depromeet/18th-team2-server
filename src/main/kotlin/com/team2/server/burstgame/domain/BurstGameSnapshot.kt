@@ -21,10 +21,12 @@ data class BurstGameSnapshot(
 ) {
     companion object {
         fun remainingSeconds(
+            startedAt: LocalDateTime,
             endsAt: LocalDateTime,
             serverTime: LocalDateTime,
         ): Long {
-            val millis = Duration.between(serverTime, endsAt).toMillis()
+            val playableFrom = maxOf(serverTime, startedAt)
+            val millis = Duration.between(playableFrom, endsAt).toMillis()
             return max(0.0, ceil(millis / MILLIS_PER_SECOND)).toLong()
         }
 

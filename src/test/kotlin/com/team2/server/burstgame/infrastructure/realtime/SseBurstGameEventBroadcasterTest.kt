@@ -1,5 +1,6 @@
 package com.team2.server.burstgame.infrastructure.realtime
 
+import com.team2.server.burstgame.application.event.BurstGameStartedEvent
 import com.team2.server.burstgame.domain.BurstGameRankingEntry
 import com.team2.server.burstgame.domain.BurstGameRoundStatus
 import com.team2.server.burstgame.domain.BurstGameSnapshot
@@ -29,10 +30,23 @@ class SseBurstGameEventBroadcasterTest {
     }
 
     @Test
-    fun `started 이벤트는 즉시 전송한다`() {
-        broadcaster.broadcastStarted(snapshot())
+    fun `started 이벤트는 미래 startedAt을 전송하고 파티 단계 전환에는 발행 시각을 사용한다`() {
+        val startedAt = LocalDateTime.of(2026, 5, 18, 14, 20, 5)
+        val serverTime = startedAt.minusSeconds(5)
+        val snapshot = snapshot(startedAt = startedAt).copy(serverTime = serverTime)
 
-        verify(partySseEventPublisher).broadcastAfterCommit(eq(1L), anyEvent(), isNull())
+        broadcaster.broadcastStarted(snapshot)
+
+        val eventCaptor = argumentCaptor<Set<ResponseBodyEmitter.DataWithMediaType>>()
+        verify(partySseEventPublisher).broadcastAfterCommit(eq(1L), eventCaptor.capture(), isNull())
+        val payload =
+            eventCaptor.firstValue
+                .map { it.data }
+                .filterIsInstance<SseBurstGameEventBroadcaster.BurstGameStartedPayload>()
+                .single()
+        assertEquals(startedAt, payload.startedAt)
+        assertEquals(serverTime, payload.serverTime)
+        verify(applicationEventPublisher).publishEvent(BurstGameStartedEvent(1L, serverTime))
     }
 
     @Test

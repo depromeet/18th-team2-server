@@ -28,7 +28,7 @@ data class BurstGameStateResponse(
     val stateVersion: Long,
     @Schema(description = "응답 생성 시점의 서버 시각입니다.", example = "2026-05-14T20:10:07.120")
     val serverTime: LocalDateTime,
-    @Schema(description = "서버 기준 남은 라운드 시간입니다. 종료 상태에서는 0입니다.", example = "13")
+    @Schema(description = "서버 기준 남은 실제 플레이 시간입니다. 카운트다운 중에는 20, 종료 상태에서는 0입니다.", example = "13")
     val remainingSeconds: Long,
     @Schema(description = "진행 중에는 상위 3명, 종료 상태에서는 1회 이상 터치한 참가자 전체 최종 순위입니다.")
     val rankings: List<BurstGameRankingResponse>,

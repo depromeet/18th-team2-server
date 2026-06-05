@@ -30,6 +30,41 @@ class BurstGameSessionTest {
     }
 
     @Test
+    fun `시작 시각 전 batch는 sequence를 소비하지 않고 ROUND_NOT_STARTED로 무시한다`() {
+        val early =
+            session.applyTap(
+                participant(1),
+                tapCount = 7,
+                clientSequence = 1,
+                now = startedAt.minusSeconds(1),
+            )
+
+        assertFalse(early.accepted)
+        assertEquals(BurstGameTapIgnoredReason.ROUND_NOT_STARTED, early.ignoredReason)
+        assertEquals(0, early.snapshot.totalTapCount)
+        assertEquals(0, early.snapshot.stateVersion)
+
+        val started =
+            session.applyTap(
+                participant(1),
+                tapCount = 7,
+                clientSequence = 1,
+                now = startedAt,
+            )
+
+        assertTrue(started.accepted)
+        assertEquals(7, started.snapshot.totalTapCount)
+        assertEquals(1, started.snapshot.stateVersion)
+    }
+
+    @Test
+    fun `카운트다운 중 snapshot의 remainingSeconds는 실제 플레이 시간을 반환한다`() {
+        val snapshot = session.snapshotFor(1, startedAt.minusSeconds(5))
+
+        assertEquals(BurstGamePolicy.ROUND_DURATION_SECONDS, snapshot.remainingSeconds)
+    }
+
+    @Test
     fun `이미 처리한 clientSequence는 중복으로 무시하고 stateVersion을 증가시키지 않는다`() {
         session.applyTap(participant(1), tapCount = 7, clientSequence = 1, now = startedAt.plusSeconds(1))
 
