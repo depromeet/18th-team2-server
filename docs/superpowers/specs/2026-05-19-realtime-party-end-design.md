@@ -6,13 +6,13 @@
 
 ## 1. 정책
 
-실시간 파티 종료는 `Party.endedAt()`과 별개의 실시간 세션 종료이다.
+실시간 파티 종료는 실시간 세션의 종료 시점을 관리한다.
 
 - 주최자만 수동 종료 가능
-- 수동 종료 가능 조건: `LIVE_OPEN` 상태의 주최자는 별도 시간 제한이나 박터뜨리기 종료 조건 없이 언제든 종료 가능
-- 박터뜨리기 종료는 실시간 파티 종료 가능 여부에 영향을 주지 않음
+- 수동 종료 가능 조건: `LIVE_OPEN` 상태의 주최자는 언제든 종료 가능
 - 자동 종료 트리거: `startedAt + 10분`
-- 종료 트리거 후 즉시 종료하지 않고 60초 카운트다운 진행
+- 종료 트리거부터 60초 카운트다운 진행
+- 종료 카운트다운 화면은 `HOST_REQUEST`, `TIME_LIMIT_REACHED` 두 종료 시작 원인을 구분해 표시
 - `party-ending` 전송 후 60초 뒤 `party-ended` 전송
 - `party-ended` 전송 후 짧은 grace time 뒤 남은 SSE emitter 정리
 - 실시간 세션 종료 후 재오픈, 신규 입장, 채팅 전송 불가
@@ -25,8 +25,6 @@ RealtimeParty.LIVE_DURATION_MINUTES = 10
 RealtimeParty.LIVE_END_COUNTDOWN_SECONDS = 60
 ```
 
-기존 `PartyEndScheduler.WARN_BEFORE_END_MINUTES`와 `startedAt + 9분` 알림 예약은 제거한다.
-
 ## 2. 상태 모델
 
 `realtime_party`에 컬럼을 추가한다.
@@ -35,7 +33,33 @@ RealtimeParty.LIVE_END_COUNTDOWN_SECONDS = 60
 |---|---|---:|---|
 | `live_ending_started_at` | DATETIME | O | 60초 종료 카운트다운 시작 시각 |
 
-종료 완료 시각은 `live_ending_started_at + 60초`로 계산하고, 종료 원인 컬럼은 두지 않는다.
+종료 완료 시각은 `live_ending_started_at + 60초`로 계산한다.
+종료 시작 원인은 저장된 `live_ending_started_at`과 자동 종료 기준 시각으로 계산한다.
+
+```kotlin
+enum class RealtimePartyEndingReason {
+    HOST_REQUEST,
+    TIME_LIMIT_REACHED,
+}
+```
+
+| 종료 시작 원인 | 조건 | 의미 | `hostNickname` |
+|---|---|---|---|
+| `HOST_REQUEST` | `liveEndingStartedAt < automaticEndingStartedAt` | 주최자가 제한 시간 전에 종료 요청 | 종료를 요청한 주최자의 닉네임 |
+| `TIME_LIMIT_REACHED` | `liveEndingStartedAt >= automaticEndingStartedAt` | 10분 제한 시간 도달 | 파티 주최자의 닉네임 |
+
+주최자가 정확히 `startedAt + 10분`에 종료 요청한 경우에도 사용자 관점의 원인을 우선해 `TIME_LIMIT_REACHED`로 계산한다.
+`hostNickname`은 파티 주최자의 표시 닉네임이며 종료 원인과 관계없이 항상 제공한다.
+값은 주최자의 `RealtimeParticipantProfile.nickname`을 사용한다. 실시간 파티 생성 시 주최자 프로필이 함께 생성되고 프로필 닉네임은 필수 값이므로, `hostNickname`은 non-null 계약으로 제공한다.
+주최자 프로필은 `Participant.isCelebrant = true`인 참가자의 `RealtimeParticipantProfile`로 식별한다. 실시간 파티에는 주최자 프로필이 한 개 존재한다.
+
+종료 표시 정보인 `endingReason`, `hostNickname`은 내부에서 하나의 공통 종료 정보 객체로 계산한다.
+종료 요청 API, 상태 복구 API, `party-state`, `party-ending`, `party-ended`는 같은 공통 종료 정보를 사용하고 각 payload에는 평평한 필드로 노출한다.
+`party-ended`는 최종 종료 문구에 사용하는 `hostNickname`을 제공한다.
+백엔드는 주최자와 참가자에게 동일한 종료 정보를 제공하고, 조회자 역할에 따른 화면 문구 차이는 프론트에서 처리한다.
+
+스케줄러가 사용하는 `RealtimeEndingScheduleTarget`은 `endingReason`, `hostNickname`을 포함한다.
+앱 시작 시 스케줄 복구와 종료 이벤트 예약은 같은 종료 표시 정보를 사용한다.
 
 도메인 계산:
 
@@ -76,7 +100,9 @@ Authorization: Bearer {accessToken}
 {
   "partyId": 1,
   "endingStartedAt": "2026-05-19T20:06:30",
-  "endedAt": "2026-05-19T20:07:30"
+  "endedAt": "2026-05-19T20:07:30",
+  "endingReason": "HOST_REQUEST",
+  "hostNickname": "홍길동"
 }
 ```
 
@@ -86,10 +112,10 @@ Authorization: Bearer {accessToken}
 2. `partyOption == REALTIME`
 3. 요청자가 주최자
 4. `LIVE_CLOSED`이면 `REALTIME_PARTY_ALREADY_ENDED`
-5. `LIVE_ENDING`이면 기존 `endingStartedAt`, `endedAt` 반환
-6. `LIVE_OPEN`이면 별도 unlock 조건 없이 조건부 update 실행
+5. `LIVE_ENDING`이면 현재 `endingStartedAt`, `endedAt` 반환
+6. `LIVE_OPEN`이면 조건부 update 실행
 7. 그 외 상태이면 `REALTIME_PARTY_INVALID_STATE`
-8. affected row 기준으로 신규 시작 또는 기존 카운트다운 반환
+8. affected row 기준으로 신규 시작 또는 진행 중인 카운트다운 반환
 
 동시성:
 
@@ -102,7 +128,7 @@ WHERE id = :partyId
 
 - affected row `1`: 이번 요청이 카운트다운 시작
 - affected row `0`: 이미 시작된 카운트다운 조회 후 반환
-- 자동 종료 트리거도 조건부 update를 사용하되 저장값은 현재 시각이 아니라 `startedAt + 10분`
+- 자동 종료 트리거는 조건부 update로 `startedAt + 10분`을 저장
 
 ### 3-2. 실시간 상태 복구 조회
 
@@ -111,7 +137,7 @@ GET /api/v1/parties/{partyId}/realtime-state
 Authorization: Bearer {accessToken} 또는 X-Participant-Token: {participantToken}
 ```
 
-주최자와 기존 참가자 모두 사용한다.
+주최자와 참가자 모두 사용한다.
 
 ```json
 {
@@ -119,9 +145,21 @@ Authorization: Bearer {accessToken} 또는 X-Participant-Token: {participantToke
   "status": "LIVE_ENDING",
   "liveStartAt": "2026-05-19T20:00:00",
   "endingStartedAt": "2026-05-19T20:10:00",
-  "endedAt": "2026-05-19T20:11:00"
+  "endedAt": "2026-05-19T20:11:00",
+  "endingReason": "TIME_LIMIT_REACHED",
+  "hostNickname": "홍길동"
 }
 ```
+
+`endingReason`은 `LIVE_ENDING`, `LIVE_CLOSED`에서만 제공하고, 종료 카운트다운 시작 전에는 `null`이다.
+`hostNickname`은 종료 원인과 상태에 관계없이 항상 제공한다. 따라서 종료 시작 전 상태 응답은 `endingReason = null`, `hostNickname = 주최자 닉네임`으로 내려준다.
+
+| 응답 또는 이벤트 | `endingReason` | `hostNickname` |
+|---|---|---|
+| 주최자 종료 요청 API | non-null | non-null |
+| `realtime-state`, `party-state` | nullable | non-null |
+| `party-ending` | non-null | non-null |
+| `party-ended` | 미포함 | non-null |
 
 ### 3-3. 종료 후 다음 행동 조회
 
@@ -168,28 +206,29 @@ SSE 연결 직후 항상 현재 상태를 1회 전송한다.
 
 ```text
 event: party-state
-data: {"partyId":1,"status":"LIVE_ENDING","liveStartAt":"2026-05-19T20:00:00","endingStartedAt":"2026-05-19T20:10:00","endedAt":"2026-05-19T20:11:00"}
+data: {"partyId":1,"status":"LIVE_ENDING","liveStartAt":"2026-05-19T20:00:00","endingStartedAt":"2026-05-19T20:10:00","endedAt":"2026-05-19T20:11:00","endingReason":"TIME_LIMIT_REACHED","hostNickname":"홍길동"}
 ```
 
 ### party-ending
 
 ```text
 event: party-ending
-data: {"partyId":1,"endingStartedAt":"2026-05-19T20:10:00","endedAt":"2026-05-19T20:11:00"}
+data: {"partyId":1,"endingStartedAt":"2026-05-19T20:10:00","endedAt":"2026-05-19T20:11:00","endingReason":"TIME_LIMIT_REACHED","hostNickname":"홍길동"}
 ```
 
 ### party-ended
 
 공통 payload만 전송한다. 개인화 이동 정보는 `realtime-next-action`에서 조회한다.
+`party-ended` payload는 `partyId`, `endedAt`, `hostNickname`을 제공한다.
 
 ```text
 event: party-ended
-data: {"partyId":1,"endedAt":"2026-05-19T20:11:00"}
+data: {"partyId":1,"endedAt":"2026-05-19T20:11:00","hostNickname":"홍길동"}
 ```
 
 ## 5. 스케줄링
 
-`PartyEndScheduler`는 1초 반복 polling을 사용하지 않는다. DB는 source of truth로 두고, 평상시에는 `TaskScheduler` 예약과 트랜잭션 commit 이후 이벤트로 동작한다. SSE 발송은 트랜잭션 안에서 직접 수행하지 않는다.
+`PartyEndScheduler`는 DB를 source of truth로 두고 `TaskScheduler` 예약과 트랜잭션 commit 이후 이벤트로 동작한다. SSE는 트랜잭션 commit 이후 발송한다.
 
 앱 시작 시 1회 복구:
 
@@ -257,7 +296,7 @@ fun isLiveOpen(now: LocalDateTime): Boolean =
     now >= startedAt && now < effectiveEndingStartedAt
 ```
 
-기존 참가자 SSE 재연결:
+참가자 SSE 재연결:
 
 - `participantToken`으로 기존 profile 확인 가능하면 `LIVE_ENDING`에서도 허용
 - 연결 직후 `party-state` 전송
@@ -287,15 +326,13 @@ REALTIME_PARTY_ALREADY_ENDED(HttpStatus.CONFLICT, "이미 종료된 실시간 �
 5. 주최자 종료 요청 API 추가
 6. 실시간 상태 복구 API 추가
 7. 종료 후 다음 행동 조회 API 추가
-8. `party-state`, `party-ending`, `party-ended` SSE 처리
+8. `party-state`, `party-ending`, `party-ended` SSE에 종료 표시 정보 제공
 9. `PartyEndScheduler`를 startup recovery + event 기반 예약 구조로 변경
-10. 기존 `WARN_BEFORE_END_MINUTES`, 9분 트리거, `host-end-available` 제거
-11. 종료 시작 조건부 update 구현
-12. `party-ended` 후 grace cleanup 적용
-13. 신규 입장/채팅 검증에서 `LIVE_ENDING`, `LIVE_CLOSED` 차단
-14. 기존 참가자 `LIVE_ENDING` SSE 재연결 허용
-15. 박터뜨리기 종료와 실시간 파티 종료 가능 여부 연결 제거
-16. 테스트 추가
+10. 종료 시작 조건부 update 구현
+11. `party-ended` 후 grace cleanup 적용
+12. 신규 입장/채팅 검증에서 `LIVE_OPEN` 허용
+13. 참가자 `LIVE_ENDING` SSE 재연결 허용
+14. `HOST_REQUEST`, `TIME_LIMIT_REACHED` 경계 및 응답 필드 테스트 추가
 
 ## 9. 참가자 next action 계산 기준
 
