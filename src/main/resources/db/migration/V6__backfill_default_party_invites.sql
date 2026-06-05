@@ -9,7 +9,7 @@ select
     current_timestamp(6),
     current_timestamp(6),
     p.id,
-    left(replace(uuid(), '-', ''), 16),
+    lower(hex(random_bytes(8))),
     date_add(p.started_at, interval 7 day)
 from party p
 where date_add(p.started_at, interval 7 day) > current_timestamp(6)
