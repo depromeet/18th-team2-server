@@ -2,6 +2,7 @@ package com.team2.server.party.application.usecase
 
 import com.team2.server.party.application.dto.CreateRealtimePartyCommand
 import com.team2.server.party.application.event.RealtimePartyCreatedEvent
+import com.team2.server.party.application.service.PartyInviteService
 import com.team2.server.party.application.service.PartyService
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
@@ -25,6 +26,9 @@ class CreateRealtimePartyUseCaseTest {
     lateinit var partyService: PartyService
 
     @Mock
+    lateinit var partyInviteService: PartyInviteService
+
+    @Mock
     lateinit var userRepository: UserRepository
 
     @Mock
@@ -37,6 +41,7 @@ class CreateRealtimePartyUseCaseTest {
         useCase =
             CreateRealtimePartyUseCase(
                 partyService = partyService,
+                partyInviteService = partyInviteService,
                 userRepository = userRepository,
                 applicationEventPublisher = applicationEventPublisher,
             )
@@ -54,11 +59,13 @@ class CreateRealtimePartyUseCaseTest {
         val user = user()
         whenever(userRepository.findById(42L)).thenReturn(Optional.of(user))
         whenever(partyService.createRealtimeParty(userId = 42L, user = user, command = command)).thenReturn(100L)
+        whenever(partyInviteService.activateInviteLink(partyId = 100L, userId = 42L)).thenReturn("invite-token")
 
         val partyId = useCase.invoke(userId = 42L, command = command)
 
         assertEquals(100L, partyId)
         verify(partyService).createRealtimeParty(userId = 42L, user = user, command = command)
+        verify(partyInviteService).activateInviteLink(partyId = 100L, userId = 42L)
         verify(applicationEventPublisher).publishEvent(
             RealtimePartyCreatedEvent(
                 partyId = 100L,

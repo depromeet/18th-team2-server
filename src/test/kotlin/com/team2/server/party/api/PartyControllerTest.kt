@@ -67,7 +67,7 @@ class PartyControllerTest
                         """
                         {
                           "celebrantNickname": "홍길동",
-                          "startedDate": "2026-04-28",
+                          "startedDate": "2099-04-28",
                           "startTime": "14:30",
                           "characterId": 1
                         }
@@ -99,44 +99,52 @@ class PartyControllerTest
         fun `REALTIME 파티 생성 성공`() {
             val token = tokenProvider.issue(saveUser("kakao-create-1", "create@kakao.local"))
 
-            mockMvc
-                .post("/api/v1/parties/realtime") {
-                    contentType = MediaType.APPLICATION_JSON
-                    content =
-                        """
-                        {
-                          "celebrantNickname": "홍길동",
-                          "startedDate": "2026-04-28",
-                          "startTime": "14:30",
-                          "characterId": $defaultCharacterId
-                        }
-                        """.trimIndent()
-                    header("Authorization", "Bearer $token")
-                }.andExpect {
-                    status { isCreated() }
-                    jsonPath("$.data.partyId") { isNumber() }
-                }
+            val result =
+                mockMvc
+                    .post("/api/v1/parties/realtime") {
+                        contentType = MediaType.APPLICATION_JSON
+                        content =
+                            """
+                            {
+                              "celebrantNickname": "홍길동",
+                              "startedDate": "2099-04-28",
+                              "startTime": "14:30",
+                              "characterId": $defaultCharacterId
+                            }
+                            """.trimIndent()
+                        header("Authorization", "Bearer $token")
+                    }.andExpect {
+                        status { isCreated() }
+                        jsonPath("$.data.partyId") { isNumber() }
+                    }.andReturn()
+            val partyId = objectMapper.readTree(result.response.contentAsString)["data"]["partyId"].asLong()
+
+            assertDefaultInviteCreated(partyId)
         }
 
         @Test
         fun `PAPER_ONLY 파티 생성 성공 - startTime 없이 가능`() {
             val token = tokenProvider.issue(saveUser("kakao-create-2", "create2@kakao.local"))
 
-            mockMvc
-                .post("/api/v1/parties/paper-only") {
-                    contentType = MediaType.APPLICATION_JSON
-                    content =
-                        """
-                        {
-                          "celebrantNickname": "홍길동",
-                          "startedDate": "2026-04-28"
-                        }
-                        """.trimIndent()
-                    header("Authorization", "Bearer $token")
-                }.andExpect {
-                    status { isCreated() }
-                    jsonPath("$.data.partyId") { isNumber() }
-                }
+            val result =
+                mockMvc
+                    .post("/api/v1/parties/paper-only") {
+                        contentType = MediaType.APPLICATION_JSON
+                        content =
+                            """
+                            {
+                              "celebrantNickname": "홍길동",
+                              "startedDate": "2099-04-28"
+                            }
+                            """.trimIndent()
+                        header("Authorization", "Bearer $token")
+                    }.andExpect {
+                        status { isCreated() }
+                        jsonPath("$.data.partyId") { isNumber() }
+                    }.andReturn()
+            val partyId = objectMapper.readTree(result.response.contentAsString)["data"]["partyId"].asLong()
+
+            assertDefaultInviteCreated(partyId)
         }
 
         @Test
@@ -194,7 +202,9 @@ class PartyControllerTest
         @Test
         fun `이미 시작된 파티 삭제 시 409`() {
             val token = tokenProvider.issue(saveUser("kakao-del-started", "del-started@kakao.local"))
-            val partyId = createParty(token, "2000-01-01", "00:00")
+            val startedAt = LocalDateTime.now().minusMinutes(1)
+            val startTime = startedAt.toLocalTime().withSecond(0).withNano(0)
+            val partyId = createParty(token, startedAt.toLocalDate().toString(), startTime.toString())
 
             mockMvc
                 .delete("/api/v1/parties/$partyId") {
@@ -336,6 +346,15 @@ class PartyControllerTest
             val body = result.response.contentAsString
             val node = objectMapper.readTree(body)
             return node["data"]["partyId"].asLong()
+        }
+
+        private fun assertDefaultInviteCreated(partyId: Long) {
+            val invites =
+                partyInviteRepository.findAllByPartyIdInAndExpiresAtAfter(
+                    listOf(partyId),
+                    LocalDateTime.now(),
+                )
+            assertEquals(1, invites.size)
         }
 
         private fun saveRealtimeParty(

@@ -1,6 +1,7 @@
 package com.team2.server.party.application.usecase
 
 import com.team2.server.party.application.dto.CreatePaperOnlyPartyCommand
+import com.team2.server.party.application.service.PartyInviteService
 import com.team2.server.party.application.service.PartyService
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
@@ -21,6 +22,9 @@ class CreatePaperOnlyPartyUseCaseTest {
     lateinit var partyService: PartyService
 
     @Mock
+    lateinit var partyInviteService: PartyInviteService
+
+    @Mock
     lateinit var userRepository: UserRepository
 
     @Test
@@ -31,14 +35,16 @@ class CreatePaperOnlyPartyUseCaseTest {
                 startedDate = LocalDate.of(2026, 6, 1),
             )
         val user = user()
-        val useCase = CreatePaperOnlyPartyUseCase(partyService, userRepository)
+        val useCase = CreatePaperOnlyPartyUseCase(partyService, partyInviteService, userRepository)
         whenever(userRepository.findById(42L)).thenReturn(Optional.of(user))
         whenever(partyService.createPaperOnlyParty(userId = 42L, user = user, command = command)).thenReturn(101L)
+        whenever(partyInviteService.activateInviteLink(partyId = 101L, userId = 42L)).thenReturn("invite-token")
 
         val partyId = useCase.invoke(userId = 42L, command = command)
 
         assertEquals(101L, partyId)
         verify(partyService).createPaperOnlyParty(userId = 42L, user = user, command = command)
+        verify(partyInviteService).activateInviteLink(partyId = 101L, userId = 42L)
     }
 
     private fun user(): User =
