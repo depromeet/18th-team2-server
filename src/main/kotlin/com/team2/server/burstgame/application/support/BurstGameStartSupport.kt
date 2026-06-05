@@ -1,5 +1,6 @@
 package com.team2.server.burstgame.application.support
 
+import com.team2.server.burstgame.application.dto.BurstGameStartResult
 import com.team2.server.burstgame.application.port.BurstGameEventBroadcaster
 import com.team2.server.burstgame.application.service.BurstGameSessionService
 import com.team2.server.common.exception.BusinessException
@@ -36,7 +37,7 @@ internal fun endScheduledParty(
 internal fun throwAlreadyEndedAfterBroadcast(
     eventBroadcaster: BurstGameEventBroadcaster,
     log: Logger,
-    result: BurstGameSessionService.StartResult.AlreadyEnded,
+    result: BurstGameStartResult.AlreadyEnded,
 ): Nothing {
     if (result.endedNow) {
         runCatching {

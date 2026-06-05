@@ -1,5 +1,6 @@
 package com.team2.server.burstgame.application.support
 
+import com.team2.server.burstgame.application.dto.BurstGameStartResult
 import com.team2.server.burstgame.application.port.BurstGameEndScheduler
 import com.team2.server.burstgame.application.port.BurstGameEventBroadcaster
 import com.team2.server.burstgame.application.port.CandleBlowSessionStore
@@ -21,16 +22,16 @@ class BurstGameStartSideEffectHandler(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    fun resolve(startResult: BurstGameSessionService.StartResult): BurstGameSessionService.StartResult.Started =
+    fun resolve(startResult: BurstGameStartResult): BurstGameStartResult.Started =
         when (startResult) {
-            is BurstGameSessionService.StartResult.Started -> startResult
-            is BurstGameSessionService.StartResult.AlreadyEnded ->
+            is BurstGameStartResult.Started -> startResult
+            is BurstGameStartResult.AlreadyEnded ->
                 throwAlreadyEndedAfterBroadcast(eventBroadcaster, log, startResult)
         }
 
     fun completeStartedAfterCommit(
         partyId: Long,
-        result: BurstGameSessionService.StartResult.Started,
+        result: BurstGameStartResult.Started,
         now: LocalDateTime,
     ) {
         check(TransactionSynchronizationManager.isSynchronizationActive()) {
@@ -48,7 +49,7 @@ class BurstGameStartSideEffectHandler(
 
     private fun completeStarted(
         partyId: Long,
-        result: BurstGameSessionService.StartResult.Started,
+        result: BurstGameStartResult.Started,
         now: LocalDateTime,
     ) {
         if (!result.created) return
@@ -59,7 +60,7 @@ class BurstGameStartSideEffectHandler(
 
     private fun scheduleEnd(
         partyId: Long,
-        result: BurstGameSessionService.StartResult.Started,
+        result: BurstGameStartResult.Started,
         now: LocalDateTime,
     ) {
         runCatching {
@@ -75,7 +76,7 @@ class BurstGameStartSideEffectHandler(
 
     private fun broadcastStarted(
         partyId: Long,
-        result: BurstGameSessionService.StartResult.Started,
+        result: BurstGameStartResult.Started,
         now: LocalDateTime,
     ) {
         runCatching {
@@ -98,7 +99,7 @@ class BurstGameStartSideEffectHandler(
 
     private fun rollbackStartedSession(
         partyId: Long,
-        result: BurstGameSessionService.StartResult.Started,
+        result: BurstGameStartResult.Started,
         now: LocalDateTime,
     ) {
         runCatching {
@@ -117,7 +118,7 @@ class BurstGameStartSideEffectHandler(
     }
 
     private fun logStartFailure(
-        result: BurstGameSessionService.StartResult.Started,
+        result: BurstGameStartResult.Started,
         ex: Throwable,
     ) {
         log.error(

@@ -1,5 +1,6 @@
 package com.team2.server.burstgame.application.support
 
+import com.team2.server.burstgame.application.dto.BurstGameStartResult
 import com.team2.server.burstgame.application.port.BurstGameEndScheduler
 import com.team2.server.burstgame.application.port.BurstGameEventBroadcaster
 import com.team2.server.burstgame.application.port.CandleBlowSessionStore
@@ -45,7 +46,7 @@ class BurstGameStartSideEffectHandlerTest {
     @Test
     fun `시작 성공 후 종료 스케줄과 started 이벤트와 촛불 세션 정리를 실행한다`() {
         val snapshot = activeSnapshot()
-        val result = BurstGameSessionService.StartResult.Started(snapshot, created = true)
+        val result = BurstGameStartResult.Started(snapshot, created = true)
 
         executeAfterCommit {
             handler.completeStartedAfterCommit(partyId = 1L, result = result, now = snapshot.startedAt)
@@ -59,7 +60,7 @@ class BurstGameStartSideEffectHandlerTest {
     @Test
     fun `트랜잭션 동기화가 없으면 시작 후처리 등록을 거부한다`() {
         val snapshot = activeSnapshot()
-        val result = BurstGameSessionService.StartResult.Started(snapshot, created = true)
+        val result = BurstGameStartResult.Started(snapshot, created = true)
 
         assertThrows<IllegalStateException> {
             handler.completeStartedAfterCommit(partyId = 1L, result = result, now = snapshot.startedAt)
@@ -72,7 +73,7 @@ class BurstGameStartSideEffectHandlerTest {
     @Test
     fun `트랜잭션 동기화가 활성화되어 있으면 시작 후처리를 커밋 이후로 지연한다`() {
         val snapshot = activeSnapshot()
-        val result = BurstGameSessionService.StartResult.Started(snapshot, created = true)
+        val result = BurstGameStartResult.Started(snapshot, created = true)
 
         registerAfterCommit {
             handler.completeStartedAfterCommit(partyId = 1L, result = result, now = snapshot.startedAt)
@@ -94,7 +95,7 @@ class BurstGameStartSideEffectHandlerTest {
     @Test
     fun `촛불 세션 정리 실패는 시작 성공 흐름으로 전파하지 않는다`() {
         val snapshot = activeSnapshot()
-        val result = BurstGameSessionService.StartResult.Started(snapshot, created = true)
+        val result = BurstGameStartResult.Started(snapshot, created = true)
         whenever(candleBlowSessionStore.removeByPartyId(1L)).thenThrow(IllegalStateException("cleanup failed"))
 
         assertDoesNotThrow {
@@ -110,7 +111,7 @@ class BurstGameStartSideEffectHandlerTest {
     @Test
     fun `started 이벤트 실패 시 rollback 실패보다 원래 예외를 전파한다`() {
         val snapshot = activeSnapshot()
-        val result = BurstGameSessionService.StartResult.Started(snapshot, created = true)
+        val result = BurstGameStartResult.Started(snapshot, created = true)
         val broadcastException = IllegalStateException("broadcast failed")
         whenever(eventBroadcaster.broadcastStarted(snapshot)).thenThrow(broadcastException)
         whenever(endScheduler.cancel(1L)).thenThrow(IllegalStateException("cancel failed"))
@@ -128,7 +129,7 @@ class BurstGameStartSideEffectHandlerTest {
     @Test
     fun `이미 종료된 start 결과는 ended 이벤트 발행 후 예외로 변환한다`() {
         val snapshot = endedSnapshot()
-        val result = BurstGameSessionService.StartResult.AlreadyEnded(snapshot, endedNow = true)
+        val result = BurstGameStartResult.AlreadyEnded(snapshot, endedNow = true)
 
         val ex =
             assertThrows<BusinessException> {

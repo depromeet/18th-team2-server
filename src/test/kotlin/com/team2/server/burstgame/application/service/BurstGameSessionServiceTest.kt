@@ -1,5 +1,6 @@
 package com.team2.server.burstgame.application.service
 
+import com.team2.server.burstgame.application.dto.BurstGameStartResult
 import com.team2.server.burstgame.application.port.CandleBlowStatusReader
 import com.team2.server.burstgame.domain.BurstGameParticipantInfo
 import com.team2.server.burstgame.domain.BurstGameRoundStatus
@@ -102,7 +103,7 @@ class BurstGameSessionServiceTest {
                 now = requestedAt,
             )
 
-        assertTrue(result is BurstGameSessionService.StartResult.Started)
+        assertTrue(result is BurstGameStartResult.Started)
         assertTrue(result.created)
         assertEquals(BurstGameRoundStatus.ACTIVE, result.snapshot.status)
         assertEquals(startedAt, result.snapshot.startedAt)
@@ -145,7 +146,7 @@ class BurstGameSessionServiceTest {
                 now = requestedAt.plusSeconds(1),
             )
 
-        assertTrue(result is BurstGameSessionService.StartResult.Started)
+        assertTrue(result is BurstGameStartResult.Started)
         assertFalse(result.created)
     }
 
@@ -166,7 +167,7 @@ class BurstGameSessionServiceTest {
                 now = startedAt.plusSeconds(20),
             )
 
-        assertTrue(result is BurstGameSessionService.StartResult.AlreadyEnded)
+        assertTrue(result is BurstGameStartResult.AlreadyEnded)
         assertTrue(result.endedNow)
         assertEquals(BurstGameRoundStatus.ENDED, result.snapshot.status)
     }
@@ -194,7 +195,7 @@ class BurstGameSessionServiceTest {
                 now = startedAt.plusSeconds(21),
             )
 
-        assertTrue(result is BurstGameSessionService.StartResult.AlreadyEnded)
+        assertTrue(result is BurstGameStartResult.AlreadyEnded)
         assertFalse(result.endedNow)
         assertEquals(BurstGameRoundStatus.ENDED, result.snapshot.status)
     }
