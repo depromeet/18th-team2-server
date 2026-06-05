@@ -204,7 +204,10 @@ data class RealtimeSchedule(
 
 결정:
 
-- 기존 `PartyInviteService.activateInviteLink(...)`는 유효한 초대 토큰 재사용을 위해 `PartyInvite.expiresAt`을 사용한다.
+- REALTIME과 PAPER_ONLY 파티 생성 시 기본 초대 토큰을 함께 생성한다.
+- 종료 전 파티 중 유효 초대 토큰이 없는 파티는 Flyway 마이그레이션으로 생성한다.
+- 다가오는 파티 응답은 유효 초대 토큰을 `inviteToken`으로 내려준다.
+- `PartyInviteService.activateInviteLink(...)`는 유효한 초대 토큰 재사용을 위해 `PartyInvite.expiresAt`을 사용한다.
 - 신규 기획은 "실시간 파티 종료 여부와 관계없이 `realtimeSchedule`을 내려준다"고 되어 있고, `partyEnded`는 `Party.endedAt()` 기준이다.
 - 초대장 조회 API는 `PartyInvite.expiresAt`이 지났어도 조회 가능하게 한다.
 
