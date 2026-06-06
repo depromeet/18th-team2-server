@@ -14,7 +14,7 @@ data class SubmitBurstGameTapResponse(
     val accepted: Boolean,
     @Schema(
         description = "터치 batch가 반영되지 않은 이유입니다. accepted=true이면 null입니다.",
-        allowableValues = ["DUPLICATE_SEQUENCE", "ROUND_ENDED"],
+        allowableValues = ["ROUND_NOT_STARTED", "DUPLICATE_SEQUENCE", "ROUND_ENDED"],
         nullable = true,
     )
     val ignoredReason: BurstGameTapIgnoredReason?,

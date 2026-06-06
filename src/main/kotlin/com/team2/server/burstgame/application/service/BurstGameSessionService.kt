@@ -46,11 +46,14 @@ class BurstGameSessionService(
     ): StartResult {
         val result =
             sessionStore.start(partyId, now) {
-                validateCandleBlowFinished(partyId, hostEnteredAt, now)
+                if (!candleBlowStatusReader.isCandleBlowFinished(partyId, hostEnteredAt, now)) {
+                    throw BusinessException(ErrorCode.BURST_GAME_NOT_READY)
+                }
+                val startedAt = now.plusSeconds(BurstGamePolicy.COUNTDOWN_DURATION_SECONDS)
                 BurstGameSession(
                     partyId = partyId,
-                    startedAt = now,
-                    endsAt = now.plusSeconds(BurstGamePolicy.ROUND_DURATION_SECONDS),
+                    startedAt = startedAt,
+                    endsAt = startedAt.plusSeconds(BurstGamePolicy.ROUND_DURATION_SECONDS),
                 )
             }
         val session =
@@ -58,7 +61,6 @@ class BurstGameSessionService(
                 is BurstGameSessionStore.StartResult.Created -> result.session
                 is BurstGameSessionStore.StartResult.Existing -> result.session
             }
-
         return synchronized(session) {
             if (session.status == BurstGameRoundStatus.ENDED || session.isPastEndsAt(now)) {
                 val endedNow = session.status == BurstGameRoundStatus.ACTIVE
@@ -143,16 +145,6 @@ class BurstGameSessionService(
                 "Only the just-started active burst game session can be removed. partyId=$partyId"
             }
             sessionStore.removeByPartyId(partyId)
-        }
-    }
-
-    private fun validateCandleBlowFinished(
-        partyId: Long,
-        hostEnteredAt: LocalDateTime?,
-        now: LocalDateTime,
-    ) {
-        if (!candleBlowStatusReader.isCandleBlowFinished(partyId, hostEnteredAt, now)) {
-            throw BusinessException(ErrorCode.BURST_GAME_NOT_READY)
         }
     }
 }

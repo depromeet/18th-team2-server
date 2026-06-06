@@ -4,6 +4,7 @@ import com.team2.server.burstgame.application.port.CandleBlowStatusReader
 import com.team2.server.burstgame.domain.BurstGameParticipantInfo
 import com.team2.server.burstgame.domain.BurstGameRoundStatus
 import com.team2.server.burstgame.domain.BurstGameTapIgnoredReason
+import com.team2.server.burstgame.domain.policy.BurstGamePolicy
 import com.team2.server.burstgame.infrastructure.memory.InMemoryBurstGameSessionStore
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
@@ -20,6 +21,7 @@ import kotlin.test.assertTrue
 
 class BurstGameSessionServiceTest {
     private val startedAt = LocalDateTime.of(2026, 5, 14, 20, 10)
+    private val requestedAt = startedAt.minusSeconds(BurstGamePolicy.COUNTDOWN_DURATION_SECONDS)
     private val hostEnteredAt = startedAt.minusSeconds(80)
     private val candleBlowStatusReader = FakeCandleBlowStatusReader()
     private val sessionService =
@@ -38,7 +40,7 @@ class BurstGameSessionServiceTest {
             partyId = 1L,
             hostEnteredAt = hostEnteredAt,
             participant = participant(0),
-            now = startedAt,
+            now = requestedAt,
         )
 
         try {
@@ -83,7 +85,7 @@ class BurstGameSessionServiceTest {
                     partyId = 1L,
                     hostEnteredAt = hostEnteredAt,
                     participant = participant(1),
-                    now = startedAt,
+                    now = requestedAt,
                 )
             }
 
@@ -97,12 +99,32 @@ class BurstGameSessionServiceTest {
                 partyId = 1L,
                 hostEnteredAt = hostEnteredAt,
                 participant = participant(1),
-                now = startedAt,
+                now = requestedAt,
             )
 
         assertTrue(result is BurstGameSessionService.StartResult.Started)
         assertTrue(result.created)
         assertEquals(BurstGameRoundStatus.ACTIVE, result.snapshot.status)
+        assertEquals(startedAt, result.snapshot.startedAt)
+        assertEquals(startedAt.plusSeconds(BurstGamePolicy.ROUND_DURATION_SECONDS), result.snapshot.endsAt)
+        assertEquals(BurstGamePolicy.ROUND_DURATION_SECONDS, result.snapshot.remainingSeconds)
+    }
+
+    @Test
+    fun `카운트다운 중 상태 조회를 허용한다`() {
+        sessionService.start(
+            partyId = 1L,
+            hostEnteredAt = hostEnteredAt,
+            participant = participant(1),
+            now = requestedAt,
+        )
+
+        val result = sessionService.snapshot(1L, participant(1), requestedAt.plusSeconds(1))
+
+        assertFalse(result.endedNow)
+        assertEquals(BurstGameRoundStatus.ACTIVE, result.snapshot.status)
+        assertEquals(startedAt, result.snapshot.startedAt)
+        assertEquals(BurstGamePolicy.ROUND_DURATION_SECONDS, result.snapshot.remainingSeconds)
     }
 
     @Test
@@ -111,7 +133,7 @@ class BurstGameSessionServiceTest {
             partyId = 1L,
             hostEnteredAt = hostEnteredAt,
             participant = participant(1),
-            now = startedAt,
+            now = requestedAt,
         )
         candleBlowStatusReader.finished = false
 
@@ -120,7 +142,7 @@ class BurstGameSessionServiceTest {
                 partyId = 1L,
                 hostEnteredAt = hostEnteredAt,
                 participant = participant(1),
-                now = startedAt.plusSeconds(1),
+                now = requestedAt.plusSeconds(1),
             )
 
         assertTrue(result is BurstGameSessionService.StartResult.Started)
@@ -133,7 +155,7 @@ class BurstGameSessionServiceTest {
             partyId = 1L,
             hostEnteredAt = hostEnteredAt,
             participant = participant(1),
-            now = startedAt,
+            now = requestedAt,
         )
 
         val result =
@@ -155,7 +177,7 @@ class BurstGameSessionServiceTest {
             partyId = 1L,
             hostEnteredAt = hostEnteredAt,
             participant = participant(1),
-            now = startedAt,
+            now = requestedAt,
         )
         sessionService.start(
             partyId = 1L,
@@ -183,7 +205,7 @@ class BurstGameSessionServiceTest {
             partyId = 1L,
             hostEnteredAt = hostEnteredAt,
             participant = participant(1),
-            now = startedAt,
+            now = requestedAt,
         )
 
         val result =
@@ -232,7 +254,7 @@ class BurstGameSessionServiceTest {
             partyId = 1L,
             hostEnteredAt = hostEnteredAt,
             participant = participant(1),
-            now = startedAt,
+            now = requestedAt,
         )
 
         val result = sessionService.snapshot(1L, participant(1), startedAt.plusSeconds(20))
@@ -248,7 +270,7 @@ class BurstGameSessionServiceTest {
             partyId = 1L,
             hostEnteredAt = hostEnteredAt,
             participant = participant(1),
-            now = startedAt,
+            now = requestedAt,
         )
 
         val result = sessionService.end(1L, startedAt.plusSeconds(20))
@@ -264,7 +286,7 @@ class BurstGameSessionServiceTest {
             partyId = 1L,
             hostEnteredAt = hostEnteredAt,
             participant = participant(1),
-            now = startedAt,
+            now = requestedAt,
         )
 
         assertThrows<IllegalStateException> {
