@@ -86,6 +86,8 @@ class PartyEndScheduler(
                 partyId = event.partyId,
                 endingStartedAt = event.endingStartedAt,
                 endedAt = event.endedAt,
+                endingReason = event.endingReason,
+                hostNickname = event.hostNickname,
             ),
             emitEnding = true,
         )
@@ -174,6 +176,8 @@ class PartyEndScheduler(
             partyId = target.partyId,
             endingStartedAt = target.endingStartedAt,
             endedAt = target.endedAt,
+            endingReason = target.endingReason,
+            hostNickname = target.hostNickname,
         )
     }
 
@@ -192,7 +196,7 @@ class PartyEndScheduler(
                 }
             }
         if (!shouldSend) return
-        realtimePartyEventBroadcaster.broadcastPartyEnded(target.partyId, target.endedAt)
+        realtimePartyEventBroadcaster.broadcastPartyEnded(target.partyId, target.endedAt, target.hostNickname)
         taskScheduler.schedule(
             {
                 realtimePartyEventBroadcaster.completeParty(target.partyId)

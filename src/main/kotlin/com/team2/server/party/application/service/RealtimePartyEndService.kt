@@ -6,6 +6,7 @@ import com.team2.server.party.application.dto.RealtimeAutomaticEndSchedule
 import com.team2.server.party.application.dto.RealtimeEndingScheduleTarget
 import com.team2.server.party.application.dto.RealtimePartyEndRecoverySchedules
 import com.team2.server.party.application.dto.RealtimePartyEndStartResult
+import com.team2.server.party.application.support.RealtimePartyEndingInfoResolver
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.PartyOption
 import com.team2.server.party.domain.entity.RealtimeParty
@@ -17,6 +18,7 @@ import java.time.LocalDateTime
 @Service
 class RealtimePartyEndService(
     private val partyRepository: PartyRepository,
+    private val endingInfoResolver: RealtimePartyEndingInfoResolver,
 ) {
     fun startIfNotStarted(
         partyId: Long,
@@ -37,10 +39,13 @@ class RealtimePartyEndService(
         val affected = partyRepository.startRealtimeEndingIfNotStarted(partyId, endingStartedAt)
         val party = findRealtimeParty(partyId)
         val actualEndingStartedAt = party.liveEndingStartedAt ?: return null
+        val endingInfo = endingInfoResolver.get(party)
         return RealtimeEndingScheduleTarget(
             partyId = party.id,
             endingStartedAt = actualEndingStartedAt,
             endedAt = requireNotNull(party.liveEndedAt()),
+            endingReason = requireNotNull(endingInfo.endingReason),
+            hostNickname = endingInfo.hostNickname,
             startedNow = affected == 1,
         )
     }
@@ -73,10 +78,13 @@ class RealtimePartyEndService(
         partyRepository
             .findRealtimePartiesWithEndingStarted(now.minusDays(Party.ENDED_AFTER_DAYS))
             .map { party ->
+                val endingInfo = endingInfoResolver.get(party)
                 RealtimeEndingScheduleTarget(
                     partyId = party.id,
                     endingStartedAt = requireNotNull(party.liveEndingStartedAt),
                     endedAt = requireNotNull(party.liveEndedAt()),
+                    endingReason = requireNotNull(endingInfo.endingReason),
+                    hostNickname = endingInfo.hostNickname,
                     startedNow = false,
                 )
             }

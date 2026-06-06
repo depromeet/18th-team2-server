@@ -32,6 +32,23 @@ class RealtimeParty(
 
     fun liveEndedAt(): LocalDateTime? = liveEndingStartedAt?.plusSeconds(LIVE_END_COUNTDOWN_SECONDS)
 
+    fun endingReason(): RealtimePartyEndingReason? =
+        liveEndingStartedAt?.let {
+            if (it.isBefore(automaticEndingStartedAt())) {
+                RealtimePartyEndingReason.HOST_REQUEST
+            } else {
+                RealtimePartyEndingReason.TIME_LIMIT_REACHED
+            }
+        }
+
+    fun endingReason(now: LocalDateTime): RealtimePartyEndingReason? =
+        endingReason()
+            ?: if (!now.isBefore(automaticEndingStartedAt())) {
+                RealtimePartyEndingReason.TIME_LIMIT_REACHED
+            } else {
+                null
+            }
+
     fun isLiveOpen(now: LocalDateTime = LocalDateTime.now()): Boolean =
         !now.isBefore(startedAt) && now.isBefore(effectiveEndingStartedAt())
 
@@ -58,4 +75,9 @@ enum class RealtimePartyStatus {
     LIVE_ENDING,
     LIVE_CLOSED,
     ROLLING_PAPER_CLOSED,
+}
+
+enum class RealtimePartyEndingReason {
+    HOST_REQUEST,
+    TIME_LIMIT_REACHED,
 }

@@ -6,6 +6,7 @@ import com.team2.server.party.application.dto.RealtimePartyEndStartResult
 import com.team2.server.party.application.event.RealtimePartyEndingEventPublisher
 import com.team2.server.party.application.service.PartyService
 import com.team2.server.party.application.service.RealtimePartyEndService
+import com.team2.server.party.application.support.RealtimePartyEndingInfoResolver
 import com.team2.server.party.domain.entity.RealtimePartyStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -16,6 +17,7 @@ import java.time.LocalDateTime
 class StartRealtimePartyEndUseCase(
     private val partyService: PartyService,
     private val realtimePartyEndService: RealtimePartyEndService,
+    private val endingInfoResolver: RealtimePartyEndingInfoResolver,
     private val realtimePartyEndingEventPublisher: RealtimePartyEndingEventPublisher,
     private val clock: Clock,
 ) {
@@ -43,7 +45,7 @@ class StartRealtimePartyEndUseCase(
     }
 
     private fun toResultAndPublish(startResult: RealtimePartyEndStartResult): RealtimePartyEndResult =
-        RealtimePartyEndResult.from(startResult.party).also {
+        RealtimePartyEndResult.from(startResult.party, endingInfoResolver.get(startResult.party)).also {
             if (startResult.affected == 1) realtimePartyEndingEventPublisher.publish(it)
         }
 }
