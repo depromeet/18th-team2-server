@@ -33,6 +33,24 @@ class ChatRealtimePartyEventBroadcasterTest {
         verify(sseEmitterRegistry, times(2)).broadcast(eq(1L), eventCaptor.capture(), anyOrNull())
         verify(sseEmitterRegistry).completeAll(1L)
         assertEquals(listOf("party-ending", "party-ended"), eventCaptor.allValues.map(::eventName))
+        assertEquals(
+            ChatRealtimePartyEventBroadcaster.PartyEndingPayload(
+                partyId = 1L,
+                endingStartedAt = now,
+                endedAt = now.plusSeconds(60),
+                endingReason = RealtimePartyEndingReason.TIME_LIMIT_REACHED,
+                hostNickname = "주최자",
+            ),
+            payload(eventCaptor.firstValue),
+        )
+        assertEquals(
+            ChatRealtimePartyEventBroadcaster.PartyEndedPayload(
+                partyId = 1L,
+                endedAt = now.plusSeconds(60),
+                hostNickname = "주최자",
+            ),
+            payload(eventCaptor.secondValue),
+        )
     }
 
     private fun eventName(event: Set<ResponseBodyEmitter.DataWithMediaType>): String {
@@ -43,4 +61,7 @@ class ChatRealtimePartyEventBroadcasterTest {
             else -> error("Unexpected SSE event: $rawEvent")
         }
     }
+
+    private inline fun <reified T> payload(event: Set<ResponseBodyEmitter.DataWithMediaType>): T =
+        event.map { it.data }.filterIsInstance<T>().single()
 }

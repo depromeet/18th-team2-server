@@ -7,6 +7,7 @@ import com.team2.server.party.application.port.RealtimePartyEndingInfoPort
 import com.team2.server.party.domain.entity.PaperOnlyParty
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.RealtimeParty
+import com.team2.server.party.domain.entity.RealtimePartyEndingReason
 import com.team2.server.party.infrastructure.persistence.PartyRepository
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -65,6 +66,8 @@ class RealtimePartyEndServiceTest {
         assertEquals(1L, result?.partyId)
         assertEquals(endingStartedAt, result?.endingStartedAt)
         assertEquals(endingStartedAt.plusSeconds(RealtimeParty.LIVE_END_COUNTDOWN_SECONDS), result?.endedAt)
+        assertEquals(RealtimePartyEndingReason.HOST_REQUEST, result?.endingReason)
+        assertEquals("주최자", result?.hostNickname)
         assertEquals(true, result?.startedNow)
     }
 
@@ -106,6 +109,8 @@ class RealtimePartyEndServiceTest {
         assertEquals(3L, result.single().partyId)
         assertEquals(endingStartedAt, result.single().endingStartedAt)
         assertEquals(endingStartedAt.plusSeconds(RealtimeParty.LIVE_END_COUNTDOWN_SECONDS), result.single().endedAt)
+        assertEquals(RealtimePartyEndingReason.HOST_REQUEST, result.single().endingReason)
+        assertEquals("주최자", result.single().hostNickname)
         assertEquals(false, result.single().startedNow)
     }
 
