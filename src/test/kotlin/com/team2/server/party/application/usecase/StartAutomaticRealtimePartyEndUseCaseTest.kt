@@ -10,6 +10,7 @@ import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.LocalDateTime
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 
 class StartAutomaticRealtimePartyEndUseCaseTest {
@@ -22,8 +23,9 @@ class StartAutomaticRealtimePartyEndUseCaseTest {
     fun `returns null without publishing when ending target is absent`() {
         whenever(realtimePartyEndService.startIfNotStartedOrNull(1L, endingStartedAt)).thenReturn(null)
 
-        useCase(1L, endingStartedAt)
+        val result = useCase(1L, endingStartedAt)
 
+        assertNull(result)
         verify(eventPublisher, never()).publish(org.mockito.kotlin.any<RealtimeEndingScheduleTarget>())
     }
 
