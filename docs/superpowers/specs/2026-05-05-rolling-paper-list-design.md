@@ -86,13 +86,13 @@
 
 주최자용 화면의 공유하기 버튼은 목록 API에 포함하지 않는다.
 
-공유하기 버튼 클릭 시 기존 초대 링크 API를 별도로 호출한다.
+다가오는 파티 카드에서는 `GET /api/v1/me/upcoming-parties` 응답의 `inviteToken`으로 공유 링크를 만든다.
 
 ```http
 POST /api/v1/parties/{partyId}/invite-link
 ```
 
-이 API는 현재 유효한 초대 토큰이 있으면 재사용하고, 없으면 새로 생성해 `token`을 반환한다.
+이 API는 유효한 초대 토큰이 있으면 재사용하고, 없으면 새로 생성해 `token`을 반환한다.
 
 ---
 
@@ -259,7 +259,7 @@ GET /api/v1/parties/{partyId}/rolling-papers?page=1
 |---|---|
 | `partyOption` | 주최자 목록 화면의 응답 요구사항에는 필요하지 않다. 열람 가능 여부는 서버가 검증한다. |
 | `pageSize` | 한 페이지 기준은 `PAGE_SIZE = 7`로 고정이므로 응답에 반복해서 내려주지 않는다. |
-| `inviteToken`, `shareLink` | 공유하기 버튼 클릭 시 기존 초대 링크 API를 별도로 호출한다. |
+| `inviteToken`, `shareLink` | 다가오는 파티 카드에서 다가오는 파티 응답의 `inviteToken`을 사용한다. |
 
 ### 3-3. 주최자용 상세 조회
 

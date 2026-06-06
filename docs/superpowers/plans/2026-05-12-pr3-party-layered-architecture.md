@@ -1496,6 +1496,13 @@ class MePartyController(
 }
 ```
 
+확정 정책:
+
+- 다가오는 파티는 `party.startedAt ASC`, `participant.createdAt DESC`, `participant.id DESC` 순으로 정렬한다.
+- REALTIME과 PAPER_ONLY 파티 생성 시 기본 초대 토큰을 함께 생성한다.
+- 종료 전 파티 중 유효 초대 토큰이 없는 파티는 Flyway 마이그레이션으로 생성한다.
+- 다가오는 파티 응답은 유효한 `inviteToken`을 반환한다.
+
 - [ ] **Step 8: `CharacterController` 매핑 확인**
 
 이미 `getCharactersUseCase.invoke().map(CharacterResponse::from)` 패턴 — 변경 없음. 단 `CharacterResponse.from(result: CharacterResult)` 의 `CharacterResult` import 가 `party.application.dto.CharacterResult` 로 정상 갱신되었는지 확인.
