@@ -1,5 +1,6 @@
 package com.team2.server.chat.usecase
 
+import com.team2.server.chat.application.dto.EnterRealtimePartyResult
 import com.team2.server.chat.dto.EnterRealtimePartyRequest
 import com.team2.server.chat.entity.ChatMessage
 import com.team2.server.chat.infrastructure.sse.ChatSseGateway
@@ -40,7 +41,7 @@ class EnterAndSubscribeChatUseCaseTest {
     private fun enterResult(
         partyId: Long = 1L,
         isCelebrant: Boolean = false,
-    ) = EnterRealtimePartyUseCase.EnterResult(
+    ) = EnterRealtimePartyResult(
         participantToken = "abc12345",
         partyId = partyId,
         startedAt = LocalDateTime.now().minusMinutes(5),
@@ -54,6 +55,8 @@ class EnterAndSubscribeChatUseCaseTest {
                 liveStartAt = LocalDateTime.now().minusMinutes(5),
                 endingStartedAt = null,
                 endedAt = LocalDateTime.now().plusMinutes(5).plusSeconds(60),
+                endingReason = null,
+                hostNickname = "주최자",
             ),
     )
 

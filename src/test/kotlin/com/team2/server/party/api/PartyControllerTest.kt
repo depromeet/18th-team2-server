@@ -233,6 +233,8 @@ class PartyControllerTest
                     jsonPath("$.data.partyId") { value(party.id.toInt()) }
                     jsonPath("$.data.endingStartedAt") { exists() }
                     jsonPath("$.data.endedAt") { exists() }
+                    jsonPath("$.data.endingReason") { value("HOST_REQUEST") }
+                    jsonPath("$.data.hostNickname") { value("주최자") }
                 }
         }
 
@@ -259,6 +261,8 @@ class PartyControllerTest
                     status { isOk() }
                     jsonPath("$.data.partyId") { value(party.id.toInt()) }
                     jsonPath("$.data.status") { value("LIVE_OPEN") }
+                    jsonPath("$.data.endingReason") { doesNotExist() }
+                    jsonPath("$.data.hostNickname") { value("주최자") }
                 }
 
             mockMvc
@@ -271,6 +275,22 @@ class PartyControllerTest
                 }
 
             assertEquals(party.id, memberParticipant.party.id)
+        }
+
+        @Test
+        fun `자동 종료 카운트다운 상태는 종료 원인과 주최자 닉네임을 조회할 수 있다`() {
+            val owner = saveUser("kakao-realtime-state-ending", "state-ending@kakao.local")
+            val party = saveRealtimeParty(owner, LocalDateTime.now().minusMinutes(10).minusSeconds(10))
+
+            mockMvc
+                .get("/api/v1/parties/${party.id}/realtime-state") {
+                    header("Authorization", "Bearer ${tokenProvider.issue(owner)}")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.status") { value("LIVE_ENDING") }
+                    jsonPath("$.data.endingReason") { value("TIME_LIMIT_REACHED") }
+                    jsonPath("$.data.hostNickname") { value("주최자") }
+                }
         }
 
         @Test
@@ -343,6 +363,13 @@ class PartyControllerTest
             startedAt: LocalDateTime,
         ): RealtimeParty {
             val party = partyRepository.save(RealtimeParty(ownerId = owner.id, startedAt = startedAt))
+            val host = participantRepository.save(Participant(party = party, user = owner, isCelebrant = true))
+            realtimeParticipantProfileRepository.save(
+                RealtimeParticipantProfile(
+                    participant = host,
+                    nickname = "주최자",
+                ),
+            )
             partyInviteRepository.save(
                 PartyInvite(
                     party = party,
