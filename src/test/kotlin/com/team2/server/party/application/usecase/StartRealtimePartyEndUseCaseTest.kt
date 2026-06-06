@@ -5,9 +5,9 @@ import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.dto.RealtimePartyEndStartResult
 import com.team2.server.party.application.dto.RealtimePartyEndingInfo
 import com.team2.server.party.application.event.RealtimePartyEndingEventPublisher
+import com.team2.server.party.application.port.RealtimePartyEndingInfoPort
 import com.team2.server.party.application.service.PartyService
 import com.team2.server.party.application.service.RealtimePartyEndService
-import com.team2.server.party.application.support.RealtimePartyEndingInfoResolver
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.RealtimeParty
 import org.junit.jupiter.api.Test
@@ -24,7 +24,7 @@ import kotlin.test.assertEquals
 class StartRealtimePartyEndUseCaseTest {
     private val partyService: PartyService = mock()
     private val realtimePartyEndService: RealtimePartyEndService = mock()
-    private val endingInfoResolver: RealtimePartyEndingInfoResolver = mock()
+    private val endingInfoPort: RealtimePartyEndingInfoPort = mock()
     private val eventPublisher: RealtimePartyEndingEventPublisher = mock()
     private val zone = ZoneId.of("Asia/Seoul")
     private val now = LocalDateTime.of(2026, 5, 23, 10, 0)
@@ -33,7 +33,7 @@ class StartRealtimePartyEndUseCaseTest {
         StartRealtimePartyEndUseCase(
             partyService,
             realtimePartyEndService,
-            endingInfoResolver,
+            endingInfoPort,
             eventPublisher,
             clock,
         )
@@ -76,7 +76,7 @@ class StartRealtimePartyEndUseCaseTest {
         whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
         whenever(realtimePartyEndService.startIfNotStarted(1L, endingStartedAt))
             .thenReturn(RealtimePartyEndStartResult(affected = 1, party = endedParty))
-        whenever(endingInfoResolver.get(endedParty))
+        whenever(endingInfoPort.get(endedParty))
             .thenReturn(RealtimePartyEndingInfo(endedParty.endingReason(), "주최자"))
 
         val result = useCase(1L, userId = 1L)
@@ -92,7 +92,7 @@ class StartRealtimePartyEndUseCaseTest {
         whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
         whenever(realtimePartyEndService.startIfNotStarted(1L, endingStartedAt))
             .thenReturn(RealtimePartyEndStartResult(affected = 0, party = party))
-        whenever(endingInfoResolver.get(party))
+        whenever(endingInfoPort.get(party))
             .thenReturn(RealtimePartyEndingInfo(party.endingReason(), "주최자"))
 
         val result = useCase(1L, userId = 1L)
@@ -115,7 +115,7 @@ class StartRealtimePartyEndUseCaseTest {
         whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
         whenever(realtimePartyEndService.startIfNotStarted(1L, party.automaticEndingStartedAt()))
             .thenReturn(RealtimePartyEndStartResult(affected = 0, party = endedParty))
-        whenever(endingInfoResolver.get(endedParty))
+        whenever(endingInfoPort.get(endedParty))
             .thenReturn(RealtimePartyEndingInfo(endedParty.endingReason(), "주최자"))
 
         val result = useCase(1L, userId = 1L)

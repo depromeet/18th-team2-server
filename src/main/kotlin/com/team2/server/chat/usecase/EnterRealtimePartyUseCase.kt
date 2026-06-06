@@ -6,8 +6,8 @@ import com.team2.server.chat.application.support.RealtimePartyEntryProfileResolv
 import com.team2.server.chat.dto.EnterRealtimePartyRequest
 import com.team2.server.party.application.dto.RealtimePartyStateResult
 import com.team2.server.party.application.service.PartyInviteService
-import com.team2.server.party.application.support.RealtimePartyEndingInfoResolver
 import com.team2.server.party.application.usecase.MarkRealtimePartyHostEnteredUseCase
+import com.team2.server.party.application.usecase.ResolveRealtimePartyEndingInfoUseCase
 import com.team2.server.party.domain.entity.RealtimeParty
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -19,7 +19,7 @@ class EnterRealtimePartyUseCase(
     private val partyInviteService: PartyInviteService,
     private val profileResolver: RealtimePartyEntryProfileResolver,
     private val markRealtimePartyHostEnteredUseCase: MarkRealtimePartyHostEnteredUseCase,
-    private val endingInfoResolver: RealtimePartyEndingInfoResolver,
+    private val resolveRealtimePartyEndingInfoUseCase: ResolveRealtimePartyEndingInfoUseCase,
     private val clock: Clock,
 ) {
     @Transactional
@@ -35,6 +35,7 @@ class EnterRealtimePartyUseCase(
 
         val entryProfile = profileResolver.resolve(realtimeParty, userId, request, now)
         markHostEnteredIfNeeded(realtimeParty, entryProfile, now)
+        val endingInfo = resolveRealtimePartyEndingInfoUseCase(realtimeParty, now)
 
         return EnterRealtimePartyResult(
             participantToken = entryProfile.participantToken,
@@ -43,7 +44,7 @@ class EnterRealtimePartyUseCase(
             isCelebrant = entryProfile.isCelebrant,
             nickname = entryProfile.nickname,
             characterId = entryProfile.characterId,
-            partyState = RealtimePartyStateResult.from(realtimeParty, now, endingInfoResolver.get(realtimeParty, now)),
+            partyState = RealtimePartyStateResult.from(realtimeParty, now, endingInfo),
         )
     }
 

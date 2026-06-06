@@ -1,10 +1,9 @@
-package com.team2.server.party.application.support
+package com.team2.server.party.infrastructure.persistence
 
 import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.domain.entity.RealtimePartyEndingReason
-import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProfileRepository
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.kotlin.mock
@@ -12,9 +11,9 @@ import org.mockito.kotlin.whenever
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
 
-class RealtimePartyEndingInfoResolverTest {
+class RealtimePartyEndingInfoAdapterTest {
     private val profileRepository: RealtimeParticipantProfileRepository = mock()
-    private val resolver = RealtimePartyEndingInfoResolver(profileRepository)
+    private val adapter = RealtimePartyEndingInfoAdapter(profileRepository)
     private val startedAt = LocalDateTime.of(2026, 6, 6, 10, 0)
 
     @Test
@@ -23,7 +22,7 @@ class RealtimePartyEndingInfoResolverTest {
         val profile = RealtimeParticipantProfile(Participant(party = party, isCelebrant = true), "주최자")
         whenever(profileRepository.findByParticipantPartyIdAndParticipantIsCelebrantTrue(1L)).thenReturn(profile)
 
-        val result = resolver.get(party)
+        val result = adapter.get(party)
 
         assertEquals(RealtimePartyEndingReason.HOST_REQUEST, result.endingReason)
         assertEquals("주최자", result.hostNickname)
@@ -34,7 +33,7 @@ class RealtimePartyEndingInfoResolverTest {
         val party = realtimeParty(1L)
         whenever(profileRepository.findByParticipantPartyIdAndParticipantIsCelebrantTrue(1L)).thenReturn(null)
 
-        assertThrows<IllegalStateException> { resolver.get(party) }
+        assertThrows<IllegalStateException> { adapter.get(party) }
     }
 
     private fun realtimeParty(id: Long): RealtimeParty {

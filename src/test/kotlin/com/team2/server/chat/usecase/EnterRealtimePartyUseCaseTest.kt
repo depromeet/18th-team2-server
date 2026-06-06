@@ -8,8 +8,8 @@ import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.dto.RealtimePartyEndingInfo
 import com.team2.server.party.application.service.PartyInviteService
-import com.team2.server.party.application.support.RealtimePartyEndingInfoResolver
 import com.team2.server.party.application.usecase.MarkRealtimePartyHostEnteredUseCase
+import com.team2.server.party.application.usecase.ResolveRealtimePartyEndingInfoUseCase
 import com.team2.server.party.domain.entity.PaperOnlyParty
 import com.team2.server.party.domain.entity.PartyInvite
 import com.team2.server.party.domain.entity.RealtimeParty
@@ -39,7 +39,7 @@ class EnterRealtimePartyUseCaseTest {
 
     @Mock lateinit var markRealtimePartyHostEnteredUseCase: MarkRealtimePartyHostEnteredUseCase
 
-    @Mock lateinit var endingInfoResolver: RealtimePartyEndingInfoResolver
+    @Mock lateinit var resolveRealtimePartyEndingInfoUseCase: ResolveRealtimePartyEndingInfoUseCase
 
     lateinit var useCase: EnterRealtimePartyUseCase
 
@@ -55,12 +55,12 @@ class EnterRealtimePartyUseCaseTest {
                 partyInviteService = partyInviteService,
                 profileResolver = RealtimePartyEntryProfileResolver(entryProfilePort),
                 markRealtimePartyHostEnteredUseCase = markRealtimePartyHostEnteredUseCase,
-                endingInfoResolver = endingInfoResolver,
+                resolveRealtimePartyEndingInfoUseCase = resolveRealtimePartyEndingInfoUseCase,
                 clock = clock,
             )
         Mockito
             .lenient()
-            .`when`(endingInfoResolver.get(any(), any()))
+            .`when`(resolveRealtimePartyEndingInfoUseCase(any(), any()))
             .thenReturn(RealtimePartyEndingInfo(null, "주최자"))
     }
 
