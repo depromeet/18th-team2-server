@@ -150,7 +150,6 @@ class BurstGameStartSideEffectHandlerTest {
             endsAt = startedAt.plusSeconds(20),
             totalTapCount = 0,
             myTapCount = 0,
-            colorChanged = false,
             stateVersion = 0,
             serverTime = startedAt,
             remainingSeconds = 20,

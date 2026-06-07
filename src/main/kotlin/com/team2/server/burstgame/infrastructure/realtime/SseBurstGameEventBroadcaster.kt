@@ -131,7 +131,7 @@ class SseBurstGameEventBroadcaster(
         val status: String,
         val startedAt: LocalDateTime,
         val endsAt: LocalDateTime,
-        val colorChanged: Boolean,
+        val totalTapCount: Int,
         val stateVersion: Long,
         val serverTime: LocalDateTime,
     ) {
@@ -142,7 +142,7 @@ class SseBurstGameEventBroadcaster(
                     status = snapshot.status.name,
                     startedAt = snapshot.startedAt,
                     endsAt = snapshot.endsAt,
-                    colorChanged = snapshot.colorChanged,
+                    totalTapCount = snapshot.totalTapCount,
                     stateVersion = snapshot.stateVersion,
                     serverTime = snapshot.serverTime,
                 )
@@ -151,7 +151,7 @@ class SseBurstGameEventBroadcaster(
 
     data class BurstGameProgressPayload(
         val partyId: Long,
-        val colorChanged: Boolean,
+        val totalTapCount: Int,
         val endsAt: LocalDateTime,
         val stateVersion: Long,
         val serverTime: LocalDateTime,
@@ -161,7 +161,7 @@ class SseBurstGameEventBroadcaster(
             fun from(snapshot: BurstGameSnapshot): BurstGameProgressPayload =
                 BurstGameProgressPayload(
                     partyId = snapshot.partyId,
-                    colorChanged = snapshot.colorChanged,
+                    totalTapCount = snapshot.totalTapCount,
                     endsAt = snapshot.endsAt,
                     stateVersion = snapshot.stateVersion,
                     serverTime = snapshot.serverTime,
@@ -175,7 +175,6 @@ class SseBurstGameEventBroadcaster(
         val status: String,
         val endsAt: LocalDateTime,
         val totalTapCount: Int,
-        val colorChanged: Boolean,
         val stateVersion: Long,
         val serverTime: LocalDateTime,
         val rankings: List<RankingPayload>,
@@ -187,7 +186,6 @@ class SseBurstGameEventBroadcaster(
                     status = snapshot.status.name,
                     endsAt = snapshot.endsAt,
                     totalTapCount = snapshot.totalTapCount,
-                    colorChanged = snapshot.colorChanged,
                     stateVersion = snapshot.stateVersion,
                     serverTime = snapshot.serverTime,
                     rankings = snapshot.rankings.map { RankingPayload.from(it) },

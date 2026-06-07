@@ -156,21 +156,6 @@ class BurstGameSessionTest {
     }
 
     @Test
-    fun `total tap count가 100 이상이면 colorChanged true`() {
-        repeat(4) { index ->
-            session.applyTap(
-                participant(1),
-                tapCount = 20,
-                clientSequence = (index + 1).toLong(),
-                now = startedAt.plusSeconds(index.toLong() + 1),
-            )
-        }
-        session.applyTap(participant(1), tapCount = 20, clientSequence = 5, now = startedAt.plusSeconds(5))
-
-        assertTrue(session.snapshotFor(1, startedAt.plusSeconds(5)).colorChanged)
-    }
-
-    @Test
     fun `종료 후 submit은 ROUND_ENDED로 무시한다`() {
         session.end(startedAt.plusSeconds(20))
 

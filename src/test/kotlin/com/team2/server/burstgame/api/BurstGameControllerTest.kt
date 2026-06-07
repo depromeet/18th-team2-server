@@ -185,8 +185,8 @@ class BurstGameControllerTest
                     jsonPath("$.status") { value(200) }
                     jsonPath("$.data.partyId") { value(fixture.partyId) }
                     jsonPath("$.data.myParticipantId") { value(fixture.participantId) }
-                    jsonPath("$.data.totalTapCount") { doesNotExist() }
-                    jsonPath("$.data.colorChanged") { value(false) }
+                    jsonPath("$.data.totalTapCount") { value(0) }
+                    jsonPath("$.data.colorChanged") { doesNotExist() }
                 }
         }
 
@@ -272,7 +272,7 @@ class BurstGameControllerTest
                     status { isOk() }
                     jsonPath("$.data.partyId") { value(fixture.partyId) }
                     jsonPath("$.data.ended") { value(false) }
-                    jsonPath("$.data.totalTapCount") { doesNotExist() }
+                    jsonPath("$.data.totalTapCount") { value(0) }
                 }
         }
 
@@ -291,7 +291,7 @@ class BurstGameControllerTest
                     status { isOk() }
                     jsonPath("$.data.accepted") { value(true) }
                     jsonPath("$.data.ignoredReason") { doesNotExist() }
-                    jsonPath("$.data.totalTapCount") { doesNotExist() }
+                    jsonPath("$.data.totalTapCount") { value(7) }
                     jsonPath("$.data.myTapCount") { value(7) }
                     jsonPath("$.data.rankings[0].rank") { value(1) }
                     jsonPath("$.data.rankings[0].participantId") { value(fixture.participantId) }
@@ -314,7 +314,7 @@ class BurstGameControllerTest
                     status { isOk() }
                     jsonPath("$.data.accepted") { value(false) }
                     jsonPath("$.data.ignoredReason") { value("DUPLICATE_SEQUENCE") }
-                    jsonPath("$.data.totalTapCount") { doesNotExist() }
+                    jsonPath("$.data.totalTapCount") { value(7) }
                     jsonPath("$.data.myTapCount") { value(7) }
                 }
         }
@@ -336,7 +336,7 @@ class BurstGameControllerTest
                     status { isOk() }
                     jsonPath("$.data.accepted") { value(false) }
                     jsonPath("$.data.ignoredReason") { value("ROUND_ENDED") }
-                    jsonPath("$.data.totalTapCount") { doesNotExist() }
+                    jsonPath("$.data.totalTapCount") { value(7) }
                     jsonPath("$.data.rankings") { isEmpty() }
                 }
         }
