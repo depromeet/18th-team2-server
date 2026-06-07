@@ -17,8 +17,7 @@
 - 촛불끄기가 종료됐다면 실시간 파티 참여자 누구나 start API를 호출할 수 있다.
 - 파티당 라운드는 1회만 허용한다. TTL 안의 ended session이 있으면 재시작하지 않는다.
 - 라운드는 서버 기준 20초 동안 진행한다.
-- 총 터치 수가 100회 이상이면 `colorChanged = true`가 되지만, 라운드는 계속 진행된다.
-- 진행 중에는 합산 터치 수를 표시하지 않고, entry 기준 상위 3명의 ranking entry만 SSE로 브로드캐스트한다.
+- 진행 중에는 전체 누적 터치 수와 entry 기준 상위 3명의 ranking entry를 SSE로 브로드캐스트한다.
 - 진행 중 개인 터치 수는 `submit taps` 응답과 상태 조회 응답의 `myTapCount`로 제공한다.
 - 동점은 공동 순위로 처리한다. 진행 중 `rankings`는 공동 순위 규모와 무관하게 최대 3명만 포함하고, 최종 결과는 1회 이상 터치한 참가자 전체 순위를 포함한다.
 - 전원 0회로 종료되면 `rankings = []`로 응답한다.
@@ -70,7 +69,7 @@ Request:
 - active session이면 현재 aggregate 상태 반환
 - ended session이면 TTL 안의 최종 결과 반환
 - active 상태에서는 `ended = false`, entry 기준 상위 3명의 `rankings`, 호출자 기준 `myTapCount`를 반환한다.
-- ended 결과에서는 `ended = true`, 최종 `totalTapCount`, 1회 이상 터치한 참가자 전체 최종 `rankings`, 호출자 기준 `myTapCount`를 반환한다.
+- active와 ended 결과 모두 현재 `totalTapCount`를 반환하며, ended 결과에서는 1회 이상 터치한 참가자 전체 최종 `rankings`를 반환한다.
 
 ---
 
@@ -141,7 +140,6 @@ Request:
 - Test: `src/test/kotlin/com/team2/server/burstgame/domain/BurstGameSessionTest.kt`
 
 - [ ] `ROUND_DURATION_SECONDS = 20`을 정의한다.
-- [ ] `COLOR_CHANGE_TAP_COUNT = 100`을 정의한다.
 - [ ] `ENDED_SESSION_TTL = 5 minutes`를 정의한다.
 - [ ] 참가자별 rate limit 기본값을 token bucket refill 초당 20회, burst capacity 30회, 참가자별 라운드 누적 400회로 정의한다.
 - [ ] `MAX_SEQUENCE_GAP = 1000`을 정의한다.
@@ -247,7 +245,7 @@ Run:
 - [ ] active session이 있으면 기존 active 상태를 반환한다.
 - [ ] TTL 안의 ended session이 있으면 `BURST_GAME_ALREADY_ENDED`.
 - [ ] active/ended session이 없을 때만 촛불 종료 상태를 검증한다.
-- [ ] `startedAt`, `endsAt`, `stateVersion = 0`, `colorChanged = false`로 session을 생성한다.
+- [ ] `startedAt`, `endsAt`, `stateVersion = 0`, `totalTapCount = 0`으로 session을 생성한다.
 - [ ] `BurstGameEndScheduler` 인터페이스로 종료 scheduler를 등록한다.
 - [ ] `BurstGameEventBroadcaster` 인터페이스로 기존 파티 SSE 구독자에게 `burst-game-started`를 브로드캐스트한다.
 
@@ -302,7 +300,7 @@ Run:
 - [ ] rate limit 초과 시 `BURST_GAME_RATE_LIMITED`.
 - [ ] `now >= endsAt`이거나 TTL 안의 ended session이면 batch를 반영하지 않고 `200 OK`, `accepted = false`, `ignoredReason = "ROUND_ENDED"`를 반환한다.
 - [ ] accepted batch마다 참가자별 count, total count, ranking, `stateVersion`을 갱신한다.
-- [ ] total이 100 이상이면 `colorChanged = true`.
+- [ ] 성공/중복/종료 응답 모두 현재 `totalTapCount`를 포함한다.
 - [ ] 성공/중복/종료 응답 모두 submit 응답 스키마를 유지한다.
 
 Run:
@@ -350,7 +348,7 @@ Run:
 - [ ] `ChatSseGateway`는 `PartySseEventPublisher`를 구현하고, `burstgame`은 `chat.infrastructure.sse.ChatSseGateway`를 직접 참조하지 않는다.
 - [ ] 기존 파티 SSE 연결에 `burst-game-started` 이벤트를 보낸다.
 - [ ] accepted tap batch 이후 `burst-game-progress` 이벤트를 보낸다.
-- [ ] progress 이벤트에는 `colorChanged`, `endsAt`, `stateVersion`, `serverTime`, entry 기준 상위 3명 `rankings`를 포함한다.
+- [ ] progress 이벤트에는 `totalTapCount`, `endsAt`, `stateVersion`, `serverTime`, entry 기준 상위 3명 `rankings`를 포함한다.
 - [ ] progress countdown 기준은 서버가 내려준 `endsAt`이다.
 - [ ] progress는 party/round 단위 200~300ms trailing throttle을 적용한다.
 - [ ] throttle 구현은 `ConcurrentHashMap<RoundId, ScheduledFuture>`와 `ScheduledExecutorService` 기반 또는 동등한 trailing throttle 메커니즘으로 둔다.
@@ -408,7 +406,7 @@ Run:
 - submit: `clientSequence > maxAcceptedSequence + MAX_SEQUENCE_GAP`이면 `INVALID_INPUT`
 - submit: 이미 처리한 `clientSequence`만 duplicate로 무시
 - submit: 참가자별 rate limit 초과 시 `BURST_GAME_RATE_LIMITED`
-- submit: total이 100 이상이면 `colorChanged = true`
+- submit: 응답에 현재 `totalTapCount` 포함
 - submit: accepted batch마다 `stateVersion` 증가
 - submit: ranking은 tap count desc로 정렬됨
 - submit: 공동 rank 내에서는 participant id asc로 표시 순서를 결정
@@ -434,7 +432,7 @@ Run:
 - ranking: 진행 중 1등 3명, 다음 rank group이 2등이면 `rankings`는 rank 1 참가자 3명만 포함
 - ranking: 종료 결과는 상위 제한 없이 1회 이상 터치한 참가자 전체 순위를 포함
 - ranking: 전원 0회면 `rankings = []`
-- policy: `BurstGamePolicy.COLOR_CHANGE_TAP_COUNT = 100` 상수 기준으로 `colorChanged` 테스트
+- state/result: active와 ended 상태 모두 현재 `totalTapCount`를 포함
 - SSE: 실제 emit은 lock 밖 비동기 executor에서 수행되고 실패해도 session 상태는 유지됨
 
 ### Controller 통합 테스트

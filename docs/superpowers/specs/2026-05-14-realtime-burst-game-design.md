@@ -14,9 +14,8 @@
 - start 요청 후 서버 기준 5초 카운트다운을 거친 뒤 실제 터치를 허용한다.
 - 실시간 파티 SSE 연결을 유지한 상태에서 20초 동안 터치 수를 집계한다.
 - 진행 중에는 순위 entry 기준 상위 3명까지만 `burst-game-progress`로 브로드캐스트한다.
-- 진행 중 합산 터치 수는 노출하지 않고, 호출자 개인 터치 수(`myTapCount`)를 submit/state 응답으로 제공한다.
+- 진행 중 전체 누적 터치 수(`totalTapCount`)와 호출자 개인 터치 수(`myTapCount`)를 제공한다.
 - 종료 시에는 최종 총 터치 수와 1회 이상 터치한 참가자 전체 최종 순위를 `burst-game-ended`로 브로드캐스트한다.
-- 100회 달성은 종료 조건이 아니며, `colorChanged = true`로만 상태를 내려준다.
 - 라운드는 in-memory session으로 집계하고 종료 결과를 5분 TTL로 유지한다.
 
 확정 정책:
@@ -43,19 +42,16 @@
 
 실시간 파티(`REALTIME`) 진행 중 "촛불끄기"가 종료된 다음 단계로 박터뜨리기 라운드를 시작한다. start 요청 후 서버 기준 5초 카운트다운을 거치고, 이후 20초 동안 터치를 허용한다.
 
-참여자들은 20초 동안 터치 액션을 전송한다. 서버는 모든 참여자의 터치 수를 집계하고, 진행 중에는 전체 참여자에게 순위 entry 기준 상위 3명까지만 실시간으로 브로드캐스트한다. 진행 중 화면에서 필요한 개인 터치 수는 submit/state 응답의 `myTapCount`를 기준으로 보여준다. 20초가 끝나면 최종 총 터치 수와 1회 이상 터치한 참가자 전체 최종 순위를 브로드캐스트한다.
+참여자들은 20초 동안 터치 액션을 전송한다. 서버는 모든 참여자의 터치 수를 집계하고, 진행 중에는 전체 누적 터치 수와 순위 entry 기준 상위 3명까지 실시간으로 브로드캐스트한다. 진행 중 화면에서 필요한 개인 터치 수는 submit/state 응답의 `myTapCount`를 기준으로 보여준다. 20초가 끝나면 최종 총 터치 수와 1회 이상 터치한 참가자 전체 최종 순위를 브로드캐스트한다.
 
 핵심 정책:
 
 - 라운드 시간은 서버 기준 20초다.
 - 카운트다운 시간은 서버 기준 5초다.
 - `startedAt`은 실제 터치 허용 시작 시각이며, `endsAt`은 `startedAt + 20초`다.
-- 상태 변경 기준 터치 수는 100회다.
-- 총 터치 수가 100회 이상이 되면 `colorChanged = true`로 본다. 이 값은 진행 상태 판단을 위한 서버 집계값이다.
-- 100회 기준값은 서버 정책 상수로 관리하고, 응답에는 `colorChanged`만 내려준다.
-- 100회 달성은 종료 조건이 아니다. 100회 이후에도 20초가 끝날 때까지 계속 터치할 수 있다.
 - 진행 중 순위는 rank group 기준이 아니라 정렬된 entry 기준 상위 3명까지만 실시간 갱신한다.
-- 진행 중 합산 터치 수(`totalTapCount`)는 표시용 계약에서 제외하고, 개인 터치 수는 `myTapCount`로 제공한다.
+- 서버는 시작/제출/상태 조회 응답과 시작/진행/종료 SSE에 현재 전체 누적 터치 수(`totalTapCount`)를 제공한다.
+- 색상과 애니메이션 전환 기준은 `totalTapCount`를 사용하는 클라이언트 표현 정책으로 둔다.
 - 백엔드가 tap batch를 집계하고 SSE로 `burst-game-progress` 이벤트를 브로드캐스트한다.
 
 ---
@@ -138,7 +134,7 @@ X-Participant-Token: {participantToken}
   "myParticipantId": 37,
   "startedAt": "2026-05-14T20:10:05",
   "endsAt": "2026-05-14T20:10:25",
-  "colorChanged": false,
+  "totalTapCount": 0,
   "stateVersion": 0,
   "serverTime": "2026-05-14T20:10:00"
 }
@@ -209,7 +205,7 @@ X-Participant-Token: {participantToken}
   "accepted": true,
   "ignoredReason": null,
   "myTapCount": 11,
-  "colorChanged": false,
+  "totalTapCount": 28,
   "stateVersion": 13,
   "serverTime": "2026-05-14T20:10:07.120",
   "rankings": [
@@ -313,7 +309,6 @@ SSE 재연결, `burst-game-started` 이벤트 유실, 카운트다운 복구, �
   "startedAt": "2026-05-14T20:10:00",
   "endsAt": "2026-05-14T20:10:20",
   "totalTapCount": 137,
-  "colorChanged": true,
   "stateVersion": 58,
   "serverTime": "2026-05-14T20:10:21.000",
   "remainingSeconds": 0,
@@ -393,7 +388,7 @@ start 요청으로 라운드가 생성되면 해당 파티의 기존 SSE 구독�
   "status": "ACTIVE",
   "startedAt": "2026-05-14T20:10:05",
   "endsAt": "2026-05-14T20:10:25",
-  "colorChanged": false,
+  "totalTapCount": 0,
   "stateVersion": 0,
   "serverTime": "2026-05-14T20:10:00"
 }
@@ -403,12 +398,12 @@ start 요청으로 라운드가 생성되면 해당 파티의 기존 SSE 구독�
 
 tap batch 반영 후 해당 파티의 기존 SSE 구독자에게 전송한다.
 
-이 이벤트는 진행 중 순위 표시의 기준이다. `rankings`는 정렬된 entry 기준 상위 3명까지의 순위 entry와 각 순위자의 터치 수다. 진행 중 합산 터치 수는 노출하지 않는다.
+이 이벤트는 진행 중 전체 누적 터치 수와 순위 표시의 기준이다. `rankings`는 정렬된 entry 기준 상위 3명까지의 순위 entry와 각 순위자의 터치 수다.
 
 ```json
 {
   "partyId": 10,
-  "colorChanged": false,
+  "totalTapCount": 28,
   "endsAt": "2026-05-14T20:10:20",
   "stateVersion": 13,
   "serverTime": "2026-05-14T20:10:07.120",
@@ -469,7 +464,6 @@ tap batch 반영 후 해당 파티의 기존 SSE 구독자에게 전송한다.
   "partyId": 10,
   "status": "ENDED",
   "totalTapCount": 137,
-  "colorChanged": true,
   "stateVersion": 58,
   "serverTime": "2026-05-14T20:10:20.000",
   "rankings": [
@@ -537,7 +531,6 @@ batch 단위 전송 구조에서는 "특정 tap 수에 정확히 먼저 도달�
 
 - `rankings = []`
 - `totalTapCount = 0`
-- `colorChanged = false`
 
 참가자 노출 필드:
 
@@ -829,11 +822,11 @@ cross-feature 의존:
 - start 요청 후 서버 기준 5초 카운트다운을 진행하고, 모든 참여자는 동일한 `startedAt`부터 터치할 수 있다.
 - 카운트다운 중에도 상태 조회 API를 허용한다.
 - 카운트다운 중 submit은 `ROUND_NOT_STARTED`로 응답하고 해당 `clientSequence`를 실제 시작 후 재사용할 수 있다.
-- 100회 달성 시 서버는 `colorChanged = true`를 내려준다.
-- 100회 이후에도 20초가 끝날 때까지 계속 터치하고 순위를 집계한다.
+- 서버는 라운드 진행 중에도 현재 전체 누적 터치 수를 `totalTapCount`로 내려준다.
+- 색상과 애니메이션 전환 기준은 클라이언트가 `totalTapCount`를 사용해 결정한다.
 - 진행 중에는 정렬된 순위 entry 기준 상위 3명과 각 순위자의 터치 수만 표시한다.
 - 공동 순위가 있어도 진행 중에는 최대 3명까지만 표시한다.
-- 진행 중 합산 터치 수는 표시하지 않고, 개인 터치 수는 `myTapCount`로 표시한다.
+- 개인 터치 수는 `myTapCount`로 표시한다.
 - 종료 이벤트와 ended 상태/결과 조회에는 최종 총 터치 수와 1회 이상 터치한 참가자 전체 순위를 포함한다.
 - 전원 0회면 `rankings = []`로 내려준다.
 
