@@ -91,7 +91,6 @@ interface BurstGameApi {
 
 `tapCount`는 1~30, `clientSequence`는 참가자별 batch 멱등성 키입니다.
 카운트다운 중 요청, 중복 sequence, 종료 후 submit은 200 응답에서 `accepted=false`로 표현합니다.
-동일한 기능을 `/burst-game/taps`, `/burst-game/hits` 두 path로 제공합니다.
 """,
     )
     @SwaggerApiResponse(

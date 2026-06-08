@@ -5,6 +5,7 @@ import com.team2.server.party.application.port.PartyPhaseStore
 import com.team2.server.party.application.service.ParticipantService
 import com.team2.server.party.application.service.PartyService
 import com.team2.server.party.application.service.RealtimeParticipantProfileService
+import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.domain.vo.PartyPhase
 import org.springframework.stereotype.Service
@@ -45,14 +46,21 @@ class GetPartyPhaseUseCase(
         participantToken: String?,
         now: LocalDateTime,
     ): PartyPhaseResult? {
-        if (participantToken == null) return null
-        val profile = profileService.findByParticipantToken(participantToken) ?: return null
-        if (profile.participant.party.id != party.id || !profile.participant.hasLeft) return null
-        return PartyPhaseResult(
-            partyId = party.id,
-            phase = PartyPhase.END,
-            phaseStartedAt = party.liveEndingStartedAt ?: now,
-            serverNow = now,
-        )
+        val profile = participantToken?.let { profileService.findByParticipantToken(it) }
+        return if (profile.isLeftParticipantOf(party)) {
+            PartyPhaseResult(
+                partyId = party.id,
+                phase = PartyPhase.END,
+                phaseStartedAt = party.liveEndingStartedAt ?: now,
+                serverNow = now,
+            )
+        } else {
+            null
+        }
     }
+
+    private fun RealtimeParticipantProfile?.isLeftParticipantOf(party: RealtimeParty): Boolean =
+        this?.participant?.let { participant ->
+            participant.party.id == party.id && participant.hasLeft
+        } == true
 }

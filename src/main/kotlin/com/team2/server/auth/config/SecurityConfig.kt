@@ -66,7 +66,6 @@ class SecurityConfig(
                 auth.requestMatchers(HttpMethod.GET, "/api/v1/parties/*/candle-blow").permitAll()
                 auth.requestMatchers(HttpMethod.POST, "/api/v1/parties/*/candle-blow/candles/*").permitAll()
                 auth.requestMatchers(HttpMethod.POST, "/api/v1/parties/*/burst-game/taps").permitAll()
-                auth.requestMatchers(HttpMethod.POST, "/api/v1/parties/*/burst-game/hits").permitAll()
                 auth.requestMatchers(HttpMethod.POST, "/api/v1/parties/*/fireworks").permitAll()
                 auth.requestMatchers(HttpMethod.GET, "/api/v1/parties/*/burst-game").permitAll()
                 auth.requestMatchers(HttpMethod.GET, "/api/v1/parties/*/realtime-state").permitAll()

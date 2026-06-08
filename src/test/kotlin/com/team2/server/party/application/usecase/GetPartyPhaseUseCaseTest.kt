@@ -69,7 +69,12 @@ class GetPartyPhaseUseCaseTest {
             RealtimeParty(ownerId = 10L, startedAt = partyStartedAt, liveEndingStartedAt = endingStartedAt)
                 .also { setId(it, partyId) }
         val participant = Participant(party = party).also { it.leave() }
-        val profile = RealtimeParticipantProfile(participant = participant, nickname = "퇴장자", participantToken = "left-token")
+        val profile =
+            RealtimeParticipantProfile(
+                participant = participant,
+                nickname = "퇴장자",
+                participantToken = "left-token",
+            )
         whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
         whenever(profileService.findByParticipantToken("left-token")).thenReturn(profile)
 
