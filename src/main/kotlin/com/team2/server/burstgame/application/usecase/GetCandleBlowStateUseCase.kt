@@ -12,6 +12,7 @@ import com.team2.server.burstgame.domain.candle.CandleBlowStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
+import java.time.LocalDateTime
 
 @Service
 class GetCandleBlowStateUseCase(
@@ -28,33 +29,46 @@ class GetCandleBlowStateUseCase(
         participantToken: String?,
     ): CandleBlowResponse {
         val context = participantResolver.resolveWithParty(partyId, userId, participantToken)
-        val now = java.time.LocalDateTime.now(clock)
-        val hostEnteredAt =
-            context.party.hostEnteredAt ?: return CandleBlowResponse.from(CandleBlowSnapshot.waiting(partyId))
+        val now = LocalDateTime.now(clock)
         val result =
-            sessionStore.getOrCreateWithLock(
-                partyId = partyId,
-                sessionFactory = {
-                    CandleBlowSession.fromHostEnteredAt(
-                        partyId = partyId,
-                        hostEnteredAt = hostEnteredAt,
-                        durationSeconds = candleBlowProperties.durationSeconds,
-                    )
-                },
-            ) { session, _ ->
-                val wasFinished = session.isFinished()
-                val snapshot = session.snapshot(now)
-                CandleBlowStateLookupResult(
-                    response = CandleBlowResponse.from(snapshot),
-                    endedSnapshot =
-                        snapshot.takeIf {
-                            !wasFinished &&
-                                it.finishedReason != null &&
-                                session.markAndCheckBroadcastNeeded(CandleBlowStatus.FINISHED)
-                        },
-                )
-            }
+            sessionStore.withSessionLock(partyId) { session ->
+                lookup(session, now)
+            } ?: context.party.hostEnteredAt?.let { hostEnteredAt ->
+                sessionStore.getOrCreateWithLock(
+                    partyId = partyId,
+                    sessionFactory = {
+                        CandleBlowSession.fromHostEnteredAt(
+                            partyId = partyId,
+                            hostEnteredAt = hostEnteredAt,
+                            durationSeconds = candleBlowProperties.durationSeconds,
+                        )
+                    },
+                ) { session, _ ->
+                    lookup(session, now)
+                }
+            } ?: CandleBlowStateLookupResult(
+                response = CandleBlowResponse.from(CandleBlowSnapshot.waiting(partyId)),
+                endedSnapshot = null,
+            )
+
         result.endedSnapshot?.let(endEventPublisher::publishEndedAfterCommit)
         return result.response
+    }
+
+    private fun lookup(
+        session: CandleBlowSession,
+        now: LocalDateTime,
+    ): CandleBlowStateLookupResult {
+        val wasFinished = session.isFinished()
+        val snapshot = session.snapshot(now)
+        return CandleBlowStateLookupResult(
+            response = CandleBlowResponse.from(snapshot),
+            endedSnapshot =
+                snapshot.takeIf {
+                    !wasFinished &&
+                        it.finishedReason != null &&
+                        session.markAndCheckBroadcastNeeded(CandleBlowStatus.FINISHED)
+                },
+        )
     }
 }

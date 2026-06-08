@@ -5,6 +5,7 @@ import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.service.PartyService
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.domain.entity.RealtimePartyStatus
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
@@ -15,10 +16,24 @@ class ResolveLiveOpenRealtimePartyUseCase(
     private val partyService: PartyService,
     private val clock: Clock,
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     @Transactional(readOnly = true)
     fun invoke(partyId: Long): RealtimeParty {
         val party = partyService.requireRealtimeParty(partyId)
-        if (party.status(LocalDateTime.now(clock)) != RealtimePartyStatus.LIVE_OPEN) {
+        val now = LocalDateTime.now(clock)
+        val status = party.status(now)
+        if (status != RealtimePartyStatus.LIVE_OPEN) {
+            log.warn(
+                "Realtime party is not live-open. partyId={} status={} " +
+                    "startedAt={} liveEndingStartedAt={} now={} clockZone={}",
+                partyId,
+                status,
+                party.startedAt,
+                party.liveEndingStartedAt,
+                now,
+                clock.zone,
+            )
             throw BusinessException(ErrorCode.CHAT_NOT_ACTIVE)
         }
         return party

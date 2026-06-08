@@ -118,16 +118,27 @@ class CandleBlowSession(
         )
 
     companion object {
+        fun fromStartedAt(
+            partyId: Long,
+            startedAt: LocalDateTime,
+            durationSeconds: Long,
+        ): CandleBlowSession =
+            CandleBlowSession(
+                partyId = partyId,
+                startedAt = startedAt,
+                endsAt = startedAt.plusSeconds(durationSeconds),
+            )
+
         fun fromHostEnteredAt(
             partyId: Long,
             hostEnteredAt: LocalDateTime,
             durationSeconds: Long,
         ): CandleBlowSession {
             val startedAt = hostEnteredAt.plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS)
-            return CandleBlowSession(
+            return fromStartedAt(
                 partyId = partyId,
                 startedAt = startedAt,
-                endsAt = startedAt.plusSeconds(durationSeconds),
+                durationSeconds = durationSeconds,
             )
         }
     }

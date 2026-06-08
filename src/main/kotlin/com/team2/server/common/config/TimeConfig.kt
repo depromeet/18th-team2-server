@@ -8,9 +8,9 @@ import java.time.ZoneId
 @Configuration
 class TimeConfig {
     @Bean
-    fun clock(): Clock = Clock.system(ZoneId.of(SEOUL_ZONE_ID))
+    fun clock(): Clock = Clock.system(ZoneId.of(TIME_ZONE_ID))
 
     companion object {
-        const val SEOUL_ZONE_ID = "Asia/Seoul"
+        private const val TIME_ZONE_ID = "Asia/Seoul"
     }
 }

@@ -4,12 +4,10 @@ import com.team2.server.auth.principal.UserPrincipal
 import com.team2.server.burstgame.api.dto.SubmitBurstGameTapRequest
 import com.team2.server.burstgame.application.dto.BurstGameStateResponse
 import com.team2.server.burstgame.application.dto.CandleBlowResponse
-import com.team2.server.burstgame.application.dto.StartBurstGameResponse
 import com.team2.server.burstgame.application.dto.SubmitBurstGameTapResponse
 import com.team2.server.burstgame.application.usecase.BlowCandleUseCase
 import com.team2.server.burstgame.application.usecase.GetBurstGameSnapshotUseCase
 import com.team2.server.burstgame.application.usecase.GetCandleBlowStateUseCase
-import com.team2.server.burstgame.application.usecase.StartBurstGameUseCase
 import com.team2.server.burstgame.application.usecase.SubmitBurstGameTapUseCase
 import com.team2.server.common.web.ApiResponse
 import jakarta.validation.Valid
@@ -27,7 +25,6 @@ import org.springframework.web.bind.annotation.RestController
 class BurstGameController(
     private val getCandleBlowStateUseCase: GetCandleBlowStateUseCase,
     private val blowCandleUseCase: BlowCandleUseCase,
-    private val startBurstGameUseCase: StartBurstGameUseCase,
     private val submitBurstGameTapUseCase: SubmitBurstGameTapUseCase,
     private val getBurstGameSnapshotUseCase: GetBurstGameSnapshotUseCase,
 ) : BurstGameApi {
@@ -55,16 +52,6 @@ class BurstGameController(
                 userId = principal?.userId,
                 participantToken = participantToken,
             ),
-        )
-
-    @PostMapping("/api/v1/parties/{partyId}/burst-game/start")
-    override fun start(
-        @PathVariable partyId: Long,
-        @AuthenticationPrincipal principal: UserPrincipal?,
-        @RequestHeader(value = "X-Participant-Token", required = false) participantToken: String?,
-    ): ApiResponse<StartBurstGameResponse> =
-        ApiResponse.success(
-            startBurstGameUseCase(partyId, principal?.userId, participantToken),
         )
 
     @PostMapping("/api/v1/parties/{partyId}/burst-game/taps")

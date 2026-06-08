@@ -3,9 +3,8 @@ package com.team2.server.party.application.usecase
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.dto.RealtimePartyEndResult
 import com.team2.server.party.application.dto.RealtimePartyEndStartResult
-import com.team2.server.party.application.event.RealtimePartyEndingEventPublisher
-import com.team2.server.party.application.port.RealtimePartyEndingInfoPort
 import com.team2.server.party.application.service.PartyService
+import com.team2.server.party.application.service.RealtimePartyEndResultService
 import com.team2.server.party.application.service.RealtimePartyEndService
 import com.team2.server.party.domain.entity.RealtimePartyStatus
 import org.springframework.stereotype.Service
@@ -17,8 +16,7 @@ import java.time.LocalDateTime
 class StartRealtimePartyEndUseCase(
     private val partyService: PartyService,
     private val realtimePartyEndService: RealtimePartyEndService,
-    private val endingInfoPort: RealtimePartyEndingInfoPort,
-    private val realtimePartyEndingEventPublisher: RealtimePartyEndingEventPublisher,
+    private val endResultService: RealtimePartyEndResultService,
     private val clock: Clock,
 ) {
     @Transactional
@@ -44,8 +42,6 @@ class StartRealtimePartyEndUseCase(
         }
     }
 
-    private fun toResultAndPublish(startResult: RealtimePartyEndStartResult): RealtimePartyEndResult =
-        RealtimePartyEndResult.from(startResult.party, endingInfoPort.get(startResult.party)).also {
-            if (startResult.affected == 1) realtimePartyEndingEventPublisher.publish(it)
-        }
+    private fun toResultAndPublish(startResult: RealtimePartyEndStartResult) =
+        endResultService.toResultAndPublish(startResult)
 }

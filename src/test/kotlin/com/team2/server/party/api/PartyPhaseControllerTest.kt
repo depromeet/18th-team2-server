@@ -2,6 +2,8 @@ package com.team2.server.party.api
 
 import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
+import com.team2.server.burstgame.application.port.BurstGameSessionStore
+import com.team2.server.burstgame.application.port.CandleBlowSessionStore
 import com.team2.server.common.DatabaseCleanup
 import com.team2.server.config.TestcontainersConfiguration
 import com.team2.server.party.application.port.PartyPhaseStore
@@ -40,6 +42,8 @@ class PartyPhaseControllerTest
         private val userRepository: UserRepository,
         private val databaseCleanup: DatabaseCleanup,
         private val phaseStore: PartyPhaseStore,
+        private val sessionStore: BurstGameSessionStore,
+        private val candleBlowSessionStore: CandleBlowSessionStore,
         private val jwtProperties: JwtProperties,
     ) {
         private val tokenProvider = JwtTokenProvider(jwtProperties)
@@ -48,6 +52,8 @@ class PartyPhaseControllerTest
         fun setUp() {
             databaseCleanup.execute()
             phaseStore.clear()
+            sessionStore.clear()
+            candleBlowSessionStore.clear()
         }
 
         @Test
@@ -109,6 +115,48 @@ class PartyPhaseControllerTest
         }
 
         @Test
+        fun `참여자 token으로 CANDLE→BURST advance 성공`() {
+            val fixture =
+                saveParticipantAndParty(
+                    startedAt = LocalDateTime.now().minusMinutes(6),
+                )
+            phaseStore.advance(fixture.partyId, PartyPhase.ENTRY, PartyPhase.MUSIC, LocalDateTime.now())
+            phaseStore.advance(fixture.partyId, PartyPhase.MUSIC, PartyPhase.CANDLE, LocalDateTime.now())
+
+            mockMvc
+                .post("/api/v1/parties/${fixture.partyId}/phase/advance") {
+                    header("X-Participant-Token", fixture.participantToken)
+                    contentType = MediaType.APPLICATION_JSON
+                    content = """{"currentPhase":"CANDLE"}"""
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.phase") { value("BURST") }
+                }
+        }
+
+        @Test
+        fun `주최자가 파티 종료를 시작하면 참여자 phase 조회는 END를 반환한다`() {
+            val fixture = saveParticipantAndParty()
+            phaseStore.advance(fixture.partyId, PartyPhase.ENTRY, PartyPhase.MUSIC, LocalDateTime.now())
+            phaseStore.advance(fixture.partyId, PartyPhase.MUSIC, PartyPhase.CANDLE, LocalDateTime.now())
+
+            mockMvc
+                .post("/api/v1/parties/${fixture.partyId}/realtime-end") {
+                    header("Authorization", "Bearer ${fixture.hostToken}")
+                }.andExpect {
+                    status { isOk() }
+                }
+
+            mockMvc
+                .get("/api/v1/parties/${fixture.partyId}/phase") {
+                    header("X-Participant-Token", fixture.participantToken)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.phase") { value("END") }
+                }
+        }
+
+        @Test
         fun `허용되지 않는 currentPhase 시 400`() {
             val fixture = saveHostAndParty()
 
@@ -129,6 +177,7 @@ class PartyPhaseControllerTest
 
         private data class ParticipantFixture(
             val partyId: Long,
+            val hostToken: String,
             val participantToken: String,
         )
 
@@ -153,7 +202,9 @@ class PartyPhaseControllerTest
             return HostFixture(partyId = party.id, hostToken = tokenProvider.issue(host))
         }
 
-        private fun saveParticipantAndParty(): ParticipantFixture {
+        private fun saveParticipantAndParty(
+            startedAt: LocalDateTime = LocalDateTime.now().minusMinutes(1),
+        ): ParticipantFixture {
             val host =
                 userRepository.save(
                     User(
@@ -168,9 +219,25 @@ class PartyPhaseControllerTest
                 partyRepository.save(
                     RealtimeParty(
                         ownerId = host.id,
-                        startedAt = LocalDateTime.now().minusMinutes(1),
+                        startedAt = startedAt,
+                        hostEnteredAt = startedAt,
                     ),
                 )
+            val hostParticipant =
+                participantRepository.save(
+                    Participant(
+                        party = party,
+                        user = host,
+                        isCelebrant = true,
+                    ),
+                )
+            profileRepository.save(
+                RealtimeParticipantProfile(
+                    participant = hostParticipant,
+                    nickname = "호스트",
+                    participantToken = "phasehs1",
+                ),
+            )
             val guest =
                 userRepository.save(
                     User(
@@ -190,6 +257,10 @@ class PartyPhaseControllerTest
                         participantToken = "phasegt1",
                     ),
                 )
-            return ParticipantFixture(partyId = party.id, participantToken = profile.participantToken)
+            return ParticipantFixture(
+                partyId = party.id,
+                hostToken = tokenProvider.issue(host),
+                participantToken = profile.participantToken,
+            )
         }
     }

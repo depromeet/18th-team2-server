@@ -2,7 +2,6 @@ package com.team2.server.party.infrastructure.sse
 
 import com.team2.server.party.application.dto.RealtimeEndingScheduleTarget
 import com.team2.server.party.application.event.RealtimePartyBurstGameEndedEvent
-import com.team2.server.party.application.event.RealtimePartyBurstGameStartedEvent
 import com.team2.server.party.application.event.RealtimePartyCreatedEvent
 import com.team2.server.party.application.event.RealtimePartyEndingStartedEvent
 import com.team2.server.party.application.port.PartyPhaseStore
@@ -92,11 +91,6 @@ class PartyEndScheduler(
             emitEnding = true,
         )
         phaseStore.forceSet(event.partyId, PartyPhase.END, event.endingStartedAt)
-    }
-
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
-    fun onBurstGameStarted(event: RealtimePartyBurstGameStartedEvent) {
-        phaseStore.advance(event.partyId, PartyPhase.CANDLE, PartyPhase.BURST, event.startedAt)
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
