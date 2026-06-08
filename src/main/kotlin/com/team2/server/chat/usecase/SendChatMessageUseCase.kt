@@ -38,7 +38,11 @@ class SendChatMessageUseCase(
 
         val imageUrl =
             message.profile.character?.id?.let {
-                imageUrlReader.findFirstImageUrlByTargetIds(ImageTargetType.CHARACTER, listOf(it))[it]
+                imageUrlReader.findImageUrlByTargetIdsAndSortOrder(
+                    ImageTargetType.CHARACTER,
+                    listOf(it),
+                    CHARACTER_THUMBNAIL_SORT_ORDER,
+                )[it]
             }
         val response = ChatMessageResponse.from(message, message.profile.participant.isCelebrant, imageUrl)
         chatSseGateway.broadcastAfterCommit(
@@ -50,5 +54,9 @@ class SendChatMessageUseCase(
                 .build(),
         )
         return response
+    }
+
+    private companion object {
+        private const val CHARACTER_THUMBNAIL_SORT_ORDER = 1
     }
 }
