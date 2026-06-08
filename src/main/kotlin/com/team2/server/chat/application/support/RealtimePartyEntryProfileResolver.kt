@@ -10,6 +10,7 @@ import com.team2.server.party.domain.entity.PartyOption
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.domain.entity.RealtimePartyStatus
 import org.hibernate.Hibernate
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.time.LocalDateTime
 
@@ -17,6 +18,8 @@ import java.time.LocalDateTime
 class RealtimePartyEntryProfileResolver(
     private val entryProfilePort: RealtimePartyEntryProfilePort,
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     fun requireRealtime(party: Party): RealtimeParty {
         if (party.partyOption != PartyOption.REALTIME) throw BusinessException(ErrorCode.CHAT_NOT_SUPPORTED)
         return Hibernate.unproxy(party) as RealtimeParty
@@ -26,7 +29,19 @@ class RealtimePartyEntryProfileResolver(
         party: RealtimeParty,
         now: LocalDateTime,
     ) {
-        if (party.status(now) != RealtimePartyStatus.LIVE_OPEN) throw BusinessException(ErrorCode.CHAT_NOT_ACTIVE)
+        val status = party.status(now)
+        if (status != RealtimePartyStatus.LIVE_OPEN) {
+            log.warn(
+                "Realtime party entry is not live-open. partyId={} status={} " +
+                    "startedAt={} liveEndingStartedAt={} now={}",
+                party.id,
+                status,
+                party.startedAt,
+                party.liveEndingStartedAt,
+                now,
+            )
+            throw BusinessException(ErrorCode.CHAT_NOT_ACTIVE)
+        }
     }
 
     fun resolve(
