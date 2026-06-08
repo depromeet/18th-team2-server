@@ -95,6 +95,12 @@ tasks.withType<Test> {
     finalizedBy(tasks.jacocoTestReport)
 }
 
+tasks.withType<org.springframework.boot.gradle.tasks.run.BootRun> {
+    systemProperty("user.timezone", "Asia/Seoul")
+    environment("TZ", "Asia/Seoul")
+    environment("APP_TIME_ZONE", System.getenv("APP_TIME_ZONE") ?: "Asia/Seoul")
+}
+
 tasks.jacocoTestReport {
     reports {
         xml.required = true
