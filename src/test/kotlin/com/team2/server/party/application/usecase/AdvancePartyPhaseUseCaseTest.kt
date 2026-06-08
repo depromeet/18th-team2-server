@@ -1,6 +1,7 @@
 package com.team2.server.party.application.usecase
 
 import com.team2.server.common.exception.BusinessException
+import com.team2.server.party.application.port.BurstGameStartPort
 import com.team2.server.party.application.port.PartyPhaseStore
 import com.team2.server.party.application.port.RealtimePartyEventBroadcaster
 import com.team2.server.party.application.service.ParticipantService
@@ -25,10 +26,18 @@ class AdvancePartyPhaseUseCaseTest {
     private val participantService: ParticipantService = mock()
     private val phaseStore: PartyPhaseStore = mock()
     private val eventBroadcaster: RealtimePartyEventBroadcaster = mock()
+    private val burstGameStartPort: BurstGameStartPort = mock()
     private val fixedNow = LocalDateTime.of(2026, 5, 26, 20, 0, 5)
     private val clock: Clock = Clock.fixed(fixedNow.toInstant(ZoneOffset.UTC), ZoneOffset.UTC)
     private val useCase =
-        AdvancePartyPhaseUseCase(partyService, participantService, phaseStore, eventBroadcaster, clock)
+        AdvancePartyPhaseUseCase(
+            partyService,
+            participantService,
+            phaseStore,
+            eventBroadcaster,
+            burstGameStartPort,
+            clock,
+        )
 
     @Test
     fun `호스트가 ENTRY→MUSIC 전환 성공 시 SSE 브로드캐스트`() {
@@ -73,6 +82,24 @@ class AdvancePartyPhaseUseCaseTest {
         useCase(partyId, userId = ownerId, participantToken = null, currentPhase = PartyPhase.ENTRY)
 
         verify(eventBroadcaster, never()).broadcastPhaseChanged(any(), any(), any(), any())
+    }
+
+    @Test
+    fun `파티 멤버가 CANDLE→BURST 전환 성공 시 SSE 브로드캐스트`() {
+        val partyId = 1L
+        val party = RealtimeParty(ownerId = 10L, startedAt = LocalDateTime.of(2026, 5, 26, 19, 55))
+        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+        whenever(phaseStore.getEntry(partyId)).thenReturn(
+            PartyPhaseStore.PhaseEntry(PartyPhase.CANDLE, fixedNow.minusSeconds(3)),
+        )
+        whenever(phaseStore.advance(eq(partyId), eq(PartyPhase.CANDLE), eq(PartyPhase.BURST), any())).thenReturn(true)
+
+        val result = useCase(partyId, userId = 99L, participantToken = null, currentPhase = PartyPhase.CANDLE)
+
+        assertEquals(PartyPhase.BURST, result.phase)
+        verify(participantService).validatePartyMember(party, 99L, null)
+        verify(burstGameStartPort).start(partyId, 99L, null)
+        verify(eventBroadcaster).broadcastPhaseChanged(eq(partyId), eq(PartyPhase.BURST), any(), any())
     }
 
     @Test

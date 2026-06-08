@@ -3,6 +3,7 @@ package com.team2.server.party.application.usecase
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.dto.PartyPhaseResult
+import com.team2.server.party.application.port.BurstGameStartPort
 import com.team2.server.party.application.port.PartyPhaseStore
 import com.team2.server.party.application.port.RealtimePartyEventBroadcaster
 import com.team2.server.party.application.service.ParticipantService
@@ -19,9 +20,10 @@ class AdvancePartyPhaseUseCase(
     private val participantService: ParticipantService,
     private val phaseStore: PartyPhaseStore,
     private val eventBroadcaster: RealtimePartyEventBroadcaster,
+    private val burstGameStartPort: BurstGameStartPort,
     private val clock: Clock,
 ) {
-    @Transactional(readOnly = true)
+    @Transactional
     operator fun invoke(
         partyId: Long,
         userId: Long?,
@@ -38,10 +40,15 @@ class AdvancePartyPhaseUseCase(
             PartyPhase.ENTRY -> {
                 if (party.ownerId != userId) throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
             }
-            PartyPhase.MUSIC -> participantService.validatePartyMember(party, userId, participantToken)
+            PartyPhase.MUSIC,
+            PartyPhase.CANDLE,
+            -> participantService.validatePartyMember(party, userId, participantToken)
             else -> Unit
         }
 
+        if (nextPhase == PartyPhase.BURST && currentStoredPhase(partyId) == currentPhase) {
+            burstGameStartPort.start(partyId, userId, participantToken)
+        }
         val advanced = phaseStore.advance(partyId, currentPhase, nextPhase, now)
 
         if (advanced) {
@@ -63,11 +70,14 @@ class AdvancePartyPhaseUseCase(
         )
     }
 
+    private fun currentStoredPhase(partyId: Long): PartyPhase = phaseStore.getEntry(partyId)?.phase ?: PartyPhase.ENTRY
+
     companion object {
         val ALLOWED_TRANSITIONS =
             mapOf(
                 PartyPhase.ENTRY to PartyPhase.MUSIC,
                 PartyPhase.MUSIC to PartyPhase.CANDLE,
+                PartyPhase.CANDLE to PartyPhase.BURST,
             )
     }
 }
