@@ -26,6 +26,7 @@ class RealtimeParticipantProfileService(
         val existing = profileRepository.findByParticipant(participant)
         if (existing == null) {
             validateNicknameUnique(participant, nickname)
+            participant.rejoin()
             return profileRepository.save(
                 RealtimeParticipantProfile(
                     participant = participant,
@@ -40,6 +41,7 @@ class RealtimeParticipantProfileService(
             }
             validateNicknameUnique(participant, nickname)
         }
+        participant.rejoin()
         existing.nickname = nickname
         existing.character = character
         return existing
@@ -77,9 +79,21 @@ class RealtimeParticipantProfileService(
         val profile =
             profileRepository.findByParticipantToken(participantToken)
                 ?: throw BusinessException(ErrorCode.UNAUTHORIZED)
+        validateActivePartyMember(profile, partyId)
+        return profile
+    }
+
+    fun requireForReentryByParticipantToken(
+        participantToken: String,
+        partyId: Long,
+    ): RealtimeParticipantProfile {
+        val profile =
+            profileRepository.findByParticipantToken(participantToken)
+                ?: throw BusinessException(ErrorCode.UNAUTHORIZED)
         if (profile.participant.party.id != partyId) {
             throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
         }
+        profile.participant.rejoin()
         return profile
     }
 
@@ -101,9 +115,19 @@ class RealtimeParticipantProfileService(
         val profile =
             profileRepository.findByParticipantToken(participantToken)
                 ?: throw BusinessException(ErrorCode.CHARACTER_REQUIRED)
+        validateActivePartyMember(profile, partyId)
+        return profile
+    }
+
+    private fun validateActivePartyMember(
+        profile: RealtimeParticipantProfile,
+        partyId: Long,
+    ) {
+        if (profile.participant.hasLeft) {
+            throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
+        }
         if (profile.participant.party.id != partyId) {
             throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
         }
-        return profile
     }
 }

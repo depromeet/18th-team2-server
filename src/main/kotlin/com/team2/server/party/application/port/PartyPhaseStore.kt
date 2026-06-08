@@ -14,6 +14,13 @@ interface PartyPhaseStore {
         now: LocalDateTime,
     ): Boolean
 
+    // 현재 페이즈에 관계없이 강제 설정 (파티 강제 종료 등)
+    fun forceSet(
+        partyId: Long,
+        phase: PartyPhase,
+        now: LocalDateTime,
+    )
+
     fun removeByPartyId(partyId: Long)
 
     fun clear()

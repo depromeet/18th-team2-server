@@ -119,7 +119,7 @@ class SendChatMessageUseCaseTest {
         whenever(resolveLiveOpenRealtimePartyUseCase.invoke(1L)).thenReturn(party)
         whenever(resolveRealtimeParticipantProfileUseCase.invoke(1L, 10L, null)).thenReturn(profile)
         whenever(chatMessageRepository.save(any())).thenReturn(savedMessage)
-        whenever(imageUrlReader.findFirstImageUrlByTargetIds(ImageTargetType.CHARACTER, listOf(character.id)))
+        whenever(imageUrlReader.findImageUrlByTargetIdsAndSortOrder(ImageTargetType.CHARACTER, listOf(character.id), 1))
             .thenReturn(mapOf(character.id to "https://example.com/rabbit.png"))
 
         val response = useCase.send(partyId = 1L, userId = 10L, participantToken = null, request)

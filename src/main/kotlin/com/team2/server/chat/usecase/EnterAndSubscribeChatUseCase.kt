@@ -37,7 +37,11 @@ class EnterAndSubscribeChatUseCase(
                 .filterNotNull()
                 .distinct()
         val imageUrlMap =
-            imageUrlReader.findFirstImageUrlByTargetIds(ImageTargetType.CHARACTER, characterIds)
+            imageUrlReader.findImageUrlByTargetIdsAndSortOrder(
+                ImageTargetType.CHARACTER,
+                characterIds,
+                CHARACTER_THUMBNAIL_SORT_ORDER,
+            )
         val messages =
             rawMessages.map {
                 ChatMessageResponse.from(
@@ -111,6 +115,7 @@ class EnterAndSubscribeChatUseCase(
     }
 
     companion object {
+        private const val CHARACTER_THUMBNAIL_SORT_ORDER = 1
         private const val SSE_GRACE_CLEANUP_SECONDS = 2L
         private const val EMITTER_TIMEOUT_MS =
             (

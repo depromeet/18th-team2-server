@@ -95,7 +95,7 @@ class PartyRealtimePartyEntryProfileAdapterTest {
 
         whenever(characterService.requireCharacter(1L)).thenReturn(character)
         whenever(
-            realtimeParticipantProfileService.requireByParticipantToken(
+            realtimeParticipantProfileService.requireForReentryByParticipantToken(
                 participantToken = "existing-token",
                 partyId = party.id,
             ),
@@ -129,7 +129,7 @@ class PartyRealtimePartyEntryProfileAdapterTest {
 
         whenever(characterService.requireCharacter(1L)).thenReturn(character)
         whenever(
-            realtimeParticipantProfileService.requireByParticipantToken(
+            realtimeParticipantProfileService.requireForReentryByParticipantToken(
                 participantToken = "existing-token",
                 partyId = party.id,
             ),

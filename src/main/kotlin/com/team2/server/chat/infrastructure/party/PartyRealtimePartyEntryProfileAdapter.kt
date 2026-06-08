@@ -61,7 +61,7 @@ class PartyRealtimePartyEntryProfileAdapter(
         character: Character,
         now: LocalDateTime,
     ): RealtimeParticipantProfile {
-        val profile = realtimeParticipantProfileService.requireByParticipantToken(participantToken, party.id)
+        val profile = realtimeParticipantProfileService.requireForReentryByParticipantToken(participantToken, party.id)
         if (party.status(now) !in RECONNECTABLE_STATUSES) {
             throw BusinessException(ErrorCode.CHAT_NOT_ACTIVE)
         }

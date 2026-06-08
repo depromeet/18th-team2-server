@@ -94,6 +94,25 @@ class RealtimeParticipantProfileServiceTest {
     }
 
     @Test
+    fun `기존 프로필 갱신 시 퇴장 상태를 해제한다`() {
+        val participant = Participant(party = party, hasLeft = true)
+        val existing =
+            RealtimeParticipantProfile(participant = participant, nickname = "old", character = character)
+        whenever(profileRepository.findByParticipant(participant)).thenReturn(existing)
+        whenever(
+            profileRepository.existsByPartyIdAndNicknameIgnoreCaseExcludingParticipant(
+                partyId = eq(party.id),
+                nickname = eq("new"),
+                excludingParticipantId = eq(participant.id),
+            ),
+        ).thenReturn(false)
+
+        service.upsert(participant, "new", anotherCharacter, isHostNicknameLocked = false)
+
+        assertEquals(false, participant.hasLeft)
+    }
+
+    @Test
     fun `locked = true이고 nickname이 같으면 character만 갱신한다`() {
         val participant = newParticipant(isCelebrant = true)
         val existing =
@@ -167,6 +186,39 @@ class RealtimeParticipantProfileServiceTest {
     }
 
     @Test
+    fun `requireByParticipantToken throws PARTY_FORBIDDEN when token participant has left`() {
+        val participant = Participant(party = party, hasLeft = true)
+        val profile =
+            RealtimeParticipantProfile(
+                participant = participant,
+                nickname = "guest",
+                participantToken = "tok",
+            )
+        whenever(profileRepository.findByParticipantToken("tok")).thenReturn(profile)
+
+        val ex = assertThrows<BusinessException> { service.requireByParticipantToken("tok", party.id) }
+
+        assertEquals(ErrorCode.PARTY_FORBIDDEN, ex.errorCode)
+    }
+
+    @Test
+    fun `requireForReentryByParticipantToken clears left flag`() {
+        val participant = Participant(party = party, hasLeft = true)
+        val profile =
+            RealtimeParticipantProfile(
+                participant = participant,
+                nickname = "guest",
+                participantToken = "tok",
+            )
+        whenever(profileRepository.findByParticipantToken("tok")).thenReturn(profile)
+
+        val result = service.requireForReentryByParticipantToken("tok", party.id)
+
+        assertSame(profile, result)
+        assertEquals(false, participant.hasLeft)
+    }
+
+    @Test
     fun `resolveProfile by user returns profile`() {
         val participant = newParticipant(isCelebrant = false)
         val profile = RealtimeParticipantProfile(participant = participant, nickname = "guest")
@@ -197,6 +249,20 @@ class RealtimeParticipantProfileServiceTest {
         val result = service.resolveProfile(party.id, userId = null, participantToken = "tok")
 
         assertSame(profile, result)
+    }
+
+    @Test
+    fun `resolveProfile by token throws PARTY_FORBIDDEN when token participant has left`() {
+        val participant = Participant(party = party, hasLeft = true)
+        val profile = RealtimeParticipantProfile(participant = participant, nickname = "guest")
+        whenever(profileRepository.findByParticipantToken("tok")).thenReturn(profile)
+
+        val ex =
+            assertThrows<BusinessException> {
+                service.resolveProfile(party.id, userId = null, participantToken = "tok")
+            }
+
+        assertEquals(ErrorCode.PARTY_FORBIDDEN, ex.errorCode)
     }
 
     @Test

@@ -7,4 +7,10 @@ interface ImageUrlPort {
         targetType: ImageTargetType,
         targetIds: Collection<Long>,
     ): Map<Long, String>
+
+    fun findImageUrlByTargetIdsAndSortOrder(
+        targetType: ImageTargetType,
+        targetIds: Collection<Long>,
+        sortOrder: Int,
+    ): Map<Long, String>
 }

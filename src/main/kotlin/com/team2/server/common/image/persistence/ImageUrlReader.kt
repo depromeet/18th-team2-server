@@ -21,4 +21,19 @@ class ImageUrlReader(
             .distinctBy { it.targetId }
             .associate { it.targetId to it.imageUrl }
     }
+
+    override fun findImageUrlByTargetIdsAndSortOrder(
+        targetType: ImageTargetType,
+        targetIds: Collection<Long>,
+        sortOrder: Int,
+    ): Map<Long, String> {
+        if (targetIds.isEmpty()) {
+            return emptyMap()
+        }
+
+        return imageRepository
+            .findAllByTargetTypeAndTargetIdsOrderByTargetIdAndSortOrder(targetType, targetIds.distinct())
+            .filter { it.sortOrder == sortOrder }
+            .associate { it.targetId to it.imageUrl }
+    }
 }

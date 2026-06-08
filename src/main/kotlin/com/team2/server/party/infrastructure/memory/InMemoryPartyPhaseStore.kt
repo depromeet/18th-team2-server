@@ -28,6 +28,16 @@ class InMemoryPartyPhaseStore : PartyPhaseStore {
         }
     }
 
+    override fun forceSet(
+        partyId: Long,
+        phase: PartyPhase,
+        now: LocalDateTime,
+    ) {
+        synchronized(lockFor(partyId)) {
+            entries[partyId] = PartyPhaseStore.PhaseEntry(phase = phase, startedAt = now)
+        }
+    }
+
     override fun removeByPartyId(partyId: Long) {
         synchronized(lockFor(partyId)) {
             entries.remove(partyId)

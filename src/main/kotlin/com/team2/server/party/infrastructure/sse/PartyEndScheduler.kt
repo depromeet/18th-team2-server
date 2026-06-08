@@ -89,7 +89,7 @@ class PartyEndScheduler(
             ),
             emitEnding = true,
         )
-        phaseStore.advance(event.partyId, PartyPhase.CLOSEABLE, PartyPhase.END, event.endingStartedAt)
+        phaseStore.forceSet(event.partyId, PartyPhase.END, event.endingStartedAt)
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
