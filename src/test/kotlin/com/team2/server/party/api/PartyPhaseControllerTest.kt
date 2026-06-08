@@ -135,6 +135,28 @@ class PartyPhaseControllerTest
         }
 
         @Test
+        fun `주최자가 파티 종료를 시작하면 참여자 phase 조회는 END를 반환한다`() {
+            val fixture = saveParticipantAndParty()
+            phaseStore.advance(fixture.partyId, PartyPhase.ENTRY, PartyPhase.MUSIC, LocalDateTime.now())
+            phaseStore.advance(fixture.partyId, PartyPhase.MUSIC, PartyPhase.CANDLE, LocalDateTime.now())
+
+            mockMvc
+                .post("/api/v1/parties/${fixture.partyId}/realtime-end") {
+                    header("Authorization", "Bearer ${fixture.hostToken}")
+                }.andExpect {
+                    status { isOk() }
+                }
+
+            mockMvc
+                .get("/api/v1/parties/${fixture.partyId}/phase") {
+                    header("X-Participant-Token", fixture.participantToken)
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.phase") { value("END") }
+                }
+        }
+
+        @Test
         fun `허용되지 않는 currentPhase 시 400`() {
             val fixture = saveHostAndParty()
 
@@ -155,6 +177,7 @@ class PartyPhaseControllerTest
 
         private data class ParticipantFixture(
             val partyId: Long,
+            val hostToken: String,
             val participantToken: String,
         )
 
@@ -219,6 +242,10 @@ class PartyPhaseControllerTest
                         participantToken = "phasegt1",
                     ),
                 )
-            return ParticipantFixture(partyId = party.id, participantToken = profile.participantToken)
+            return ParticipantFixture(
+                partyId = party.id,
+                hostToken = tokenProvider.issue(host),
+                participantToken = profile.participantToken,
+            )
         }
     }

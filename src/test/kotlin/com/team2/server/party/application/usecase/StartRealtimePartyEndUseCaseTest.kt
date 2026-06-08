@@ -5,13 +5,16 @@ import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.dto.RealtimePartyEndStartResult
 import com.team2.server.party.application.dto.RealtimePartyEndingInfo
 import com.team2.server.party.application.event.RealtimePartyEndingEventPublisher
+import com.team2.server.party.application.port.PartyPhaseStore
 import com.team2.server.party.application.port.RealtimePartyEndingInfoPort
 import com.team2.server.party.application.service.PartyService
 import com.team2.server.party.application.service.RealtimePartyEndService
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.RealtimeParty
+import com.team2.server.party.domain.vo.PartyPhase
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.verifyNoInteractions
@@ -26,6 +29,7 @@ class StartRealtimePartyEndUseCaseTest {
     private val realtimePartyEndService: RealtimePartyEndService = mock()
     private val endingInfoPort: RealtimePartyEndingInfoPort = mock()
     private val eventPublisher: RealtimePartyEndingEventPublisher = mock()
+    private val phaseStore: PartyPhaseStore = mock()
     private val zone = ZoneId.of("Asia/Seoul")
     private val now = LocalDateTime.of(2026, 5, 23, 10, 0)
     private val clock = Clock.fixed(now.atZone(zone).toInstant(), zone)
@@ -35,6 +39,7 @@ class StartRealtimePartyEndUseCaseTest {
             realtimePartyEndService,
             endingInfoPort,
             eventPublisher,
+            phaseStore,
             clock,
         )
 
@@ -82,6 +87,7 @@ class StartRealtimePartyEndUseCaseTest {
         val result = useCase(1L, userId = 1L)
 
         assertEquals(endingStartedAt, result.endingStartedAt)
+        verify(phaseStore).forceSet(1L, PartyPhase.END, endingStartedAt)
         verify(eventPublisher).publish(result)
     }
 
@@ -99,6 +105,7 @@ class StartRealtimePartyEndUseCaseTest {
 
         assertEquals(endingStartedAt, result.endingStartedAt)
         verify(realtimePartyEndService).startIfNotStarted(1L, endingStartedAt)
+        verify(phaseStore).forceSet(1L, PartyPhase.END, endingStartedAt)
         verifyNoInteractions(eventPublisher)
     }
 
@@ -121,6 +128,7 @@ class StartRealtimePartyEndUseCaseTest {
         val result = useCase(1L, userId = 1L)
 
         assertEquals(party.automaticEndingStartedAt(), result.endingStartedAt)
+        verify(phaseStore).forceSet(eq(1L), eq(PartyPhase.END), eq(party.automaticEndingStartedAt()))
         verifyNoInteractions(eventPublisher)
     }
 

@@ -4,10 +4,12 @@ import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.dto.RealtimePartyEndResult
 import com.team2.server.party.application.dto.RealtimePartyEndStartResult
 import com.team2.server.party.application.event.RealtimePartyEndingEventPublisher
+import com.team2.server.party.application.port.PartyPhaseStore
 import com.team2.server.party.application.port.RealtimePartyEndingInfoPort
 import com.team2.server.party.application.service.PartyService
 import com.team2.server.party.application.service.RealtimePartyEndService
 import com.team2.server.party.domain.entity.RealtimePartyStatus
+import com.team2.server.party.domain.vo.PartyPhase
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
@@ -19,6 +21,7 @@ class StartRealtimePartyEndUseCase(
     private val realtimePartyEndService: RealtimePartyEndService,
     private val endingInfoPort: RealtimePartyEndingInfoPort,
     private val realtimePartyEndingEventPublisher: RealtimePartyEndingEventPublisher,
+    private val phaseStore: PartyPhaseStore,
     private val clock: Clock,
 ) {
     @Transactional
@@ -46,6 +49,7 @@ class StartRealtimePartyEndUseCase(
 
     private fun toResultAndPublish(startResult: RealtimePartyEndStartResult): RealtimePartyEndResult =
         RealtimePartyEndResult.from(startResult.party, endingInfoPort.get(startResult.party)).also {
+            phaseStore.forceSet(it.partyId, PartyPhase.END, it.endingStartedAt)
             if (startResult.affected == 1) realtimePartyEndingEventPublisher.publish(it)
         }
 }
