@@ -77,12 +77,7 @@ class RealtimeParticipantProfileService(
         val profile =
             profileRepository.findByParticipantToken(participantToken)
                 ?: throw BusinessException(ErrorCode.UNAUTHORIZED)
-        if (profile.participant.hasLeft) {
-            throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
-        }
-        if (profile.participant.party.id != partyId) {
-            throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
-        }
+        validateActivePartyMember(profile, partyId)
         return profile
     }
 
@@ -96,6 +91,7 @@ class RealtimeParticipantProfileService(
         if (profile.participant.party.id != partyId) {
             throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
         }
+        profile.participant.rejoin()
         return profile
     }
 
@@ -117,12 +113,19 @@ class RealtimeParticipantProfileService(
         val profile =
             profileRepository.findByParticipantToken(participantToken)
                 ?: throw BusinessException(ErrorCode.CHARACTER_REQUIRED)
+        validateActivePartyMember(profile, partyId)
+        return profile
+    }
+
+    private fun validateActivePartyMember(
+        profile: RealtimeParticipantProfile,
+        partyId: Long,
+    ) {
         if (profile.participant.hasLeft) {
             throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
         }
         if (profile.participant.party.id != partyId) {
             throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
         }
-        return profile
     }
 }

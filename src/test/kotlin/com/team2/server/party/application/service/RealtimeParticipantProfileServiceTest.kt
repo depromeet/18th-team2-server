@@ -183,6 +183,23 @@ class RealtimeParticipantProfileServiceTest {
     }
 
     @Test
+    fun `requireForReentryByParticipantToken clears left flag`() {
+        val participant = Participant(party = party, hasLeft = true)
+        val profile =
+            RealtimeParticipantProfile(
+                participant = participant,
+                nickname = "guest",
+                participantToken = "tok",
+            )
+        whenever(profileRepository.findByParticipantToken("tok")).thenReturn(profile)
+
+        val result = service.requireForReentryByParticipantToken("tok", party.id)
+
+        assertSame(profile, result)
+        assertEquals(false, participant.hasLeft)
+    }
+
+    @Test
     fun `resolveProfile by user returns profile`() {
         val participant = newParticipant(isCelebrant = false)
         val profile = RealtimeParticipantProfile(participant = participant, nickname = "guest")

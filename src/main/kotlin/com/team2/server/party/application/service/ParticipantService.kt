@@ -28,13 +28,11 @@ class ParticipantService(
         participantRepository.findByPartyAndUser(party, user)
             ?: createMemberParticipant(party, user)
 
-    fun joinAnonymous(party: Party): Participant = participantRepository.save(Participant(party = party))
-
     fun joinAnonymousOrMember(
         party: Party,
         user: User?,
     ): Participant {
-        if (user == null) return joinAnonymous(party)
+        if (user == null) return participantRepository.save(Participant(party = party))
         return joinMember(party, user)
     }
 
@@ -76,11 +74,6 @@ class ParticipantService(
 
     fun leave(participant: Participant): Participant {
         participant.leave()
-        return participant
-    }
-
-    fun rejoin(participant: Participant): Participant {
-        participant.rejoin()
         return participant
     }
 

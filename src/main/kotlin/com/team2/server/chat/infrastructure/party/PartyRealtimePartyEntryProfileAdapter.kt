@@ -68,7 +68,6 @@ class PartyRealtimePartyEntryProfileAdapter(
         if (profile.participant.isCelebrant && profile.nickname != nickname) {
             throw BusinessException(ErrorCode.PARTY_HOST_NICKNAME_NOT_EDITABLE)
         }
-        participantService.rejoin(profile.participant)
         profile.nickname = nickname
         profile.character = character
         return profile

@@ -77,7 +77,7 @@ class CreateRollingPaperUseCase(
         userId: Long?,
     ): Participant {
         if (userId == null) {
-            return participantService.joinAnonymous(party)
+            return participantService.joinAnonymousOrMember(party, null)
         }
 
         val user =

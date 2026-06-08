@@ -106,43 +106,6 @@ class PartyRealtimePartyEntryProfileAdapterTest {
         assertEquals("existing-token", result.participantToken)
         assertEquals("새닉네임", profile.nickname)
         assertEquals(character, profile.character)
-        verify(participantService).rejoin(participant)
-    }
-
-    @Test
-    fun `participantToken 재입장은 퇴장 플래그를 해제한다`() {
-        val party = RealtimeParty(ownerId = 1L, startedAt = now.minusMinutes(1))
-        val character = Character(name = "토끼")
-        val participant = Participant(party = party, hasLeft = true)
-        val profile =
-            RealtimeParticipantProfile(
-                participant = participant,
-                nickname = "기존닉네임",
-                character = null,
-                participantToken = "existing-token",
-            )
-        val reenterRequest =
-            EnterRealtimePartyRequest(
-                nickname = "새닉네임",
-                characterId = 1L,
-                participantToken = "existing-token",
-            )
-
-        whenever(characterService.requireCharacter(1L)).thenReturn(character)
-        whenever(
-            realtimeParticipantProfileService.requireForReentryByParticipantToken(
-                participantToken = "existing-token",
-                partyId = party.id,
-            ),
-        ).thenReturn(profile)
-        whenever(participantService.rejoin(participant)).thenAnswer {
-            participant.rejoin()
-            participant
-        }
-
-        adapter.resolve(party = party, userId = 99L, request = reenterRequest, now = now)
-
-        assertEquals(false, participant.hasLeft)
     }
 
     @Test
