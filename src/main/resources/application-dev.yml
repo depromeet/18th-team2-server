@@ -24,3 +24,4 @@ loki:
 
 app:
   env: dev
+  time-zone: ${APP_TIME_ZONE:Asia/Shanghai}
