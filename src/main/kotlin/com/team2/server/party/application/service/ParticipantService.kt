@@ -94,6 +94,9 @@ class ParticipantService(
         val profile =
             realtimeParticipantProfileRepository.findByParticipantToken(participantToken)
                 ?: return null
+        if (profile.participant.hasLeft) {
+            throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
+        }
         if (profile.participant.party.id != partyId) {
             throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
         }

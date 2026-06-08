@@ -77,6 +77,9 @@ class RealtimeParticipantProfileService(
         val profile =
             profileRepository.findByParticipantToken(participantToken)
                 ?: throw BusinessException(ErrorCode.UNAUTHORIZED)
+        if (profile.participant.hasLeft) {
+            throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
+        }
         if (profile.participant.party.id != partyId) {
             throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
         }
@@ -101,6 +104,9 @@ class RealtimeParticipantProfileService(
         val profile =
             profileRepository.findByParticipantToken(participantToken)
                 ?: throw BusinessException(ErrorCode.CHARACTER_REQUIRED)
+        if (profile.participant.hasLeft) {
+            throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
+        }
         if (profile.participant.party.id != partyId) {
             throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
         }

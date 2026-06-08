@@ -167,6 +167,22 @@ class RealtimeParticipantProfileServiceTest {
     }
 
     @Test
+    fun `requireByParticipantToken throws PARTY_FORBIDDEN when token participant has left`() {
+        val participant = Participant(party = party, hasLeft = true)
+        val profile =
+            RealtimeParticipantProfile(
+                participant = participant,
+                nickname = "guest",
+                participantToken = "tok",
+            )
+        whenever(profileRepository.findByParticipantToken("tok")).thenReturn(profile)
+
+        val ex = assertThrows<BusinessException> { service.requireByParticipantToken("tok", party.id) }
+
+        assertEquals(ErrorCode.PARTY_FORBIDDEN, ex.errorCode)
+    }
+
+    @Test
     fun `resolveProfile by user returns profile`() {
         val participant = newParticipant(isCelebrant = false)
         val profile = RealtimeParticipantProfile(participant = participant, nickname = "guest")
@@ -197,6 +213,20 @@ class RealtimeParticipantProfileServiceTest {
         val result = service.resolveProfile(party.id, userId = null, participantToken = "tok")
 
         assertSame(profile, result)
+    }
+
+    @Test
+    fun `resolveProfile by token throws PARTY_FORBIDDEN when token participant has left`() {
+        val participant = Participant(party = party, hasLeft = true)
+        val profile = RealtimeParticipantProfile(participant = participant, nickname = "guest")
+        whenever(profileRepository.findByParticipantToken("tok")).thenReturn(profile)
+
+        val ex =
+            assertThrows<BusinessException> {
+                service.resolveProfile(party.id, userId = null, participantToken = "tok")
+            }
+
+        assertEquals(ErrorCode.PARTY_FORBIDDEN, ex.errorCode)
     }
 
     @Test

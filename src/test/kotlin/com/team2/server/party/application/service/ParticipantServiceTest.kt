@@ -143,6 +143,20 @@ class ParticipantServiceTest {
         val ex =
             assertFailsWith<BusinessException> {
                 service.requireCallerParticipant(partyId = 1L, userId = null, participantToken = "tok")
+        }
+        assertEquals(ErrorCode.PARTY_FORBIDDEN, ex.errorCode)
+    }
+
+    @Test
+    fun `requireCallerParticipant throws PARTY_FORBIDDEN when token participant has left`() {
+        val party = makeRealtimeParty()
+        val participant = Participant(party = party, user = null, hasLeft = true)
+        val profile = RealtimeParticipantProfile(participant = participant, nickname = "익명")
+        whenever(realtimeParticipantProfileRepository.findByParticipantToken("tok")).thenReturn(profile)
+
+        val ex =
+            assertFailsWith<BusinessException> {
+                service.requireCallerParticipant(party.id, userId = null, participantToken = "tok")
             }
         assertEquals(ErrorCode.PARTY_FORBIDDEN, ex.errorCode)
     }

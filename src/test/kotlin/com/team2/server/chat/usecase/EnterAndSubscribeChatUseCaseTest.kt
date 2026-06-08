@@ -68,7 +68,7 @@ class EnterAndSubscribeChatUseCaseTest {
         whenever(enterRealtimePartyUseCase.enter("tok", null, request)).thenReturn(enterResult)
         whenever(chatMessageRepository.findAllByPartyIdWithProfileOrderByCreatedAtAsc(1L))
             .thenReturn(listOf(msg))
-        whenever(imageUrlReader.findFirstImageUrlByTargetIds(any(), any())).thenReturn(emptyMap())
+        whenever(imageUrlReader.findImageUrlByTargetIdsAndSortOrder(any(), any(), any())).thenReturn(emptyMap())
 
         val emitter = useCase.enterAndSubscribe("tok", null, request)
 
@@ -83,7 +83,7 @@ class EnterAndSubscribeChatUseCaseTest {
         whenever(enterRealtimePartyUseCase.enter("tok", null, request)).thenReturn(enterResult)
         whenever(chatMessageRepository.findAllByPartyIdWithProfileOrderByCreatedAtAsc(1L))
             .thenReturn(emptyList())
-        whenever(imageUrlReader.findFirstImageUrlByTargetIds(any(), any())).thenReturn(emptyMap())
+        whenever(imageUrlReader.findImageUrlByTargetIdsAndSortOrder(any(), any(), any())).thenReturn(emptyMap())
 
         val emitter = useCase.enterAndSubscribe("tok", null, request)
 
@@ -98,7 +98,7 @@ class EnterAndSubscribeChatUseCaseTest {
         whenever(enterRealtimePartyUseCase.enter("tok", null, request)).thenReturn(enterResult)
         whenever(chatMessageRepository.findAllByPartyIdWithProfileOrderByCreatedAtAsc(1L))
             .thenReturn(emptyList())
-        whenever(imageUrlReader.findFirstImageUrlByTargetIds(any(), any()))
+        whenever(imageUrlReader.findImageUrlByTargetIdsAndSortOrder(any(), any(), any()))
             .thenReturn(mapOf(1L to "https://example.com/rabbit.png"))
 
         useCase.enterAndSubscribe("tok", null, request)
