@@ -7,6 +7,7 @@ import com.team2.server.burstgame.application.support.CandleBlowUpdateEventPubli
 import com.team2.server.burstgame.config.CandleBlowProperties
 import com.team2.server.burstgame.domain.candle.CandleBlowSession
 import com.team2.server.burstgame.domain.candle.CandleBlowStatus
+import com.team2.server.burstgame.domain.candle.CandleBlowUpdateResult
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import org.springframework.stereotype.Service
@@ -31,6 +32,11 @@ class BlowCandleUseCase(
     ): CandleBlowResponse {
         val context = participantResolver.resolveWithParty(partyId, userId, participantToken)
         val now = LocalDateTime.now(clock)
+        val existingResponse =
+            sessionStore.withSessionLock(partyId) { session ->
+                CandleBlowResponse.from(blowAndPublish(session, candleId, now).snapshot)
+            }
+        if (existingResponse != null) return existingResponse
         val hostEnteredAt =
             context.party.hostEnteredAt
                 ?: throw BusinessException(ErrorCode.CANDLE_BLOW_NOT_STARTED)
@@ -44,15 +50,23 @@ class BlowCandleUseCase(
                 )
             },
         ) { session, _ ->
-            val result = session.blow(candleId, now)
-            updateEventPublisher.publish(
-                changed = result.changed,
-                shouldBroadcastEnded =
-                    result.finishedNow &&
-                        session.markAndCheckBroadcastNeeded(CandleBlowStatus.FINISHED),
-                snapshot = result.snapshot,
-            )
-            CandleBlowResponse.from(result.snapshot)
+            CandleBlowResponse.from(blowAndPublish(session, candleId, now).snapshot)
         }
+    }
+
+    private fun blowAndPublish(
+        session: CandleBlowSession,
+        candleId: Int,
+        now: LocalDateTime,
+    ): CandleBlowUpdateResult {
+        val result = session.blow(candleId, now)
+        updateEventPublisher.publish(
+            changed = result.changed,
+            shouldBroadcastEnded =
+                result.finishedNow &&
+                    session.markAndCheckBroadcastNeeded(CandleBlowStatus.FINISHED),
+            snapshot = result.snapshot,
+        )
+        return result
     }
 }

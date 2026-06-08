@@ -16,19 +16,21 @@ class InMemoryCandleBlowStatusReader(
         partyId: Long,
         hostEnteredAt: LocalDateTime?,
         now: LocalDateTime,
-    ): Boolean {
-        if (hostEnteredAt == null) return false
-        return sessionStore.getOrCreateWithLock(
-            partyId = partyId,
-            sessionFactory = {
-                CandleBlowSession.fromHostEnteredAt(
-                    partyId = partyId,
-                    hostEnteredAt = hostEnteredAt,
-                    durationSeconds = candleBlowProperties.durationSeconds,
-                )
-            },
-        ) { session, _ ->
+    ): Boolean =
+        sessionStore.withSessionLock(partyId) { session ->
             session.snapshot(now).finishedReason != null
-        }
-    }
+        } ?: hostEnteredAt?.let { enteredAt ->
+            sessionStore.getOrCreateWithLock(
+                partyId = partyId,
+                sessionFactory = {
+                    CandleBlowSession.fromHostEnteredAt(
+                        partyId = partyId,
+                        hostEnteredAt = enteredAt,
+                        durationSeconds = candleBlowProperties.durationSeconds,
+                    )
+                },
+            ) { session, _ ->
+                session.snapshot(now).finishedReason != null
+            }
+        } ?: false
 }

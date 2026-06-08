@@ -2,6 +2,7 @@ package com.team2.server.party.application.usecase
 
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.party.application.port.BurstGameStartPort
+import com.team2.server.party.application.port.CandleBlowStartPort
 import com.team2.server.party.application.port.PartyPhaseStore
 import com.team2.server.party.application.port.RealtimePartyEventBroadcaster
 import com.team2.server.party.application.service.ParticipantService
@@ -27,6 +28,7 @@ class AdvancePartyPhaseUseCaseTest {
     private val phaseStore: PartyPhaseStore = mock()
     private val eventBroadcaster: RealtimePartyEventBroadcaster = mock()
     private val burstGameStartPort: BurstGameStartPort = mock()
+    private val candleBlowStartPort: CandleBlowStartPort = mock()
     private val fixedNow = LocalDateTime.of(2026, 5, 26, 20, 0, 5)
     private val clock: Clock = Clock.fixed(fixedNow.toInstant(ZoneOffset.UTC), ZoneOffset.UTC)
     private val useCase =
@@ -36,6 +38,7 @@ class AdvancePartyPhaseUseCaseTest {
             phaseStore,
             eventBroadcaster,
             burstGameStartPort,
+            candleBlowStartPort,
             clock,
         )
 
@@ -82,6 +85,21 @@ class AdvancePartyPhaseUseCaseTest {
         useCase(partyId, userId = ownerId, participantToken = null, currentPhase = PartyPhase.ENTRY)
 
         verify(eventBroadcaster, never()).broadcastPhaseChanged(any(), any(), any(), any())
+    }
+
+    @Test
+    fun `파티 멤버가 MUSIC→CANDLE 전환 성공 시 촛불끄기 세션을 시작한다`() {
+        val partyId = 1L
+        val party = RealtimeParty(ownerId = 10L, startedAt = LocalDateTime.of(2026, 5, 26, 19, 55))
+        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+        whenever(phaseStore.advance(eq(partyId), eq(PartyPhase.MUSIC), eq(PartyPhase.CANDLE), any())).thenReturn(true)
+
+        val result = useCase(partyId, userId = 99L, participantToken = null, currentPhase = PartyPhase.MUSIC)
+
+        assertEquals(PartyPhase.CANDLE, result.phase)
+        verify(participantService).validatePartyMember(party, 99L, null)
+        verify(candleBlowStartPort).start(partyId, fixedNow)
+        verify(eventBroadcaster).broadcastPhaseChanged(eq(partyId), eq(PartyPhase.CANDLE), any(), any())
     }
 
     @Test

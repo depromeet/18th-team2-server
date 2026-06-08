@@ -4,6 +4,7 @@ import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.dto.PartyPhaseResult
 import com.team2.server.party.application.port.BurstGameStartPort
+import com.team2.server.party.application.port.CandleBlowStartPort
 import com.team2.server.party.application.port.PartyPhaseStore
 import com.team2.server.party.application.port.RealtimePartyEventBroadcaster
 import com.team2.server.party.application.service.ParticipantService
@@ -21,6 +22,7 @@ class AdvancePartyPhaseUseCase(
     private val phaseStore: PartyPhaseStore,
     private val eventBroadcaster: RealtimePartyEventBroadcaster,
     private val burstGameStartPort: BurstGameStartPort,
+    private val candleBlowStartPort: CandleBlowStartPort,
     private val clock: Clock,
 ) {
     @Transactional
@@ -53,6 +55,9 @@ class AdvancePartyPhaseUseCase(
 
         if (advanced) {
             eventBroadcaster.broadcastPhaseChanged(partyId, nextPhase, now, now)
+            if (nextPhase == PartyPhase.CANDLE) {
+                candleBlowStartPort.start(partyId, now)
+            }
             return PartyPhaseResult(
                 partyId = partyId,
                 phase = nextPhase,
