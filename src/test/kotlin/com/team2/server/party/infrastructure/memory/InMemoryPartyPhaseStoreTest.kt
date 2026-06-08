@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -40,6 +41,17 @@ class InMemoryPartyPhaseStoreTest {
 
         assertFalse(advanced)
         assertEquals(now, store.getEntry(1L)?.startedAt) // 변경 없음
+    }
+
+    @Test
+    fun `beforeUpdate 실패 시 phase는 변경되지 않는다`() {
+        assertFailsWith<IllegalStateException> {
+            store.advance(1L, PartyPhase.ENTRY, PartyPhase.MUSIC, now) {
+                throw IllegalStateException("boom")
+            }
+        }
+
+        assertNull(store.getEntry(1L))
     }
 
     @Test

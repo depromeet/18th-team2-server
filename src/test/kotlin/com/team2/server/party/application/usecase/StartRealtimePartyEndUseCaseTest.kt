@@ -8,6 +8,7 @@ import com.team2.server.party.application.event.RealtimePartyEndingEventPublishe
 import com.team2.server.party.application.port.PartyPhaseStore
 import com.team2.server.party.application.port.RealtimePartyEndingInfoPort
 import com.team2.server.party.application.service.PartyService
+import com.team2.server.party.application.service.RealtimePartyEndResultService
 import com.team2.server.party.application.service.RealtimePartyEndService
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.RealtimeParty
@@ -30,6 +31,7 @@ class StartRealtimePartyEndUseCaseTest {
     private val endingInfoPort: RealtimePartyEndingInfoPort = mock()
     private val eventPublisher: RealtimePartyEndingEventPublisher = mock()
     private val phaseStore: PartyPhaseStore = mock()
+    private val endResultService = RealtimePartyEndResultService(endingInfoPort, eventPublisher, phaseStore)
     private val zone = ZoneId.of("Asia/Seoul")
     private val now = LocalDateTime.of(2026, 5, 23, 10, 0)
     private val clock = Clock.fixed(now.atZone(zone).toInstant(), zone)
@@ -37,9 +39,7 @@ class StartRealtimePartyEndUseCaseTest {
         StartRealtimePartyEndUseCase(
             partyService,
             realtimePartyEndService,
-            endingInfoPort,
-            eventPublisher,
-            phaseStore,
+            endResultService,
             clock,
         )
 

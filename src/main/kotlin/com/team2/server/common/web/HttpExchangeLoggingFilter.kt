@@ -17,6 +17,8 @@ import java.nio.charset.StandardCharsets
 private const val MAX_LOG_BODY_LENGTH = 8_192
 private const val SENSITIVE_JSON_FIELDS =
     "password|token|participantToken|accessToken|refreshToken|authorization|clientSecret"
+private val SENSITIVE_QUERY_KEYS =
+    setOf("password", "token", "participantToken", "accessToken", "refreshToken", "authorization", "clientSecret")
 private val SENSITIVE_JSON_FIELD_PATTERN =
     Regex(
         pattern = """(?i)("(?:$SENSITIVE_JSON_FIELDS)"\s*:\s*")[^"]*(")""",
@@ -47,7 +49,11 @@ class HttpExchangeLoggingFilter : OncePerRequestFilter() {
         try {
             filterChain.doFilter(cachedRequest, cachedResponse)
         } finally {
-            logHttpExchange(cachedRequest, cachedResponse, System.currentTimeMillis() - startedAt)
+            runCatching {
+                logHttpExchange(cachedRequest, cachedResponse, System.currentTimeMillis() - startedAt)
+            }.onFailure { ex ->
+                log.warn("HTTP exchange logging failed. uri={}", request.requestURI, ex)
+            }
             cachedResponse.copyBodyToResponse()
         }
     }
@@ -81,7 +87,7 @@ class HttpExchangeLoggingFilter : OncePerRequestFilter() {
     }
 
     private fun requestUri(request: HttpServletRequest): String =
-        request.requestURI + request.queryString?.let { "?$it" }.orEmpty()
+        request.requestURI + request.queryString?.let { "?${maskSensitiveQuery(it)}" }.orEmpty()
 
     private fun visibleBodyOrEmpty(
         body: ByteArray,
@@ -92,7 +98,10 @@ class HttpExchangeLoggingFilter : OncePerRequestFilter() {
             return ""
         }
 
-        val charset = encoding?.let(Charset::forName) ?: StandardCharsets.UTF_8
+        val charset =
+            encoding
+                ?.let { runCatching { Charset.forName(it) }.getOrDefault(StandardCharsets.UTF_8) }
+                ?: StandardCharsets.UTF_8
         val rawBody = String(body, charset)
         val truncatedBody = rawBody.take(MAX_LOG_BODY_LENGTH)
         val maskedBody = maskSensitiveJsonFields(truncatedBody)
@@ -114,4 +123,19 @@ class HttpExchangeLoggingFilter : OncePerRequestFilter() {
             ?: false
 
     private fun maskSensitiveJsonFields(body: String): String = SENSITIVE_JSON_FIELD_PATTERN.replace(body, "$1***$2")
+
+    private fun maskSensitiveQuery(queryString: String): String =
+        queryString
+            .split("&")
+            .joinToString("&") { parameter ->
+                val key = parameter.substringBefore("=")
+                val value = parameter.substringAfter("=", missingDelimiterValue = "")
+                if (SENSITIVE_QUERY_KEYS.any { it.equals(key, ignoreCase = true) }) {
+                    "$key=***"
+                } else if (value.isEmpty()) {
+                    key
+                } else {
+                    "$key=$value"
+                }
+            }
 }

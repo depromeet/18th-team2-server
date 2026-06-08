@@ -1,16 +1,15 @@
 package com.team2.server.party.application.usecase
 
 import com.team2.server.common.exception.BusinessException
-import com.team2.server.party.application.port.BurstGameStartPort
-import com.team2.server.party.application.port.CandleBlowStartPort
 import com.team2.server.party.application.port.PartyPhaseStore
-import com.team2.server.party.application.port.RealtimePartyEventBroadcaster
 import com.team2.server.party.application.service.ParticipantService
+import com.team2.server.party.application.service.PartyPhaseTransitionService
 import com.team2.server.party.application.service.PartyService
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.domain.vo.PartyPhase
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
@@ -25,20 +24,14 @@ import kotlin.test.assertFailsWith
 class AdvancePartyPhaseUseCaseTest {
     private val partyService: PartyService = mock()
     private val participantService: ParticipantService = mock()
-    private val phaseStore: PartyPhaseStore = mock()
-    private val eventBroadcaster: RealtimePartyEventBroadcaster = mock()
-    private val burstGameStartPort: BurstGameStartPort = mock()
-    private val candleBlowStartPort: CandleBlowStartPort = mock()
+    private val phaseTransitionService: PartyPhaseTransitionService = mock()
     private val fixedNow = LocalDateTime.of(2026, 5, 26, 20, 0, 5)
     private val clock: Clock = Clock.fixed(fixedNow.toInstant(ZoneOffset.UTC), ZoneOffset.UTC)
     private val useCase =
         AdvancePartyPhaseUseCase(
             partyService,
             participantService,
-            phaseStore,
-            eventBroadcaster,
-            burstGameStartPort,
-            candleBlowStartPort,
+            phaseTransitionService,
             clock,
         )
 
@@ -48,15 +41,12 @@ class AdvancePartyPhaseUseCaseTest {
         val ownerId = 10L
         val party = RealtimeParty(ownerId = ownerId, startedAt = LocalDateTime.of(2026, 5, 26, 19, 55))
         whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
-        whenever(phaseStore.advance(eq(partyId), eq(PartyPhase.ENTRY), eq(PartyPhase.MUSIC), any())).thenReturn(true)
-        whenever(phaseStore.getEntry(partyId)).thenReturn(
-            PartyPhaseStore.PhaseEntry(PartyPhase.MUSIC, fixedNow),
-        )
+        wheneverTransitionSucceeds(partyId, PartyPhase.ENTRY, PartyPhase.MUSIC)
 
         val result = useCase(partyId, userId = ownerId, participantToken = null, currentPhase = PartyPhase.ENTRY)
 
         assertEquals(PartyPhase.MUSIC, result.phase)
-        verify(eventBroadcaster).broadcastPhaseChanged(eq(partyId), eq(PartyPhase.MUSIC), any(), any())
+        verify(phaseTransitionService).advance(partyId, PartyPhase.ENTRY, PartyPhase.MUSIC, fixedNow, ownerId, null)
     }
 
     @Test
@@ -68,7 +58,7 @@ class AdvancePartyPhaseUseCaseTest {
         assertFailsWith<BusinessException> {
             useCase(partyId, userId = 99L, participantToken = null, currentPhase = PartyPhase.ENTRY)
         }
-        verify(phaseStore, never()).advance(any(), any(), any(), any())
+        verify(phaseTransitionService, never()).advance(any(), any(), any(), any(), any(), any())
     }
 
     @Test
@@ -77,14 +67,14 @@ class AdvancePartyPhaseUseCaseTest {
         val ownerId = 10L
         val party = RealtimeParty(ownerId = ownerId, startedAt = LocalDateTime.of(2026, 5, 26, 19, 55))
         whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
-        whenever(phaseStore.advance(any(), any(), any(), any())).thenReturn(false)
-        whenever(phaseStore.getEntry(partyId)).thenReturn(
+        whenever(phaseTransitionService.advance(any(), any(), any(), any(), any(), any())).thenReturn(false)
+        whenever(phaseTransitionService.getEntry(partyId)).thenReturn(
             PartyPhaseStore.PhaseEntry(PartyPhase.MUSIC, fixedNow.minusSeconds(3)),
         )
 
         useCase(partyId, userId = ownerId, participantToken = null, currentPhase = PartyPhase.ENTRY)
 
-        verify(eventBroadcaster, never()).broadcastPhaseChanged(any(), any(), any(), any())
+        verify(phaseTransitionService).getEntry(partyId)
     }
 
     @Test
@@ -92,14 +82,13 @@ class AdvancePartyPhaseUseCaseTest {
         val partyId = 1L
         val party = RealtimeParty(ownerId = 10L, startedAt = LocalDateTime.of(2026, 5, 26, 19, 55))
         whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
-        whenever(phaseStore.advance(eq(partyId), eq(PartyPhase.MUSIC), eq(PartyPhase.CANDLE), any())).thenReturn(true)
+        wheneverTransitionSucceeds(partyId, PartyPhase.MUSIC, PartyPhase.CANDLE)
 
         val result = useCase(partyId, userId = 99L, participantToken = null, currentPhase = PartyPhase.MUSIC)
 
         assertEquals(PartyPhase.CANDLE, result.phase)
         verify(participantService).validatePartyMember(party, 99L, null)
-        verify(candleBlowStartPort).start(partyId, fixedNow)
-        verify(eventBroadcaster).broadcastPhaseChanged(eq(partyId), eq(PartyPhase.CANDLE), any(), any())
+        verify(phaseTransitionService).advance(partyId, PartyPhase.MUSIC, PartyPhase.CANDLE, fixedNow, 99L, null)
     }
 
     @Test
@@ -107,17 +96,13 @@ class AdvancePartyPhaseUseCaseTest {
         val partyId = 1L
         val party = RealtimeParty(ownerId = 10L, startedAt = LocalDateTime.of(2026, 5, 26, 19, 55))
         whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
-        whenever(phaseStore.getEntry(partyId)).thenReturn(
-            PartyPhaseStore.PhaseEntry(PartyPhase.CANDLE, fixedNow.minusSeconds(3)),
-        )
-        whenever(phaseStore.advance(eq(partyId), eq(PartyPhase.CANDLE), eq(PartyPhase.BURST), any())).thenReturn(true)
+        wheneverTransitionSucceeds(partyId, PartyPhase.CANDLE, PartyPhase.BURST)
 
         val result = useCase(partyId, userId = 99L, participantToken = null, currentPhase = PartyPhase.CANDLE)
 
         assertEquals(PartyPhase.BURST, result.phase)
         verify(participantService).validatePartyMember(party, 99L, null)
-        verify(burstGameStartPort).start(partyId, 99L, null)
-        verify(eventBroadcaster).broadcastPhaseChanged(eq(partyId), eq(PartyPhase.BURST), any(), any())
+        verify(phaseTransitionService).advance(partyId, PartyPhase.CANDLE, PartyPhase.BURST, fixedNow, 99L, null)
     }
 
     @Test
@@ -129,5 +114,22 @@ class AdvancePartyPhaseUseCaseTest {
         assertFailsWith<BusinessException> {
             useCase(partyId, userId = 10L, participantToken = null, currentPhase = PartyPhase.BURST)
         }
+    }
+
+    private fun wheneverTransitionSucceeds(
+        partyId: Long,
+        currentPhase: PartyPhase,
+        nextPhase: PartyPhase,
+    ) {
+        whenever(
+            phaseTransitionService.advance(
+                eq(partyId),
+                eq(currentPhase),
+                eq(nextPhase),
+                any(),
+                any(),
+                anyOrNull(),
+            ),
+        ).thenReturn(true)
     }
 }
