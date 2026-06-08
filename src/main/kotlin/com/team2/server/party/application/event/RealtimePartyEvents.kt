@@ -21,11 +21,6 @@ data class RealtimePartyEndingStartedEvent(
     val hostNickname: String,
 )
 
-data class RealtimePartyBurstGameStartedEvent(
-    val partyId: Long,
-    val startedAt: LocalDateTime,
-)
-
 data class RealtimePartyBurstGameEndedEvent(
     val partyId: Long,
     val endedAt: LocalDateTime,

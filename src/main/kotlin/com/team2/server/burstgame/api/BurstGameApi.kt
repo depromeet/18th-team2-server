@@ -6,7 +6,6 @@ import com.team2.server.auth.principal.UserPrincipal
 import com.team2.server.burstgame.api.dto.SubmitBurstGameTapRequest
 import com.team2.server.burstgame.application.dto.BurstGameStateResponse
 import com.team2.server.burstgame.application.dto.CandleBlowResponse
-import com.team2.server.burstgame.application.dto.StartBurstGameResponse
 import com.team2.server.burstgame.application.dto.SubmitBurstGameTapResponse
 import com.team2.server.common.web.ApiResponse
 import com.team2.server.common.web.ErrorResponse
@@ -83,37 +82,6 @@ interface BurstGameApi {
         @Parameter(description = "비로그인 참여자 토큰", `in` = ParameterIn.HEADER, name = "X-Participant-Token")
         participantToken: String?,
     ): ApiResponse<CandleBlowResponse>
-
-    @Operation(
-        summary = "박터뜨리기 시작",
-        description = """
-실시간 파티의 박터뜨리기 라운드를 시작합니다.
-
-로그인 사용자는 `Authorization: Bearer {token}` 헤더를, 비로그인 참여자는 `X-Participant-Token: {participantToken}` 헤더를 사용합니다.
-요청 시점부터 5초 뒤를 실제 시작 시각으로 정하고, 실제 시작 시각부터 20초 동안 터치를 집계합니다.
-이미 active 라운드가 있으면 현재 상태를 반환하고, 종료된 라운드가 TTL 안에 남아 있으면 재시작을 막습니다.
-""",
-    )
-    @SwaggerApiResponse(responseCode = "200", description = "라운드 시작 또는 active 라운드 조회 성공")
-    @ValidationErrorResponse
-    @AuthErrorResponses
-    @SwaggerApiResponse(
-        responseCode = "404",
-        description = "파티 없음",
-        content = [Content(schema = Schema(implementation = ErrorResponse::class))],
-    )
-    @SwaggerApiResponse(
-        responseCode = "409",
-        description = "이미 종료된 라운드",
-        content = [Content(schema = Schema(implementation = ErrorResponse::class))],
-    )
-    @InternalServerErrorResponse
-    fun start(
-        @Parameter(description = "파티 ID") partyId: Long,
-        @Parameter(hidden = true) principal: UserPrincipal?,
-        @Parameter(description = "비로그인 참여자 토큰", `in` = ParameterIn.HEADER, name = "X-Participant-Token")
-        participantToken: String?,
-    ): ApiResponse<StartBurstGameResponse>
 
     @Operation(
         summary = "박터뜨리기 터치 batch 제출",

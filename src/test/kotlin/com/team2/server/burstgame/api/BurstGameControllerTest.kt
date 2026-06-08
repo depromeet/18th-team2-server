@@ -8,9 +8,11 @@ import com.team2.server.burstgame.domain.candle.CandleBlowPolicy
 import com.team2.server.burstgame.domain.policy.BurstGamePolicy
 import com.team2.server.common.DatabaseCleanup
 import com.team2.server.config.TestcontainersConfiguration
+import com.team2.server.party.application.port.PartyPhaseStore
 import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
+import com.team2.server.party.domain.vo.PartyPhase
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.PartyRepository
 import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProfileRepository
@@ -39,6 +41,7 @@ class BurstGameControllerTest
         private val sessionService: BurstGameSessionService,
         private val sessionStore: BurstGameSessionStore,
         private val candleBlowSessionStore: CandleBlowSessionStore,
+        private val phaseStore: PartyPhaseStore,
         private val databaseCleanup: DatabaseCleanup,
     ) {
         private val candleBlowDurationSeconds = 300L
@@ -48,6 +51,7 @@ class BurstGameControllerTest
             databaseCleanup.execute()
             sessionStore.clear()
             candleBlowSessionStore.clear()
+            phaseStore.clear()
         }
 
         @Test
@@ -172,17 +176,27 @@ class BurstGameControllerTest
         }
 
         @Test
-        fun `participantToken으로 박터뜨리기 시작 성공`() {
+        fun `CANDLE에서 BURST phase 전환 시 박터뜨리기 시작 성공`() {
             val fixture = saveRealtimeParticipant()
 
             prepareCandleBlowFinished(fixture)
+            moveToCandle(fixture.partyId)
 
             mockMvc
-                .post("/api/v1/parties/${fixture.partyId}/burst-game/start") {
+                .post("/api/v1/parties/${fixture.partyId}/phase/advance") {
+                    contentType = MediaType.APPLICATION_JSON
+                    header("X-Participant-Token", fixture.participantToken)
+                    content = """{"currentPhase":"CANDLE"}"""
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.phase") { value("BURST") }
+                }
+
+            mockMvc
+                .get("/api/v1/parties/${fixture.partyId}/burst-game") {
                     header("X-Participant-Token", fixture.participantToken)
                 }.andExpect {
                     status { isOk() }
-                    jsonPath("$.status") { value(200) }
                     jsonPath("$.data.partyId") { value(fixture.partyId) }
                     jsonPath("$.data.myParticipantId") { value(fixture.participantId) }
                     jsonPath("$.data.totalTapCount") { value(0) }
@@ -225,12 +239,15 @@ class BurstGameControllerTest
         }
 
         @Test
-        fun `촛불끄기가 끝나기 전 박터뜨리기 시작은 400을 반환한다`() {
+        fun `촛불끄기가 끝나기 전 CANDLE에서 BURST phase 전환은 400을 반환한다`() {
             val fixture = saveRealtimeParticipant()
+            moveToCandle(fixture.partyId)
 
             mockMvc
-                .post("/api/v1/parties/${fixture.partyId}/burst-game/start") {
+                .post("/api/v1/parties/${fixture.partyId}/phase/advance") {
+                    contentType = MediaType.APPLICATION_JSON
                     header("X-Participant-Token", fixture.participantToken)
+                    content = """{"currentPhase":"CANDLE"}"""
                 }.andExpect {
                     status { isBadRequest() }
                     jsonPath("$.error.code") { value("BURST_GAME_NOT_READY") }
@@ -238,7 +255,7 @@ class BurstGameControllerTest
         }
 
         @Test
-        fun `촛불 세션이 없어도 촛불 종료 시각이 지난 파티는 박터뜨리기 시작 성공`() {
+        fun `촛불 세션이 없어도 촛불 종료 시각이 지난 파티는 BURST phase 전환 시 박터뜨리기 시작 성공`() {
             val fixture =
                 saveRealtimeParticipant(
                     startedAt =
@@ -246,13 +263,23 @@ class BurstGameControllerTest
                             .now()
                             .minusSeconds(CandleBlowPolicy.START_DELAY_SECONDS + candleBlowDurationSeconds + 5),
                 )
+            moveToCandle(fixture.partyId)
 
             mockMvc
-                .post("/api/v1/parties/${fixture.partyId}/burst-game/start") {
+                .post("/api/v1/parties/${fixture.partyId}/phase/advance") {
+                    contentType = MediaType.APPLICATION_JSON
+                    header("X-Participant-Token", fixture.participantToken)
+                    content = """{"currentPhase":"CANDLE"}"""
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.phase") { value("BURST") }
+                }
+
+            mockMvc
+                .get("/api/v1/parties/${fixture.partyId}/burst-game") {
                     header("X-Participant-Token", fixture.participantToken)
                 }.andExpect {
                     status { isOk() }
-                    jsonPath("$.data.partyId") { value(fixture.partyId) }
                     jsonPath("$.data.myParticipantId") { value(fixture.participantId) }
                 }
         }
@@ -399,12 +426,21 @@ class BurstGameControllerTest
         }
 
         private fun startGame(fixture: BurstGameFixture) {
+            moveToCandle(fixture.partyId)
             mockMvc
-                .post("/api/v1/parties/${fixture.partyId}/burst-game/start") {
+                .post("/api/v1/parties/${fixture.partyId}/phase/advance") {
+                    contentType = MediaType.APPLICATION_JSON
                     header("X-Participant-Token", fixture.participantToken)
+                    content = """{"currentPhase":"CANDLE"}"""
                 }.andExpect {
                     status { isOk() }
                 }
+        }
+
+        private fun moveToCandle(partyId: Long) {
+            val now = LocalDateTime.now()
+            phaseStore.advance(partyId, PartyPhase.ENTRY, PartyPhase.MUSIC, now)
+            phaseStore.advance(partyId, PartyPhase.MUSIC, PartyPhase.CANDLE, now)
         }
 
         private fun startPlayableGame(fixture: BurstGameFixture) {
