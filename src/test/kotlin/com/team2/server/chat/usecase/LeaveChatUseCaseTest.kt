@@ -6,6 +6,7 @@ import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.service.ParticipantService
 import com.team2.server.party.application.usecase.ResolveRealtimeParticipantProfileUseCase
 import com.team2.server.party.application.usecase.ResolveRealtimePartyUseCase
+import com.team2.server.party.application.usecase.StartRealtimePartyEndUseCase
 import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
@@ -29,6 +30,8 @@ class LeaveChatUseCaseTest {
     @Mock lateinit var resolveRealtimeParticipantProfileUseCase: ResolveRealtimeParticipantProfileUseCase
 
     @Mock lateinit var participantService: ParticipantService
+
+    @Mock lateinit var startRealtimePartyEndUseCase: StartRealtimePartyEndUseCase
 
     @Mock lateinit var chatSseGateway: ChatSseGateway
 
@@ -75,6 +78,22 @@ class LeaveChatUseCaseTest {
         useCase.leave(party.id, null, "tok")
 
         verify(participantService).leave(participant)
+        verify(chatSseGateway).leave("tok")
+        verify(chatSseGateway).broadcastAfterCommit(any(), any(), anyOrNull())
+    }
+
+    @Test
+    fun `주최자가 퇴장하면 파티 종료를 시작한다`() {
+        val party = RealtimeParty(ownerId = 10L, startedAt = LocalDateTime.now().minusMinutes(5))
+        val participant = Participant(party = party, isCelebrant = false)
+        val profile = RealtimeParticipantProfile(participant = participant, nickname = "주최자", participantToken = "tok")
+        whenever(resolveRealtimePartyUseCase.invoke(party.id)).thenReturn(party)
+        whenever(resolveRealtimeParticipantProfileUseCase.invoke(party.id, 10L, "tok")).thenReturn(profile)
+
+        useCase.leave(party.id, 10L, "tok")
+
+        verify(participantService).leave(participant)
+        verify(startRealtimePartyEndUseCase).invoke(party.id, party.ownerId)
         verify(chatSseGateway).leave("tok")
         verify(chatSseGateway).broadcastAfterCommit(any(), any(), anyOrNull())
     }
