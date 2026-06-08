@@ -31,6 +31,17 @@ class Participant(
     var isCelebrant: Boolean = false,
     @Column(name = "has_written_paper", nullable = false)
     var hasWrittenPaper: Boolean = false,
+    hasLeft: Boolean = false,
+) : BaseEntity() {
     @Column(name = "has_left", nullable = false)
-    var hasLeft: Boolean = false,
-) : BaseEntity()
+    final var hasLeft: Boolean = hasLeft
+        private set
+
+    fun leave() {
+        hasLeft = true
+    }
+
+    fun rejoin() {
+        hasLeft = false
+    }
+}

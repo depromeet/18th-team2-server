@@ -3,6 +3,7 @@ package com.team2.server.chat.usecase
 import com.team2.server.chat.domain.vo.ParticipantRole
 import com.team2.server.chat.dto.UserLeftEventPayload
 import com.team2.server.chat.infrastructure.sse.ChatSseGateway
+import com.team2.server.party.application.service.ParticipantService
 import com.team2.server.party.application.usecase.ResolveRealtimeParticipantProfileUseCase
 import com.team2.server.party.application.usecase.ResolveRealtimePartyUseCase
 import org.springframework.stereotype.Service
@@ -13,6 +14,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 class LeaveChatUseCase(
     private val resolveRealtimePartyUseCase: ResolveRealtimePartyUseCase,
     private val resolveRealtimeParticipantProfileUseCase: ResolveRealtimeParticipantProfileUseCase,
+    private val participantService: ParticipantService,
     private val chatSseGateway: ChatSseGateway,
 ) {
     @Transactional
@@ -24,7 +26,7 @@ class LeaveChatUseCase(
         resolveRealtimePartyUseCase.invoke(partyId)
         val profile = resolveRealtimeParticipantProfileUseCase.invoke(partyId, userId, participantToken)
 
-        profile.participant.hasLeft = true
+        participantService.leave(profile.participant)
 
         val payload =
             UserLeftEventPayload(

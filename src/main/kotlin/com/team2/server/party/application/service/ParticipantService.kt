@@ -74,6 +74,16 @@ class ParticipantService(
         )
     }
 
+    fun leave(participant: Participant): Participant {
+        participant.leave()
+        return participant
+    }
+
+    fun rejoin(participant: Participant): Participant {
+        participant.rejoin()
+        return participant
+    }
+
     fun resolveUser(userId: Long?): User? {
         if (userId == null) return null
         return userRepository.findByIdOrNull(userId)

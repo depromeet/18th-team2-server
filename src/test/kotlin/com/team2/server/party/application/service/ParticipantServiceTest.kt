@@ -143,7 +143,7 @@ class ParticipantServiceTest {
         val ex =
             assertFailsWith<BusinessException> {
                 service.requireCallerParticipant(partyId = 1L, userId = null, participantToken = "tok")
-        }
+            }
         assertEquals(ErrorCode.PARTY_FORBIDDEN, ex.errorCode)
     }
 

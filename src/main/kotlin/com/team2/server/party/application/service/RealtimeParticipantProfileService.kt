@@ -86,6 +86,19 @@ class RealtimeParticipantProfileService(
         return profile
     }
 
+    fun requireForReentryByParticipantToken(
+        participantToken: String,
+        partyId: Long,
+    ): RealtimeParticipantProfile {
+        val profile =
+            profileRepository.findByParticipantToken(participantToken)
+                ?: throw BusinessException(ErrorCode.UNAUTHORIZED)
+        if (profile.participant.party.id != partyId) {
+            throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
+        }
+        return profile
+    }
+
     private fun resolveByUserId(
         partyId: Long,
         userId: Long,

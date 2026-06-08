@@ -3,6 +3,7 @@ package com.team2.server.chat.usecase
 import com.team2.server.chat.infrastructure.sse.ChatSseGateway
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
+import com.team2.server.party.application.service.ParticipantService
 import com.team2.server.party.application.usecase.ResolveRealtimeParticipantProfileUseCase
 import com.team2.server.party.application.usecase.ResolveRealtimePartyUseCase
 import com.team2.server.party.domain.entity.Participant
@@ -26,6 +27,8 @@ class LeaveChatUseCaseTest {
     @Mock lateinit var resolveRealtimePartyUseCase: ResolveRealtimePartyUseCase
 
     @Mock lateinit var resolveRealtimeParticipantProfileUseCase: ResolveRealtimeParticipantProfileUseCase
+
+    @Mock lateinit var participantService: ParticipantService
 
     @Mock lateinit var chatSseGateway: ChatSseGateway
 
@@ -71,6 +74,7 @@ class LeaveChatUseCaseTest {
 
         useCase.leave(party.id, null, "tok")
 
+        verify(participantService).leave(participant)
         verify(chatSseGateway).leave("tok")
         verify(chatSseGateway).broadcastAfterCommit(any(), any(), anyOrNull())
     }
