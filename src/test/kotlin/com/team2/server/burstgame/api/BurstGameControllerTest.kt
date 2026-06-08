@@ -326,6 +326,25 @@ class BurstGameControllerTest
         }
 
         @Test
+        fun `박터뜨리기 실행 API는 hit alias로도 터치 batch를 제출한다`() {
+            val fixture = saveRealtimeParticipant()
+            prepareCandleBlowFinished(fixture)
+            startPlayableGame(fixture)
+
+            mockMvc
+                .post("/api/v1/parties/${fixture.partyId}/burst-game/hits") {
+                    contentType = MediaType.APPLICATION_JSON
+                    header("X-Participant-Token", fixture.participantToken)
+                    content = """{"tapCount":7,"clientSequence":1}"""
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.accepted") { value(true) }
+                    jsonPath("$.data.totalTapCount") { value(7) }
+                    jsonPath("$.data.myTapCount") { value(7) }
+                }
+        }
+
+        @Test
         fun `중복 clientSequence는 200 응답에서 DUPLICATE_SEQUENCE로 무시한다`() {
             val fixture = saveRealtimeParticipant()
             prepareCandleBlowFinished(fixture)

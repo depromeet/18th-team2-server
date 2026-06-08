@@ -54,7 +54,10 @@ class BurstGameController(
             ),
         )
 
-    @PostMapping("/api/v1/parties/{partyId}/burst-game/taps")
+    @PostMapping(
+        "/api/v1/parties/{partyId}/burst-game/taps",
+        "/api/v1/parties/{partyId}/burst-game/hits",
+    )
     override fun submitTaps(
         @PathVariable partyId: Long,
         @AuthenticationPrincipal principal: UserPrincipal?,
