@@ -137,7 +137,6 @@ class BurstGameSession(
             endsAt = endsAt,
             totalTapCount = totalTapCount,
             myTapCount = participantScores[myParticipantId]?.tapCount ?: 0,
-            colorChanged = totalTapCount >= BurstGamePolicy.COLOR_CHANGE_TAP_COUNT,
             stateVersion = stateVersion,
             serverTime = now,
             remainingSeconds = BurstGameSnapshot.remainingSeconds(startedAt, endsAt, now),

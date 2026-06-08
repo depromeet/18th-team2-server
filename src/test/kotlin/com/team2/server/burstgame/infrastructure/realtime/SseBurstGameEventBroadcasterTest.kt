@@ -72,6 +72,7 @@ class SseBurstGameEventBroadcasterTest {
                 .single()
         assertEquals(latest.endsAt, payload.endsAt)
         assertEquals(latest.serverTime, payload.serverTime)
+        assertEquals(latest.totalTapCount, payload.totalTapCount)
     }
 
     @Test
@@ -117,7 +118,6 @@ class SseBurstGameEventBroadcasterTest {
             endsAt = startedAt.plusSeconds(20),
             totalTapCount = totalTapCount,
             myTapCount = totalTapCount,
-            colorChanged = false,
             stateVersion = stateVersion,
             serverTime = startedAt,
             remainingSeconds = 20,

@@ -13,7 +13,6 @@ data class BurstGameSnapshot(
     val endsAt: LocalDateTime,
     val totalTapCount: Int,
     val myTapCount: Int,
-    val colorChanged: Boolean,
     val stateVersion: Long,
     val serverTime: LocalDateTime,
     val remainingSeconds: Long,

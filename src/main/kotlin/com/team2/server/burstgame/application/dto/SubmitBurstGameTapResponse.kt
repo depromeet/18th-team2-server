@@ -20,8 +20,8 @@ data class SubmitBurstGameTapResponse(
     val ignoredReason: BurstGameTapIgnoredReason?,
     @Schema(description = "요청한 사용자의 현재 라운드 누적 터치 수입니다.", example = "11")
     val myTapCount: Int,
-    @Schema(description = "전체 터치 수가 색상 변경 기준에 도달했는지 여부입니다.", example = "false")
-    val colorChanged: Boolean,
+    @Schema(description = "현재 라운드의 전체 누적 터치 수입니다.", example = "137")
+    val totalTapCount: Int,
     @Schema(description = "라운드 상태 변경 버전입니다. 실제 반영된 tap 또는 종료 전이마다 증가합니다.", example = "13")
     val stateVersion: Long,
     @Schema(description = "응답 생성 시점의 서버 시각입니다.", example = "2026-05-14T20:10:07.120")
@@ -38,7 +38,7 @@ data class SubmitBurstGameTapResponse(
                 accepted = result.accepted,
                 ignoredReason = result.ignoredReason,
                 myTapCount = snapshot.myTapCount,
-                colorChanged = snapshot.colorChanged,
+                totalTapCount = snapshot.totalTapCount,
                 stateVersion = snapshot.stateVersion,
                 serverTime = snapshot.serverTime,
                 rankings =

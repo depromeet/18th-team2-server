@@ -154,7 +154,7 @@ interface BurstGameApi {
         description = """
 partyId 기준으로 진행 중인 라운드의 현재 상태 또는 TTL 안에 남아 있는 종료 결과를 조회합니다.
 카운트다운 중에도 미래의 startedAt과 실제 플레이 시간 기준 remainingSeconds를 반환합니다.
-진행 중에는 상위 3명 rankings를, 종료 후에는 1회 이상 터치한 참가자 전체 rankings와 최종 totalTapCount를 반환합니다.
+현재 전체 터치 수를 totalTapCount로 반환하며, 진행 중에는 상위 3명 rankings를, 종료 후에는 1회 이상 터치한 참가자 전체 rankings를 반환합니다.
 """,
     )
     @SwaggerApiResponse(
