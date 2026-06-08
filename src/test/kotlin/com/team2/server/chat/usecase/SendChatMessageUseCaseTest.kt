@@ -70,7 +70,7 @@ class SendChatMessageUseCaseTest {
     }
 
     @Test
-    fun `LIVE_OPEN이 아니면 CHAT_NOT_ACTIVE`() {
+    fun `활성 상태가 아니면 CHAT_NOT_ACTIVE`() {
         whenever(resolveLiveOpenRealtimePartyUseCase.invoke(1L))
             .thenThrow(BusinessException(ErrorCode.CHAT_NOT_ACTIVE))
 
