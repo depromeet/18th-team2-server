@@ -39,5 +39,17 @@ spring:
 support:
   chat-url: "https://open.kakao.com/o/placeholder"
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus, metrics
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
 candle-blow:
   duration-seconds: 300

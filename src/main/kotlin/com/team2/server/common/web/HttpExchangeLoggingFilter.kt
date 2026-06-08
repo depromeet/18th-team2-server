@@ -33,7 +33,6 @@ class HttpExchangeLoggingFilter : OncePerRequestFilter() {
         val uri = request.requestURI
 
         return uri.startsWith("/actuator") ||
-            uri.contains("/stream") ||
             request.contentType?.startsWith(MediaType.MULTIPART_FORM_DATA_VALUE) == true
     }
 
@@ -43,6 +42,11 @@ class HttpExchangeLoggingFilter : OncePerRequestFilter() {
         filterChain: FilterChain,
     ) {
         val cachedRequest = ContentCachingRequestWrapper(request, MAX_LOG_BODY_LENGTH)
+        if (request.requestURI.contains("/stream")) {
+            doFilterStreamingRequest(cachedRequest, response, filterChain)
+            return
+        }
+
         val cachedResponse = ContentCachingResponseWrapper(response)
         val startedAt = System.currentTimeMillis()
 
@@ -55,6 +59,24 @@ class HttpExchangeLoggingFilter : OncePerRequestFilter() {
                 log.warn("HTTP exchange logging failed. uri={}", request.requestURI, ex)
             }
             cachedResponse.copyBodyToResponse()
+        }
+    }
+
+    private fun doFilterStreamingRequest(
+        request: ContentCachingRequestWrapper,
+        response: HttpServletResponse,
+        filterChain: FilterChain,
+    ) {
+        val startedAt = System.currentTimeMillis()
+
+        try {
+            filterChain.doFilter(request, response)
+        } finally {
+            runCatching {
+                logStreamingHttpExchange(request, response, System.currentTimeMillis() - startedAt)
+            }.onFailure { ex ->
+                log.warn("HTTP stream exchange logging failed. uri={}", request.requestURI, ex)
+            }
         }
     }
 
@@ -82,6 +104,29 @@ class HttpExchangeLoggingFilter : OncePerRequestFilter() {
                 body = response.contentAsByteArray,
                 contentType = response.contentType,
                 encoding = response.characterEncoding,
+            ),
+        )
+    }
+
+    private fun logStreamingHttpExchange(
+        request: ContentCachingRequestWrapper,
+        response: HttpServletResponse,
+        elapsedMillis: Long,
+    ) {
+        if (!log.isInfoEnabled) {
+            return
+        }
+
+        log.info(
+            "HTTP stream exchange method={} uri={} status={} elapsedMs={} requestJson={}",
+            request.method,
+            requestUri(request),
+            response.status,
+            elapsedMillis,
+            visibleBodyOrEmpty(
+                body = request.contentAsByteArray,
+                contentType = request.contentType,
+                encoding = request.characterEncoding,
             ),
         )
     }

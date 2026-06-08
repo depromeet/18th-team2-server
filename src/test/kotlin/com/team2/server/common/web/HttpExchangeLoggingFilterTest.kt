@@ -50,6 +50,45 @@ class HttpExchangeLoggingFilterTest {
         }
     }
 
+    @Test
+    fun `stream 요청은 응답을 캐싱하지 않고 요청 body를 로깅한다`() {
+        val appender = ListAppender<ILoggingEvent>().apply { start() }
+        val logger = LoggerFactory.getLogger(HttpExchangeLoggingFilter::class.java) as Logger
+        val originalLevel = logger.level
+        logger.level = Level.INFO
+        logger.addAppender(appender)
+
+        try {
+            val request =
+                MockHttpServletRequest("POST", "/api/v1/party-invites/invite-code/realtime-participants/stream").apply {
+                    contentType = MediaType.APPLICATION_JSON_VALUE
+                    characterEncoding = Charsets.UTF_8.name()
+                    setContent("""{"nickname":"토끼왕","characterId":1}""".toByteArray())
+                }
+            val response =
+                MockHttpServletResponse().apply {
+                    characterEncoding = Charsets.UTF_8.name()
+                }
+            val chain =
+                FilterChain { servletRequest, servletResponse ->
+                    servletRequest.inputStream.readAllBytes()
+                    servletResponse.contentType = MediaType.APPLICATION_JSON_VALUE
+                    servletResponse.writer.write("""{"status":400,"error":{"code":"CHAT_NOT_ACTIVE"}}""")
+                }
+
+            filter.doFilter(request, response, chain)
+
+            assertEquals("""{"status":400,"error":{"code":"CHAT_NOT_ACTIVE"}}""", response.contentAsString)
+            val logMessage = appender.list.single().formattedMessage
+            assertContains(logMessage, "HTTP stream exchange")
+            assertContains(logMessage, "uri=/api/v1/party-invites/invite-code/realtime-participants/stream")
+            assertContains(logMessage, """requestJson={"nickname":"토끼왕","characterId":1}""")
+        } finally {
+            logger.detachAppender(appender)
+            logger.level = originalLevel
+        }
+    }
+
     private fun jsonRequest(): MockHttpServletRequest =
         MockHttpServletRequest("POST", "/api/v1/parties/1/participants").apply {
             contentType = MediaType.APPLICATION_JSON_VALUE

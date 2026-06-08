@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException
 import org.springframework.web.method.annotation.HandlerMethodValidationException
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
+import org.springframework.web.servlet.resource.NoResourceFoundException
 import tools.jackson.databind.ObjectMapper
 
 @RestControllerAdvice
@@ -97,6 +98,19 @@ class GlobalExceptionHandler(
     @ExceptionHandler(AsyncRequestNotUsableException::class)
     fun handleAsyncRequestNotUsableException(e: AsyncRequestNotUsableException) {
         log.debug("Client disconnected during async request", e)
+    }
+
+    @ExceptionHandler(NoResourceFoundException::class)
+    fun handleNoResourceFoundException(
+        e: NoResourceFoundException,
+        response: HttpServletResponse,
+    ) {
+        log.warn("Resource not found. path={}", e.resourcePath)
+        writeErrorResponse(
+            response,
+            HttpStatus.NOT_FOUND.value(),
+            ErrorResponse.of(HttpStatus.NOT_FOUND, "NOT_FOUND", "요청한 리소스를 찾을 수 없습니다."),
+        )
     }
 
     @ExceptionHandler(Exception::class)

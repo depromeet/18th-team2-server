@@ -23,9 +23,9 @@ class ResolveLiveOpenRealtimePartyUseCase(
         val party = partyService.requireRealtimeParty(partyId)
         val now = LocalDateTime.now(clock)
         val status = party.status(now)
-        if (status != RealtimePartyStatus.LIVE_OPEN) {
+        if (status !in ACTIVE_STATUSES) {
             log.warn(
-                "Realtime party is not live-open. partyId={} status={} " +
+                "Realtime party is not active. partyId={} status={} " +
                     "startedAt={} liveEndingStartedAt={} now={} clockZone={}",
                 partyId,
                 status,
@@ -37,5 +37,13 @@ class ResolveLiveOpenRealtimePartyUseCase(
             throw BusinessException(ErrorCode.CHAT_NOT_ACTIVE)
         }
         return party
+    }
+
+    private companion object {
+        private val ACTIVE_STATUSES =
+            setOf(
+                RealtimePartyStatus.LIVE_OPEN,
+                RealtimePartyStatus.LIVE_ENDING,
+            )
     }
 }
