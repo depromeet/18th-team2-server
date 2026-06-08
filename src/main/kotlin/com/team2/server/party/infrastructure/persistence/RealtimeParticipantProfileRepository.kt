@@ -52,6 +52,7 @@ interface RealtimeParticipantProfileRepository : JpaRepository<RealtimeParticipa
         LEFT JOIN FETCH participant.user
         LEFT JOIN FETCH rpp.character
         WHERE participant.party.id = :partyId
+          AND participant.hasLeft = false
         ORDER BY participant.id ASC
         """,
     )

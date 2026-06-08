@@ -15,7 +15,7 @@ class LeaveChatUseCase(
     private val resolveRealtimeParticipantProfileUseCase: ResolveRealtimeParticipantProfileUseCase,
     private val chatSseGateway: ChatSseGateway,
 ) {
-    @Transactional(readOnly = true)
+    @Transactional
     fun leave(
         partyId: Long,
         userId: Long?,
@@ -23,6 +23,8 @@ class LeaveChatUseCase(
     ) {
         resolveRealtimePartyUseCase.invoke(partyId)
         val profile = resolveRealtimeParticipantProfileUseCase.invoke(partyId, userId, participantToken)
+
+        profile.participant.hasLeft = true
 
         val payload =
             UserLeftEventPayload(

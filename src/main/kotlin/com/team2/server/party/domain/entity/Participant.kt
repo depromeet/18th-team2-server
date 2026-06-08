@@ -31,4 +31,6 @@ class Participant(
     var isCelebrant: Boolean = false,
     @Column(name = "has_written_paper", nullable = false)
     var hasWrittenPaper: Boolean = false,
+    @Column(name = "has_left", nullable = false)
+    var hasLeft: Boolean = false,
 ) : BaseEntity()
