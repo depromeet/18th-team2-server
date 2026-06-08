@@ -20,6 +20,10 @@ FROM eclipse-temurin:25-jre
 
 WORKDIR /app
 
+ENV TZ=Asia/Seoul
+ENV APP_TIME_ZONE=Asia/Seoul
+ENV JAVA_TOOL_OPTIONS="-Duser.timezone=Asia/Seoul"
+
 # healthcheck용 curl 설치
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 

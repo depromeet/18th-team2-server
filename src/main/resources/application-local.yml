@@ -11,4 +11,4 @@ management:
       application: ${spring.application.name}
 
 app:
-  time-zone: ${APP_TIME_ZONE:Asia/Shanghai}
+  time-zone: ${APP_TIME_ZONE:Asia/Seoul}
