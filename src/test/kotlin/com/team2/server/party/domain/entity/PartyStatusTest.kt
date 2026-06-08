@@ -144,8 +144,23 @@ class PartyStatusTest {
         val endingStartedAt = liveStart.plusMinutes(6)
         val party = realtimeParty().apply { liveEndingStartedAt = endingStartedAt }
         assertEquals(endingStartedAt, party.hostViewableAt())
+        assertEquals(RealtimePartyEndingReason.HOST_REQUEST, party.endingReason())
         assertEquals(RealtimePartyStatus.LIVE_ENDING, party.status(endingStartedAt))
         assertEquals(RealtimePartyStatus.LIVE_CLOSED, party.status(endingStartedAt.plusSeconds(60)))
+    }
+
+    @Test
+    fun `RealtimeParty - 자동 종료 시각부터는 TIME_LIMIT_REACHED`() {
+        val party = realtimeParty().apply { liveEndingStartedAt = automaticEndingStartedAt() }
+
+        assertEquals(RealtimePartyEndingReason.TIME_LIMIT_REACHED, party.endingReason())
+    }
+
+    @Test
+    fun `RealtimeParty - 자동 종료 시각이 지나면 저장 전에도 TIME_LIMIT_REACHED`() {
+        val party = realtimeParty()
+
+        assertEquals(RealtimePartyEndingReason.TIME_LIMIT_REACHED, party.endingReason(party.automaticEndingStartedAt()))
     }
 
     @Test

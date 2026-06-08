@@ -2,9 +2,12 @@ package com.team2.server.party.application.service
 
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
+import com.team2.server.party.application.dto.RealtimePartyEndingInfo
+import com.team2.server.party.application.port.RealtimePartyEndingInfoPort
 import com.team2.server.party.domain.entity.PaperOnlyParty
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.RealtimeParty
+import com.team2.server.party.domain.entity.RealtimePartyEndingReason
 import com.team2.server.party.infrastructure.persistence.PartyRepository
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -20,7 +23,8 @@ import kotlin.test.assertSame
 
 class RealtimePartyEndServiceTest {
     private val partyRepository: PartyRepository = mock()
-    private val service = RealtimePartyEndService(partyRepository)
+    private val endingInfoPort: RealtimePartyEndingInfoPort = mock()
+    private val service = RealtimePartyEndService(partyRepository, endingInfoPort)
     private val startedAt = LocalDateTime.of(2026, 5, 23, 10, 0)
 
     @Test
@@ -28,6 +32,8 @@ class RealtimePartyEndServiceTest {
         val party = realtimeParty(id = 1L, liveEndingStartedAt = startedAt.plusMinutes(5))
         whenever(partyRepository.startRealtimeEndingIfNotStarted(eq(1L), any())).thenReturn(1)
         whenever(partyRepository.findPartyById(1L)).thenReturn(party)
+        whenever(endingInfoPort.get(party))
+            .thenReturn(RealtimePartyEndingInfo(party.endingReason(), "주최자"))
 
         val result = service.startIfNotStarted(1L, startedAt.plusMinutes(5))
 
@@ -52,12 +58,16 @@ class RealtimePartyEndServiceTest {
         val party = realtimeParty(id = 1L, liveEndingStartedAt = endingStartedAt)
         whenever(partyRepository.startRealtimeEndingIfNotStarted(eq(1L), any())).thenReturn(1)
         whenever(partyRepository.findPartyById(1L)).thenReturn(party)
+        whenever(endingInfoPort.get(party))
+            .thenReturn(RealtimePartyEndingInfo(party.endingReason(), "주최자"))
 
         val result = service.startIfNotStartedOrNull(1L, endingStartedAt)
 
         assertEquals(1L, result?.partyId)
         assertEquals(endingStartedAt, result?.endingStartedAt)
         assertEquals(endingStartedAt.plusSeconds(RealtimeParty.LIVE_END_COUNTDOWN_SECONDS), result?.endedAt)
+        assertEquals(RealtimePartyEndingReason.HOST_REQUEST, result?.endingReason)
+        assertEquals("주최자", result?.hostNickname)
         assertEquals(true, result?.startedNow)
     }
 
@@ -91,12 +101,16 @@ class RealtimePartyEndServiceTest {
         val endingStartedAt = startedAt.plusMinutes(4)
         val party = realtimeParty(id = 3L, liveEndingStartedAt = endingStartedAt)
         whenever(partyRepository.findRealtimePartiesWithEndingStarted(any())).thenReturn(listOf(party))
+        whenever(endingInfoPort.get(party))
+            .thenReturn(RealtimePartyEndingInfo(party.endingReason(), "주최자"))
 
         val result = service.findEndingTargets(startedAt.plusDays(1))
 
         assertEquals(3L, result.single().partyId)
         assertEquals(endingStartedAt, result.single().endingStartedAt)
         assertEquals(endingStartedAt.plusSeconds(RealtimeParty.LIVE_END_COUNTDOWN_SECONDS), result.single().endedAt)
+        assertEquals(RealtimePartyEndingReason.HOST_REQUEST, result.single().endingReason)
+        assertEquals("주최자", result.single().hostNickname)
         assertEquals(false, result.single().startedNow)
     }
 

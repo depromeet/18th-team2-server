@@ -19,7 +19,7 @@ class StartAutomaticRealtimePartyEndUseCase(
     ): RealtimeEndingScheduleTarget? {
         val target = realtimePartyEndService.startIfNotStartedOrNull(partyId, endingStartedAt) ?: return null
         if (target.startedNow) {
-            realtimePartyEndingEventPublisher.publish(target.partyId, target.endingStartedAt, target.endedAt)
+            realtimePartyEndingEventPublisher.publish(target)
         }
         return target
     }

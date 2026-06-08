@@ -10,6 +10,8 @@ import org.springframework.data.jpa.repository.Query
 interface RealtimeParticipantProfileRepository : JpaRepository<RealtimeParticipantProfile, Long> {
     fun findByParticipant(participant: Participant): RealtimeParticipantProfile?
 
+    fun findByParticipantPartyIdAndParticipantIsCelebrantTrue(partyId: Long): RealtimeParticipantProfile?
+
     @EntityGraph(attributePaths = ["participant", "participant.party"])
     fun findByParticipantToken(participantToken: String): RealtimeParticipantProfile?
 

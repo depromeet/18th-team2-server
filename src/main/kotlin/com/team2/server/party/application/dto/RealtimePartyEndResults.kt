@@ -1,9 +1,15 @@
 package com.team2.server.party.application.dto
 
 import com.team2.server.party.domain.entity.RealtimeParty
+import com.team2.server.party.domain.entity.RealtimePartyEndingReason
 import com.team2.server.party.domain.entity.RealtimePartyStatus
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
+
+data class RealtimePartyEndingInfo(
+    val endingReason: RealtimePartyEndingReason?,
+    val hostNickname: String,
+)
 
 @Schema(description = "실시간 파티 종료 카운트다운 시작 응답")
 data class RealtimePartyEndResult(
@@ -13,13 +19,22 @@ data class RealtimePartyEndResult(
     val endingStartedAt: LocalDateTime,
     @Schema(description = "실시간 라이브 종료 시각", example = "2026-05-19T20:11:00")
     val endedAt: LocalDateTime,
+    @Schema(description = "종료 카운트다운 시작 원인", example = "HOST_REQUEST")
+    val endingReason: RealtimePartyEndingReason,
+    @Schema(description = "파티 주최자 닉네임", example = "홍길동")
+    val hostNickname: String,
 ) {
     companion object {
-        fun from(party: RealtimeParty): RealtimePartyEndResult =
+        fun from(
+            party: RealtimeParty,
+            endingInfo: RealtimePartyEndingInfo,
+        ): RealtimePartyEndResult =
             RealtimePartyEndResult(
                 partyId = party.id,
                 endingStartedAt = requireNotNull(party.liveEndingStartedAt),
                 endedAt = requireNotNull(party.liveEndedAt()),
+                endingReason = requireNotNull(endingInfo.endingReason),
+                hostNickname = endingInfo.hostNickname,
             )
     }
 }
@@ -40,11 +55,16 @@ data class RealtimePartyStateResult(
     val endingStartedAt: LocalDateTime?,
     @Schema(description = "실시간 라이브 종료 시각", example = "2026-05-19T20:11:00")
     val endedAt: LocalDateTime,
+    @Schema(description = "종료 카운트다운 시작 원인. 종료 시작 전이면 null", nullable = true, example = "TIME_LIMIT_REACHED")
+    val endingReason: RealtimePartyEndingReason?,
+    @Schema(description = "파티 주최자 닉네임", example = "홍길동")
+    val hostNickname: String,
 ) {
     companion object {
         fun from(
             party: RealtimeParty,
             now: LocalDateTime,
+            endingInfo: RealtimePartyEndingInfo,
         ): RealtimePartyStateResult {
             val status = party.status(now)
             val endingStartedAt =
@@ -60,6 +80,8 @@ data class RealtimePartyStateResult(
                 liveStartAt = party.startedAt,
                 endingStartedAt = endingStartedAt,
                 endedAt = party.effectiveLiveEndedAt(),
+                endingReason = endingInfo.endingReason,
+                hostNickname = endingInfo.hostNickname,
             )
         }
     }

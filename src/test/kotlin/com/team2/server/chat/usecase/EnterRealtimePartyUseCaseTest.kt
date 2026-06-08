@@ -6,8 +6,10 @@ import com.team2.server.chat.application.support.RealtimePartyEntryProfileResolv
 import com.team2.server.chat.dto.EnterRealtimePartyRequest
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
+import com.team2.server.party.application.dto.RealtimePartyEndingInfo
 import com.team2.server.party.application.service.PartyInviteService
 import com.team2.server.party.application.usecase.MarkRealtimePartyHostEnteredUseCase
+import com.team2.server.party.application.usecase.ResolveRealtimePartyEndingInfoUseCase
 import com.team2.server.party.domain.entity.PaperOnlyParty
 import com.team2.server.party.domain.entity.PartyInvite
 import com.team2.server.party.domain.entity.RealtimeParty
@@ -16,6 +18,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
+import org.mockito.Mockito
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
@@ -36,6 +39,8 @@ class EnterRealtimePartyUseCaseTest {
 
     @Mock lateinit var markRealtimePartyHostEnteredUseCase: MarkRealtimePartyHostEnteredUseCase
 
+    @Mock lateinit var resolveRealtimePartyEndingInfoUseCase: ResolveRealtimePartyEndingInfoUseCase
+
     lateinit var useCase: EnterRealtimePartyUseCase
 
     private val request = EnterRealtimePartyRequest(nickname = "토끼왕", characterId = 1L)
@@ -50,8 +55,13 @@ class EnterRealtimePartyUseCaseTest {
                 partyInviteService = partyInviteService,
                 profileResolver = RealtimePartyEntryProfileResolver(entryProfilePort),
                 markRealtimePartyHostEnteredUseCase = markRealtimePartyHostEnteredUseCase,
+                resolveRealtimePartyEndingInfoUseCase = resolveRealtimePartyEndingInfoUseCase,
                 clock = clock,
             )
+        Mockito
+            .lenient()
+            .`when`(resolveRealtimePartyEndingInfoUseCase(any(), any()))
+            .thenReturn(RealtimePartyEndingInfo(null, "주최자"))
     }
 
     @Test

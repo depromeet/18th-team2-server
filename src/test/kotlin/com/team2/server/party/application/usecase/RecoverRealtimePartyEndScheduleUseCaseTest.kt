@@ -4,6 +4,7 @@ import com.team2.server.party.application.dto.RealtimeAutomaticEndSchedule
 import com.team2.server.party.application.dto.RealtimeEndingScheduleTarget
 import com.team2.server.party.application.dto.RealtimePartyEndRecoverySchedules
 import com.team2.server.party.application.service.RealtimePartyEndService
+import com.team2.server.party.domain.entity.RealtimePartyEndingReason
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
@@ -29,7 +30,18 @@ class RecoverRealtimePartyEndScheduleUseCaseTest {
                 ),
             )
         whenever(realtimePartyEndService.findEndingTargets(now))
-            .thenReturn(listOf(RealtimeEndingScheduleTarget(2L, now.minusMinutes(1), now, startedNow = true)))
+            .thenReturn(
+                listOf(
+                    RealtimeEndingScheduleTarget(
+                        partyId = 2L,
+                        endingStartedAt = now.minusMinutes(1),
+                        endedAt = now,
+                        endingReason = RealtimePartyEndingReason.HOST_REQUEST,
+                        hostNickname = "주최자",
+                        startedNow = true,
+                    ),
+                ),
+            )
 
         val result = useCase()
 

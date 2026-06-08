@@ -1,18 +1,14 @@
 package com.team2.server.chat.usecase
 
+import com.team2.server.chat.application.dto.EnterRealtimePartyResult
 import com.team2.server.chat.application.port.RealtimePartyEntryProfileResult
 import com.team2.server.chat.application.support.RealtimePartyEntryProfileResolver
 import com.team2.server.chat.dto.EnterRealtimePartyRequest
-import com.team2.server.common.exception.BusinessException
-import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.dto.RealtimePartyStateResult
 import com.team2.server.party.application.service.PartyInviteService
 import com.team2.server.party.application.usecase.MarkRealtimePartyHostEnteredUseCase
-import com.team2.server.party.domain.entity.Party
-import com.team2.server.party.domain.entity.PartyOption
+import com.team2.server.party.application.usecase.ResolveRealtimePartyEndingInfoUseCase
 import com.team2.server.party.domain.entity.RealtimeParty
-import com.team2.server.party.domain.entity.RealtimePartyStatus
-import org.hibernate.Hibernate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
@@ -23,43 +19,32 @@ class EnterRealtimePartyUseCase(
     private val partyInviteService: PartyInviteService,
     private val profileResolver: RealtimePartyEntryProfileResolver,
     private val markRealtimePartyHostEnteredUseCase: MarkRealtimePartyHostEnteredUseCase,
+    private val resolveRealtimePartyEndingInfoUseCase: ResolveRealtimePartyEndingInfoUseCase,
     private val clock: Clock,
 ) {
-    data class EnterResult(
-        val participantToken: String,
-        val partyId: Long,
-        val startedAt: LocalDateTime,
-        val isCelebrant: Boolean,
-        val nickname: String,
-        val characterId: Long?,
-        val partyState: RealtimePartyStateResult,
-    )
-
     @Transactional
     fun enter(
         inviteToken: String,
         userId: Long?,
         request: EnterRealtimePartyRequest,
-    ): EnterResult {
+    ): EnterRealtimePartyResult {
         val now = LocalDateTime.now(clock)
         val invite = partyInviteService.findUsableInvite(inviteToken, now)
-        val realtimeParty = validateInvite(invite.party)
-        val reentry = request.participantToken != null
-        if (!reentry) {
-            validateNewEnterable(realtimeParty, now)
-        }
+        val realtimeParty = profileResolver.requireRealtime(invite.party)
+        if (request.participantToken == null) profileResolver.validateNewEntry(realtimeParty, now)
 
         val entryProfile = profileResolver.resolve(realtimeParty, userId, request, now)
         markHostEnteredIfNeeded(realtimeParty, entryProfile, now)
+        val endingInfo = resolveRealtimePartyEndingInfoUseCase(realtimeParty, now)
 
-        return EnterResult(
+        return EnterRealtimePartyResult(
             participantToken = entryProfile.participantToken,
             partyId = invite.party.id,
             startedAt = invite.party.startedAt,
             isCelebrant = entryProfile.isCelebrant,
             nickname = entryProfile.nickname,
             characterId = entryProfile.characterId,
-            partyState = RealtimePartyStateResult.from(realtimeParty, now),
+            partyState = RealtimePartyStateResult.from(realtimeParty, now, endingInfo),
         )
     }
 
@@ -70,21 +55,5 @@ class EnterRealtimePartyUseCase(
     ) {
         if (!entryProfile.isCelebrant) return
         party.hostEnteredAt = markRealtimePartyHostEnteredUseCase(party.id, now) ?: return
-    }
-
-    private fun validateInvite(party: Party): RealtimeParty {
-        if (party.partyOption != PartyOption.REALTIME) {
-            throw BusinessException(ErrorCode.CHAT_NOT_SUPPORTED)
-        }
-        return Hibernate.unproxy(party) as RealtimeParty
-    }
-
-    private fun validateNewEnterable(
-        realtimeParty: RealtimeParty,
-        now: LocalDateTime,
-    ) {
-        if (realtimeParty.status(now) != RealtimePartyStatus.LIVE_OPEN) {
-            throw BusinessException(ErrorCode.CHAT_NOT_ACTIVE)
-        }
     }
 }

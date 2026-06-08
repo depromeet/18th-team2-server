@@ -319,6 +319,8 @@ class ChatControllerTest
                         startedAt = startedAt,
                     ),
                 )
+            val host = participantRepository.save(Participant(party = party, user = owner, isCelebrant = true))
+            profileRepository.save(RealtimeParticipantProfile(participant = host, nickname = "주최자"))
             val invite =
                 partyInviteRepository.save(
                     PartyInvite(

@@ -1,6 +1,7 @@
 package com.team2.server.chat.infrastructure.sse
 
 import com.team2.server.party.application.port.RealtimePartyEventBroadcaster
+import com.team2.server.party.domain.entity.RealtimePartyEndingReason
 import com.team2.server.party.domain.vo.PartyPhase
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
@@ -14,6 +15,8 @@ class ChatRealtimePartyEventBroadcaster(
         partyId: Long,
         endingStartedAt: LocalDateTime,
         endedAt: LocalDateTime,
+        endingReason: RealtimePartyEndingReason,
+        hostNickname: String,
     ) {
         sseEmitterRegistry.broadcast(
             partyId,
@@ -25,6 +28,8 @@ class ChatRealtimePartyEventBroadcaster(
                         partyId = partyId,
                         endingStartedAt = endingStartedAt,
                         endedAt = endedAt,
+                        endingReason = endingReason,
+                        hostNickname = hostNickname,
                     ),
                 ).build(),
         )
@@ -33,13 +38,14 @@ class ChatRealtimePartyEventBroadcaster(
     override fun broadcastPartyEnded(
         partyId: Long,
         endedAt: LocalDateTime,
+        hostNickname: String,
     ) {
         sseEmitterRegistry.broadcast(
             partyId,
             SseEmitter
                 .event()
                 .name("party-ended")
-                .data(PartyEndedPayload(partyId = partyId, endedAt = endedAt))
+                .data(PartyEndedPayload(partyId = partyId, endedAt = endedAt, hostNickname = hostNickname))
                 .build(),
         )
     }
@@ -68,11 +74,14 @@ class ChatRealtimePartyEventBroadcaster(
         val partyId: Long,
         val endingStartedAt: LocalDateTime,
         val endedAt: LocalDateTime,
+        val endingReason: RealtimePartyEndingReason,
+        val hostNickname: String,
     )
 
     data class PartyEndedPayload(
         val partyId: Long,
         val endedAt: LocalDateTime,
+        val hostNickname: String,
     )
 
     data class PhaseChangedPayload(
