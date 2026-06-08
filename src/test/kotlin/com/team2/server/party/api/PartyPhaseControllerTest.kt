@@ -223,6 +223,21 @@ class PartyPhaseControllerTest
                         hostEnteredAt = startedAt,
                     ),
                 )
+            val hostParticipant =
+                participantRepository.save(
+                    Participant(
+                        party = party,
+                        user = host,
+                        isCelebrant = true,
+                    ),
+                )
+            profileRepository.save(
+                RealtimeParticipantProfile(
+                    participant = hostParticipant,
+                    nickname = "호스트",
+                    participantToken = "phasehs1",
+                ),
+            )
             val guest =
                 userRepository.save(
                     User(
