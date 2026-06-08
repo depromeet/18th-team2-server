@@ -26,6 +26,7 @@ class RealtimeParticipantProfileService(
         val existing = profileRepository.findByParticipant(participant)
         if (existing == null) {
             validateNicknameUnique(participant, nickname)
+            participant.rejoin()
             return profileRepository.save(
                 RealtimeParticipantProfile(
                     participant = participant,
@@ -40,6 +41,7 @@ class RealtimeParticipantProfileService(
             }
             validateNicknameUnique(participant, nickname)
         }
+        participant.rejoin()
         existing.nickname = nickname
         existing.character = character
         return existing

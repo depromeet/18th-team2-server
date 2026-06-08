@@ -94,6 +94,25 @@ class RealtimeParticipantProfileServiceTest {
     }
 
     @Test
+    fun `기존 프로필 갱신 시 퇴장 상태를 해제한다`() {
+        val participant = Participant(party = party, hasLeft = true)
+        val existing =
+            RealtimeParticipantProfile(participant = participant, nickname = "old", character = character)
+        whenever(profileRepository.findByParticipant(participant)).thenReturn(existing)
+        whenever(
+            profileRepository.existsByPartyIdAndNicknameIgnoreCaseExcludingParticipant(
+                partyId = eq(party.id),
+                nickname = eq("new"),
+                excludingParticipantId = eq(participant.id),
+            ),
+        ).thenReturn(false)
+
+        service.upsert(participant, "new", anotherCharacter, isHostNicknameLocked = false)
+
+        assertEquals(false, participant.hasLeft)
+    }
+
+    @Test
     fun `locked = true이고 nickname이 같으면 character만 갱신한다`() {
         val participant = newParticipant(isCelebrant = true)
         val existing =
