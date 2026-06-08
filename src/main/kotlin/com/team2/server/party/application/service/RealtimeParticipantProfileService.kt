@@ -83,6 +83,9 @@ class RealtimeParticipantProfileService(
         return profile
     }
 
+    fun findByParticipantToken(participantToken: String): RealtimeParticipantProfile? =
+        profileRepository.findByParticipantToken(participantToken)
+
     fun requireForReentryByParticipantToken(
         participantToken: String,
         partyId: Long,

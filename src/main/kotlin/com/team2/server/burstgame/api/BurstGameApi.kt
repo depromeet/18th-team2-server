@@ -87,6 +87,7 @@ interface BurstGameApi {
         summary = "박터뜨리기 터치 batch 제출",
         description = """
 파티의 진행 중인 박터뜨리기 라운드에 터치 batch를 제출합니다.
+시작 API가 아니라, 이미 CANDLE → BURST phase 전환으로 시작된 세션에 실제 박터뜨리기 입력을 반영하는 실행 API입니다.
 
 `tapCount`는 1~30, `clientSequence`는 참가자별 batch 멱등성 키입니다.
 카운트다운 중 요청, 중복 sequence, 종료 후 submit은 200 응답에서 `accepted=false`로 표현합니다.

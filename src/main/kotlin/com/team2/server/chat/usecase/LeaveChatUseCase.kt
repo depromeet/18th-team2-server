@@ -6,6 +6,9 @@ import com.team2.server.chat.infrastructure.sse.ChatSseGateway
 import com.team2.server.party.application.service.ParticipantService
 import com.team2.server.party.application.usecase.ResolveRealtimeParticipantProfileUseCase
 import com.team2.server.party.application.usecase.ResolveRealtimePartyUseCase
+import com.team2.server.party.application.usecase.StartRealtimePartyEndUseCase
+import com.team2.server.party.domain.entity.RealtimeParticipantProfile
+import com.team2.server.party.domain.entity.RealtimeParty
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
@@ -15,6 +18,7 @@ class LeaveChatUseCase(
     private val resolveRealtimePartyUseCase: ResolveRealtimePartyUseCase,
     private val resolveRealtimeParticipantProfileUseCase: ResolveRealtimeParticipantProfileUseCase,
     private val participantService: ParticipantService,
+    private val startRealtimePartyEndUseCase: StartRealtimePartyEndUseCase,
     private val chatSseGateway: ChatSseGateway,
 ) {
     @Transactional
@@ -23,10 +27,11 @@ class LeaveChatUseCase(
         userId: Long?,
         participantToken: String?,
     ) {
-        resolveRealtimePartyUseCase.invoke(partyId)
+        val party = resolveRealtimePartyUseCase.invoke(partyId)
         val profile = resolveRealtimeParticipantProfileUseCase.invoke(partyId, userId, participantToken)
 
         participantService.leave(profile.participant)
+        endPartyIfHostLeft(party, profile, userId)
 
         val payload =
             UserLeftEventPayload(
@@ -43,5 +48,15 @@ class LeaveChatUseCase(
                 .data(payload)
                 .build(),
         )
+    }
+
+    private fun endPartyIfHostLeft(
+        party: RealtimeParty,
+        profile: RealtimeParticipantProfile,
+        userId: Long?,
+    ) {
+        if (userId == party.ownerId || profile.participant.user?.id == party.ownerId) {
+            startRealtimePartyEndUseCase(party.id, party.ownerId)
+        }
     }
 }
