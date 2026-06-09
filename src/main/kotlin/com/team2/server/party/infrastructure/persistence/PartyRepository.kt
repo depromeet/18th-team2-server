@@ -71,7 +71,7 @@ interface PartyRepository : JpaRepository<Party, Long> {
                 party.started_at,
                 INTERVAL :liveDurationMinutes MINUTE
             ),
-                realtime_party.live_ending_reason = 'TIME_LIMIT_REACHED'
+                realtime_party.live_ending_reason = :endingReason
             WHERE realtime_party.live_ending_started_at IS NULL
               AND DATE_ADD(party.started_at, INTERVAL :liveDurationMinutes MINUTE) <= :now
               AND DATE_ADD(party.started_at, INTERVAL :partyEndedAfterDays DAY) > :now
@@ -82,6 +82,7 @@ interface PartyRepository : JpaRepository<Party, Long> {
         now: LocalDateTime,
         liveDurationMinutes: Long,
         partyEndedAfterDays: Long,
+        endingReason: String,
     ): Int
 
     @Query(

@@ -106,7 +106,10 @@ class StartRealtimePartyEndUseCaseTest {
     @Test
     fun `LIVE_ENDING with existing ending returns result without publishing duplicate event`() {
         val endingStartedAt = now.minusSeconds(10)
-        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(10), endingStartedAt)
+        val party =
+            realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(10), endingStartedAt).apply {
+                hostEnteredAt = now.minusMinutes(5)
+            }
         whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
         whenever(
             realtimePartyEndService.startIfNotStarted(

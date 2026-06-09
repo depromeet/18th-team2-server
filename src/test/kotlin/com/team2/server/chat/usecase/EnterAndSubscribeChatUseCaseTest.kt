@@ -41,27 +41,30 @@ class EnterAndSubscribeChatUseCaseTest {
     private fun enterResult(
         partyId: Long = 1L,
         isCelebrant: Boolean = false,
-    ) = EnterRealtimePartyResult(
-        participantToken = "abc12345",
-        partyId = partyId,
-        startedAt = LocalDateTime.now().minusMinutes(5),
-        isCelebrant = isCelebrant,
-        nickname = "토끼왕",
-        characterId = 1L,
-        partyState =
-            RealtimePartyStateResult(
-                partyId = partyId,
-                status = RealtimePartyStatus.LIVE_OPEN,
-                liveStartAt = LocalDateTime.now().minusMinutes(5),
-                endingStartedAt = null,
-                endedAt = LocalDateTime.now().plusMinutes(5).plusSeconds(60),
-                endingReason = null,
-                hostNickname = "주최자",
-                hostFarewellAvailable = true,
-                hostFarewellAvailableAt = LocalDateTime.now().minusMinutes(1),
-                serverNow = LocalDateTime.now(),
-            ),
-    )
+    ): EnterRealtimePartyResult {
+        val now = LocalDateTime.now()
+        return EnterRealtimePartyResult(
+            participantToken = "abc12345",
+            partyId = partyId,
+            startedAt = now.minusMinutes(5),
+            isCelebrant = isCelebrant,
+            nickname = "토끼왕",
+            characterId = 1L,
+            partyState =
+                RealtimePartyStateResult(
+                    partyId = partyId,
+                    status = RealtimePartyStatus.LIVE_OPEN,
+                    liveStartAt = now.minusMinutes(5),
+                    endingStartedAt = null,
+                    endedAt = now.plusMinutes(5).plusSeconds(60),
+                    endingReason = null,
+                    hostNickname = "주최자",
+                    hostFarewellAvailable = true,
+                    hostFarewellAvailableAt = now.minusMinutes(1),
+                    serverNow = now,
+                ),
+        )
+    }
 
     @Test
     fun `입장 성공 - entered 이벤트와 함께 emitter 반환`() {

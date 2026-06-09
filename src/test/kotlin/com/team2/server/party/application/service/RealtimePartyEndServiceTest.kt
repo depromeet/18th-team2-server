@@ -86,6 +86,7 @@ class RealtimePartyEndServiceTest {
             now = now,
             liveDurationMinutes = RealtimeParty.LIVE_DURATION_MINUTES,
             partyEndedAfterDays = Party.ENDED_AFTER_DAYS,
+            endingReason = RealtimePartyEndingReason.TIME_LIMIT_REACHED.name,
         )
     }
 

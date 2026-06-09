@@ -35,6 +35,25 @@ class PartyRepositoryTest
         }
 
         @Test
+        fun `startAutomaticRealtimeEndings는 전달받은 종료 사유를 저장한다`() {
+            val party = partyRepository.save(realtimeParty(startedAt = BASE_TIME.minusMinutes(10)))
+
+            val updated =
+                partyRepository.startAutomaticRealtimeEndings(
+                    now = BASE_TIME,
+                    liveDurationMinutes = 10,
+                    partyEndedAfterDays = 7,
+                    endingReason = RealtimePartyEndingReason.TIME_LIMIT_REACHED.name,
+                )
+            entityManager.clear()
+
+            val found = partyRepository.findById(party.id).orElseThrow() as RealtimeParty
+            assertEquals(1, updated)
+            assertEquals(BASE_TIME, found.liveEndingStartedAt)
+            assertEquals(RealtimePartyEndingReason.TIME_LIMIT_REACHED, found.liveEndingReason)
+        }
+
+        @Test
         fun `markBurstGameEndedIfAbsent는 최초 박터뜨리기 종료 시각만 저장한다`() {
             val party = partyRepository.save(realtimeParty(startedAt = BASE_TIME.minusMinutes(1)))
             val firstEndedAt = BASE_TIME
