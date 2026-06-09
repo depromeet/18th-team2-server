@@ -1,6 +1,7 @@
 package com.team2.server.party.infrastructure.persistence
 
 import com.team2.server.party.domain.entity.RealtimeParty
+import com.team2.server.party.domain.entity.RealtimePartyEndingReason
 import com.team2.server.support.JpaSliceTestSupport
 import jakarta.persistence.EntityManager
 import org.junit.jupiter.api.Test
@@ -14,6 +15,61 @@ class PartyRepositoryTest
         private val partyRepository: PartyRepository,
         private val entityManager: EntityManager,
     ) : JpaSliceTestSupport() {
+        @Test
+        fun `startRealtimeEndingIfNotStarted는 종료 시각과 사유를 함께 저장한다`() {
+            val party = partyRepository.save(realtimeParty(startedAt = BASE_TIME.minusMinutes(1)))
+
+            val updated =
+                partyRepository.startRealtimeEndingIfNotStarted(
+                    party.id,
+                    BASE_TIME,
+                    RealtimePartyEndingReason.HOST_LEFT,
+                )
+            entityManager.flush()
+            entityManager.clear()
+
+            val found = partyRepository.findById(party.id).orElseThrow() as RealtimeParty
+            assertEquals(1, updated)
+            assertEquals(BASE_TIME, found.liveEndingStartedAt)
+            assertEquals(RealtimePartyEndingReason.HOST_LEFT, found.liveEndingReason)
+        }
+
+        @Test
+        fun `startAutomaticRealtimeEndings는 전달받은 종료 사유를 저장한다`() {
+            val party = partyRepository.save(realtimeParty(startedAt = BASE_TIME.minusMinutes(10)))
+
+            val updated =
+                partyRepository.startAutomaticRealtimeEndings(
+                    now = BASE_TIME,
+                    liveDurationMinutes = 10,
+                    partyEndedAfterDays = 7,
+                    endingReason = RealtimePartyEndingReason.TIME_LIMIT_REACHED.name,
+                )
+            entityManager.clear()
+
+            val found = partyRepository.findById(party.id).orElseThrow() as RealtimeParty
+            assertEquals(1, updated)
+            assertEquals(BASE_TIME, found.liveEndingStartedAt)
+            assertEquals(RealtimePartyEndingReason.TIME_LIMIT_REACHED, found.liveEndingReason)
+        }
+
+        @Test
+        fun `markBurstGameEndedIfAbsent는 최초 박터뜨리기 종료 시각만 저장한다`() {
+            val party = partyRepository.save(realtimeParty(startedAt = BASE_TIME.minusMinutes(1)))
+            val firstEndedAt = BASE_TIME
+            val secondEndedAt = BASE_TIME.plusSeconds(1)
+
+            val firstUpdated = partyRepository.markBurstGameEndedIfAbsent(party.id, firstEndedAt)
+            val secondUpdated = partyRepository.markBurstGameEndedIfAbsent(party.id, secondEndedAt)
+            entityManager.flush()
+            entityManager.clear()
+
+            val found = partyRepository.findById(party.id).orElseThrow() as RealtimeParty
+            assertEquals(1, firstUpdated)
+            assertEquals(0, secondUpdated)
+            assertEquals(firstEndedAt, found.burstGameEndedAt)
+        }
+
         @Test
         fun `markHostEnteredIfAbsent는 hostEnteredAt을 한 번만 저장한다`() {
             val party = partyRepository.save(realtimeParty(startedAt = BASE_TIME.minusMinutes(1)))
