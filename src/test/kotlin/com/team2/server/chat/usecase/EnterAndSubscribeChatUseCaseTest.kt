@@ -38,12 +38,13 @@ class EnterAndSubscribeChatUseCaseTest {
 
     private val request = EnterRealtimePartyRequest(nickname = "토끼왕", characterId = 1L)
 
+    private val now = LocalDateTime.of(2026, 5, 23, 10, 0)
+
     private fun enterResult(
         partyId: Long = 1L,
         isCelebrant: Boolean = false,
-    ): EnterRealtimePartyResult {
-        val now = LocalDateTime.now()
-        return EnterRealtimePartyResult(
+    ): EnterRealtimePartyResult =
+        EnterRealtimePartyResult(
             participantToken = "abc12345",
             partyId = partyId,
             startedAt = now.minusMinutes(5),
@@ -64,11 +65,10 @@ class EnterAndSubscribeChatUseCaseTest {
                     serverNow = now,
                 ),
         )
-    }
 
     @Test
     fun `입장 성공 - entered 이벤트와 함께 emitter 반환`() {
-        val party = RealtimeParty(ownerId = 1L, startedAt = LocalDateTime.now().minusMinutes(5))
+        val party = RealtimeParty(ownerId = 1L, startedAt = now.minusMinutes(5))
         val participant = Participant(party = party)
         val profile = RealtimeParticipantProfile(participant = participant, nickname = "토끼왕")
         val msg = ChatMessage(content = "이전 메시지", party = party, profile = profile)
