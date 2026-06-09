@@ -6,7 +6,7 @@ import java.time.LocalDateTime
 
 data class ArchivePartyDetailResult(
     val partyId: Long,
-    val partyName: String,
+    val celebrantNickname: String?,
     val partyOption: PartyOption,
     val role: ArchiveRole,
     val partyStartedAt: LocalDateTime,

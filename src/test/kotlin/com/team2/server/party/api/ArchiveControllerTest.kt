@@ -99,7 +99,7 @@ class ArchiveControllerTest
                     jsonPath("$.data.items[0].id") { value(participant.id.toString()) }
                     jsonPath("$.data.items[0].partyId") { value(party.id) }
                     jsonPath("$.data.items[0].type") { value("PARTY") }
-                    jsonPath("$.data.items[0].title") { value("김루카 생일 파티") }
+                    jsonPath("$.data.items[0].role") { value("HOST") }
                     jsonPath("$.data.items[0].celebrantName") { value("김루카") }
                     jsonPath("$.data.items[0].date") {
                         value(
@@ -136,32 +136,6 @@ class ArchiveControllerTest
                 }.andExpect {
                     status { isOk() }
                     jsonPath("$.data.items[0].type") { value("PAPER") }
-                }
-        }
-
-        @Test
-        fun `party name이 null이면 title은 빈 문자열로 응답한다`() {
-            val user = saveUser("kakao-archive-noname", "archive-noname@kakao.local")
-            val token = tokenProvider.issue(user)
-            val now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS)
-            val party =
-                saveParty(
-                    RealtimeParty(
-                        ownerId = user.id,
-                        name = null,
-                        celebrantNickname = "이름없음",
-                        startedAt = now.plusHours(2),
-                    ),
-                    now.minusHours(1),
-                )
-            saveParticipant(party, user, now.minusHours(1))
-
-            mockMvc
-                .get("/api/v1/archive") {
-                    header("Authorization", "Bearer $token")
-                }.andExpect {
-                    status { isOk() }
-                    jsonPath("$.data.items[0].title") { value("") }
                 }
         }
 
@@ -215,9 +189,12 @@ class ArchiveControllerTest
                 }.andExpect {
                     status { isOk() }
                     jsonPath("$.data.items.length()") { value(3) }
-                    jsonPath("$.data.items[0].title") { value("친구 라이브") }
-                    jsonPath("$.data.items[1].title") { value("친구 파티") }
-                    jsonPath("$.data.items[2].title") { value("내 파티") }
+                    jsonPath("$.data.items[0].celebrantName") { value("친구2") }
+                    jsonPath("$.data.items[0].role") { value("PARTICIPANT") }
+                    jsonPath("$.data.items[1].celebrantName") { value("친구") }
+                    jsonPath("$.data.items[1].role") { value("PARTICIPANT") }
+                    jsonPath("$.data.items[2].celebrantName") { value("본인") }
+                    jsonPath("$.data.items[2].role") { value("HOST") }
                     jsonPath("$.data.totalCount") { value(3) }
                     jsonPath("$.data.nextCursor") { value(nullValue()) }
                 }
