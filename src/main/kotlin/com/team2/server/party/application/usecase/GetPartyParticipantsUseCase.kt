@@ -1,5 +1,6 @@
 package com.team2.server.party.application.usecase
 
+import com.team2.server.common.image.entity.Image
 import com.team2.server.common.image.entity.ImageTargetType
 import com.team2.server.common.image.persistence.ImageRepository
 import com.team2.server.party.application.dto.PartyParticipantResult
@@ -27,26 +28,35 @@ class GetPartyParticipantsUseCase(
 
         val profiles = participantService.findOrderedProfiles(partyId)
         val characterIds = profiles.mapNotNull { it.character?.id }.distinct()
-        val imageUrlByCharacterId =
+        val images =
             if (characterIds.isEmpty()) {
-                emptyMap()
+                emptyList()
             } else {
-                imageRepository
-                    .findAllByTargetTypeAndTargetIdsOrderByTargetIdAndSortOrder(ImageTargetType.CHARACTER, characterIds)
-                    .filter { it.sortOrder == CHARACTER_IMAGE_SORT_ORDER }
-                    .associate { it.targetId to it.imageUrl }
+                imageRepository.findAllByTargetTypeAndTargetIdsOrderByTargetIdAndSortOrder(
+                    ImageTargetType.CHARACTER,
+                    characterIds,
+                )
             }
+        val defaultImageByCharacterId = images.toImageUrlMap(DEFAULT_CHARACTER_IMAGE_SORT_ORDER)
+        val ownerImageByCharacterId = images.toImageUrlMap(OWNER_CHARACTER_IMAGE_SORT_ORDER)
 
         val items =
             profiles.mapIndexed { index, profile ->
                 val participant = profile.participant
+                val isOwner = participant.user?.id == party.ownerId
                 PartyParticipantResult(
                     participantId = participant.id,
                     joinOrder = index + 1,
                     nickname = profile.nickname,
                     characterId = profile.character?.id,
-                    characterImageUrl = profile.character?.id?.let { imageUrlByCharacterId[it] },
-                    isOwner = participant.user?.id == party.ownerId,
+                    characterImageUrl =
+                        resolveCharacterImageUrl(
+                            characterId = profile.character?.id,
+                            isOwner = isOwner,
+                            ownerImages = ownerImageByCharacterId,
+                            defaultImages = defaultImageByCharacterId,
+                        ),
+                    isOwner = isOwner,
                     isCelebrant = participant.isCelebrant,
                     isMe = participant.id == callerParticipantId,
                 )
@@ -58,7 +68,21 @@ class GetPartyParticipantsUseCase(
         )
     }
 
+    private fun List<Image>.toImageUrlMap(sortOrder: Int): Map<Long, String> =
+        filter { it.sortOrder == sortOrder }.associate { it.targetId to it.imageUrl }
+
+    private fun resolveCharacterImageUrl(
+        characterId: Long?,
+        isOwner: Boolean,
+        ownerImages: Map<Long, String>,
+        defaultImages: Map<Long, String>,
+    ): String? =
+        characterId?.let { id ->
+            if (isOwner) ownerImages[id] ?: defaultImages[id] else defaultImages[id]
+        }
+
     private companion object {
-        private const val CHARACTER_IMAGE_SORT_ORDER = 0
+        private const val DEFAULT_CHARACTER_IMAGE_SORT_ORDER = 0
+        private const val OWNER_CHARACTER_IMAGE_SORT_ORDER = 2
     }
 }
