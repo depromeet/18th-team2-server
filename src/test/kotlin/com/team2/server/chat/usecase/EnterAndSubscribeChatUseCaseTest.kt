@@ -57,6 +57,9 @@ class EnterAndSubscribeChatUseCaseTest {
                 endedAt = LocalDateTime.now().plusMinutes(5).plusSeconds(60),
                 endingReason = null,
                 hostNickname = "주최자",
+                hostFarewellAvailable = true,
+                hostFarewellAvailableAt = LocalDateTime.now().minusMinutes(1),
+                serverNow = LocalDateTime.now(),
             ),
     )
 

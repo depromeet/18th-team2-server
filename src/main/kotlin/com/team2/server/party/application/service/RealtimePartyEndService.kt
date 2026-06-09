@@ -10,6 +10,7 @@ import com.team2.server.party.application.port.RealtimePartyEndingInfoPort
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.PartyOption
 import com.team2.server.party.domain.entity.RealtimeParty
+import com.team2.server.party.domain.entity.RealtimePartyEndingReason
 import com.team2.server.party.infrastructure.persistence.PartyRepository
 import org.hibernate.Hibernate
 import org.springframework.stereotype.Service
@@ -23,8 +24,9 @@ class RealtimePartyEndService(
     fun startIfNotStarted(
         partyId: Long,
         endingStartedAt: LocalDateTime,
+        endingReason: RealtimePartyEndingReason,
     ): RealtimePartyEndStartResult {
-        val affected = partyRepository.startRealtimeEndingIfNotStarted(partyId, endingStartedAt)
+        val affected = partyRepository.startRealtimeEndingIfNotStarted(partyId, endingStartedAt, endingReason)
         val party = findRealtimeParty(partyId)
         return RealtimePartyEndStartResult(
             affected = affected,
@@ -36,7 +38,12 @@ class RealtimePartyEndService(
         partyId: Long,
         endingStartedAt: LocalDateTime,
     ): RealtimeEndingScheduleTarget? {
-        val affected = partyRepository.startRealtimeEndingIfNotStarted(partyId, endingStartedAt)
+        val affected =
+            partyRepository.startRealtimeEndingIfNotStarted(
+                partyId,
+                endingStartedAt,
+                RealtimePartyEndingReason.TIME_LIMIT_REACHED,
+            )
         val party = findRealtimeParty(partyId)
         val actualEndingStartedAt = party.liveEndingStartedAt ?: return null
         val endingInfo = endingInfoPort.get(party)
