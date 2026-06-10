@@ -98,7 +98,7 @@ class PartyServiceTest {
 
     private fun newCharacter(
         id: Long = 1L,
-        name: String = "Default",
+        name: String = "blue",
     ): Character {
         val character = Character(name = name)
         setId(character, id)
@@ -234,7 +234,7 @@ class PartyServiceTest {
     fun `createRealtimeParty 요청한 characterId의 캐릭터가 할당됨`() {
         val user = newUser(id = 1L)
         val savedParty = newParty(id = 7L)
-        val character = newCharacter(2L, "Girl")
+        val character = newCharacter(2L, "green")
         val request =
             CreateRealtimePartyCommand(
                 celebrantNickname = "홍길동",
