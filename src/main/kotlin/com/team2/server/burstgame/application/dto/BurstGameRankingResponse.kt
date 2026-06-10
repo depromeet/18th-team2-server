@@ -12,8 +12,8 @@ data class BurstGameRankingResponse(
     val nickname: String,
     @Schema(description = "선택한 캐릭터 ID입니다.", example = "2", nullable = true)
     val characterId: Long?,
-    @Schema(description = "선택한 캐릭터 이미지 URL입니다.", example = "https://example.com/rabbit.png", nullable = true)
-    val characterImageUrl: String?,
+    @Schema(description = "선택한 캐릭터 썸네일 이미지 URL입니다.", example = "https://example.com/rabbit.png", nullable = true)
+    val characterThumbnailImageUrl: String?,
     @Schema(description = "실시간 파티 참여자 역할입니다.", example = "CELEBRANT", allowableValues = ["CELEBRANT", "PARTICIPANT"])
     val role: String,
     @Schema(description = "해당 참여자의 현재 라운드 누적 터치 수입니다.", example = "11")
@@ -26,7 +26,7 @@ data class BurstGameRankingResponse(
                 participantId = entry.participantId,
                 nickname = entry.nickname,
                 characterId = entry.characterId,
-                characterImageUrl = entry.characterImageUrl,
+                characterThumbnailImageUrl = entry.characterThumbnailImageUrl,
                 role = entry.role,
                 tapCount = entry.tapCount,
             )

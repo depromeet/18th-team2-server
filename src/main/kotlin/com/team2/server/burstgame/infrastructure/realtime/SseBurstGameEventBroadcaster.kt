@@ -198,7 +198,7 @@ class SseBurstGameEventBroadcaster(
         val participantId: Long,
         val nickname: String,
         val characterId: Long?,
-        val characterImageUrl: String?,
+        val characterThumbnailImageUrl: String?,
         val role: String,
         val tapCount: Int,
     ) {
@@ -209,7 +209,7 @@ class SseBurstGameEventBroadcaster(
                     participantId = entry.participantId,
                     nickname = entry.nickname,
                     characterId = entry.characterId,
-                    characterImageUrl = entry.characterImageUrl,
+                    characterThumbnailImageUrl = entry.characterThumbnailImageUrl,
                     role = entry.role,
                     tapCount = entry.tapCount,
                 )
