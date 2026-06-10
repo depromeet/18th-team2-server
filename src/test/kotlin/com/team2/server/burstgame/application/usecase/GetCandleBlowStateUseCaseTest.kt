@@ -83,7 +83,7 @@ class GetCandleBlowStateUseCaseTest {
                     participantId = 10L,
                     nickname = "player",
                     characterId = null,
-                    characterImageUrl = null,
+                    characterThumbnailImageUrl = null,
                     role = "PARTICIPANT",
                 ),
         )

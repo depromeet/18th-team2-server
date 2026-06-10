@@ -214,7 +214,7 @@ X-Participant-Token: {participantToken}
       "participantId": 37,
       "nickname": "토끼왕",
       "characterId": 2,
-      "characterImageUrl": "https://example.com/rabbit.png",
+      "characterThumbnailImageUrl": "https://example.com/rabbit.png",
       "role": "CELEBRANT",
       "tapCount": 11
     },
@@ -223,7 +223,7 @@ X-Participant-Token: {participantToken}
       "participantId": 38,
       "nickname": "곰돌이",
       "characterId": 1,
-      "characterImageUrl": "https://example.com/bear.png",
+      "characterThumbnailImageUrl": "https://example.com/bear.png",
       "role": "PARTICIPANT",
       "tapCount": 9
     },
@@ -232,7 +232,7 @@ X-Participant-Token: {participantToken}
       "participantId": 39,
       "nickname": "고양이",
       "characterId": 3,
-      "characterImageUrl": "https://example.com/cat.png",
+      "characterThumbnailImageUrl": "https://example.com/cat.png",
       "role": "PARTICIPANT",
       "tapCount": 8
     }
@@ -318,7 +318,7 @@ SSE 재연결, `burst-game-started` 이벤트 유실, 카운트다운 복구, �
       "participantId": 37,
       "nickname": "토끼왕",
       "characterId": 2,
-      "characterImageUrl": "https://example.com/rabbit.png",
+      "characterThumbnailImageUrl": "https://example.com/rabbit.png",
       "role": "CELEBRANT",
       "tapCount": 52
     },
@@ -327,7 +327,7 @@ SSE 재연결, `burst-game-started` 이벤트 유실, 카운트다운 복구, �
       "participantId": 38,
       "nickname": "곰돌이",
       "characterId": 1,
-      "characterImageUrl": "https://example.com/bear.png",
+      "characterThumbnailImageUrl": "https://example.com/bear.png",
       "role": "PARTICIPANT",
       "tapCount": 44
     },
@@ -336,7 +336,7 @@ SSE 재연결, `burst-game-started` 이벤트 유실, 카운트다운 복구, �
       "participantId": 39,
       "nickname": "고양이",
       "characterId": 3,
-      "characterImageUrl": "https://example.com/cat.png",
+      "characterThumbnailImageUrl": "https://example.com/cat.png",
       "role": "PARTICIPANT",
       "tapCount": 41
     }
@@ -413,7 +413,7 @@ tap batch 반영 후 해당 파티의 기존 SSE 구독자에게 전송한다.
       "participantId": 37,
       "nickname": "토끼왕",
       "characterId": 2,
-      "characterImageUrl": "https://example.com/rabbit.png",
+      "characterThumbnailImageUrl": "https://example.com/rabbit.png",
       "role": "CELEBRANT",
       "tapCount": 11
     },
@@ -422,7 +422,7 @@ tap batch 반영 후 해당 파티의 기존 SSE 구독자에게 전송한다.
       "participantId": 38,
       "nickname": "곰돌이",
       "characterId": 1,
-      "characterImageUrl": "https://example.com/bear.png",
+      "characterThumbnailImageUrl": "https://example.com/bear.png",
       "role": "PARTICIPANT",
       "tapCount": 9
     },
@@ -431,7 +431,7 @@ tap batch 반영 후 해당 파티의 기존 SSE 구독자에게 전송한다.
       "participantId": 39,
       "nickname": "고양이",
       "characterId": 3,
-      "characterImageUrl": "https://example.com/cat.png",
+      "characterThumbnailImageUrl": "https://example.com/cat.png",
       "role": "PARTICIPANT",
       "tapCount": 8
     }
@@ -472,7 +472,7 @@ tap batch 반영 후 해당 파티의 기존 SSE 구독자에게 전송한다.
       "participantId": 37,
       "nickname": "토끼왕",
       "characterId": 2,
-      "characterImageUrl": "https://example.com/rabbit.png",
+      "characterThumbnailImageUrl": "https://example.com/rabbit.png",
       "role": "CELEBRANT",
       "tapCount": 52
     },
@@ -481,7 +481,7 @@ tap batch 반영 후 해당 파티의 기존 SSE 구독자에게 전송한다.
       "participantId": 38,
       "nickname": "곰돌이",
       "characterId": 1,
-      "characterImageUrl": "https://example.com/bear.png",
+      "characterThumbnailImageUrl": "https://example.com/bear.png",
       "role": "PARTICIPANT",
       "tapCount": 52
     },
@@ -490,7 +490,7 @@ tap batch 반영 후 해당 파티의 기존 SSE 구독자에게 전송한다.
       "participantId": 39,
       "nickname": "고양이",
       "characterId": 3,
-      "characterImageUrl": "https://example.com/cat.png",
+      "characterThumbnailImageUrl": "https://example.com/cat.png",
       "role": "PARTICIPANT",
       "tapCount": 33
     }
@@ -539,7 +539,7 @@ batch 단위 전송 구조에서는 "특정 tap 수에 정확히 먼저 도달�
 | `participantId` | 랭킹 표시용 공개 식별자. 인증 수단인 `participantToken`은 전체 SSE에 노출하지 않는다 |
 | `nickname` | 실시간 프로필 닉네임 |
 | `characterId` | 선택 캐릭터 |
-| `characterImageUrl` | 캐릭터 이미지 URL |
+| `characterThumbnailImageUrl` | 캐릭터 썸네일 이미지 URL |
 | `role` | `CELEBRANT` 또는 `PARTICIPANT` |
 | `tapCount` | 참가자 누적 터치 수 |
 
@@ -560,7 +560,7 @@ batch 단위 전송 구조에서는 "특정 tap 수에 정확히 먼저 도달�
 | `participantId` | participant id |
 | `nickname` | 닉네임 |
 | `characterId` | 선택 캐릭터 |
-| `characterImageUrl` | 캐릭터 이미지 URL |
+| `characterThumbnailImageUrl` | 캐릭터 썸네일 이미지 URL |
 | `role` | 역할 |
 | `tapCount` | 누적 터치 수 |
 
