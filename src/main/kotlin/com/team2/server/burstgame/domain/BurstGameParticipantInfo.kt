@@ -4,6 +4,6 @@ data class BurstGameParticipantInfo(
     val participantId: Long,
     val nickname: String,
     val characterId: Long?,
-    val characterImageUrl: String?,
+    val characterThumbnailImageUrl: String?,
     val role: String,
 )
