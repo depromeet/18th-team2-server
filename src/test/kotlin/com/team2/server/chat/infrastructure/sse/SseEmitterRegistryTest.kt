@@ -34,6 +34,7 @@ class SseEmitterRegistryTest {
 
         registry.completeAll(1L)
         assertEquals(0, registry.count(1L))
+        assertEquals(emptySet(), registry.findParticipantTokens(1L))
     }
 
     @Test
@@ -53,6 +54,8 @@ class SseEmitterRegistryTest {
 
         assertEquals(1, registry.count(1L))
         assertEquals(1, registry.count(2L))
+        assertEquals(setOf("tok1"), registry.findParticipantTokens(1L))
+        assertEquals(setOf("tok2"), registry.findParticipantTokens(2L))
     }
 
     @Test
@@ -68,6 +71,7 @@ class SseEmitterRegistryTest {
 
         registry.unsubscribeByToken("tok")
         assertEquals(0, registry.count(1L))
+        assertEquals(emptySet(), registry.findParticipantTokens(1L))
     }
 
     @Test
@@ -86,6 +90,7 @@ class SseEmitterRegistryTest {
         registry.unsubscribeByToken("tok")
 
         assertEquals(0, registry.count(1L))
+        assertEquals(emptySet(), registry.findParticipantTokens(1L))
         assertEquals(0, emitter.completeCount)
     }
 
