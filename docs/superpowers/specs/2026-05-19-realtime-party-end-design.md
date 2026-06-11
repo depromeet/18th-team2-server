@@ -10,9 +10,23 @@
 
 - 주최자만 수동 종료 가능
 - 수동 종료 가능 조건: `LIVE_OPEN` 상태의 주최자는 언제든 종료 가능
+- 주최자 수동 종료 원인은 종료 요청 시점에 `hostEnteredAt + 4분`이 지났거나 박터뜨리기가 종료됐으면 `HOST_REQUEST`, 그 전이면 `HOST_LEFT`
+- `hostEnteredAt + 4분`은 파티 예약 시작 시각이 아니라 주최자가 실시간 파티에 처음 입장한 시각을 기준으로 계산
+- 종료 요청 시점이 정확히 `hostEnteredAt + 4분`이면 `HOST_REQUEST`
+- 박터뜨리기 종료 시각은 영속화하며, 서버 재시작 후 `hostEnteredAt + 4분` 전 종료 요청도 박터뜨리기가 이미 종료됐다면 `HOST_REQUEST`
+- `burstGameEndedAt`은 박터뜨리기 최초 종료 시각만 조건부 저장하며 중복 종료 이벤트로 변경하지 않음
+- 종료 요청과 박터뜨리기 종료가 경합하면 저장된 사건 시각을 비교한다. `burstGameEndedAt <= 종료 요청 시각`이면 `HOST_REQUEST`, 아니면 `HOST_LEFT`
+- 종료 시작 원인은 종료 요청 시점에 확정하며 이후 발생한 사건으로 변경하지 않음
+- 종료 요청 시점이 정확히 `startedAt + 10분`이거나 그 이후면 자동 종료 저장 여부와 관계없이 `TIME_LIMIT_REACHED`
+- 방어적으로 `hostEnteredAt == null` 상태에서 수동 종료 요청이 처리되면 `HOST_LEFT`
+- `hostFarewellAvailable`은 현재 주최자 종료 인사하기 버튼을 사용할 수 있는지 나타낸다. `LIVE_OPEN`이고 `now >= hostEnteredAt + 4분` 또는 `burstGameEndedAt <= now`이면 `true`
+- `hostEnteredAt == null`이면 `hostFarewellAvailable`은 `false`
+- 상태 복구 조회는 `hostFarewellAvailable`과 프론트 타이머 기준인 `hostFarewellAvailableAt = hostEnteredAt + 4분`을 제공
+- 프론트는 서버 시각 기준으로 `hostFarewellAvailableAt` 도달을 계산하고, 박터뜨리기 종료는 기존 `burst-game-ended` SSE로 감지
+- 조기 종료 확인 팝업과 버튼 노출 UI는 프론트 책임이며, 백엔드는 종료 요청 시 권한 검증과 종료 원인 판정을 담당
 - 자동 종료 트리거: `startedAt + 10분`
 - 종료 트리거부터 60초 카운트다운 진행
-- 종료 카운트다운 화면은 `HOST_REQUEST`, `TIME_LIMIT_REACHED` 두 종료 시작 원인을 구분해 표시
+- 종료 카운트다운 화면은 `HOST_REQUEST`, `HOST_LEFT`, `TIME_LIMIT_REACHED` 세 종료 시작 원인을 구분해 표시
 - `party-ending` 전송 후 60초 뒤 `party-ended` 전송
 - `party-ended` 전송 후 짧은 grace time 뒤 남은 SSE emitter 정리
 - 실시간 세션 종료 후 재오픈, 신규 입장, 채팅 전송 불가
@@ -32,23 +46,43 @@ RealtimeParty.LIVE_END_COUNTDOWN_SECONDS = 60
 | 컬럼 | 타입 | nullable | 설명 |
 |---|---|---:|---|
 | `live_ending_started_at` | DATETIME | O | 60초 종료 카운트다운 시작 시각 |
+| `live_ending_reason` | VARCHAR | O | 종료 카운트다운 시작 원인. 종료 시작과 함께 원자적으로 저장 |
+| `burst_game_ended_at` | DATETIME | O | 박터뜨리기 종료 시각. 수동 종료 원인 판정과 재시작 복구에 사용 |
+
+박터뜨리기 종료 시각 저장:
+
+```sql
+UPDATE realtime_party
+SET burst_game_ended_at = :endedAt
+WHERE id = :partyId
+  AND burst_game_ended_at IS NULL
+```
 
 종료 완료 시각은 `live_ending_started_at + 60초`로 계산한다.
-종료 시작 원인은 저장된 `live_ending_started_at`과 자동 종료 기준 시각으로 계산한다.
+종료 시작 원인은 종료 카운트다운 시작 시 확정해 `live_ending_reason`에 저장한다.
+종료 시작 전에는 두 값이 모두 `null`이고, 종료 시작 후에는 `live_ending_started_at`, `live_ending_reason`이 모두 non-null이어야 한다.
+마이그레이션 시 기존 종료 데이터는 판단 가능한 기존 규칙으로 백필한다.
+
+- `live_ending_started_at < started_at + 10분`: `HOST_REQUEST`
+- `live_ending_started_at >= started_at + 10분`: `TIME_LIMIT_REACHED`
+- 기존 데이터에는 조기 종료 판단 정보가 없으므로 `HOST_LEFT`로 백필하지 않음
 
 ```kotlin
 enum class RealtimePartyEndingReason {
     HOST_REQUEST,
+    HOST_LEFT,
     TIME_LIMIT_REACHED,
 }
 ```
 
 | 종료 시작 원인 | 조건 | 의미 | `hostNickname` |
 |---|---|---|---|
-| `HOST_REQUEST` | `liveEndingStartedAt < automaticEndingStartedAt` | 주최자가 제한 시간 전에 종료 요청 | 종료를 요청한 주최자의 닉네임 |
-| `TIME_LIMIT_REACHED` | `liveEndingStartedAt >= automaticEndingStartedAt` | 10분 제한 시간 도달 | 파티 주최자의 닉네임 |
+| `HOST_REQUEST` | 수동 종료 요청 시 `now >= hostEnteredAt + 4분` 또는 `burstGameEndedAt <= now` | 파티가 충분히 진행된 뒤 주최자가 종료 | 종료를 요청한 주최자의 닉네임 |
+| `HOST_LEFT` | 수동 종료 요청 시 `hostEnteredAt == null`이거나 `now < hostEnteredAt + 4분`이고 박터뜨리기가 아직 종료되지 않음 | 파티 진행 초기에 주최자가 종료 | 종료를 요청한 주최자의 닉네임 |
+| `TIME_LIMIT_REACHED` | 종료 요청 시점이 `startedAt + 10분` 이상이거나 자동 종료 트리거 실행 | 10분 제한 시간 도달 | 파티 주최자의 닉네임 |
 
-주최자가 정확히 `startedAt + 10분`에 종료 요청한 경우에도 사용자 관점의 원인을 우선해 `TIME_LIMIT_REACHED`로 계산한다.
+수동 종료 요청과 자동 종료 스케줄러가 경합해도 종료 요청 시점이 `startedAt + 10분` 이상이면 `TIME_LIMIT_REACHED`를 저장한다.
+스케줄러 실행이 지연된 상태에서 주최자가 먼저 종료 API를 호출해도 동일하다.
 `hostNickname`은 파티 주최자의 표시 닉네임이며 종료 원인과 관계없이 항상 제공한다.
 값은 주최자의 `RealtimeParticipantProfile.nickname`을 사용한다. 실시간 파티 생성 시 주최자 프로필이 함께 생성되고 프로필 닉네임은 필수 값이므로, `hostNickname`은 non-null 계약으로 제공한다.
 주최자 프로필은 `Participant.isCelebrant = true`인 참가자의 `RealtimeParticipantProfile`로 식별한다. 실시간 파티에는 주최자 프로필이 한 개 존재한다.
@@ -96,6 +130,9 @@ POST /api/v1/parties/{partyId}/realtime-end
 Authorization: Bearer {accessToken}
 ```
 
+종료 인사하기와 조기 종료는 동일한 API를 사용하며 클라이언트는 종료 원인을 전달하지 않는다.
+서버는 종료 요청 시점의 `hostFarewellAvailable`을 기준으로 `HOST_REQUEST` 또는 `HOST_LEFT`를 판정한다.
+
 ```json
 {
   "partyId": 1,
@@ -121,7 +158,8 @@ Authorization: Bearer {accessToken}
 
 ```sql
 UPDATE realtime_party
-SET live_ending_started_at = :now
+SET live_ending_started_at = :now,
+    live_ending_reason = :endingReason
 WHERE id = :partyId
   AND live_ending_started_at IS NULL
 ```
@@ -147,12 +185,22 @@ Authorization: Bearer {accessToken} 또는 X-Participant-Token: {participantToke
   "endingStartedAt": "2026-05-19T20:10:00",
   "endedAt": "2026-05-19T20:11:00",
   "endingReason": "TIME_LIMIT_REACHED",
-  "hostNickname": "홍길동"
+  "hostNickname": "홍길동",
+  "hostFarewellAvailable": false,
+  "hostFarewellAvailableAt": "2026-05-19T20:04:00",
+  "serverNow": "2026-05-19T20:10:00"
 }
 ```
 
 `endingReason`은 `LIVE_ENDING`, `LIVE_CLOSED`에서만 제공하고, 종료 카운트다운 시작 전에는 `null`이다.
 `hostNickname`은 종료 원인과 상태에 관계없이 항상 제공한다. 따라서 종료 시작 전 상태 응답은 `endingReason = null`, `hostNickname = 주최자 닉네임`으로 내려준다.
+`hostFarewellAvailable`은 응답 시점의 파티 상태 스냅샷이며 현재 조회자가 주최자인지와 관계없이 동일하게 제공한다.
+`hostFarewellAvailable`, `hostFarewellAvailableAt`, `serverNow`는 `realtime-state`와 SSE 연결 직후 전송하는 `party-state`에 포함한다. 종료 요청 응답과 phase API에는 포함하지 않는다.
+`LIVE_ENDING`, `LIVE_CLOSED`, `ROLLING_PAPER_OPEN`, `ROLLING_PAPER_CLOSED`에서는 `false`다.
+`hostEnteredAt == null`이면 `hostFarewellAvailableAt`은 `null`이다.
+프론트는 `serverNow`를 기준으로 `hostFarewellAvailableAt`까지 남은 시간을 계산하고, 도달 시 로컬 상태를 `true`로 전환한다.
+박터뜨리기 종료 시에는 기존 `burst-game-ended` SSE를 받아 로컬 상태를 즉시 `true`로 전환한다.
+프론트는 `isHost && 로컬 hostFarewellAvailable`일 때 주최자 종료 인사하기 버튼을 노출한다.
 
 | 응답 또는 이벤트 | `endingReason` | `hostNickname` |
 |---|---|---|
@@ -160,6 +208,11 @@ Authorization: Bearer {accessToken} 또는 X-Participant-Token: {participantToke
 | `realtime-state`, `party-state` | nullable | non-null |
 | `party-ending` | non-null | non-null |
 | `party-ended` | 미포함 | non-null |
+
+| 응답 또는 이벤트 | `hostFarewellAvailable` | `hostFarewellAvailableAt` | `serverNow` |
+|---|---|---|---|
+| `realtime-state`, `party-state` | non-null | nullable | non-null |
+| 주최자 종료 요청 API, phase API, `party-ending`, `party-ended` | 미포함 | 미포함 | 미포함 |
 
 ### 3-3. 종료 후 다음 행동 조회
 
@@ -206,7 +259,7 @@ SSE 연결 직후 항상 현재 상태를 1회 전송한다.
 
 ```text
 event: party-state
-data: {"partyId":1,"status":"LIVE_ENDING","liveStartAt":"2026-05-19T20:00:00","endingStartedAt":"2026-05-19T20:10:00","endedAt":"2026-05-19T20:11:00","endingReason":"TIME_LIMIT_REACHED","hostNickname":"홍길동"}
+data: {"partyId":1,"status":"LIVE_ENDING","liveStartAt":"2026-05-19T20:00:00","endingStartedAt":"2026-05-19T20:10:00","endedAt":"2026-05-19T20:11:00","endingReason":"TIME_LIMIT_REACHED","hostNickname":"홍길동","hostFarewellAvailable":false,"hostFarewellAvailableAt":"2026-05-19T20:04:00","serverNow":"2026-05-19T20:10:00"}
 ```
 
 ### party-ending
@@ -319,20 +372,15 @@ REALTIME_PARTY_ALREADY_ENDED(HttpStatus.CONFLICT, "이미 종료된 실시간 �
 
 ## 8. 구현 체크리스트
 
-1. `RealtimeParty.liveEndingStartedAt` 추가
-2. Flyway migration 추가
-3. `RealtimePartyStatus.LIVE_ENDING` 추가
-4. `RealtimeParty.hostViewableAt()` 수정
-5. 주최자 종료 요청 API 추가
-6. 실시간 상태 복구 API 추가
-7. 종료 후 다음 행동 조회 API 추가
-8. `party-state`, `party-ending`, `party-ended` SSE에 종료 표시 정보 제공
-9. `PartyEndScheduler`를 startup recovery + event 기반 예약 구조로 변경
-10. 종료 시작 조건부 update 구현
-11. `party-ended` 후 grace cleanup 적용
-12. 신규 입장/채팅 검증에서 `LIVE_OPEN` 허용
-13. 참가자 `LIVE_ENDING` SSE 재연결 허용
-14. `HOST_REQUEST`, `TIME_LIMIT_REACHED` 경계 및 응답 필드 테스트 추가
+1. `realtime_party.live_ending_reason`, `burst_game_ended_at` Flyway migration 및 기존 종료 사유 백필
+2. `RealtimePartyEndingReason.HOST_LEFT` 추가
+3. 종료 시작 조건부 update에서 `live_ending_started_at`, `live_ending_reason` 원자적 저장
+4. 박터뜨리기 최초 종료 시각 조건부 저장
+5. 수동 종료 요청 시 `TIME_LIMIT_REACHED → HOST_REQUEST → HOST_LEFT` 우선순위 판정
+6. 자동 종료와 스케줄 복구에서 저장된 `live_ending_reason` 사용
+7. `realtime-state`, `party-state`에 `hostFarewellAvailable`, `hostFarewellAvailableAt`, `serverNow` 제공
+8. 기존 `burst-game-ended` SSE를 프론트 종료 인사하기 버튼 활성화 트리거로 문서화
+9. 마이그레이션 백필, 4분 경계, 박터뜨리기 경합, 10분 스케줄러 지연, 서버 재시작 복구 테스트 추가
 
 ## 9. 참가자 next action 계산 기준
 

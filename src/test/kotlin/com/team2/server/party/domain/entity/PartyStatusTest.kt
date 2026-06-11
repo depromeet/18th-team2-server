@@ -164,6 +164,64 @@ class PartyStatusTest {
     }
 
     @Test
+    fun `RealtimeParty - 주최자 입장 4분 전 수동 종료는 HOST_LEFT`() {
+        val hostEnteredAt = liveStart.plusSeconds(10)
+        val party = realtimeParty().apply { this.hostEnteredAt = hostEnteredAt }
+
+        assertEquals(
+            RealtimePartyEndingReason.HOST_LEFT,
+            party.endingReasonForManualRequest(hostEnteredAt.plusMinutes(4).minusNanos(1)),
+        )
+    }
+
+    @Test
+    fun `RealtimeParty - 주최자 입장 정확히 4분 뒤 수동 종료는 HOST_REQUEST`() {
+        val hostEnteredAt = liveStart.plusSeconds(10)
+        val party = realtimeParty().apply { this.hostEnteredAt = hostEnteredAt }
+
+        assertEquals(
+            RealtimePartyEndingReason.HOST_REQUEST,
+            party.endingReasonForManualRequest(hostEnteredAt.plusMinutes(4)),
+        )
+    }
+
+    @Test
+    fun `RealtimeParty - 정확히 10분 시점 수동 종료는 TIME_LIMIT_REACHED`() {
+        val party = realtimeParty().apply { hostEnteredAt = liveStart }
+
+        assertEquals(
+            RealtimePartyEndingReason.TIME_LIMIT_REACHED,
+            party.endingReasonForManualRequest(party.automaticEndingStartedAt()),
+        )
+    }
+
+    @Test
+    fun `RealtimeParty - 주최자 입장 4분 전이어도 박터뜨리기가 끝났으면 HOST_REQUEST`() {
+        val hostEnteredAt = liveStart
+        val requestAt = hostEnteredAt.plusMinutes(2)
+        val party =
+            realtimeParty().apply {
+                this.hostEnteredAt = hostEnteredAt
+                burstGameEndedAt = requestAt.minusNanos(1)
+            }
+
+        assertEquals(RealtimePartyEndingReason.HOST_REQUEST, party.endingReasonForManualRequest(requestAt))
+    }
+
+    @Test
+    fun `RealtimeParty - 종료 카운트다운 중에는 종료 인사하기를 사용할 수 없다`() {
+        val endingStartedAt = liveStart.plusMinutes(5)
+        val party =
+            realtimeParty().apply {
+                hostEnteredAt = liveStart
+                liveEndingStartedAt = endingStartedAt
+                liveEndingReason = RealtimePartyEndingReason.HOST_REQUEST
+            }
+
+        assertEquals(false, party.isHostFarewellAvailable(endingStartedAt))
+    }
+
+    @Test
     fun `RealtimeParty - Party 종료가 LIVE_CLOSED보다 우선한다`() {
         val now = liveStart.plusDays(7)
         val party = realtimeParty().apply { liveEndingStartedAt = now.minusSeconds(60) }

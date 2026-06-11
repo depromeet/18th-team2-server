@@ -231,7 +231,7 @@ class PartyControllerTest
         }
 
         @Test
-        fun `주최자는 LIVE_OPEN이면 4분 전에도 실시간 파티 종료를 시작할 수 있다`() {
+        fun `주최자는 LIVE_OPEN이면 4분 전에도 HOST_LEFT로 실시간 파티 종료를 시작할 수 있다`() {
             val owner = saveUser("kakao-realtime-end-start", "end-start@kakao.local")
             val party = saveRealtimeParty(owner, LocalDateTime.now().minusMinutes(1))
 
@@ -243,7 +243,7 @@ class PartyControllerTest
                     jsonPath("$.data.partyId") { value(party.id.toInt()) }
                     jsonPath("$.data.endingStartedAt") { exists() }
                     jsonPath("$.data.endedAt") { exists() }
-                    jsonPath("$.data.endingReason") { value("HOST_REQUEST") }
+                    jsonPath("$.data.endingReason") { value("HOST_LEFT") }
                     jsonPath("$.data.hostNickname") { value("주최자") }
                 }
         }
@@ -285,6 +285,46 @@ class PartyControllerTest
                 }
 
             assertEquals(party.id, memberParticipant.party.id)
+        }
+
+        @Test
+        fun `실시간 파티 상태는 주최자 종료 인사 가능 여부와 기준 시각을 제공한다`() {
+            val owner = saveUser("kakao-realtime-state-farewell", "state-farewell@kakao.local")
+            val hostEnteredAt = LocalDateTime.now().minusMinutes(1)
+            val party =
+                saveRealtimeParty(owner, LocalDateTime.now().minusMinutes(1)).also {
+                    it.hostEnteredAt = hostEnteredAt
+                    partyRepository.save(it)
+                }
+
+            mockMvc
+                .get("/api/v1/parties/${party.id}/realtime-state") {
+                    header("Authorization", "Bearer ${tokenProvider.issue(owner)}")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.hostFarewellAvailable") { value(false) }
+                    jsonPath("$.data.hostFarewellAvailableAt") { exists() }
+                    jsonPath("$.data.serverNow") { exists() }
+                }
+        }
+
+        @Test
+        fun `박터뜨리기가 종료된 파티 상태는 주최자 종료 인사 가능 상태를 복구한다`() {
+            val owner = saveUser("kakao-realtime-state-burst-ended", "state-burst-ended@kakao.local")
+            val party =
+                saveRealtimeParty(owner, LocalDateTime.now().minusMinutes(1)).also {
+                    it.hostEnteredAt = LocalDateTime.now().minusMinutes(1)
+                    it.burstGameEndedAt = LocalDateTime.now().minusSeconds(1)
+                    partyRepository.save(it)
+                }
+
+            mockMvc
+                .get("/api/v1/parties/${party.id}/realtime-state") {
+                    header("Authorization", "Bearer ${tokenProvider.issue(owner)}")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.hostFarewellAvailable") { value(true) }
+                }
         }
 
         @Test
