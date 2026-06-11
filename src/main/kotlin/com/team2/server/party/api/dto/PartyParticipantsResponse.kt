@@ -5,11 +5,11 @@ import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(description = "파티 참여자 목록 응답")
 data class PartyParticipantsResponse(
-    @Schema(description = "현재 참여자 수", example = "4")
+    @Schema(description = "현재 온라인 참여자 수", example = "4")
     val totalCount: Int,
     @Schema(description = "최대 참여자 수", example = "14")
     val maxCount: Int,
-    @Schema(description = "입장 순서대로 정렬된 참여자 목록")
+    @Schema(description = "입장 순서대로 정렬된 온라인 참여자 목록")
     val participants: List<PartyParticipantResponse>,
 ) {
     companion object {

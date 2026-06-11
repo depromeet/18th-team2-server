@@ -92,6 +92,12 @@ class SseEmitterRegistry {
 
     fun count(partyId: Long): Int = emitters[partyId]?.size ?: 0
 
+    fun findParticipantTokens(partyId: Long): Set<String> =
+        emitters[partyId]
+            .orEmpty()
+            .mapNotNull { emitterToToken[it] }
+            .toSet()
+
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     fun onBroadcast(event: SseBroadcastEvent) {
         broadcast(event.partyId, event.event, event.excludeToken)

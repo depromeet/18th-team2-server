@@ -4,6 +4,7 @@ import com.team2.server.common.image.application.port.ImageUrlPort
 import com.team2.server.common.image.entity.ImageTargetType
 import com.team2.server.party.application.dto.PartyParticipantResult
 import com.team2.server.party.application.dto.PartyParticipantsResult
+import com.team2.server.party.application.port.RealtimePartyPresencePort
 import com.team2.server.party.application.service.ParticipantService
 import com.team2.server.party.application.service.PartyService
 import com.team2.server.party.domain.entity.RealtimeParty
@@ -15,6 +16,7 @@ class GetPartyParticipantsUseCase(
     private val partyService: PartyService,
     private val participantService: ParticipantService,
     private val imageUrlPort: ImageUrlPort,
+    private val realtimePartyPresencePort: RealtimePartyPresencePort,
 ) {
     @Transactional(readOnly = true)
     fun invoke(
@@ -25,7 +27,11 @@ class GetPartyParticipantsUseCase(
         val callerParticipantId = participantService.requireCallerParticipant(partyId, userId, participantToken).id
         val party = partyService.requireRealtimeParty(partyId)
 
-        val profiles = participantService.findOrderedProfiles(partyId)
+        val onlineParticipantTokens = realtimePartyPresencePort.findOnlineParticipantTokens(partyId)
+        val profiles =
+            participantService
+                .findOrderedProfiles(partyId)
+                .filter { it.participantToken in onlineParticipantTokens }
         val characterIds = profiles.mapNotNull { it.character?.id }.distinct()
         val defaultImageByCharacterId = findCharacterImageUrls(characterIds, DEFAULT_CHARACTER_IMAGE_SORT_ORDER)
         val ownerImageByCharacterId = findCharacterImageUrls(characterIds, OWNER_CHARACTER_IMAGE_SORT_ORDER)

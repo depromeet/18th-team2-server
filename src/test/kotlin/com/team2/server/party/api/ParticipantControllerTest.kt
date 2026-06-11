@@ -2,6 +2,7 @@ package com.team2.server.party.api
 
 import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
+import com.team2.server.chat.infrastructure.sse.SseEmitterRegistry
 import com.team2.server.common.image.entity.Image
 import com.team2.server.common.image.entity.ImageTargetType
 import com.team2.server.common.image.persistence.ImageRepository
@@ -28,6 +29,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.context.annotation.Import
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 import java.time.LocalDateTime
 
 @SpringBootTest
@@ -44,6 +46,7 @@ class ParticipantControllerTest
         private val imageRepository: ImageRepository,
         private val userRepository: UserRepository,
         private val jwtProperties: JwtProperties,
+        private val sseEmitterRegistry: SseEmitterRegistry,
     ) {
         private val tokenProvider = JwtTokenProvider(jwtProperties)
 
@@ -56,12 +59,7 @@ class ParticipantControllerTest
 
         @BeforeEach
         fun setUp() {
-            realtimeParticipantProfileRepository.deleteAll()
-            participantRepository.deleteAll()
-            partyRepository.deleteAll()
-            imageRepository.deleteAll()
-            characterRepository.deleteAll()
-            userRepository.deleteAll()
+            clearData()
 
             owner = saveUser("participant-owner", "owner@e.com")
             member = saveUser("participant-member", "member@e.com")
@@ -117,6 +115,8 @@ class ParticipantControllerTest
                         character = character,
                     ),
                 )
+            connect(ownerParticipant)
+            connect(memberParticipant)
         }
 
         @Test
@@ -157,6 +157,61 @@ class ParticipantControllerTest
                     status { isOk() }
                     jsonPath("$.data.participants[0].isMe") { value(false) }
                     jsonPath("$.data.participants[1].isMe") { value(true) }
+                }
+        }
+
+        @Test
+        fun `주최자가 SSE에 연결되지 않았으면 온라인 참여자 목록에서 제외된다`() {
+            val ownerProfile =
+                realtimeParticipantProfileRepository.findByParticipantPartyIdAndParticipantIsCelebrantTrue(
+                    realtimeParty.id,
+                )!!
+            sseEmitterRegistry.unsubscribeByToken(ownerProfile.participantToken)
+            val token = tokenProvider.issue(member)
+
+            mockMvc
+                .get("/api/v1/parties/${realtimeParty.id}/participants") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.totalCount") { value(1) }
+                    jsonPath("$.data.participants", hasSize<Any>(1))
+                    jsonPath("$.data.participants[0].nickname") { value("참가자A") }
+                    jsonPath("$.data.participants[0].isOwner") { value(false) }
+                    jsonPath("$.data.participants[0].isMe") { value(true) }
+                }
+        }
+
+        @Test
+        fun `호출자의 SSE 연결이 없어도 조회할 수 있지만 온라인 참여자 목록에서는 제외된다`() {
+            sseEmitterRegistry.unsubscribeByToken(memberProfile.participantToken)
+            val token = tokenProvider.issue(member)
+
+            mockMvc
+                .get("/api/v1/parties/${realtimeParty.id}/participants") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.totalCount") { value(1) }
+                    jsonPath("$.data.participants", hasSize<Any>(1))
+                    jsonPath("$.data.participants[0].nickname") { value("주최자") }
+                    jsonPath("$.data.participants[0].isOwner") { value(true) }
+                    jsonPath("$.data.participants[0].isMe") { value(false) }
+                }
+        }
+
+        @Test
+        fun `온라인 참여자가 없어도 기존 참여자는 빈 목록을 조회할 수 있다`() {
+            sseEmitterRegistry.completeAll(realtimeParty.id)
+            val token = tokenProvider.issue(member)
+
+            mockMvc
+                .get("/api/v1/parties/${realtimeParty.id}/participants") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.totalCount") { value(0) }
+                    jsonPath("$.data.participants", hasSize<Any>(0))
                 }
         }
 
@@ -283,6 +338,7 @@ class ParticipantControllerTest
             realtimeParticipantProfileRepository.save(
                 RealtimeParticipantProfile(participant = participant, nickname = "혼자", character = character),
             )
+            connect(participant)
             val token = tokenProvider.issue(soloOwner)
 
             mockMvc
@@ -321,6 +377,8 @@ class ParticipantControllerTest
             realtimeParticipantProfileRepository.save(
                 RealtimeParticipantProfile(participant = anonymousP, nickname = "익명", character = null),
             )
+            connect(ownerP)
+            connect(anonymousP)
             val token = tokenProvider.issue(owner)
 
             mockMvc
@@ -361,6 +419,7 @@ class ParticipantControllerTest
             realtimeParticipantProfileRepository.save(
                 RealtimeParticipantProfile(participant = ownerP, nickname = "주최자", character = character),
             )
+            connect(ownerP)
             val token = tokenProvider.issue(owner)
 
             mockMvc
@@ -371,6 +430,21 @@ class ParticipantControllerTest
                     jsonPath("$.data.participants[0].isOwner") { value(true) }
                     jsonPath("$.data.participants[0].characterImageUrl") { value("https://cdn/fallback.png") }
                 }
+        }
+
+        private fun connect(participant: Participant) {
+            val profile = realtimeParticipantProfileRepository.findByParticipant(participant)!!
+            sseEmitterRegistry.subscribe(participant.party.id, SseEmitter(5000L), profile.participantToken)
+        }
+
+        private fun clearData() {
+            partyRepository.findAll().forEach { sseEmitterRegistry.completeAll(it.id) }
+            realtimeParticipantProfileRepository.deleteAll()
+            participantRepository.deleteAll()
+            partyRepository.deleteAll()
+            imageRepository.deleteAll()
+            characterRepository.deleteAll()
+            userRepository.deleteAll()
         }
 
         private fun saveUser(

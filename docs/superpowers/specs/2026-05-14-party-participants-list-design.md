@@ -7,7 +7,7 @@
 
 ## 1. 배경 / 목표
 
-실시간 파티 시작 전에 입장한 참가자를 모아 보여주는 "파티 진행 기본화면"을 그리기 위한 서버 API. 클라이언트는 응답을 받아 다음을 수행한다.
+실시간 파티 시작 전에 현재 접속 중인 참가자를 모아 보여주는 "파티 진행 기본화면"을 그리기 위한 서버 API. 클라이언트는 응답을 받아 다음을 수행한다.
 
 - 입장 순서대로 1~13번 캐릭터 위치 고정 배치
 - 주최자 화면: 본인 외 가장 먼저 입장한 참가자를 상단 큰 캐릭터로 배치
@@ -15,6 +15,15 @@
 - 주최자(모자쓴 캐릭터)는 하단 고정
 
 서버는 정렬된 참가자 목록과 식별 정보를 반환하고, UI 배치는 클라이언트가 결정한다.
+
+### 온라인 참여자 기준
+
+- 온라인 참여자는 현재 SSE 연결이 존재하는 참가자다.
+- 주최자도 일반 참가자와 동일하게 SSE 연결이 존재할 때만 온라인 참여자다.
+- SSE 연결이 완료·타임아웃·오류·명시적 퇴장으로 종료되면 즉시 온라인 참여자에서 제외한다.
+- 즉시는 서버가 연결 종료를 감지한 시점을 의미한다. 별도 heartbeat가 없으면 네트워크 단절 감지는 다음 SSE 전송 또는 timeout까지 지연될 수 있다.
+- 새로고침이나 일시적인 네트워크 단절도 SSE 연결이 종료된 동안에는 오프라인으로 본다. 재연결되면 다시 포함한다.
+- 온라인 여부와 명시적 퇴장 여부는 서로 다른 상태다. SSE 연결 종료만으로 참가자를 명시적 퇴장 처리하지 않는다.
 
 ## 2. 비범위 (YAGNI)
 
@@ -36,6 +45,7 @@ X-Participant-Token: <token>     # 비로그인 참가자
 
 - 로그인 사용자는 `Authorization: Bearer <jwt>` 헤더를, 비로그인 참가자는 `X-Participant-Token: <participantToken>` 헤더를 사용한다. 둘 중 하나는 반드시 포함해야 한다.
 - 두 헤더가 모두 있으면 `Authorization` 헤더 우선.
+- 조회 권한은 기존 파티 참여 여부를 기준으로 검증한다. 호출자의 SSE 연결이 없더라도 조회할 수 있지만, 호출자는 응답 참여자 목록에 포함되지 않는다.
 
 ### Path Variable
 
@@ -81,9 +91,9 @@ X-Participant-Token: <token>     # 비로그인 참가자
 
 | 필드 | 타입 | 비고 |
 |---|---|---|
-| totalCount | Int | 현재 참가자 수 |
+| totalCount | Int | 현재 온라인 참여자 수 |
 | maxCount | Int | 상수 14 (`RealtimeParty.MAX_PARTICIPANTS`) |
-| participants | List | `joinOrder` 오름차순 |
+| participants | List | 현재 온라인 참여자 목록, `joinOrder` 오름차순 |
 | participants[].participantId | Long | 식별자 |
 | participants[].joinOrder | Int | 1..N, 서버가 `participant.id ASC` 기준으로 부여 |
 | participants[].nickname | String | `RealtimeParticipantProfile.nickname` |
@@ -116,6 +126,7 @@ GetPartyParticipantsUseCase        (application/usecase, @Transactional(readOnly
         │
         ├─ ParticipantService.requireCallerParticipantId(partyId, userId?, participantToken?) → Long  (인가 먼저)
         ├─ PartyService.requireRealtimeParty(partyId)        → RealtimeParty           (인가 후 파티 타입 검사)
+        ├─ RealtimePartyPresencePort.findOnlineParticipantTokens(partyId) → Set<String>
         ├─ ParticipantService.findOrderedProfiles(partyId)   → List<RealtimeParticipantProfile>
         └─ ImageRepository.findAllByTargetTypeAndTargetIdsOrderByTargetIdAndSortOrder(CHARACTER, ids)
 ```
@@ -124,6 +135,8 @@ GetPartyParticipantsUseCase        (application/usecase, @Transactional(readOnly
 
 - Controller → UseCase 만 호출
 - UseCase → 같은 feature 의 Service 조합 (`PartyService`, `ParticipantService`)
+- UseCase → `RealtimePartyPresencePort`를 통해 온라인 참여자 토큰 조회
+- 현재 단일 애플리케이션 인스턴스에서는 SSE emitter registry가 presence port를 구현한다.
 - Service → Service 호출 없음 (UseCase 가 조합)
 - UseCase 가 응답 DTO 변환 책임
 
@@ -140,6 +153,8 @@ GetPartyParticipantsUseCase        (application/usecase, @Transactional(readOnly
 | `party/application/dto/PartyParticipantsResult.kt` | 응답용 application DTO (envelope) |
 | `party/application/dto/PartyParticipantResult.kt` | 응답용 application DTO (item) |
 | `party/application/usecase/GetPartyParticipantsUseCase.kt` | 흐름 제어, @Transactional(readOnly) |
+| `party/application/port/RealtimePartyPresencePort.kt` | 현재 온라인 참여자 토큰 조회 경계 |
+| `chat/infrastructure/sse/SseRealtimePartyPresenceAdapter.kt` | SSE emitter registry 기반 presence 구현 |
 
 ### 수정
 
@@ -249,7 +264,11 @@ class GetPartyParticipantsUseCase(
         val callerParticipantId = participantService.requireCallerParticipantId(partyId, userId, participantToken)
         val party = partyService.requireRealtimeParty(partyId)
 
-        val profiles = participantService.findOrderedProfiles(partyId)
+        val onlineParticipantTokens = realtimePartyPresencePort.findOnlineParticipantTokens(partyId)
+        val profiles =
+            participantService
+                .findOrderedProfiles(partyId)
+                .filter { it.participantToken in onlineParticipantTokens }
         val characterIds = profiles.mapNotNull { it.character?.id }.distinct()
         val imageUrlByCharacterId =
             if (characterIds.isEmpty()) emptyMap()
@@ -294,12 +313,14 @@ class GetPartyParticipantsUseCase(
 
 | 케이스 | 기대 |
 |---|---|
-| 주최자 호출 (참가자 4명) | 200, `isOwner=true` 1건, 응답 순서 `joinOrder` 1..4 |
+| 주최자 포함 온라인 참가자 4명 | 200, `isOwner=true` 1건, 응답 순서 `joinOrder` 1..4 |
 | 일반 참가자 호출 | 200, 본인 `isMe=true` 1건만 |
 | `X-Participant-Token` 호출 (비로그인 참가자) | 200, 토큰 owner의 `isMe=true` |
 | 다른 파티의 `X-Participant-Token` 호출 | 403, PARTY_FORBIDDEN |
-| 참가자 1명만 (주최자 단독) | 200, totalCount=1 |
-| 참가자 14명 (가득) | 200, totalCount=14, maxCount=14 |
+| 주최자가 SSE 미연결 | 온라인 참가자 목록에서 주최자 제외 |
+| 호출자가 SSE 미연결 | 조회는 200, 온라인 참가자 목록에서 호출자 제외 |
+| 온라인 참가자 1명만 | 200, totalCount=1 |
+| 온라인 참가자 14명 (가득) | 200, totalCount=14, maxCount=14 |
 | 비참가자 호출 (JWT) | 403, PARTY_FORBIDDEN |
 | 비참가자가 PaperOnly 파티 호출 (JWT) | 403, PARTY_FORBIDDEN (인가 우선) |
 | 참가자가 PaperOnly 파티 호출 (JWT) | 400, PARTY_NOT_REALTIME |
