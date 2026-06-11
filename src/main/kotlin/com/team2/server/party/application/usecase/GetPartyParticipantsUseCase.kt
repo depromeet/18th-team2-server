@@ -1,8 +1,7 @@
 package com.team2.server.party.application.usecase
 
-import com.team2.server.common.image.entity.Image
+import com.team2.server.common.image.application.port.ImageUrlPort
 import com.team2.server.common.image.entity.ImageTargetType
-import com.team2.server.common.image.persistence.ImageRepository
 import com.team2.server.party.application.dto.PartyParticipantResult
 import com.team2.server.party.application.dto.PartyParticipantsResult
 import com.team2.server.party.application.service.ParticipantService
@@ -15,7 +14,7 @@ import org.springframework.transaction.annotation.Transactional
 class GetPartyParticipantsUseCase(
     private val partyService: PartyService,
     private val participantService: ParticipantService,
-    private val imageRepository: ImageRepository,
+    private val imageUrlPort: ImageUrlPort,
 ) {
     @Transactional(readOnly = true)
     fun invoke(
@@ -28,34 +27,21 @@ class GetPartyParticipantsUseCase(
 
         val profiles = participantService.findOrderedProfiles(partyId)
         val characterIds = profiles.mapNotNull { it.character?.id }.distinct()
-        val images =
-            if (characterIds.isEmpty()) {
-                emptyList()
-            } else {
-                imageRepository.findAllByTargetTypeAndTargetIdsOrderByTargetIdAndSortOrder(
-                    ImageTargetType.CHARACTER,
-                    characterIds,
-                )
-            }
-        val defaultImageByCharacterId = images.toImageUrlMap(DEFAULT_CHARACTER_IMAGE_SORT_ORDER)
-        val ownerImageByCharacterId = images.toImageUrlMap(OWNER_CHARACTER_IMAGE_SORT_ORDER)
+        val defaultImageByCharacterId = findCharacterImageUrls(characterIds, DEFAULT_CHARACTER_IMAGE_SORT_ORDER)
+        val ownerImageByCharacterId = findCharacterImageUrls(characterIds, OWNER_CHARACTER_IMAGE_SORT_ORDER)
 
         val items =
             profiles.mapIndexed { index, profile ->
                 val participant = profile.participant
+                val characterId = profile.character?.id
                 val isOwner = participant.user?.id == party.ownerId
+                val ownerImageUrl = if (isOwner) characterId?.let { ownerImageByCharacterId[it] } else null
                 PartyParticipantResult(
                     participantId = participant.id,
                     joinOrder = index + 1,
                     nickname = profile.nickname,
-                    characterId = profile.character?.id,
-                    characterImageUrl =
-                        resolveCharacterImageUrl(
-                            characterId = profile.character?.id,
-                            isOwner = isOwner,
-                            ownerImages = ownerImageByCharacterId,
-                            defaultImages = defaultImageByCharacterId,
-                        ),
+                    characterId = characterId,
+                    characterImageUrl = ownerImageUrl ?: characterId?.let { defaultImageByCharacterId[it] },
                     isOwner = isOwner,
                     isCelebrant = participant.isCelebrant,
                     isMe = participant.id == callerParticipantId,
@@ -68,20 +54,14 @@ class GetPartyParticipantsUseCase(
         )
     }
 
-    private fun List<Image>.toImageUrlMap(sortOrder: Int): Map<Long, String> =
-        filter { it.sortOrder == sortOrder }.associate { it.targetId to it.imageUrl }
-
-    private fun resolveCharacterImageUrl(
-        characterId: Long?,
-        isOwner: Boolean,
-        ownerImages: Map<Long, String>,
-        defaultImages: Map<Long, String>,
-    ): String? =
-        characterId?.let { id ->
-            if (isOwner) ownerImages[id] ?: defaultImages[id] else defaultImages[id]
-        }
+    private fun findCharacterImageUrls(
+        characterIds: Collection<Long>,
+        sortOrder: Int,
+    ): Map<Long, String> =
+        imageUrlPort.findImageUrlByTargetIdsAndSortOrder(ImageTargetType.CHARACTER, characterIds, sortOrder)
 
     private companion object {
+        // CHARACTER 이미지 sort_order — V2 시드: 기본(Shape=Default)=0, 썸네일(Shape=Circle)=1 / V8 시드: 주최자 꼬깔모자=2
         private const val DEFAULT_CHARACTER_IMAGE_SORT_ORDER = 0
         private const val OWNER_CHARACTER_IMAGE_SORT_ORDER = 2
     }
