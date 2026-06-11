@@ -59,6 +59,12 @@ data class RealtimePartyStateResult(
     val endingReason: RealtimePartyEndingReason?,
     @Schema(description = "파티 주최자 닉네임", example = "홍길동")
     val hostNickname: String,
+    @Schema(description = "현재 주최자 종료 인사하기 버튼 사용 가능 여부", example = "false")
+    val hostFarewellAvailable: Boolean,
+    @Schema(description = "주최자 입장 기준 종료 인사하기 버튼 활성화 시각", nullable = true)
+    val hostFarewellAvailableAt: LocalDateTime?,
+    @Schema(description = "응답 생성 서버 시각")
+    val serverNow: LocalDateTime,
 ) {
     companion object {
         fun from(
@@ -82,6 +88,9 @@ data class RealtimePartyStateResult(
                 endedAt = party.effectiveLiveEndedAt(),
                 endingReason = endingInfo.endingReason,
                 hostNickname = endingInfo.hostNickname,
+                hostFarewellAvailable = party.isHostFarewellAvailable(now),
+                hostFarewellAvailableAt = party.hostFarewellAvailableAt,
+                serverNow = now,
             )
         }
     }

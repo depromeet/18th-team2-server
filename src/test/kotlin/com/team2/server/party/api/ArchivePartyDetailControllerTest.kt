@@ -89,7 +89,7 @@ class ArchivePartyDetailControllerTest
                 }.andExpect {
                     status { isOk() }
                     jsonPath("$.data.partyId") { value(party.id) }
-                    jsonPath("$.data.partyName") { value("김유빈의 파티") }
+                    jsonPath("$.data.celebrantNickname") { value("김유빈") }
                     jsonPath("$.data.partyOption") { value("REALTIME") }
                     jsonPath("$.data.role") { value("PARTICIPANT") }
                     jsonPath("$.data.participantCount") { value(2) }

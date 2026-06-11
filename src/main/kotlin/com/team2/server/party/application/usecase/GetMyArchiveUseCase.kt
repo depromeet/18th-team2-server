@@ -27,7 +27,7 @@ class GetMyArchiveUseCase(
             )
         val hasNext = rows.size > size
         val pageItems = rows.take(size)
-        val items = pageItems.map(ArchiveListItemResponse::from)
+        val items = pageItems.map { ArchiveListItemResponse.from(it, userId) }
         val nextCursor = if (hasNext) pageItems.last().id.toString() else null
         val totalCount = participantRepository.countArchiveByUserId(userId)
 

@@ -9,6 +9,61 @@ import kotlin.test.assertEquals
 
 class FlywayMigrationTest {
     @Test
+    fun `Flyway migration backfills existing realtime party ending reasons`() {
+        val flywayToV7 =
+            Flyway
+                .configure()
+                .dataSource(MYSQL.jdbcUrl, MYSQL.username, MYSQL.password)
+                .locations("classpath:db/migration")
+                .target("7")
+                .cleanDisabled(false)
+                .load()
+        flywayToV7.clean()
+        flywayToV7.migrate()
+
+        DriverManager.getConnection(MYSQL.jdbcUrl, MYSQL.username, MYSQL.password).use { connection ->
+            connection.createStatement().use { statement ->
+                statement.executeUpdate(
+                    """
+                    insert into users (
+                        id, created_at, updated_at, name, birth_day, provider, provider_id, email
+                    ) values (
+                        1, '2026-06-08 19:00:00', '2026-06-08 19:00:00',
+                        'host', '01-01', 'KAKAO', 'provider-id', 'host@example.com'
+                    )
+                    """.trimIndent(),
+                )
+                statement.executeUpdate(
+                    """
+                    insert into party (
+                        id, party_option, created_at, updated_at, owner_id, started_at
+                    ) values
+                        (1, 'REALTIME', '2026-06-08 19:00:00', '2026-06-08 19:00:00', 1, '2026-06-08 20:00:00'),
+                        (2, 'REALTIME', '2026-06-08 19:00:00', '2026-06-08 19:00:00', 1, '2026-06-08 20:00:00')
+                    """.trimIndent(),
+                )
+                statement.executeUpdate(
+                    """
+                    insert into realtime_party (id, live_ending_started_at, host_entered_at) values
+                        (1, '2026-06-08 20:05:00', '2026-06-08 20:00:00'),
+                        (2, '2026-06-08 20:10:00', '2026-06-08 20:00:00')
+                    """.trimIndent(),
+                )
+            }
+
+            Flyway
+                .configure()
+                .dataSource(MYSQL.jdbcUrl, MYSQL.username, MYSQL.password)
+                .locations("classpath:db/migration")
+                .load()
+                .migrate()
+
+            assertEquals("HOST_REQUEST", connection.findEndingReason(1L))
+            assertEquals("TIME_LIMIT_REACHED", connection.findEndingReason(2L))
+        }
+    }
+
+    @Test
     fun `Flyway migration creates schema and seeds default assets`() {
         DriverManager.getConnection(MYSQL.jdbcUrl, MYSQL.username, MYSQL.password).use { connection ->
             Flyway
@@ -22,7 +77,7 @@ class FlywayMigrationTest {
 
             assertEquals(5, connection.countRows("avatar"))
             assertEquals(3, connection.countRows("rolling_paper_wrapper"))
-            assertEquals(13, connection.countRows("image"))
+            assertEquals(18, connection.countRows("image"))
             assertEquals(0, connection.countRollingPaperToppingsMissingImage())
             assertEquals(
                 ColumnDefinition(dataType = "datetime", datetimePrecision = 6, nullable = true),
@@ -31,6 +86,14 @@ class FlywayMigrationTest {
             assertEquals(
                 ColumnDefinition(dataType = "datetime", datetimePrecision = 6, nullable = true),
                 connection.findColumn("realtime_party", "host_entered_at"),
+            )
+            assertEquals(
+                ColumnDefinition(dataType = "varchar", datetimePrecision = 0, nullable = true),
+                connection.findColumn("realtime_party", "live_ending_reason"),
+            )
+            assertEquals(
+                ColumnDefinition(dataType = "datetime", datetimePrecision = 6, nullable = true),
+                connection.findColumn("realtime_party", "burst_game_ended_at"),
             )
         }
     }
@@ -44,6 +107,15 @@ class FlywayMigrationTest {
             }
         }
     }
+
+    private fun java.sql.Connection.findEndingReason(partyId: Long): String =
+        prepareStatement("select live_ending_reason from realtime_party where id = ?").use { statement ->
+            statement.setLong(1, partyId)
+            statement.executeQuery().use { resultSet ->
+                resultSet.next()
+                resultSet.getString(1)
+            }
+        }
 
     private fun java.sql.Connection.countRollingPaperToppingsMissingImage(): Int =
         createStatement().use { statement ->

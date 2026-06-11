@@ -38,7 +38,7 @@ class GetArchivedPartyDetailUseCase(
         val chat = if (isRealtime) getArchiveChatSectionUseCase.invoke(party.id) else null
         return ArchivePartyDetailResult(
             partyId = party.id,
-            partyName = party.name.orEmpty(),
+            celebrantNickname = party.celebrantNickname,
             partyOption = party.partyOption,
             role = if (party.ownerId == userId) ArchiveRole.HOST else ArchiveRole.PARTICIPANT,
             partyStartedAt = party.startedAt,

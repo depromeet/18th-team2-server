@@ -34,10 +34,17 @@ class StartRealtimePartyEndUseCase(
                     realtimePartyEndService.startIfNotStarted(
                         party.id,
                         party.liveEndingStartedAt ?: party.automaticEndingStartedAt(),
+                        party.endingReason(now) ?: party.endingReasonForManualRequest(now),
                     ),
                 )
             RealtimePartyStatus.LIVE_OPEN ->
-                toResultAndPublish(realtimePartyEndService.startIfNotStarted(party.id, now))
+                toResultAndPublish(
+                    realtimePartyEndService.startIfNotStarted(
+                        party.id,
+                        now,
+                        party.endingReasonForManualRequest(now),
+                    ),
+                )
             else -> throwPartyBusiness(ErrorCode.REALTIME_PARTY_INVALID_STATE)
         }
     }

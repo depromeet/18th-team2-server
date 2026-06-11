@@ -2,6 +2,7 @@ package com.team2.server.party.infrastructure.persistence
 
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.RealtimeParty
+import com.team2.server.party.domain.entity.RealtimePartyEndingReason
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
@@ -20,7 +21,8 @@ interface PartyRepository : JpaRepository<Party, Long> {
     @Query(
         """
         UPDATE RealtimeParty party
-        SET party.liveEndingStartedAt = :endingStartedAt
+        SET party.liveEndingStartedAt = :endingStartedAt,
+            party.liveEndingReason = :endingReason
         WHERE party.id = :partyId
           AND party.liveEndingStartedAt IS NULL
         """,
@@ -28,6 +30,7 @@ interface PartyRepository : JpaRepository<Party, Long> {
     fun startRealtimeEndingIfNotStarted(
         partyId: Long,
         endingStartedAt: LocalDateTime,
+        endingReason: RealtimePartyEndingReason,
     ): Int
 
     @Modifying(flushAutomatically = true)
@@ -46,6 +49,20 @@ interface PartyRepository : JpaRepository<Party, Long> {
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(
+        """
+        UPDATE RealtimeParty party
+        SET party.burstGameEndedAt = :endedAt
+        WHERE party.id = :partyId
+          AND party.burstGameEndedAt IS NULL
+        """,
+    )
+    fun markBurstGameEndedIfAbsent(
+        partyId: Long,
+        endedAt: LocalDateTime,
+    ): Int
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(
         value =
             """
             UPDATE realtime_party realtime_party
@@ -53,7 +70,8 @@ interface PartyRepository : JpaRepository<Party, Long> {
             SET realtime_party.live_ending_started_at = DATE_ADD(
                 party.started_at,
                 INTERVAL :liveDurationMinutes MINUTE
-            )
+            ),
+                realtime_party.live_ending_reason = :endingReason
             WHERE realtime_party.live_ending_started_at IS NULL
               AND DATE_ADD(party.started_at, INTERVAL :liveDurationMinutes MINUTE) <= :now
               AND DATE_ADD(party.started_at, INTERVAL :partyEndedAfterDays DAY) > :now
@@ -64,6 +82,7 @@ interface PartyRepository : JpaRepository<Party, Long> {
         now: LocalDateTime,
         liveDurationMinutes: Long,
         partyEndedAfterDays: Long,
+        endingReason: String,
     ): Int
 
     @Query(

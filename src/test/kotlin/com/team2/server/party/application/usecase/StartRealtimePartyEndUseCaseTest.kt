@@ -12,6 +12,7 @@ import com.team2.server.party.application.service.RealtimePartyEndResultService
 import com.team2.server.party.application.service.RealtimePartyEndService
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.RealtimeParty
+import com.team2.server.party.domain.entity.RealtimePartyEndingReason
 import com.team2.server.party.domain.vo.PartyPhase
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -74,12 +75,22 @@ class StartRealtimePartyEndUseCaseTest {
     }
 
     @Test
-    fun `LIVE_OPEN host starts ending and publishes event when newly persisted`() {
+    fun `LIVE_OPEN host before farewell availability starts HOST_LEFT ending`() {
         val endingStartedAt = now
-        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(1))
-        val endedParty = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(1), endingStartedAt)
+        val party =
+            realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(1)).apply {
+                hostEnteredAt = now.minusMinutes(1)
+            }
+        val endedParty =
+            realtimeParty(
+                id = 1L,
+                ownerId = 1L,
+                startedAt = now.minusMinutes(1),
+                liveEndingStartedAt = endingStartedAt,
+                liveEndingReason = RealtimePartyEndingReason.HOST_LEFT,
+            )
         whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
-        whenever(realtimePartyEndService.startIfNotStarted(1L, endingStartedAt))
+        whenever(realtimePartyEndService.startIfNotStarted(1L, endingStartedAt, RealtimePartyEndingReason.HOST_LEFT))
             .thenReturn(RealtimePartyEndStartResult(affected = 1, party = endedParty))
         whenever(endingInfoPort.get(endedParty))
             .thenReturn(RealtimePartyEndingInfo(endedParty.endingReason(), "주최자"))
@@ -87,6 +98,7 @@ class StartRealtimePartyEndUseCaseTest {
         val result = useCase(1L, userId = 1L)
 
         assertEquals(endingStartedAt, result.endingStartedAt)
+        assertEquals(RealtimePartyEndingReason.HOST_LEFT, result.endingReason)
         verify(phaseStore).forceSet(1L, PartyPhase.END, endingStartedAt)
         verify(eventPublisher).publish(result)
     }
@@ -94,17 +106,26 @@ class StartRealtimePartyEndUseCaseTest {
     @Test
     fun `LIVE_ENDING with existing ending returns result without publishing duplicate event`() {
         val endingStartedAt = now.minusSeconds(10)
-        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(10), endingStartedAt)
+        val party =
+            realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(10), endingStartedAt).apply {
+                hostEnteredAt = now.minusMinutes(5)
+            }
         whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
-        whenever(realtimePartyEndService.startIfNotStarted(1L, endingStartedAt))
-            .thenReturn(RealtimePartyEndStartResult(affected = 0, party = party))
+        whenever(
+            realtimePartyEndService.startIfNotStarted(
+                1L,
+                endingStartedAt,
+                RealtimePartyEndingReason.HOST_REQUEST,
+            ),
+        ).thenReturn(RealtimePartyEndStartResult(affected = 0, party = party))
         whenever(endingInfoPort.get(party))
             .thenReturn(RealtimePartyEndingInfo(party.endingReason(), "주최자"))
 
         val result = useCase(1L, userId = 1L)
 
         assertEquals(endingStartedAt, result.endingStartedAt)
-        verify(realtimePartyEndService).startIfNotStarted(1L, endingStartedAt)
+        verify(realtimePartyEndService)
+            .startIfNotStarted(1L, endingStartedAt, RealtimePartyEndingReason.HOST_REQUEST)
         verify(phaseStore).forceSet(1L, PartyPhase.END, endingStartedAt)
         verifyNoInteractions(eventPublisher)
     }
@@ -120,8 +141,13 @@ class StartRealtimePartyEndUseCaseTest {
                 liveEndingStartedAt = party.automaticEndingStartedAt(),
             )
         whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
-        whenever(realtimePartyEndService.startIfNotStarted(1L, party.automaticEndingStartedAt()))
-            .thenReturn(RealtimePartyEndStartResult(affected = 0, party = endedParty))
+        whenever(
+            realtimePartyEndService.startIfNotStarted(
+                1L,
+                party.automaticEndingStartedAt(),
+                RealtimePartyEndingReason.TIME_LIMIT_REACHED,
+            ),
+        ).thenReturn(RealtimePartyEndStartResult(affected = 0, party = endedParty))
         whenever(endingInfoPort.get(endedParty))
             .thenReturn(RealtimePartyEndingInfo(endedParty.endingReason(), "주최자"))
 
@@ -137,9 +163,14 @@ class StartRealtimePartyEndUseCaseTest {
         ownerId: Long,
         startedAt: LocalDateTime,
         liveEndingStartedAt: LocalDateTime? = null,
+        liveEndingReason: RealtimePartyEndingReason? = null,
     ): RealtimeParty =
-        RealtimeParty(ownerId = ownerId, startedAt = startedAt, liveEndingStartedAt = liveEndingStartedAt)
-            .also { setId(it, id) }
+        RealtimeParty(
+            ownerId = ownerId,
+            startedAt = startedAt,
+            liveEndingStartedAt = liveEndingStartedAt,
+            liveEndingReason = liveEndingReason,
+        ).also { setId(it, id) }
 
     private fun setId(
         party: Party,
