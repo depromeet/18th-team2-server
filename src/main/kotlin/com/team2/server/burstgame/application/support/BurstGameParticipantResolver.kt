@@ -29,9 +29,13 @@ class BurstGameParticipantResolver(
         val party = resolveLiveOpenRealtimePartyUseCase.invoke(partyId)
         val profile = resolveRealtimeParticipantProfileUseCase.invoke(partyId, userId, participantToken)
         val characterId = profile.character?.id
-        val imageUrl =
+        val thumbnailImageUrl =
             characterId?.let {
-                imageUrlReader.findFirstImageUrlByTargetIds(ImageTargetType.CHARACTER, listOf(it))[it]
+                imageUrlReader.findImageUrlByTargetIdsAndSortOrder(
+                    ImageTargetType.CHARACTER,
+                    listOf(it),
+                    CHARACTER_THUMBNAIL_SORT_ORDER,
+                )[it]
             }
         return ResolvedRealtimeParticipant(
             party = party,
@@ -40,7 +44,7 @@ class BurstGameParticipantResolver(
                     participantId = profile.participant.id,
                     nickname = profile.nickname,
                     characterId = characterId,
-                    characterImageUrl = imageUrl,
+                    characterThumbnailImageUrl = thumbnailImageUrl,
                     role =
                         if (profile.participant.isCelebrant) {
                             ParticipantRole.CELEBRANT.name
@@ -49,6 +53,10 @@ class BurstGameParticipantResolver(
                         },
                 ),
         )
+    }
+
+    private companion object {
+        const val CHARACTER_THUMBNAIL_SORT_ORDER = 1
     }
 
     data class ResolvedRealtimeParticipant(

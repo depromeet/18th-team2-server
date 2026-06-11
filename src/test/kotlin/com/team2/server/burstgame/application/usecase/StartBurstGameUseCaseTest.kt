@@ -96,7 +96,7 @@ class StartBurstGameUseCaseTest {
             participantId = participantId,
             nickname = "player",
             characterId = null,
-            characterImageUrl = null,
+            characterThumbnailImageUrl = null,
             role = "PARTICIPANT",
         )
 

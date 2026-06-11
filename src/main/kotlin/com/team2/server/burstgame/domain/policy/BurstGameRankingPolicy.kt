@@ -39,7 +39,7 @@ object BurstGameRankingPolicy {
             participantId = score.participant.participantId,
             nickname = score.participant.nickname,
             characterId = score.participant.characterId,
-            characterImageUrl = score.participant.characterImageUrl,
+            characterThumbnailImageUrl = score.participant.characterThumbnailImageUrl,
             role = score.participant.role,
             tapCount = score.tapCount,
         )

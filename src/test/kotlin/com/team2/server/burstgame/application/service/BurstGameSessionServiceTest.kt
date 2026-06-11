@@ -306,7 +306,7 @@ class BurstGameSessionServiceTest {
             participantId = participantId,
             nickname = "p$participantId",
             characterId = null,
-            characterImageUrl = null,
+            characterThumbnailImageUrl = null,
             role = "PARTICIPANT",
         )
 
