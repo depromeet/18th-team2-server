@@ -34,37 +34,37 @@ class CharacterControllerTest
 
         @Test
         fun `인증 없이 캐릭터 목록 조회 성공`() {
-            val defaultCharacter = characterRepository.save(Character(name = "Default"))
-            val girlCharacter = characterRepository.save(Character(name = "Girl"))
+            val blueCharacter = characterRepository.save(Character(name = "blue"))
+            val greenCharacter = characterRepository.save(Character(name = "green"))
             imageRepository.save(
                 Image(
-                    imageUrl = "/images/characters/Type=Default, Shape=Default.png",
+                    imageUrl = "/images/characters/blue.png",
                     targetType = ImageTargetType.CHARACTER,
-                    targetId = defaultCharacter.id,
+                    targetId = blueCharacter.id,
                     sortOrder = 0,
                 ),
             )
             imageRepository.save(
                 Image(
-                    imageUrl = "/images/character-thumbnails/Type=Default, Shape=Circle.png",
+                    imageUrl = "/images/character-thumbnails/blue.png",
                     targetType = ImageTargetType.CHARACTER,
-                    targetId = defaultCharacter.id,
+                    targetId = blueCharacter.id,
                     sortOrder = 1,
                 ),
             )
             imageRepository.save(
                 Image(
-                    imageUrl = "/images/characters/Type=Girl, Shape=Default.png",
+                    imageUrl = "/images/characters/green.png",
                     targetType = ImageTargetType.CHARACTER,
-                    targetId = girlCharacter.id,
+                    targetId = greenCharacter.id,
                     sortOrder = 0,
                 ),
             )
             imageRepository.save(
                 Image(
-                    imageUrl = "/images/character-thumbnails/Type=Girl, Shape=Circle.png",
+                    imageUrl = "/images/character-thumbnails/green.png",
                     targetType = ImageTargetType.CHARACTER,
-                    targetId = girlCharacter.id,
+                    targetId = greenCharacter.id,
                     sortOrder = 1,
                 ),
             )
@@ -72,21 +72,21 @@ class CharacterControllerTest
             mockMvc.get("/api/v1/characters").andExpect {
                 status { isOk() }
                 jsonPath("$.status") { value(200) }
-                jsonPath("$.data[0].characterId") { value(defaultCharacter.id) }
-                jsonPath("$.data[0].name") { value("Default") }
+                jsonPath("$.data[0].characterId") { value(blueCharacter.id) }
+                jsonPath("$.data[0].name") { value("blue") }
                 jsonPath("$.data[0].characterImageUrl") {
-                    value("/images/characters/Type=Default, Shape=Default.png")
+                    value("/images/characters/blue.png")
                 }
                 jsonPath("$.data[0].characterThumbnailImageUrl") {
-                    value("/images/character-thumbnails/Type=Default, Shape=Circle.png")
+                    value("/images/character-thumbnails/blue.png")
                 }
-                jsonPath("$.data[1].characterId") { value(girlCharacter.id) }
-                jsonPath("$.data[1].name") { value("Girl") }
+                jsonPath("$.data[1].characterId") { value(greenCharacter.id) }
+                jsonPath("$.data[1].name") { value("green") }
                 jsonPath("$.data[1].characterImageUrl") {
-                    value("/images/characters/Type=Girl, Shape=Default.png")
+                    value("/images/characters/green.png")
                 }
                 jsonPath("$.data[1].characterThumbnailImageUrl") {
-                    value("/images/character-thumbnails/Type=Girl, Shape=Circle.png")
+                    value("/images/character-thumbnails/green.png")
                 }
             }
         }
@@ -106,10 +106,10 @@ class CharacterControllerTest
 
         @Test
         fun `캐릭터 정적 이미지 경로는 인증 없이 접근 가능`() {
-            mockMvc.get("/images/characters/Type=Default, Shape=Default.png").andExpect {
+            mockMvc.get("/images/characters/blue.png").andExpect {
                 status { isOk() }
             }
-            mockMvc.get("/images/character-thumbnails/Type=Default, Shape=Circle.png").andExpect {
+            mockMvc.get("/images/character-thumbnails/blue.png").andExpect {
                 status { isOk() }
             }
         }

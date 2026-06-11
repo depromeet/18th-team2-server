@@ -55,7 +55,7 @@ class PartyControllerTest
         @BeforeEach
         fun setUp() {
             databaseCleanup.execute()
-            defaultCharacterId = characterRepository.save(Character(name = "Default")).id
+            defaultCharacterId = characterRepository.save(Character(name = "blue")).id
         }
 
         @Test
