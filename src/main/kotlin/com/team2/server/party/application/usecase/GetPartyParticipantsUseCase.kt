@@ -1,7 +1,7 @@
 package com.team2.server.party.application.usecase
 
+import com.team2.server.common.image.application.port.ImageUrlPort
 import com.team2.server.common.image.entity.ImageTargetType
-import com.team2.server.common.image.persistence.ImageRepository
 import com.team2.server.party.application.dto.PartyParticipantResult
 import com.team2.server.party.application.dto.PartyParticipantsResult
 import com.team2.server.party.application.service.ParticipantService
@@ -14,7 +14,7 @@ import org.springframework.transaction.annotation.Transactional
 class GetPartyParticipantsUseCase(
     private val partyService: PartyService,
     private val participantService: ParticipantService,
-    private val imageRepository: ImageRepository,
+    private val imageUrlPort: ImageUrlPort,
 ) {
     @Transactional(readOnly = true)
     fun invoke(
@@ -27,26 +27,22 @@ class GetPartyParticipantsUseCase(
 
         val profiles = participantService.findOrderedProfiles(partyId)
         val characterIds = profiles.mapNotNull { it.character?.id }.distinct()
-        val imageUrlByCharacterId =
-            if (characterIds.isEmpty()) {
-                emptyMap()
-            } else {
-                imageRepository
-                    .findAllByTargetTypeAndTargetIdsOrderByTargetIdAndSortOrder(ImageTargetType.CHARACTER, characterIds)
-                    .filter { it.sortOrder == CHARACTER_IMAGE_SORT_ORDER }
-                    .associate { it.targetId to it.imageUrl }
-            }
+        val defaultImageByCharacterId = findCharacterImageUrls(characterIds, DEFAULT_CHARACTER_IMAGE_SORT_ORDER)
+        val ownerImageByCharacterId = findCharacterImageUrls(characterIds, OWNER_CHARACTER_IMAGE_SORT_ORDER)
 
         val items =
             profiles.mapIndexed { index, profile ->
                 val participant = profile.participant
+                val characterId = profile.character?.id
+                val isOwner = participant.user?.id == party.ownerId
+                val ownerImageUrl = if (isOwner) characterId?.let { ownerImageByCharacterId[it] } else null
                 PartyParticipantResult(
                     participantId = participant.id,
                     joinOrder = index + 1,
                     nickname = profile.nickname,
-                    characterId = profile.character?.id,
-                    characterImageUrl = profile.character?.id?.let { imageUrlByCharacterId[it] },
-                    isOwner = participant.user?.id == party.ownerId,
+                    characterId = characterId,
+                    characterImageUrl = ownerImageUrl ?: characterId?.let { defaultImageByCharacterId[it] },
+                    isOwner = isOwner,
                     isCelebrant = participant.isCelebrant,
                     isMe = participant.id == callerParticipantId,
                 )
@@ -58,7 +54,15 @@ class GetPartyParticipantsUseCase(
         )
     }
 
+    private fun findCharacterImageUrls(
+        characterIds: Collection<Long>,
+        sortOrder: Int,
+    ): Map<Long, String> =
+        imageUrlPort.findImageUrlByTargetIdsAndSortOrder(ImageTargetType.CHARACTER, characterIds, sortOrder)
+
     private companion object {
-        private const val CHARACTER_IMAGE_SORT_ORDER = 0
+        // CHARACTER 이미지 sort_order — V2 시드: 기본(Shape=Default)=0, 썸네일(Shape=Circle)=1 / V8 시드: 주최자 꼬깔모자=2
+        private const val DEFAULT_CHARACTER_IMAGE_SORT_ORDER = 0
+        private const val OWNER_CHARACTER_IMAGE_SORT_ORDER = 2
     }
 }

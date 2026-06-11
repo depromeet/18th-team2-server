@@ -77,7 +77,7 @@ class FlywayMigrationTest {
 
             assertEquals(5, connection.countRows("avatar"))
             assertEquals(3, connection.countRows("rolling_paper_wrapper"))
-            assertEquals(13, connection.countRows("image"))
+            assertEquals(18, connection.countRows("image"))
             assertEquals(0, connection.countRollingPaperToppingsMissingImage())
             assertEquals(
                 ColumnDefinition(dataType = "datetime", datetimePrecision = 6, nullable = true),

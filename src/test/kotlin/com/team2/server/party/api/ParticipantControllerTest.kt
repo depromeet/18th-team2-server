@@ -93,6 +93,14 @@ class ParticipantControllerTest
                     sortOrder = 0,
                 ),
             )
+            imageRepository.save(
+                Image(
+                    imageUrl = "https://cdn/char-owner.png",
+                    targetType = ImageTargetType.CHARACTER,
+                    targetId = character.id,
+                    sortOrder = 2,
+                ),
+            )
 
             val ownerParticipant =
                 participantRepository.save(Participant(party = realtimeParty, user = owner, isCelebrant = true))
@@ -128,12 +136,13 @@ class ParticipantControllerTest
                     jsonPath("$.data.participants[0].isOwner") { value(true) }
                     jsonPath("$.data.participants[0].isCelebrant") { value(true) }
                     jsonPath("$.data.participants[0].isMe") { value(true) }
-                    jsonPath("$.data.participants[0].characterImageUrl") { value("https://cdn/char.png") }
+                    jsonPath("$.data.participants[0].characterImageUrl") { value("https://cdn/char-owner.png") }
                     jsonPath("$.data.participants[1].joinOrder") { value(2) }
                     jsonPath("$.data.participants[1].nickname") { value("참가자A") }
                     jsonPath("$.data.participants[1].isOwner") { value(false) }
                     jsonPath("$.data.participants[1].isCelebrant") { value(false) }
                     jsonPath("$.data.participants[1].isMe") { value(false) }
+                    jsonPath("$.data.participants[1].characterImageUrl") { value("https://cdn/char.png") }
                 }
         }
 
@@ -325,6 +334,42 @@ class ParticipantControllerTest
                     jsonPath("$.data.participants[1].characterImageUrl") { value(nullValue()) }
                     jsonPath("$.data.participants[1].isOwner") { value(false) }
                     jsonPath("$.data.participants[1].isMe") { value(false) }
+                }
+        }
+
+        @Test
+        fun `주최자 캐릭터에 꼬깔모자 이미지가 없으면 기본 이미지로 폴백한다`() {
+            val fallbackParty =
+                partyRepository.save(
+                    RealtimeParty(
+                        ownerId = owner.id,
+                        celebrantNickname = "폴백",
+                        startedAt = LocalDateTime.now().plusHours(4),
+                    ),
+                )
+            val character = characterRepository.save(Character(name = "fallback-char"))
+            imageRepository.save(
+                Image(
+                    imageUrl = "https://cdn/fallback.png",
+                    targetType = ImageTargetType.CHARACTER,
+                    targetId = character.id,
+                    sortOrder = 0,
+                ),
+            )
+            val ownerP =
+                participantRepository.save(Participant(party = fallbackParty, user = owner, isCelebrant = true))
+            realtimeParticipantProfileRepository.save(
+                RealtimeParticipantProfile(participant = ownerP, nickname = "주최자", character = character),
+            )
+            val token = tokenProvider.issue(owner)
+
+            mockMvc
+                .get("/api/v1/parties/${fallbackParty.id}/participants") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.participants[0].isOwner") { value(true) }
+                    jsonPath("$.data.participants[0].characterImageUrl") { value("https://cdn/fallback.png") }
                 }
         }
 
