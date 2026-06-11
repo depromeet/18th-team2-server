@@ -30,7 +30,7 @@ class ArchivePartyDetailController(
     private fun ArchivePartyDetailResult.toResponse(): ArchivePartyDetailResponse =
         ArchivePartyDetailResponse(
             partyId = partyId,
-            partyName = partyName,
+            celebrantNickname = celebrantNickname,
             partyOption = partyOption,
             role = role,
             partyStartedAt = partyStartedAt,

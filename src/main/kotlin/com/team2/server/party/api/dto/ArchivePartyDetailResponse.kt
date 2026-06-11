@@ -9,8 +9,8 @@ import java.time.LocalDateTime
 data class ArchivePartyDetailResponse(
     @Schema(description = "파티 ID")
     val partyId: Long,
-    @Schema(description = "파티 이름. Party.name이 null이면 빈 문자열")
-    val partyName: String,
+    @Schema(description = "파티 주인공 닉네임. 없으면 null", nullable = true)
+    val celebrantNickname: String?,
     @Schema(description = "REALTIME 또는 PAPER_ONLY")
     val partyOption: PartyOption,
     @Schema(description = "조회자 역할")
