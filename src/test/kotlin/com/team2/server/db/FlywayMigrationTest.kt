@@ -80,6 +80,26 @@ class FlywayMigrationTest {
             assertEquals(18, connection.countRows("image"))
             assertEquals(0, connection.countRollingPaperToppingsMissingImage())
             assertEquals(
+                listOf(
+                    "/images/characters/blue.svg",
+                    "/images/characters/green.svg",
+                    "/images/characters/pink.svg",
+                    "/images/characters/purple.svg",
+                    "/images/characters/yellow.svg",
+                ),
+                connection.findCharacterImageUrls(),
+            )
+            assertEquals(
+                listOf(
+                    "/images/characters/party-hat/blue.svg",
+                    "/images/characters/party-hat/green.svg",
+                    "/images/characters/party-hat/pink.svg",
+                    "/images/characters/party-hat/purple.svg",
+                    "/images/characters/party-hat/yellow.svg",
+                ),
+                connection.findPartyHatCharacterImageUrls(),
+            )
+            assertEquals(
                 ColumnDefinition(dataType = "datetime", datetimePrecision = 6, nullable = true),
                 connection.findColumn("realtime_party", "live_ending_started_at"),
             )
@@ -136,6 +156,31 @@ class FlywayMigrationTest {
                     resultSet.next()
                     resultSet.getInt(1)
                 }
+        }
+
+    private fun java.sql.Connection.findCharacterImageUrls(): List<String> = findCharacterImageUrls(sortOrder = 0)
+
+    private fun java.sql.Connection.findPartyHatCharacterImageUrls(): List<String> =
+        findCharacterImageUrls(sortOrder = 2)
+
+    private fun java.sql.Connection.findCharacterImageUrls(sortOrder: Int): List<String> =
+        prepareStatement(
+            """
+            select image_url
+            from image
+            where target_type = 'CHARACTER'
+              and sort_order = ?
+            order by target_id
+            """.trimIndent(),
+        ).use { statement ->
+            statement.setInt(1, sortOrder)
+            statement.executeQuery().use { resultSet ->
+                buildList {
+                    while (resultSet.next()) {
+                        add(resultSet.getString("image_url"))
+                    }
+                }
+            }
         }
 
     private companion object {
