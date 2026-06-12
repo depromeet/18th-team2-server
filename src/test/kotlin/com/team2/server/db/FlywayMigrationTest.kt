@@ -79,6 +79,8 @@ class FlywayMigrationTest {
             assertEquals(3, connection.countRows("rolling_paper_wrapper"))
             assertEquals(18, connection.countRows("image"))
             assertEquals(0, connection.countRollingPaperToppingsMissingImage())
+            assertEquals(EXPECTED_CHARACTER_IMAGE_URLS, connection.findCharacterImageUrls())
+            assertEquals(EXPECTED_PARTY_HAT_CHARACTER_IMAGE_URLS, connection.findPartyHatCharacterImageUrls())
             assertEquals(
                 ColumnDefinition(dataType = "datetime", datetimePrecision = 6, nullable = true),
                 connection.findColumn("realtime_party", "live_ending_started_at"),
@@ -95,6 +97,36 @@ class FlywayMigrationTest {
                 ColumnDefinition(dataType = "datetime", datetimePrecision = 6, nullable = true),
                 connection.findColumn("realtime_party", "burst_game_ended_at"),
             )
+        }
+    }
+
+    @Test
+    fun `Flyway migration updates character image paths regardless of image ids`() {
+        val flywayToV10 =
+            Flyway
+                .configure()
+                .dataSource(MYSQL.jdbcUrl, MYSQL.username, MYSQL.password)
+                .locations("classpath:db/migration")
+                .target("10")
+                .cleanDisabled(false)
+                .load()
+        flywayToV10.clean()
+        flywayToV10.migrate()
+
+        DriverManager.getConnection(MYSQL.jdbcUrl, MYSQL.username, MYSQL.password).use { connection ->
+            connection.createStatement().use { statement ->
+                statement.executeUpdate("update image set id = id + 100")
+            }
+
+            Flyway
+                .configure()
+                .dataSource(MYSQL.jdbcUrl, MYSQL.username, MYSQL.password)
+                .locations("classpath:db/migration")
+                .load()
+                .migrate()
+
+            assertEquals(EXPECTED_CHARACTER_IMAGE_URLS, connection.findCharacterImageUrls())
+            assertEquals(EXPECTED_PARTY_HAT_CHARACTER_IMAGE_URLS, connection.findPartyHatCharacterImageUrls())
         }
     }
 
@@ -138,9 +170,50 @@ class FlywayMigrationTest {
                 }
         }
 
+    private fun java.sql.Connection.findCharacterImageUrls(): List<String> = findCharacterImageUrls(sortOrder = 0)
+
+    private fun java.sql.Connection.findPartyHatCharacterImageUrls(): List<String> =
+        findCharacterImageUrls(sortOrder = 2)
+
+    private fun java.sql.Connection.findCharacterImageUrls(sortOrder: Int): List<String> =
+        prepareStatement(
+            """
+            select image_url
+            from image
+            where target_type = 'CHARACTER'
+              and sort_order = ?
+            order by target_id
+            """.trimIndent(),
+        ).use { statement ->
+            statement.setInt(1, sortOrder)
+            statement.executeQuery().use { resultSet ->
+                buildList {
+                    while (resultSet.next()) {
+                        add(resultSet.getString("image_url"))
+                    }
+                }
+            }
+        }
+
     private companion object {
         private val COUNTABLE_TABLES = setOf("avatar", "rolling_paper_wrapper", "image")
         private val TABLES_WITH_COLUMNS_TO_ASSERT = setOf("realtime_party")
+        private val EXPECTED_CHARACTER_IMAGE_URLS =
+            listOf(
+                "/images/characters/blue.svg",
+                "/images/characters/green.svg",
+                "/images/characters/pink.svg",
+                "/images/characters/purple.svg",
+                "/images/characters/yellow.svg",
+            )
+        private val EXPECTED_PARTY_HAT_CHARACTER_IMAGE_URLS =
+            listOf(
+                "/images/characters/party-hat/blue.svg",
+                "/images/characters/party-hat/green.svg",
+                "/images/characters/party-hat/pink.svg",
+                "/images/characters/party-hat/purple.svg",
+                "/images/characters/party-hat/yellow.svg",
+            )
 
         @JvmStatic
         private val MYSQL: MySQLContainer<*> =
