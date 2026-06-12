@@ -1,11 +1,25 @@
-UPDATE image SET image_url = '/images/characters/blue.svg' WHERE id = 1;
-UPDATE image SET image_url = '/images/characters/green.svg' WHERE id = 3;
-UPDATE image SET image_url = '/images/characters/pink.svg' WHERE id = 5;
-UPDATE image SET image_url = '/images/characters/purple.svg' WHERE id = 7;
-UPDATE image SET image_url = '/images/characters/yellow.svg' WHERE id = 9;
+UPDATE image i
+JOIN avatar a ON a.id = i.target_id
+SET i.image_url = CASE a.name
+    WHEN 'blue' THEN '/images/characters/blue.svg'
+    WHEN 'green' THEN '/images/characters/green.svg'
+    WHEN 'pink' THEN '/images/characters/pink.svg'
+    WHEN 'purple' THEN '/images/characters/purple.svg'
+    WHEN 'yellow' THEN '/images/characters/yellow.svg'
+END
+WHERE i.target_type = 'CHARACTER'
+  AND i.sort_order = 0
+  AND a.name IN ('blue', 'green', 'pink', 'purple', 'yellow');
 
-UPDATE image SET image_url = '/images/characters/party-hat/blue.svg' WHERE id = 14;
-UPDATE image SET image_url = '/images/characters/party-hat/green.svg' WHERE id = 15;
-UPDATE image SET image_url = '/images/characters/party-hat/pink.svg' WHERE id = 16;
-UPDATE image SET image_url = '/images/characters/party-hat/purple.svg' WHERE id = 17;
-UPDATE image SET image_url = '/images/characters/party-hat/yellow.svg' WHERE id = 18;
+UPDATE image i
+JOIN avatar a ON a.id = i.target_id
+SET i.image_url = CASE a.name
+    WHEN 'blue' THEN '/images/characters/party-hat/blue.svg'
+    WHEN 'green' THEN '/images/characters/party-hat/green.svg'
+    WHEN 'pink' THEN '/images/characters/party-hat/pink.svg'
+    WHEN 'purple' THEN '/images/characters/party-hat/purple.svg'
+    WHEN 'yellow' THEN '/images/characters/party-hat/yellow.svg'
+END
+WHERE i.target_type = 'CHARACTER'
+  AND i.sort_order = 2
+  AND a.name IN ('blue', 'green', 'pink', 'purple', 'yellow');
