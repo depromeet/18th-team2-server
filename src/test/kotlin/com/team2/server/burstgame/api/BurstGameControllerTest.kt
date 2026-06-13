@@ -28,6 +28,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import java.time.LocalDateTime
+import kotlin.test.assertTrue
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -266,8 +267,8 @@ class BurstGameControllerTest
                     startedAt = LocalDateTime.now().minusMinutes(10),
                 )
             val now = LocalDateTime.now()
-            phaseStore.advance(fixture.partyId, PartyPhase.ENTRY, PartyPhase.MUSIC, now)
-            phaseStore.advance(fixture.partyId, PartyPhase.MUSIC, PartyPhase.CANDLE, now)
+            assertTrue(phaseStore.advance(fixture.partyId, PartyPhase.ENTRY, PartyPhase.MUSIC, now))
+            assertTrue(phaseStore.advance(fixture.partyId, PartyPhase.MUSIC, PartyPhase.CANDLE, now))
 
             mockMvc
                 .post("/api/v1/parties/${fixture.partyId}/phase/advance") {
