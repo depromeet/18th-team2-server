@@ -121,6 +121,45 @@ class MePartyControllerTest
         }
 
         @Test
+        fun `미시작 파티가 이미 시작한 파티보다 먼저 노출된다`() {
+            val user = saveUser("kakao-sort-order", "sort-order@kakao.local")
+            val token = tokenProvider.issue(user)
+            val now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS)
+
+            val startedParty =
+                saveParty(
+                    PaperOnlyParty(
+                        ownerId = user.id,
+                        celebrantNickname = "이미시작",
+                        startedAt = now.minusDays(2),
+                    ),
+                    now.minusDays(3),
+                )
+            val futureParty =
+                saveParty(
+                    PaperOnlyParty(
+                        ownerId = user.id,
+                        celebrantNickname = "곧시작",
+                        startedAt = now.plusHours(1),
+                    ),
+                    now.minusHours(1),
+                )
+
+            saveParticipant(startedParty, user, createdAt = now.minusDays(3))
+            saveParticipant(futureParty, user, createdAt = now.minusHours(1))
+
+            mockMvc
+                .get("/api/v1/me/upcoming-parties") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.length()") { value(2) }
+                    jsonPath("$.data[0].celebrantNickname") { value("곧시작") }
+                    jsonPath("$.data[1].celebrantNickname") { value("이미시작") }
+                }
+        }
+
+        @Test
         fun `유효한 초대 토큰이 없으면 inviteToken 은 null`() {
             val user = saveUser("kakao-upcoming-no-invite", "upcoming-no-invite@kakao.local")
             val token = tokenProvider.issue(user)

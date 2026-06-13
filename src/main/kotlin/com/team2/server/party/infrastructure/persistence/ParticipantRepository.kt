@@ -38,12 +38,16 @@ interface ParticipantRepository : JpaRepository<Participant, Long> {
         JOIN FETCH participant.party party
         WHERE participant.user.id = :userId
           AND party.startedAt > :startedAfter
-        ORDER BY party.startedAt ASC, participant.createdAt DESC, participant.id DESC
+        ORDER BY CASE WHEN party.startedAt > :now THEN 0 ELSE 1 END,
+                 CASE WHEN party.startedAt > :now THEN party.startedAt END ASC,
+                 CASE WHEN party.startedAt <= :now THEN party.startedAt END DESC,
+                 participant.id DESC
         """,
     )
     fun findNotEndedByUserId(
         userId: Long,
         startedAfter: LocalDateTime,
+        now: LocalDateTime,
     ): List<Participant>
 
     @Query(
