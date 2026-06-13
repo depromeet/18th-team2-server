@@ -29,7 +29,6 @@ class StartBurstGameUseCase(
                 startResult =
                     sessionService.start(
                         partyId = partyId,
-                        hostEnteredAt = resolved.party.hostEnteredAt,
                         participant = resolved.participant,
                         now = now,
                     ),

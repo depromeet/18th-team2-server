@@ -5,7 +5,6 @@ import com.team2.server.burstgame.application.dto.CandleBlowStateLookupResult
 import com.team2.server.burstgame.application.port.CandleBlowSessionStore
 import com.team2.server.burstgame.application.support.BurstGameParticipantResolver
 import com.team2.server.burstgame.application.support.CandleBlowEndEventPublisher
-import com.team2.server.burstgame.config.CandleBlowProperties
 import com.team2.server.burstgame.domain.candle.CandleBlowSession
 import com.team2.server.burstgame.domain.candle.CandleBlowSnapshot
 import com.team2.server.burstgame.domain.candle.CandleBlowStatus
@@ -19,7 +18,6 @@ class GetCandleBlowStateUseCase(
     private val participantResolver: BurstGameParticipantResolver,
     private val sessionStore: CandleBlowSessionStore,
     private val endEventPublisher: CandleBlowEndEventPublisher,
-    private val candleBlowProperties: CandleBlowProperties,
     private val clock: Clock,
 ) {
     @Transactional
@@ -28,24 +26,11 @@ class GetCandleBlowStateUseCase(
         userId: Long?,
         participantToken: String?,
     ): CandleBlowResponse {
-        val context = participantResolver.resolveWithParty(partyId, userId, participantToken)
+        participantResolver.resolveWithParty(partyId, userId, participantToken)
         val now = LocalDateTime.now(clock)
         val result =
             sessionStore.withSessionLock(partyId) { session ->
                 lookup(session, now)
-            } ?: context.party.hostEnteredAt?.let { hostEnteredAt ->
-                sessionStore.getOrCreateWithLock(
-                    partyId = partyId,
-                    sessionFactory = {
-                        CandleBlowSession.fromHostEnteredAt(
-                            partyId = partyId,
-                            hostEnteredAt = hostEnteredAt,
-                            durationSeconds = candleBlowProperties.durationSeconds,
-                        )
-                    },
-                ) { session, _ ->
-                    lookup(session, now)
-                }
             } ?: CandleBlowStateLookupResult(
                 response = CandleBlowResponse.from(CandleBlowSnapshot.waiting(partyId)),
                 endedSnapshot = null,

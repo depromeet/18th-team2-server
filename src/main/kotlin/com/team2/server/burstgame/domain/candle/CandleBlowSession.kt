@@ -128,18 +128,5 @@ class CandleBlowSession(
                 startedAt = startedAt,
                 endsAt = startedAt.plusSeconds(durationSeconds),
             )
-
-        fun fromHostEnteredAt(
-            partyId: Long,
-            hostEnteredAt: LocalDateTime,
-            durationSeconds: Long,
-        ): CandleBlowSession {
-            val startedAt = hostEnteredAt.plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS)
-            return fromStartedAt(
-                partyId = partyId,
-                startedAt = startedAt,
-                durationSeconds = durationSeconds,
-            )
-        }
     }
 }
