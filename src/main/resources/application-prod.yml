@@ -15,7 +15,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,prometheus
   endpoint:
     health:
       show-details: never
@@ -28,3 +28,7 @@ loki:
 
 app:
   env: prod
+  time-zone: ${APP_TIME_ZONE:Asia/Seoul}
+
+candle-blow:
+  duration-seconds: 45

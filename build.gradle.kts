@@ -38,7 +38,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("io.micrometer:micrometer-registry-prometheus")
     implementation("com.github.loki4j:loki-logback-appender:1.5.2")
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.1")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     developmentOnly("org.springframework.boot:spring-boot-devtools")
     runtimeOnly("org.flywaydb:flyway-mysql")
     runtimeOnly("com.mysql:mysql-connector-j")
@@ -89,7 +90,15 @@ ktlint {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    systemProperty("user.timezone", "Asia/Seoul")
+    environment("TESTCONTAINERS_RYUK_DISABLED", "true")
     finalizedBy(tasks.jacocoTestReport)
+}
+
+tasks.withType<org.springframework.boot.gradle.tasks.run.BootRun> {
+    systemProperty("user.timezone", "Asia/Seoul")
+    environment("TZ", "Asia/Seoul")
+    environment("APP_TIME_ZONE", System.getenv("APP_TIME_ZONE") ?: "Asia/Seoul")
 }
 
 tasks.jacocoTestReport {

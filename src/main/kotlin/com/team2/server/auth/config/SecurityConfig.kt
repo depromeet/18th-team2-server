@@ -50,11 +50,29 @@ class SecurityConfig(
                         "/api/dev/**",
                     ).permitAll()
                 auth.requestMatchers(HttpMethod.GET, "/api/v1/characters").permitAll()
-                auth.requestMatchers(HttpMethod.GET, "/api/v1/rolling-paper-wrappers").permitAll()
+                auth.requestMatchers(HttpMethod.GET, "/api/v1/rolling-paper-toppings").permitAll()
                 auth.requestMatchers(HttpMethod.GET, "/api/v1/party-invites/*").permitAll()
                 auth.requestMatchers(HttpMethod.GET, "/api/v1/party-invites/*/rolling-papers").permitAll()
                 auth.requestMatchers(HttpMethod.POST, "/api/v1/party-invites/*/rolling-papers").permitAll()
                 auth.requestMatchers(HttpMethod.GET, "/images/**").permitAll()
+                auth.requestMatchers(HttpMethod.GET, "/api/v1/archive").permitAll()
+                auth
+                    .requestMatchers(
+                        HttpMethod.POST,
+                        "/api/v1/party-invites/*/realtime-participants/stream",
+                    ).permitAll()
+                auth.requestMatchers(HttpMethod.DELETE, "/api/v1/parties/*/realtime-participants").permitAll()
+                auth.requestMatchers(HttpMethod.POST, "/api/v1/parties/*/chat-messages").permitAll()
+                auth.requestMatchers(HttpMethod.GET, "/api/v1/parties/*/candle-blow").permitAll()
+                auth.requestMatchers(HttpMethod.POST, "/api/v1/parties/*/candle-blow/candles/*").permitAll()
+                auth.requestMatchers(HttpMethod.POST, "/api/v1/parties/*/burst-game/taps").permitAll()
+                auth.requestMatchers(HttpMethod.POST, "/api/v1/parties/*/fireworks").permitAll()
+                auth.requestMatchers(HttpMethod.GET, "/api/v1/parties/*/burst-game").permitAll()
+                auth.requestMatchers(HttpMethod.GET, "/api/v1/parties/*/realtime-state").permitAll()
+                auth.requestMatchers(HttpMethod.GET, "/api/v1/parties/*/realtime-next-action").permitAll()
+                auth.requestMatchers(HttpMethod.GET, "/api/v1/parties/*/participants").permitAll()
+                auth.requestMatchers(HttpMethod.GET, "/api/v1/parties/*/phase").permitAll()
+                auth.requestMatchers(HttpMethod.POST, "/api/v1/parties/*/phase/advance").permitAll()
                 auth.anyRequest().authenticated()
             }.oauth2Login { oauth ->
                 oauth.userInfoEndpoint { it.userService(customOAuth2UserService) }

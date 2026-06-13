@@ -3,17 +3,17 @@ package com.team2.server.rollingpaper.usecase
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.common.exception.isConstraintViolation
-import com.team2.server.party.entity.Participant
-import com.team2.server.party.entity.Party
-import com.team2.server.party.service.ParticipantService
-import com.team2.server.party.service.PartyInviteService
+import com.team2.server.party.application.service.ParticipantService
+import com.team2.server.party.application.service.PartyInviteService
+import com.team2.server.party.domain.entity.Participant
+import com.team2.server.party.domain.entity.Party
 import com.team2.server.rollingpaper.dto.CreateRollingPaperRequest
 import com.team2.server.rollingpaper.dto.CreateRollingPaperResponse
 import com.team2.server.rollingpaper.entity.RollingPaper
-import com.team2.server.rollingpaper.entity.RollingPaperWrapper
+import com.team2.server.rollingpaper.entity.RollingPaperTopping
 import com.team2.server.rollingpaper.entity.toWriterNicknameKey
 import com.team2.server.rollingpaper.repository.RollingPaperRepository
-import com.team2.server.rollingpaper.repository.RollingPaperWrapperRepository
+import com.team2.server.rollingpaper.repository.RollingPaperToppingRepository
 import com.team2.server.user.repository.UserRepository
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.data.repository.findByIdOrNull
@@ -23,7 +23,7 @@ import java.time.LocalDateTime
 
 @Service
 class CreateRollingPaperUseCase(
-    private val rollingPaperWrapperRepository: RollingPaperWrapperRepository,
+    private val rollingPaperToppingRepository: RollingPaperToppingRepository,
     private val rollingPaperRepository: RollingPaperRepository,
     private val userRepository: UserRepository,
     private val participantService: ParticipantService,
@@ -40,7 +40,7 @@ class CreateRollingPaperUseCase(
         val party = invite.party
         validatePartyWritable(party, now)
 
-        val wrapper = findWrapper(request.requiredWrapperId())
+        val topping = findTopping(request.requiredToppingId())
         val participant = findOrCreateParticipant(party, userId)
         validateParticipantWritable(participant)
 
@@ -48,7 +48,7 @@ class CreateRollingPaperUseCase(
         val content = request.trimmedContent()
         validateWriterNicknameAvailable(party, writerNickname)
 
-        val rollingPaper = saveRollingPaper(wrapper, participant, party, writerNickname, content)
+        val rollingPaper = saveRollingPaper(topping, participant, party, writerNickname, content)
         participant.hasWrittenPaper = true
         return CreateRollingPaperResponse(rollingPaperId = rollingPaper.id)
     }
@@ -62,9 +62,9 @@ class CreateRollingPaperUseCase(
         }
     }
 
-    private fun findWrapper(wrapperId: Long): RollingPaperWrapper =
-        rollingPaperWrapperRepository.findByIdOrNull(wrapperId)
-            ?: throw BusinessException(ErrorCode.ROLLING_PAPER_WRAPPER_NOT_FOUND)
+    private fun findTopping(toppingId: Long): RollingPaperTopping =
+        rollingPaperToppingRepository.findByIdOrNull(toppingId)
+            ?: throw BusinessException(ErrorCode.ROLLING_PAPER_TOPPING_NOT_FOUND)
 
     private fun validateParticipantWritable(participant: Participant) {
         if (participant.hasWrittenPaper) {
@@ -77,7 +77,7 @@ class CreateRollingPaperUseCase(
         userId: Long?,
     ): Participant {
         if (userId == null) {
-            return participantService.joinAnonymous(party)
+            return participantService.joinAnonymousOrMember(party, null)
         }
 
         val user =
@@ -96,7 +96,7 @@ class CreateRollingPaperUseCase(
     }
 
     private fun saveRollingPaper(
-        wrapper: RollingPaperWrapper,
+        topping: RollingPaperTopping,
         participant: Participant,
         party: Party,
         writerNickname: String,
@@ -105,7 +105,7 @@ class CreateRollingPaperUseCase(
         try {
             rollingPaperRepository.saveAndFlush(
                 RollingPaper(
-                    wrapper = wrapper,
+                    topping = topping,
                     writer = participant,
                     party = party,
                     writerNickname = writerNickname,

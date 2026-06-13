@@ -1,7 +1,7 @@
 package com.team2.server.rollingpaper.controller
 
 import com.team2.server.auth.principal.UserPrincipal
-import com.team2.server.common.response.ApiResponse
+import com.team2.server.common.web.ApiResponse
 import com.team2.server.rollingpaper.dto.OwnerRollingPaperDetailResponse
 import com.team2.server.rollingpaper.dto.OwnerRollingPaperListResponse
 import com.team2.server.rollingpaper.usecase.GetRollingPaperDetailUseCase
@@ -25,7 +25,11 @@ class RollingPaperOwnerController(
         @PathVariable partyId: Long,
         @RequestParam(defaultValue = "1") page: Int,
     ): ApiResponse<OwnerRollingPaperListResponse> =
-        ApiResponse.success(getRollingPaperListUseCase.getOwnerList(partyId, principal.userId, page))
+        ApiResponse.success(
+            OwnerRollingPaperListResponse.from(
+                getRollingPaperListUseCase.getOwnerList(partyId, principal.userId, page),
+            ),
+        )
 
     @GetMapping("/{partyId}/rolling-papers/{rollingPaperId}")
     override fun getOwnerRollingPaperDetail(

@@ -1,7 +1,7 @@
 package com.team2.server.rollingpaper.controller
 
 import com.team2.server.auth.principal.UserPrincipal
-import com.team2.server.common.response.ApiResponse
+import com.team2.server.common.web.ApiResponse
 import com.team2.server.rollingpaper.dto.CreateRollingPaperRequest
 import com.team2.server.rollingpaper.dto.CreateRollingPaperResponse
 import com.team2.server.rollingpaper.dto.ParticipantRollingPaperListResponse
@@ -30,7 +30,11 @@ class RollingPaperController(
         @PathVariable inviteToken: String,
         @RequestParam(defaultValue = "1") page: Int,
     ): ApiResponse<ParticipantRollingPaperListResponse> =
-        ApiResponse.success(getRollingPaperListUseCase.getParticipantList(inviteToken, page))
+        ApiResponse.success(
+            ParticipantRollingPaperListResponse.from(
+                getRollingPaperListUseCase.getParticipantList(inviteToken, page),
+            ),
+        )
 
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping("/{inviteToken}/rolling-papers")

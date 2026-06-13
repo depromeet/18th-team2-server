@@ -1,6 +1,7 @@
 package com.team2.server.rollingpaper.repository
 
-import com.team2.server.party.entity.Party
+import com.team2.server.party.domain.entity.Participant
+import com.team2.server.party.domain.entity.Party
 import com.team2.server.rollingpaper.entity.RollingPaper
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
@@ -18,7 +19,7 @@ interface RollingPaperRepository : JpaRepository<RollingPaper, Long> {
         writerNicknameKey: String,
     ): Boolean
 
-    @EntityGraph(attributePaths = ["wrapper"])
+    @EntityGraph(attributePaths = ["topping"])
     fun findAllByParty(
         party: Party,
         pageable: Pageable,
@@ -30,6 +31,8 @@ interface RollingPaperRepository : JpaRepository<RollingPaper, Long> {
     ): RollingPaper?
 
     fun countByParty(party: Party): Long
+
+    fun findByWriter(writer: Participant): RollingPaper?
 
     @Query(
         """
@@ -47,44 +50,6 @@ interface RollingPaperRepository : JpaRepository<RollingPaper, Long> {
         @Param("createdAt") createdAt: LocalDateTime,
         @Param("rollingPaperId") rollingPaperId: Long,
     ): Long
-
-    @Query(
-        """
-            SELECT rp.id
-            FROM RollingPaper rp
-            WHERE rp.party = :party
-              AND (
-                rp.createdAt > :createdAt OR
-                (rp.createdAt = :createdAt AND rp.id > :rollingPaperId)
-              )
-            ORDER BY rp.createdAt ASC, rp.id ASC
-        """,
-    )
-    fun findPreviousIdsByParty(
-        @Param("party") party: Party,
-        @Param("createdAt") createdAt: LocalDateTime,
-        @Param("rollingPaperId") rollingPaperId: Long,
-        pageable: Pageable,
-    ): List<Long>
-
-    @Query(
-        """
-            SELECT rp.id
-            FROM RollingPaper rp
-            WHERE rp.party = :party
-              AND (
-                rp.createdAt < :createdAt OR
-                (rp.createdAt = :createdAt AND rp.id < :rollingPaperId)
-              )
-            ORDER BY rp.createdAt DESC, rp.id DESC
-        """,
-    )
-    fun findNextIdsByParty(
-        @Param("party") party: Party,
-        @Param("createdAt") createdAt: LocalDateTime,
-        @Param("rollingPaperId") rollingPaperId: Long,
-        pageable: Pageable,
-    ): List<Long>
 
     @Modifying
     @Transactional

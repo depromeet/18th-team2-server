@@ -1,0 +1,44 @@
+package com.team2.server.burstgame.infrastructure.scheduler
+
+import java.time.Clock
+import java.time.LocalDateTime
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import kotlin.test.AfterTest
+import kotlin.test.Test
+import kotlin.test.assertTrue
+
+class ScheduledBurstGameEndSchedulerTest {
+    private val clock: Clock = Clock.systemDefaultZone()
+    private val scheduler = ScheduledBurstGameEndScheduler(clock)
+
+    @AfterTest
+    fun tearDown() {
+        scheduler.shutdown()
+    }
+
+    @Test
+    fun `종료 시간이 되면 callback을 실행한다`() {
+        val latch = CountDownLatch(1)
+
+        scheduler.schedule(1L, LocalDateTime.now(clock).plusNanos(1)) { partyId ->
+            if (partyId == 1L) {
+                latch.countDown()
+            }
+        }
+
+        assertTrue(latch.await(1, TimeUnit.SECONDS))
+    }
+
+    @Test
+    fun `callback 예외는 스케줄러 밖으로 전파하지 않는다`() {
+        val latch = CountDownLatch(1)
+
+        scheduler.schedule(1L, LocalDateTime.now(clock).plusNanos(1)) {
+            latch.countDown()
+            throw IllegalStateException("boom")
+        }
+
+        assertTrue(latch.await(1, TimeUnit.SECONDS))
+    }
+}

@@ -2,21 +2,23 @@ package com.team2.server.rollingpaper.controller
 
 import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
-import com.team2.server.common.entity.Image
-import com.team2.server.common.entity.ImageTargetType
-import com.team2.server.common.repository.ImageRepository
-import com.team2.server.party.entity.PaperOnlyParty
-import com.team2.server.party.entity.Participant
-import com.team2.server.party.entity.Party
-import com.team2.server.party.entity.PartyInvite
-import com.team2.server.party.entity.RealtimeParty
-import com.team2.server.party.repository.ParticipantRepository
-import com.team2.server.party.repository.PartyInviteRepository
-import com.team2.server.party.repository.PartyRepository
+import com.team2.server.common.DatabaseCleanup
+import com.team2.server.common.image.entity.Image
+import com.team2.server.common.image.entity.ImageTargetType
+import com.team2.server.common.image.persistence.ImageRepository
+import com.team2.server.config.TestcontainersConfiguration
+import com.team2.server.party.domain.entity.PaperOnlyParty
+import com.team2.server.party.domain.entity.Participant
+import com.team2.server.party.domain.entity.Party
+import com.team2.server.party.domain.entity.PartyInvite
+import com.team2.server.party.domain.entity.RealtimeParty
+import com.team2.server.party.infrastructure.persistence.ParticipantRepository
+import com.team2.server.party.infrastructure.persistence.PartyInviteRepository
+import com.team2.server.party.infrastructure.persistence.PartyRepository
 import com.team2.server.rollingpaper.entity.RollingPaper
-import com.team2.server.rollingpaper.entity.RollingPaperWrapper
+import com.team2.server.rollingpaper.entity.RollingPaperTopping
 import com.team2.server.rollingpaper.repository.RollingPaperRepository
-import com.team2.server.rollingpaper.repository.RollingPaperWrapperRepository
+import com.team2.server.rollingpaper.repository.RollingPaperToppingRepository
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
 import com.team2.server.user.repository.UserRepository
@@ -27,26 +29,30 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
+import org.springframework.context.annotation.Import
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import java.time.LocalDateTime
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import(TestcontainersConfiguration::class)
 class RollingPaperListControllerTest
     @Autowired
     constructor(
         private val mockMvc: MockMvc,
         private val rollingPaperRepository: RollingPaperRepository,
-        private val rollingPaperWrapperRepository: RollingPaperWrapperRepository,
+        private val rollingPaperToppingRepository: RollingPaperToppingRepository,
         private val imageRepository: ImageRepository,
         private val partyInviteRepository: PartyInviteRepository,
         private val participantRepository: ParticipantRepository,
         private val partyRepository: PartyRepository,
         private val userRepository: UserRepository,
         private val jwtProperties: JwtProperties,
+        private val databaseCleanup: DatabaseCleanup,
     ) {
         private val tokenProvider = JwtTokenProvider(jwtProperties)
+        private var defaultOwnerSequence = 0
 
         @BeforeEach
         fun setUp() {
@@ -59,16 +65,17 @@ class RollingPaperListControllerTest
         }
 
         @Test
-        fun `참가자용 목록은 인증 없이 최신순 7개씩 조회된다`() {
+        fun `참가자용 목록은 인증 없이 content와 position 없이 최신순 7개씩 조회된다`() {
             val party = saveRealtimeParty(startedAt = DEFAULT_NOW.withHour(22).withMinute(0))
             val invite = saveInvite(party, "listtoken000001")
-            val wrapper = saveWrapperWithImages()
+            val topping = saveToppingWithImages()
             (1..8).forEach { index ->
                 saveRollingPaper(
                     party = party,
-                    wrapper = wrapper,
+                    topping = topping,
                     writerNickname = "작성자$index",
                     createdAt = DEFAULT_NOW.plusMinutes(index.toLong()),
+                    content = "축하해요$index",
                 )
             }
 
@@ -79,14 +86,18 @@ class RollingPaperListControllerTest
                     status { isOk() }
                     jsonPath("$.data.partyOption") { value("REALTIME") }
                     jsonPath("$.data.liveEndAt") { value("2026-05-06T22:10:00") }
-                    jsonPath("$.data.page") { value(1) }
-                    jsonPath("$.data.totalPages") { value(2) }
-                    jsonPath("$.data.hasNext") { value(true) }
-                    jsonPath("$.data.totalCount") { doesNotExist() }
+                    jsonPath("$.data.pageInfo.page") { value(1) }
+                    jsonPath("$.data.pageInfo.totalCount") { value(8) }
+                    jsonPath("$.data.pageInfo.totalPages") { value(2) }
+                    jsonPath("$.data.pageInfo.hasNext") { value(true) }
                     jsonPath("$.data.items.length()") { value(7) }
+                    jsonPath("$.data.items[0].position") { doesNotExist() }
                     jsonPath("$.data.items[0].writerNickname") { value("작성자8") }
-                    jsonPath("$.data.items[0].wrapperImageUrl") { value("/images/rolling-paper-wrappers/first.svg") }
+                    jsonPath("$.data.items[0].content") { doesNotExist() }
+                    jsonPath("$.data.items[0].toppingImageUrl") { value("/images/rolling-paper-wrappers/first.svg") }
+                    jsonPath("$.data.items[6].position") { doesNotExist() }
                     jsonPath("$.data.items[6].writerNickname") { value("작성자2") }
+                    jsonPath("$.data.items[6].content") { doesNotExist() }
                 }
 
             mockMvc
@@ -94,10 +105,13 @@ class RollingPaperListControllerTest
                     param("page", "2")
                 }.andExpect {
                     status { isOk() }
-                    jsonPath("$.data.page") { value(2) }
-                    jsonPath("$.data.hasNext") { value(false) }
+                    jsonPath("$.data.pageInfo.page") { value(2) }
+                    jsonPath("$.data.pageInfo.totalCount") { value(8) }
+                    jsonPath("$.data.pageInfo.hasNext") { value(false) }
                     jsonPath("$.data.items.length()") { value(1) }
+                    jsonPath("$.data.items[0].position") { doesNotExist() }
                     jsonPath("$.data.items[0].writerNickname") { value("작성자1") }
+                    jsonPath("$.data.items[0].content") { doesNotExist() }
                 }
         }
 
@@ -128,11 +142,11 @@ class RollingPaperListControllerTest
                     param("page", "0")
                 }.andExpect {
                     status { isOk() }
-                    jsonPath("$.data.page") { value(1) }
-                    jsonPath("$.data.totalPages") { value(0) }
-                    jsonPath("$.data.hasNext") { value(false) }
+                    jsonPath("$.data.pageInfo.page") { value(1) }
+                    jsonPath("$.data.pageInfo.totalPages") { value(0) }
+                    jsonPath("$.data.pageInfo.hasNext") { value(false) }
                     jsonPath("$.data.items.length()") { value(0) }
-                    jsonPath("$.data.totalCount") { doesNotExist() }
+                    jsonPath("$.data.pageInfo.totalCount") { value(0) }
                 }
         }
 
@@ -145,7 +159,7 @@ class RollingPaperListControllerTest
                 .get("/api/v1/party-invites/${invite.token}/rolling-papers")
                 .andExpect {
                     status { isOk() }
-                    jsonPath("$.data.totalPages") { value(0) }
+                    jsonPath("$.data.pageInfo.totalPages") { value(0) }
                 }
         }
 
@@ -182,8 +196,8 @@ class RollingPaperListControllerTest
                     createdAt = LocalDateTime.of(2026, 5, 5, 14, 30),
                     startedAt = ALWAYS_VIEWABLE_STARTED_AT,
                 )
-            val wrapper = saveWrapperWithImages()
-            saveRollingPaper(party, wrapper, "축하요정", DEFAULT_NOW)
+            val topping = saveToppingWithImages()
+            saveRollingPaper(party, topping, "축하요정", DEFAULT_NOW)
 
             mockMvc
                 .get("/api/v1/parties/${party.id}/rolling-papers") {
@@ -192,11 +206,13 @@ class RollingPaperListControllerTest
                     status { isOk() }
                     jsonPath("$.data.celebrantNickname") { value("홍길동") }
                     jsonPath("$.data.partyEndAt") { value("2020-01-08T00:00:00") }
-                    jsonPath("$.data.page") { value(1) }
-                    jsonPath("$.data.totalCount") { value(1) }
-                    jsonPath("$.data.totalPages") { value(1) }
-                    jsonPath("$.data.hasNext") { value(false) }
+                    jsonPath("$.data.pageInfo.page") { value(1) }
+                    jsonPath("$.data.pageInfo.totalCount") { value(1) }
+                    jsonPath("$.data.pageInfo.totalPages") { value(1) }
+                    jsonPath("$.data.pageInfo.hasNext") { value(false) }
+                    jsonPath("$.data.items[0].position") { value(1) }
                     jsonPath("$.data.items[0].writerNickname") { value("축하요정") }
+                    jsonPath("$.data.items[0].content") { value("축하해요") }
                 }
         }
 
@@ -251,8 +267,8 @@ class RollingPaperListControllerTest
                     header("Authorization", "Bearer ${tokenProvider.issue(owner)}")
                 }.andExpect {
                     status { isOk() }
-                    jsonPath("$.data.totalCount") { value(0) }
-                    jsonPath("$.data.totalPages") { value(0) }
+                    jsonPath("$.data.pageInfo.totalCount") { value(0) }
+                    jsonPath("$.data.pageInfo.totalPages") { value(0) }
                 }
         }
 
@@ -264,13 +280,11 @@ class RollingPaperListControllerTest
                     ownerId = owner.id,
                     startedAt = ALWAYS_VIEWABLE_STARTED_AT,
                 )
-            val wrapper = saveWrapperWithImages()
-            val first =
-                saveRollingPaper(party, wrapper, "첫번째", DEFAULT_NOW.plusMinutes(1), content = "첫 번째 축하")
+            val topping = saveToppingWithImages()
+            saveRollingPaper(party, topping, "첫번째", DEFAULT_NOW.plusMinutes(1), content = "첫 번째 축하")
             val target =
-                saveRollingPaper(party, wrapper, "두번째", DEFAULT_NOW.plusMinutes(2), content = "두 번째 축하")
-            val latest =
-                saveRollingPaper(party, wrapper, "세번째", DEFAULT_NOW.plusMinutes(3), content = "세 번째 축하")
+                saveRollingPaper(party, topping, "두번째", DEFAULT_NOW.plusMinutes(2), content = "두 번째 축하")
+            saveRollingPaper(party, topping, "세번째", DEFAULT_NOW.plusMinutes(3), content = "세 번째 축하")
 
             mockMvc
                 .get("/api/v1/parties/${party.id}/rolling-papers/${target.id}") {
@@ -282,8 +296,6 @@ class RollingPaperListControllerTest
                     jsonPath("$.data.writerNickname") { value("두번째") }
                     jsonPath("$.data.position") { value(2) }
                     jsonPath("$.data.totalCount") { value(3) }
-                    jsonPath("$.data.previousRollingPaperId") { value(latest.id) }
-                    jsonPath("$.data.nextRollingPaperId") { value(first.id) }
                 }
         }
 
@@ -295,9 +307,9 @@ class RollingPaperListControllerTest
                     ownerId = owner.id,
                     startedAt = ALWAYS_VIEWABLE_STARTED_AT,
                 )
-            val wrapper = saveWrapperWithImages()
-            val old = saveRollingPaper(party, wrapper, "먼저작성", DEFAULT_NOW, content = "먼저")
-            val latest = saveRollingPaper(party, wrapper, "나중작성", DEFAULT_NOW, content = "나중")
+            val topping = saveToppingWithImages()
+            val old = saveRollingPaper(party, topping, "먼저작성", DEFAULT_NOW, content = "먼저")
+            val latest = saveRollingPaper(party, topping, "나중작성", DEFAULT_NOW, content = "나중")
 
             mockMvc
                 .get("/api/v1/parties/${party.id}/rolling-papers/${old.id}") {
@@ -306,8 +318,6 @@ class RollingPaperListControllerTest
                     status { isOk() }
                     jsonPath("$.data.position") { value(2) }
                     jsonPath("$.data.totalCount") { value(2) }
-                    jsonPath("$.data.previousRollingPaperId") { value(latest.id) }
-                    jsonPath("$.data.nextRollingPaperId") { value(nullValue()) }
                 }
 
             mockMvc
@@ -317,8 +327,6 @@ class RollingPaperListControllerTest
                     status { isOk() }
                     jsonPath("$.data.position") { value(1) }
                     jsonPath("$.data.totalCount") { value(2) }
-                    jsonPath("$.data.previousRollingPaperId") { value(nullValue()) }
-                    jsonPath("$.data.nextRollingPaperId") { value(old.id) }
                 }
         }
 
@@ -335,8 +343,8 @@ class RollingPaperListControllerTest
                     ownerId = owner.id,
                     startedAt = ALWAYS_VIEWABLE_STARTED_AT,
                 )
-            val wrapper = saveWrapperWithImages()
-            val otherRollingPaper = saveRollingPaper(otherParty, wrapper, "다른파티", DEFAULT_NOW)
+            val topping = saveToppingWithImages()
+            val otherRollingPaper = saveRollingPaper(otherParty, topping, "다른파티", DEFAULT_NOW)
 
             mockMvc
                 .get("/api/v1/parties/${party.id}/rolling-papers/${otherRollingPaper.id}") {
@@ -356,8 +364,8 @@ class RollingPaperListControllerTest
                     ownerId = owner.id,
                     startedAt = ALWAYS_VIEWABLE_STARTED_AT,
                 )
-            val wrapper = saveWrapperWithImages()
-            val rollingPaper = saveRollingPaper(party, wrapper, "작성자", DEFAULT_NOW)
+            val topping = saveToppingWithImages()
+            val rollingPaper = saveRollingPaper(party, topping, "작성자", DEFAULT_NOW)
 
             mockMvc
                 .get("/api/v1/parties/${party.id}/rolling-papers/${rollingPaper.id}") {
@@ -376,8 +384,8 @@ class RollingPaperListControllerTest
                     ownerId = owner.id,
                     startedAt = NOT_VIEWABLE_REALTIME_STARTED_AT,
                 )
-            val wrapper = saveWrapperWithImages()
-            val rollingPaper = saveRollingPaper(party, wrapper, "작성자", DEFAULT_NOW)
+            val topping = saveToppingWithImages()
+            val rollingPaper = saveRollingPaper(party, topping, "작성자", DEFAULT_NOW)
 
             mockMvc
                 .get("/api/v1/parties/${party.id}/rolling-papers/${rollingPaper.id}") {
@@ -392,45 +400,31 @@ class RollingPaperListControllerTest
         fun `공통 목록은 초과 페이지 요청값을 유지하고 빈 items를 반환한다`() {
             val party = savePaperOnlyParty()
             val invite = saveInvite(party, "overpagelist001")
-            val wrapper = saveWrapperWithImages()
-            saveRollingPaper(party, wrapper, "하나", DEFAULT_NOW)
+            val topping = saveToppingWithImages()
+            saveRollingPaper(party, topping, "하나", DEFAULT_NOW)
 
             mockMvc
                 .get("/api/v1/party-invites/${invite.token}/rolling-papers") {
                     param("page", "5")
                 }.andExpect {
                     status { isOk() }
-                    jsonPath("$.data.page") { value(5) }
-                    jsonPath("$.data.totalPages") { value(1) }
-                    jsonPath("$.data.hasNext") { value(false) }
+                    jsonPath("$.data.pageInfo.page") { value(5) }
+                    jsonPath("$.data.pageInfo.totalPages") { value(1) }
+                    jsonPath("$.data.pageInfo.hasNext") { value(false) }
                     jsonPath("$.data.items.length()") { value(0) }
                 }
         }
 
-        @Test
-        fun `wrapper 이미지가 없으면 wrapperImageUrl은 null이다`() {
-            val party = savePaperOnlyParty()
-            val invite = saveInvite(party, "noimagelist0001")
-            val wrapper = saveWrapper()
-            saveRollingPaper(party, wrapper, "이미지없음", DEFAULT_NOW)
-
-            mockMvc
-                .get("/api/v1/party-invites/${invite.token}/rolling-papers")
-                .andExpect {
-                    status { isOk() }
-                    jsonPath("$.data.items[0].wrapperImageUrl") { value(nullValue()) }
-                }
-        }
-
         private fun savePaperOnlyParty(
-            ownerId: Long = 1L,
+            ownerId: Long? = null,
             createdAt: LocalDateTime = DEFAULT_NOW.minusDays(1),
             startedAt: LocalDateTime = DEFAULT_NOW.toLocalDate().atStartOfDay(),
         ): Party {
+            val actualOwnerId = ownerId ?: saveDefaultOwner().id
             val saved =
                 partyRepository.saveAndFlush(
                     PaperOnlyParty(
-                        ownerId = ownerId,
+                        ownerId = actualOwnerId,
                         celebrantNickname = "홍길동",
                         startedAt = startedAt,
                     ),
@@ -440,14 +434,15 @@ class RollingPaperListControllerTest
         }
 
         private fun saveRealtimeParty(
-            ownerId: Long = 1L,
+            ownerId: Long? = null,
             createdAt: LocalDateTime = DEFAULT_NOW.minusDays(1),
             startedAt: LocalDateTime = DEFAULT_NOW.withHour(20).withMinute(0),
         ): Party {
+            val actualOwnerId = ownerId ?: saveDefaultOwner().id
             val saved =
                 partyRepository.saveAndFlush(
                     RealtimeParty(
-                        ownerId = ownerId,
+                        ownerId = actualOwnerId,
                         celebrantNickname = "홍길동",
                         startedAt = startedAt,
                     ),
@@ -469,16 +464,16 @@ class RollingPaperListControllerTest
                 ),
             )
 
-        private fun saveWrapper(): RollingPaperWrapper =
-            rollingPaperWrapperRepository.saveAndFlush(RollingPaperWrapper(name = "Topping_Candle"))
+        private fun saveTopping(): RollingPaperTopping =
+            rollingPaperToppingRepository.saveAndFlush(RollingPaperTopping(name = "Topping_Candle"))
 
-        private fun saveWrapperWithImages(): RollingPaperWrapper {
-            val wrapper = saveWrapper()
+        private fun saveToppingWithImages(): RollingPaperTopping {
+            val topping = saveTopping()
             imageRepository.save(
                 Image(
                     imageUrl = "/images/rolling-paper-wrappers/second.svg",
                     targetType = ImageTargetType.ROLLING_PAPER_WRAPPER,
-                    targetId = wrapper.id,
+                    targetId = topping.id,
                     sortOrder = 1,
                 ),
             )
@@ -486,16 +481,16 @@ class RollingPaperListControllerTest
                 Image(
                     imageUrl = "/images/rolling-paper-wrappers/first.svg",
                     targetType = ImageTargetType.ROLLING_PAPER_WRAPPER,
-                    targetId = wrapper.id,
+                    targetId = topping.id,
                     sortOrder = 0,
                 ),
             )
-            return wrapper
+            return topping
         }
 
         private fun saveRollingPaper(
             party: Party,
-            wrapper: RollingPaperWrapper,
+            topping: RollingPaperTopping,
             writerNickname: String,
             createdAt: LocalDateTime,
             content: String = "축하해요",
@@ -504,7 +499,7 @@ class RollingPaperListControllerTest
             val saved =
                 rollingPaperRepository.saveAndFlush(
                     RollingPaper(
-                        wrapper = wrapper,
+                        topping = topping,
                         writer = participant,
                         party = party,
                         writerNickname = writerNickname,
@@ -526,14 +521,13 @@ class RollingPaperListControllerTest
                 ),
             )
 
+        private fun saveDefaultOwner(): User {
+            defaultOwnerSequence += 1
+            return saveUser("default-owner-$defaultOwnerSequence")
+        }
+
         private fun clearDatabase() {
-            rollingPaperRepository.deleteAll()
-            imageRepository.deleteAll()
-            rollingPaperWrapperRepository.deleteAll()
-            partyInviteRepository.deleteAll()
-            participantRepository.deleteAll()
-            partyRepository.deleteAll()
-            userRepository.deleteAll()
+            databaseCleanup.execute()
         }
 
         companion object {

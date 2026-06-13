@@ -9,3 +9,6 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+
+app:
+  time-zone: ${APP_TIME_ZONE:Asia/Seoul}

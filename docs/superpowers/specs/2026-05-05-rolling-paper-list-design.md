@@ -1,8 +1,8 @@
 # Rolling Paper List API Design
 
 - 작성일: 2026-05-05
-- 기준 브랜치: `feature/rolling-paper-list-api`
-- 목적: 롤링페이퍼 목록 리스트 조회 API의 참가자용/주최자용 계약과 화면 요구사항 정리
+- 기준 브랜치: `feature/rolling-paper-list-detail-contract`
+- 목적: 롤링페이퍼 목록 조회 API의 참가자용/주최자용 계약과 상세 오버레이 데이터 제공 방식 정리
 - 구현 전 확인 상태: 이 문서는 구현 전 설계 확인용이며, 승인 전에는 Kotlin 코드를 변경하지 않는다.
 
 ---
@@ -11,26 +11,48 @@
 
 롤링페이퍼 목록 조회 API는 참가자용과 주최자용을 분리한다.
 
+상세 오버레이 본문은 주최자용 목록 또는 주최자용 상세 조회 응답을 데이터 소스로 사용한다.
+
 이유:
 
 - 참가자 화면은 초대 링크 기반 흐름이고, 주최자 화면은 인증된 파티 소유자 흐름이다.
 - 두 화면은 목록 카드 필드는 같지만, 열람 조건과 화면 메타가 다르다.
 - 주최자 화면은 아직 열람 가능 시간이 아니면 예외로 처리하는 편이 자연스럽다.
 - `isOwner`, `viewerRole` 같은 분기 필드를 하나의 응답에 섞지 않아도 된다.
+- 참가자용 목록은 카드 렌더링에 필요한 최소 필드만 내려주고, 본문은 노출하지 않는다.
+- 주최자용 목록은 열람 가능 시점 이후의 상세 오버레이까지 처리할 수 있도록 본문을 포함한다.
+- 상세 오버레이의 좌우 이동은 현재 로딩된 목록 page의 `items`로 처리하고, page 경계를 넘을 때 다음 또는 이전 page를 추가 조회한다.
 
-목록 item 응답은 두 API에서 공통으로 사용한다.
+목록 item 응답은 참가자용과 주최자용을 분리한다.
 
-공통 item:
+참가자용 item:
 
 - `rollingPaperId`
 - `writerNickname`
-- `wrapperImageUrl`
+- `toppingImageUrl`
+
+주최자용 item:
+
+- `rollingPaperId`
+- `position`
+- `writerNickname`
+- `content`
+- `toppingImageUrl`
 
 정렬과 페이지네이션도 두 API가 같은 규칙을 사용한다.
 
 - 최신순
-- 한 페이지 기준 7개
+- 한 페이지 기준 `PAGE_SIZE = 7`
 - 표준 페이지네이션을 사용한다.
+
+문서에서 `PAGE_SIZE`는 7을 의미한다.
+구현도 같은 상수명으로 관리해 위치 계산과 page 조회 크기가 어긋나지 않게 한다.
+
+`content`는 작성 API의 기존 제한을 따른다.
+
+- 필수, blank 불가
+- 최대 100자
+- 서버는 앞뒤 공백을 제거한 내용을 저장한다.
 
 ---
 
@@ -42,6 +64,7 @@
 2. 사용자가 롤링페이퍼를 작성하거나, 이미 작성한 이후 받은 롤링페이퍼 목록 화면으로 이동한다.
 3. 프론트는 `inviteToken`으로 참가자용 목록 API를 호출한다.
 4. 프론트는 목록 item을 최신순으로 렌더링한다.
+5. 참가자용 목록 item은 `content`와 `position`을 포함하지 않는다.
 
 참가자용 화면에서는 파티 자체 종료 후에도 롤링페이퍼 조회를 허용한다.
 다만 이 정책은 확정 요구사항이 바뀌면 조정될 수 있다.
@@ -57,18 +80,19 @@
 2. 프론트는 인증 토큰과 `partyId`로 주최자용 목록 API를 호출한다.
 3. 서버는 현재 사용자가 해당 파티의 소유자인지 검증한다.
 4. 서버는 주최자가 롤링페이퍼를 열람할 수 있는 시점인지 검증한다.
-5. 열람 가능하면 목록과 `partyEndAt`을 내려준다.
+5. 열람 가능하면 목록, 상세 오버레이에 필요한 item 데이터, `partyEndAt`을 내려준다.
 6. 열람 불가하면 예외로 응답한다.
+7. 사용자가 토핑을 누르면 프론트는 목록 item 데이터로 상세 오버레이를 연다.
 
 주최자용 화면의 공유하기 버튼은 목록 API에 포함하지 않는다.
 
-공유하기 버튼 클릭 시 기존 초대 링크 API를 별도로 호출한다.
+다가오는 파티 카드에서는 `GET /api/v1/me/upcoming-parties` 응답의 `inviteToken`으로 공유 링크를 만든다.
 
 ```http
 POST /api/v1/parties/{partyId}/invite-link
 ```
 
-이 API는 현재 유효한 초대 토큰이 있으면 재사용하고, 없으면 새로 생성해 `token`을 반환한다.
+이 API는 유효한 초대 토큰이 있으면 재사용하고, 없으면 새로 생성해 `token`을 반환한다.
 
 ---
 
@@ -96,16 +120,19 @@ GET /api/v1/party-invites/{inviteToken}/rolling-papers?page=1
 {
   "partyOption": "REALTIME",
   "liveEndAt": "2026-05-05T22:10:00",
-  "page": 1,
-  "totalPages": 2,
-  "hasNext": true,
   "items": [
     {
       "rollingPaperId": 10,
       "writerNickname": "축하요정",
-      "wrapperImageUrl": "/images/rolling-paper-wrappers/Topping_Candle.svg"
+      "toppingImageUrl": "/images/rolling-paper-wrappers/Topping_Candle.svg"
     }
-  ]
+  ],
+  "pageInfo": {
+    "page": 1,
+    "totalCount": 12,
+    "totalPages": 2,
+    "hasNext": true
+  }
 }
 ```
 
@@ -115,16 +142,19 @@ GET /api/v1/party-invites/{inviteToken}/rolling-papers?page=1
 {
   "partyOption": "PAPER_ONLY",
   "liveEndAt": null,
-  "page": 1,
-  "totalPages": 2,
-  "hasNext": true,
   "items": [
     {
       "rollingPaperId": 10,
       "writerNickname": "축하요정",
-      "wrapperImageUrl": "/images/rolling-paper-wrappers/Topping_Candle.svg"
+      "toppingImageUrl": "/images/rolling-paper-wrappers/Topping_Candle.svg"
     }
-  ]
+  ],
+  "pageInfo": {
+    "page": 1,
+    "totalCount": 12,
+    "totalPages": 2,
+    "hasNext": true
+  }
 }
 ```
 
@@ -134,21 +164,24 @@ GET /api/v1/party-invites/{inviteToken}/rolling-papers?page=1
 |---|---|
 | `partyOption` | `REALTIME`, `PAPER_ONLY`. `liveEndAt = null`의 의미를 명확히 하기 위해 유지한다. |
 | `liveEndAt` | 실시간 파티 종료 시각. `PAPER_ONLY`이면 `null`. |
-| `page` | 요청한 페이지 번호. 1부터 시작한다. |
-| `totalPages` | 페이지 번호 UI 계산용 전체 페이지 수. |
-| `hasNext` | 다음 페이지 존재 여부. |
 | `items` | 롤링페이퍼 카드 목록. |
 | `items[].rollingPaperId` | 롤링페이퍼 식별자. |
 | `items[].writerNickname` | 롤링페이퍼 작성 당시 닉네임 스냅샷. |
-| `items[].wrapperImageUrl` | 카드 렌더링용 래퍼 이미지 URL. 이미지가 없으면 `null`. |
+| `items[].toppingImageUrl` | 카드 렌더링용 토핑 이미지 URL. 기본 토핑 seed에서 보장한다. |
+| `pageInfo` | 페이지네이션 정보. 파티 메타와 목록 페이지 메타를 분리한다. |
+| `pageInfo.page` | 요청한 페이지 번호. 1부터 시작한다. |
+| `pageInfo.totalCount` | 전체 롤링페이퍼 수. |
+| `pageInfo.totalPages` | 페이지 번호 UI 계산용 전체 페이지 수. |
+| `pageInfo.hasNext` | 다음 페이지 존재 여부. |
 
 응답에서 제외하는 필드:
 
 | 제외 필드 | 제외 이유 |
 |---|---|
-| `totalCount` | 참가자 화면에서 총 개수를 표시하지 않는다. 서버는 `totalPages` 계산을 위해 내부적으로만 count를 사용한다. |
-| `pageSize` | 한 페이지 기준은 7개로 고정이므로 응답에 반복해서 내려주지 않는다. |
+| `pageSize` | 한 페이지 기준은 `PAGE_SIZE = 7`로 고정이므로 응답에 반복해서 내려주지 않는다. |
 | `partyEndAt` | 참가자용 목록 화면에서는 파티 자체 종료 시각을 표시하지 않는다. |
+| `items[].position` | 참가자 화면에서 순번 표시가 필요하지 않다. |
+| `items[].content` | 참가자용 목록에서는 롤링페이퍼 본문을 노출하지 않는다. |
 
 참가자용은 실시간 파티 종료 여부 boolean 대신 `liveEndAt`을 내려준다.
 
@@ -157,6 +190,14 @@ GET /api/v1/party-invites/{inviteToken}/rolling-papers?page=1
 - `liveEndAt`은 서버 응답 시점의 boolean보다 캐시와 시간 경과에 덜 취약하다.
 - 프론트는 화면 진입 시 한 번 현재 시각과 `liveEndAt`을 비교해 필요한 분기를 계산할 수 있다.
 - 기존 초대장 조회 API도 실시간 파티 종료 판단 기준으로 `realtimeSchedule.liveEndAt`을 내려준다.
+
+참가자용 상세 단건 조회 API는 이번 계약에 추가하지 않는다.
+
+이유:
+
+- 참가자 화면은 초대 링크로 목록에 진입한 뒤 토핑 카드 중심으로 목록을 렌더링하는 흐름이다.
+- 현재 요구사항에는 참가자에게 특정 롤링페이퍼 ID로 바로 진입하는 딥링크나 푸시 알림 복구 시나리오가 없다.
+- 해당 요구가 생기면 초대 토큰 기반 참가자용 상세 API를 별도 계약으로 추가한다.
 
 ### 3-2. 주최자용 목록 조회
 
@@ -176,17 +217,21 @@ GET /api/v1/parties/{partyId}/rolling-papers?page=1
 {
   "celebrantNickname": "홍길동",
   "partyEndAt": "2026-05-12T14:30:00",
-  "page": 1,
-  "totalCount": 8,
-  "totalPages": 2,
-  "hasNext": true,
   "items": [
     {
       "rollingPaperId": 10,
+      "position": 1,
       "writerNickname": "축하요정",
-      "wrapperImageUrl": "/images/rolling-paper-wrappers/Topping_Candle.svg"
+      "content": "생일 축하해요!",
+      "toppingImageUrl": "/images/rolling-paper-wrappers/Topping_Candle.svg"
     }
-  ]
+  ],
+  "pageInfo": {
+    "page": 1,
+    "totalCount": 8,
+    "totalPages": 2,
+    "hasNext": true
+  }
 }
 ```
 
@@ -196,22 +241,58 @@ GET /api/v1/parties/{partyId}/rolling-papers?page=1
 |---|---|
 | `celebrantNickname` | 파티 주인공 이름. 현재 `Party.celebrantNickname` 기준. |
 | `partyEndAt` | 파티 자체 종료 시각. `Party.endedAt()` 기준. |
-| `page` | 요청한 페이지 번호. 1부터 시작한다. |
-| `totalCount` | 주최자 화면에서 표시할 전체 롤링페이퍼 개수. |
-| `totalPages` | 페이지 번호 UI 계산용 전체 페이지 수. |
-| `hasNext` | 다음 페이지 존재 여부. |
 | `items` | 롤링페이퍼 카드 목록. |
 | `items[].rollingPaperId` | 롤링페이퍼 식별자. |
+| `items[].position` | 최신순 기준 현재 롤링페이퍼 순번. 1부터 시작한다. |
 | `items[].writerNickname` | 롤링페이퍼 작성 당시 닉네임 스냅샷. |
-| `items[].wrapperImageUrl` | 카드 렌더링용 래퍼 이미지 URL. 이미지가 없으면 `null`. |
+| `items[].content` | 롤링페이퍼 상세 오버레이에 표시할 본문. 작성 API 기준 최대 100자. |
+| `items[].toppingImageUrl` | 카드 렌더링용 토핑 이미지 URL. 기본 토핑 seed에서 보장한다. |
+| `pageInfo` | 페이지네이션 정보. 파티 메타와 목록 페이지 메타를 분리한다. |
+| `pageInfo.page` | 요청한 페이지 번호. 1부터 시작한다. |
+| `pageInfo.totalCount` | 주최자 화면에서 표시할 전체 롤링페이퍼 개수. |
+| `pageInfo.totalPages` | 페이지 번호 UI 계산용 전체 페이지 수. |
+| `pageInfo.hasNext` | 다음 페이지 존재 여부. |
 
 응답에서 제외하는 필드:
 
 | 제외 필드 | 제외 이유 |
 |---|---|
 | `partyOption` | 주최자 목록 화면의 응답 요구사항에는 필요하지 않다. 열람 가능 여부는 서버가 검증한다. |
-| `pageSize` | 한 페이지 기준은 7개로 고정이므로 응답에 반복해서 내려주지 않는다. |
-| `inviteToken`, `shareLink` | 공유하기 버튼 클릭 시 기존 초대 링크 API를 별도로 호출한다. |
+| `pageSize` | 한 페이지 기준은 `PAGE_SIZE = 7`로 고정이므로 응답에 반복해서 내려주지 않는다. |
+| `inviteToken`, `shareLink` | 다가오는 파티 카드에서 다가오는 파티 응답의 `inviteToken`을 사용한다. |
+
+### 3-3. 주최자용 상세 조회
+
+```http
+GET /api/v1/parties/{partyId}/rolling-papers/{rollingPaperId}
+```
+
+인증:
+
+- 인증 필수.
+- `party.ownerId == principal.userId`가 아니면 403.
+- 주최자 열람 가능 시각 전이면 403.
+
+역할:
+
+- 목록 화면에서 토핑을 눌러 상세 오버레이를 여는 기본 플로우에는 사용하지 않는다.
+- 특정 롤링페이퍼 ID로 바로 상세를 열어야 하는 딥링크, 푸시 알림, 새로고침 복구, 운영성 조회 같은 보조 플로우를 위해 유지한다.
+- 상세 오버레이의 좌우 이동은 목록 page 캐시와 인접 page 조회로 처리한다.
+- 상세 API는 단건 복구에 필요한 내용과 `1 / N` 표시용 위치 정보만 제공하고, 이전/다음 롤링페이퍼 ID는 제공하지 않는다.
+
+응답:
+
+```json
+{
+  "rollingPaperId": 10,
+  "content": "생일 축하해요!",
+  "writerNickname": "축하요정",
+  "position": 1,
+  "totalCount": 12
+}
+```
+
+향후 딥링크/복구 요구가 사라지면 상세 API는 제거할 수 있다.
 
 ---
 
@@ -298,10 +379,22 @@ override fun hostViewableAt(): LocalDateTime =
 ## 5. 페이지네이션 규칙
 
 페이지 요청은 1부터 시작하고, `page`가 1보다 작으면 서버에서 1로 보정한다.
-한 페이지 기준 개수는 7개 고정이며, 정렬은 `createdAt DESC, id DESC`다.
+한 페이지 기준 개수는 `PAGE_SIZE = 7`로 고정이며, 정렬은 `createdAt DESC, id DESC`다.
 
-서버는 `totalPages` 계산을 위해 내부적으로 `totalCount`를 조회한다.
-참가자용 응답에는 `totalCount`를 내려주지 않고, 주최자용 응답에는 전체 개수 표시를 위해 `totalCount`를 내려준다.
+서버는 `totalPages` 계산과 상세 오버레이의 `1 / N` 표시를 위해 `totalCount`를 조회한다.
+참가자용과 주최자용 응답 모두 `totalCount`를 내려준다.
+
+각 item의 `position`은 최신순 전체 목록 기준 1부터 시작한다.
+목록 page 응답에서는 별도 count 쿼리로 개별 위치를 계산하지 않고, 현재 page와 index로 계산한다.
+
+```text
+position = (page - 1) * PAGE_SIZE + itemIndex + 1
+```
+
+`position`과 `totalCount`는 해당 목록 API 응답 시점의 snapshot 기준이다.
+사용자가 상세 오버레이를 보고 있는 동안 새 롤링페이퍼가 추가되면 이미 캐시된 page의 `position`과 `totalCount`가 최신 DB 상태와 달라질 수 있다.
+이번 화면은 실시간 동기화보다 page 기반 탐색과 전체 페이지 표시를 우선하므로 이 정도의 eventual consistency를 허용한다.
+프론트가 최신 개수를 반드시 다시 보여줘야 하는 시점에는 목록 page를 재조회한다.
 
 응답 invariant:
 
@@ -309,6 +402,7 @@ override fun hostViewableAt(): LocalDateTime =
 - 빈 목록이어도 `page`는 보정된 요청 page를 그대로 응답한다.
 - `page > totalPages`이면 `page`는 요청값 그대로 응답하고, `items = []`, `hasNext = false`로 응답한다.
 - 서버는 상한 초과 page를 마지막 페이지로 보정하지 않는다.
+- `items = []`이면 item별 `position`도 응답하지 않는다.
 
 커서 기반 페이지네이션은 이번 API 계약에서는 사용하지 않는다.
 
@@ -350,13 +444,15 @@ Party.endedAt() = Party.startedAt + Party.ENDED_AFTER_DAYS
 
 ## 7. 이미지 URL 정책
 
-목록 item은 `wrapperImageUrl`을 내려준다.
+목록 item은 카드 렌더링용 `toppingImageUrl`을 내려준다. 주최자용 item은 상세 오버레이에 필요한 `content`도 함께 내려준다.
+`content`는 작성 API와 엔티티의 기존 제한에 따라 최대 100자다.
 
 이유:
 
-- 목록 화면은 카드를 렌더링하는 화면이므로 프론트가 별도 래퍼 캐시를 강제하지 않는 편이 좋다.
-- 이미 래퍼 조회 API도 `wrapperId`, `wrapperImageUrl`을 내려주는 계약이다.
-- 작성 API는 `wrapperId`를 받고, 목록 API는 렌더링용 이미지 URL을 내려주는 역할 분리가 명확하다.
+- 목록 화면은 카드를 렌더링하는 화면이므로 프론트가 별도 토핑 캐시를 강제하지 않는 편이 좋다.
+- 참가자용 목록은 토핑 카드 중심의 최소 응답으로 유지하고, 주최자용 목록은 같은 롤링페이퍼 컬렉션을 확대 표시하는 화면이므로 본문을 목록 page 응답에 함께 포함한다.
+- 이미 토핑 조회 API도 `toppingId`, `toppingImageUrl`을 내려주는 계약이다.
+- 작성 API는 `toppingId`를 받고, 목록 API는 렌더링용 이미지 URL을 내려주는 역할 분리가 명확하다.
 
 조회 기준:
 
@@ -366,13 +462,15 @@ image.target_id = rolling_paper.wrapper_id
 sort_order ASC 첫 번째 이미지
 ```
 
-래퍼 이미지가 없으면 `wrapperImageUrl = null`로 응답한다.
+응답 필드명은 `toppingImageUrl`을 사용하지만, 실제 정적 이미지 URL은 기존 seed 데이터와 파일 경로인 `/images/rolling-paper-wrappers/...`를 유지한다.
+
+기본 토핑 이미지는 seed에서 보장하므로 목록 응답의 `toppingImageUrl`은 non-null이다.
 
 구현 기준:
 
 - 페이지에 포함된 롤링페이퍼의 `wrapper_id` 목록을 모은다.
 - `ImageTargetType.ROLLING_PAPER_WRAPPER`와 `wrapper_id IN (...)` 조건으로 이미지를 한 번에 조회한다.
-- 같은 래퍼에 이미지가 여러 개 있으면 `sort_order ASC` 첫 번째 이미지만 사용한다.
+- 같은 토핑에 이미지가 여러 개 있으면 `sort_order ASC` 첫 번째 이미지만 사용한다.
 - 롤링페이퍼 item마다 이미지를 개별 조회하지 않는다.
 
 ---
@@ -402,8 +500,7 @@ ROLLING_PAPER_NOT_VIEWABLE(HttpStatus.FORBIDDEN, "아직 롤링페이퍼를 확�
 참가자용 목록:
 
 - 초대 토큰으로 목록 조회 성공
-- `partyOption`, `liveEndAt`, `page`, `totalPages`, `hasNext`, `items` 응답
-- `totalCount`는 응답하지 않음
+- `partyOption`, `liveEndAt`, `page`, `totalCount`, `totalPages`, `hasNext`, `items` 응답
 - `PAPER_ONLY`이면 `liveEndAt = null`
 - `REALTIME`이면 `liveEndAt = startedAt + RealtimeParty.LIVE_DURATION_MINUTES`
 - 파티 자체 종료 이후에도 목록 조회 성공. 단, 정책 변경 가능성이 있음을 문서에 남김
@@ -422,22 +519,41 @@ ROLLING_PAPER_NOT_VIEWABLE(HttpStatus.FORBIDDEN, "아직 롤링페이퍼를 확�
 - `now == hostViewableAt()`이면 열람 가능
 - 공유 링크 토큰이나 URL은 응답에 포함하지 않음
 
-공통 목록 item:
+참가자용 목록 item:
 
 - 최신순 정렬
 - 같은 `createdAt`이면 `id DESC` 정렬
-- `rollingPaperId`, `writerNickname`, `wrapperImageUrl` 응답
-- 이미지가 없으면 `wrapperImageUrl = null`
+- `rollingPaperId`, `writerNickname`, `toppingImageUrl` 응답
+- `position`, `content`는 응답하지 않음
+- 토핑 이미지는 `wrapper_id IN (...)`으로 bulk 조회해 N+1을 방지
+
+주최자용 목록 item:
+
+- 최신순 정렬
+- 같은 `createdAt`이면 `id DESC` 정렬
+- `rollingPaperId`, `position`, `writerNickname`, `content`, `toppingImageUrl` 응답
+- `position`은 최신순 전체 목록 기준으로 계산
+- `content`는 상세 오버레이에서 별도 상세 조회 없이 표시할 수 있어야 함
 - 여러 이미지가 있으면 `sort_order ASC` 첫 번째 이미지 사용
-- 래퍼 이미지는 `wrapper_id IN (...)`으로 bulk 조회해 N+1을 방지
+- 토핑 이미지는 `wrapper_id IN (...)`으로 bulk 조회해 N+1을 방지
+
+주최자용 상세:
+
+- 특정 롤링페이퍼 ID로 상세 조회 성공
+- 상세 조회는 목록 기반 상세 오버레이의 기본 플로우가 아니라 보조 플로우임
+- `rollingPaperId`, `content`, `writerNickname`, `position`, `totalCount` 응답
+- `previousRollingPaperId`, `nextRollingPaperId`는 응답하지 않음
+- 해당 파티의 롤링페이퍼가 아니면 404
+- 소유자가 아니면 403
+- 열람 가능 전이면 403 `ROLLING_PAPER_NOT_VIEWABLE`
 
 페이지네이션:
 
 - totalCount 0이면 `totalPages = 0`, `items = []`
-- totalCount 7이면 1페이지 7개
-- totalCount 8이면 1페이지 7개, 2페이지 1개
-- totalCount 14이면 1페이지 7개, 2페이지 7개
-- totalCount 15이면 1페이지 7개, 2페이지 7개, 3페이지 1개
+- totalCount가 `PAGE_SIZE`이면 1페이지 `PAGE_SIZE`개
+- totalCount가 `PAGE_SIZE + 1`이면 1페이지 `PAGE_SIZE`개, 2페이지 1개
+- totalCount가 `PAGE_SIZE * 2`이면 1페이지 `PAGE_SIZE`개, 2페이지 `PAGE_SIZE`개
+- totalCount가 `PAGE_SIZE * 2 + 1`이면 1페이지 `PAGE_SIZE`개, 2페이지 `PAGE_SIZE`개, 3페이지 1개
 - `page`가 1보다 작으면 1페이지로 보정
 - 존재하지 않는 페이지 요청 시 `page`는 요청값 그대로, `items = []`, `hasNext = false`
 
