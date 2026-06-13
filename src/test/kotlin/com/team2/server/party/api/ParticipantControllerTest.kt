@@ -83,22 +83,9 @@ class ParticipantControllerTest
                 )
 
             val character = characterRepository.save(Character(name = "octopus"))
-            imageRepository.save(
-                Image(
-                    imageUrl = "https://cdn/char.png",
-                    targetType = ImageTargetType.CHARACTER,
-                    targetId = character.id,
-                    sortOrder = 0,
-                ),
-            )
-            imageRepository.save(
-                Image(
-                    imageUrl = "https://cdn/char-owner.png",
-                    targetType = ImageTargetType.CHARACTER,
-                    targetId = character.id,
-                    sortOrder = 2,
-                ),
-            )
+            saveCharacterImage(character.id, "https://cdn/char.png", sortOrder = 0)
+            saveCharacterImage(character.id, "https://cdn/char-thumbnail.png", sortOrder = 1)
+            saveCharacterImage(character.id, "https://cdn/char-owner.png", sortOrder = 2)
 
             val ownerParticipant =
                 participantRepository.save(Participant(party = realtimeParty, user = owner, isCelebrant = true))
@@ -137,12 +124,14 @@ class ParticipantControllerTest
                     jsonPath("$.data.participants[0].isCelebrant") { value(true) }
                     jsonPath("$.data.participants[0].isMe") { value(true) }
                     jsonPath("$.data.participants[0].characterImageUrl") { value("https://cdn/char-owner.png") }
+                    jsonPath("$.data.participants[0].thumbnailImageUrl") { value("https://cdn/char-thumbnail.png") }
                     jsonPath("$.data.participants[1].joinOrder") { value(2) }
                     jsonPath("$.data.participants[1].nickname") { value("참가자A") }
                     jsonPath("$.data.participants[1].isOwner") { value(false) }
                     jsonPath("$.data.participants[1].isCelebrant") { value(false) }
                     jsonPath("$.data.participants[1].isMe") { value(false) }
                     jsonPath("$.data.participants[1].characterImageUrl") { value("https://cdn/char.png") }
+                    jsonPath("$.data.participants[1].thumbnailImageUrl") { value("https://cdn/char-thumbnail.png") }
                 }
         }
 
@@ -430,6 +419,21 @@ class ParticipantControllerTest
                     jsonPath("$.data.participants[0].isOwner") { value(true) }
                     jsonPath("$.data.participants[0].characterImageUrl") { value("https://cdn/fallback.png") }
                 }
+        }
+
+        private fun saveCharacterImage(
+            characterId: Long,
+            imageUrl: String,
+            sortOrder: Int,
+        ) {
+            imageRepository.save(
+                Image(
+                    imageUrl = imageUrl,
+                    targetType = ImageTargetType.CHARACTER,
+                    targetId = characterId,
+                    sortOrder = sortOrder,
+                ),
+            )
         }
 
         private fun connect(participant: Participant) {

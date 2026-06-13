@@ -6,6 +6,7 @@ data class PartyParticipantResult(
     val nickname: String,
     val characterId: Long?,
     val characterImageUrl: String?,
+    val thumbnailImageUrl: String?,
     val isOwner: Boolean,
     val isCelebrant: Boolean,
     val isMe: Boolean,

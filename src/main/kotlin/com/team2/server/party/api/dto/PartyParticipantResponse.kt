@@ -15,6 +15,8 @@ data class PartyParticipantResponse(
     val characterId: Long?,
     @Schema(description = "캐릭터 메인 이미지 URL", nullable = true)
     val characterImageUrl: String?,
+    @Schema(description = "캐릭터 썸네일 이미지 URL", nullable = true)
+    val thumbnailImageUrl: String?,
     @Schema(description = "파티 주최자 여부", example = "true")
     val isOwner: Boolean,
     @Schema(description = "파티 주인공 여부", example = "true")
@@ -30,6 +32,7 @@ data class PartyParticipantResponse(
                 nickname = result.nickname,
                 characterId = result.characterId,
                 characterImageUrl = result.characterImageUrl,
+                thumbnailImageUrl = result.thumbnailImageUrl,
                 isOwner = result.isOwner,
                 isCelebrant = result.isCelebrant,
                 isMe = result.isMe,
