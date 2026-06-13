@@ -1,10 +1,12 @@
 package com.team2.server.burstgame.application.usecase
 
 import com.team2.server.burstgame.application.port.CandleBlowEventBroadcaster
+import com.team2.server.burstgame.application.port.CandleBlowScheduler
 import com.team2.server.burstgame.config.CandleBlowProperties
 import com.team2.server.burstgame.domain.candle.CandleBlowStatus
 import com.team2.server.burstgame.infrastructure.candle.InMemoryCandleBlowSessionStore
 import org.mockito.kotlin.any
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
@@ -17,16 +19,22 @@ class StartCandleBlowUseCaseTest {
     private val startedAt = LocalDateTime.of(2026, 6, 8, 20, 17, 34)
     private lateinit var sessionStore: InMemoryCandleBlowSessionStore
     private lateinit var eventBroadcaster: CandleBlowEventBroadcaster
+    private lateinit var scheduler: CandleBlowScheduler
+    private lateinit var endScheduledCandleBlowUseCase: EndScheduledCandleBlowUseCase
     private lateinit var useCase: StartCandleBlowUseCase
 
     @BeforeTest
     fun setUp() {
         sessionStore = InMemoryCandleBlowSessionStore()
         eventBroadcaster = mock()
+        scheduler = mock()
+        endScheduledCandleBlowUseCase = mock()
         useCase =
             StartCandleBlowUseCase(
                 sessionStore = sessionStore,
                 eventBroadcaster = eventBroadcaster,
+                scheduler = scheduler,
+                endScheduledCandleBlowUseCase = endScheduledCandleBlowUseCase,
                 candleBlowProperties = CandleBlowProperties(),
             )
     }
@@ -37,6 +45,7 @@ class StartCandleBlowUseCaseTest {
 
         assertEquals(CandleBlowStatus.ACTIVE, result.status)
         verify(eventBroadcaster).broadcastStarted(any())
+        verify(scheduler).scheduleEnd(eq(1L), eq(startedAt.plusSeconds(300)), any())
     }
 
     @Test
@@ -45,5 +54,6 @@ class StartCandleBlowUseCaseTest {
         useCase(partyId = 1L, startedAt = startedAt.plusSeconds(1))
 
         verify(eventBroadcaster, times(1)).broadcastStarted(any())
+        verify(scheduler, times(1)).scheduleEnd(eq(1L), eq(startedAt.plusSeconds(300)), any())
     }
 }

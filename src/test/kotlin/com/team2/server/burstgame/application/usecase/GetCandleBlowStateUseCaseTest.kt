@@ -7,7 +7,8 @@ import com.team2.server.burstgame.application.support.CandleBlowEndEventPublishe
 import com.team2.server.burstgame.config.CandleBlowProperties
 import com.team2.server.burstgame.domain.BurstGameParticipantInfo
 import com.team2.server.burstgame.domain.candle.CandleBlowFinishedReason
-import com.team2.server.burstgame.domain.candle.CandleBlowPolicy
+import com.team2.server.burstgame.domain.candle.CandleBlowSession
+import com.team2.server.burstgame.domain.candle.CandleBlowStatus
 import com.team2.server.burstgame.infrastructure.candle.InMemoryCandleBlowSessionStore
 import com.team2.server.party.domain.entity.RealtimeParty
 import org.junit.jupiter.api.extension.ExtendWith
@@ -37,21 +38,23 @@ class GetCandleBlowStateUseCaseTest {
             participantResolver = participantResolver,
             sessionStore = sessionStore,
             endEventPublisher = CandleBlowEndEventPublisher(eventBroadcaster),
-            candleBlowProperties = candleBlowProperties,
             clock = clock,
         )
 
     @Test
     fun `조회로 촛불끄기 timeout 종료가 발생하면 ended 이벤트를 커밋 이후 발행한다`() {
-        whenever(participantResolver.resolveWithParty(1L, null, "tok"))
-            .thenReturn(
-                resolved(
-                    hostEnteredAt =
-                        LocalDateTime
-                            .now(clock)
-                            .minusSeconds(CandleBlowPolicy.START_DELAY_SECONDS + candleBlowProperties.durationSeconds),
-                ),
-            )
+        val now = LocalDateTime.now(clock)
+        whenever(participantResolver.resolveWithParty(1L, null, "tok")).thenReturn(resolved(now.minusDays(1)))
+        sessionStore.getOrCreateWithLock(
+            partyId = 1L,
+            sessionFactory = {
+                CandleBlowSession.fromStartedAt(
+                    partyId = 1L,
+                    startedAt = now.minusSeconds(candleBlowProperties.durationSeconds),
+                    durationSeconds = candleBlowProperties.durationSeconds,
+                )
+            },
+        ) { _, _ -> }
 
         TransactionSynchronizationManager.initSynchronization()
         try {
@@ -66,6 +69,18 @@ class GetCandleBlowStateUseCaseTest {
         } finally {
             TransactionSynchronizationManager.clearSynchronization()
         }
+    }
+
+    @Test
+    fun `호스트 입장 후 오래 지나도 CANDLE 세션이 없으면 WAITING을 반환한다`() {
+        whenever(participantResolver.resolveWithParty(1L, null, "tok"))
+            .thenReturn(resolved(LocalDateTime.now(clock).minusDays(1)))
+
+        val response = useCase(partyId = 1L, userId = null, participantToken = "tok")
+
+        assertEquals(CandleBlowStatus.WAITING, response.status)
+        assertEquals(null, response.finishedReason)
+        assertEquals(null, sessionStore.withSessionLock(1L) { it })
     }
 
     private fun resolved(hostEnteredAt: LocalDateTime): ResolvedRealtimeParticipant =
