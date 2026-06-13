@@ -379,6 +379,7 @@ class ParticipantControllerTest
                     jsonPath("$.data.participants[1].nickname") { value("익명") }
                     jsonPath("$.data.participants[1].characterId") { value(nullValue()) }
                     jsonPath("$.data.participants[1].characterImageUrl") { value(nullValue()) }
+                    jsonPath("$.data.participants[1].thumbnailImageUrl") { value(nullValue()) }
                     jsonPath("$.data.participants[1].isOwner") { value(false) }
                     jsonPath("$.data.participants[1].isMe") { value(false) }
                 }
@@ -418,6 +419,7 @@ class ParticipantControllerTest
                     status { isOk() }
                     jsonPath("$.data.participants[0].isOwner") { value(true) }
                     jsonPath("$.data.participants[0].characterImageUrl") { value("https://cdn/fallback.png") }
+                    jsonPath("$.data.participants[0].thumbnailImageUrl") { value(nullValue()) }
                 }
         }
 
