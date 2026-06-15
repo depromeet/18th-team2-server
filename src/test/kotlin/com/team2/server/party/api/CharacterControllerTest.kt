@@ -38,7 +38,7 @@ class CharacterControllerTest
             val greenCharacter = characterRepository.save(Character(name = "green"))
             imageRepository.save(
                 Image(
-                    imageUrl = "/images/characters/blue.svg",
+                    imageUrl = "/images/characters/blue.png",
                     targetType = ImageTargetType.CHARACTER,
                     targetId = blueCharacter.id,
                     sortOrder = 0,
@@ -54,7 +54,7 @@ class CharacterControllerTest
             )
             imageRepository.save(
                 Image(
-                    imageUrl = "/images/characters/green.svg",
+                    imageUrl = "/images/characters/green.png",
                     targetType = ImageTargetType.CHARACTER,
                     targetId = greenCharacter.id,
                     sortOrder = 0,
@@ -75,7 +75,7 @@ class CharacterControllerTest
                 jsonPath("$.data[0].characterId") { value(blueCharacter.id) }
                 jsonPath("$.data[0].name") { value("blue") }
                 jsonPath("$.data[0].characterImageUrl") {
-                    value("/images/characters/blue.svg")
+                    value("/images/characters/blue.png")
                 }
                 jsonPath("$.data[0].characterThumbnailImageUrl") {
                     value("/images/character-thumbnails/blue.png")
@@ -83,7 +83,7 @@ class CharacterControllerTest
                 jsonPath("$.data[1].characterId") { value(greenCharacter.id) }
                 jsonPath("$.data[1].name") { value("green") }
                 jsonPath("$.data[1].characterImageUrl") {
-                    value("/images/characters/green.svg")
+                    value("/images/characters/green.png")
                 }
                 jsonPath("$.data[1].characterThumbnailImageUrl") {
                     value("/images/character-thumbnails/green.png")
@@ -106,10 +106,10 @@ class CharacterControllerTest
 
         @Test
         fun `캐릭터 정적 이미지 경로는 인증 없이 접근 가능`() {
-            mockMvc.get("/images/characters/blue.svg").andExpect {
+            mockMvc.get("/images/characters/blue.png").andExpect {
                 status { isOk() }
             }
-            mockMvc.get("/images/characters/party-hat/blue.svg").andExpect {
+            mockMvc.get("/images/characters/party-hat/blue.png").andExpect {
                 status { isOk() }
             }
             mockMvc.get("/images/character-thumbnails/blue.png").andExpect {

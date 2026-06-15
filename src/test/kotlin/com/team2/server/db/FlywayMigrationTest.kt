@@ -200,19 +200,19 @@ class FlywayMigrationTest {
         private val TABLES_WITH_COLUMNS_TO_ASSERT = setOf("realtime_party")
         private val EXPECTED_CHARACTER_IMAGE_URLS =
             listOf(
-                "/images/characters/blue.svg",
-                "/images/characters/green.svg",
-                "/images/characters/pink.svg",
-                "/images/characters/purple.svg",
-                "/images/characters/yellow.svg",
+                "/images/characters/blue.png",
+                "/images/characters/green.png",
+                "/images/characters/pink.png",
+                "/images/characters/purple.png",
+                "/images/characters/yellow.png",
             )
         private val EXPECTED_PARTY_HAT_CHARACTER_IMAGE_URLS =
             listOf(
-                "/images/characters/party-hat/blue.svg",
-                "/images/characters/party-hat/green.svg",
-                "/images/characters/party-hat/pink.svg",
-                "/images/characters/party-hat/purple.svg",
-                "/images/characters/party-hat/yellow.svg",
+                "/images/characters/party-hat/blue.png",
+                "/images/characters/party-hat/green.png",
+                "/images/characters/party-hat/pink.png",
+                "/images/characters/party-hat/purple.png",
+                "/images/characters/party-hat/yellow.png",
             )
 
         @JvmStatic
