@@ -2,6 +2,7 @@ package com.team2.server.burstgame.application.usecase
 
 import com.team2.server.burstgame.application.dto.CandleBlowScheduleResult
 import com.team2.server.burstgame.application.port.CandleBlowEventBroadcaster
+import com.team2.server.burstgame.application.port.CandleBlowScheduler
 import com.team2.server.burstgame.application.port.CandleBlowSessionStore
 import com.team2.server.burstgame.config.CandleBlowProperties
 import com.team2.server.burstgame.domain.candle.CandleBlowSession
@@ -16,6 +17,8 @@ import java.time.LocalDateTime
 class StartCandleBlowUseCase(
     private val sessionStore: CandleBlowSessionStore,
     private val eventBroadcaster: CandleBlowEventBroadcaster,
+    private val scheduler: CandleBlowScheduler,
+    private val endScheduledCandleBlowUseCase: EndScheduledCandleBlowUseCase,
     private val candleBlowProperties: CandleBlowProperties,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -34,8 +37,13 @@ class StartCandleBlowUseCase(
                     durationSeconds = candleBlowProperties.durationSeconds,
                 )
             },
-        ) { session, _ ->
+        ) { session, created ->
             val snapshot = session.snapshot(startedAt)
+            if (created) {
+                scheduler.scheduleEnd(partyId, session.endsAt) { scheduledPartyId ->
+                    endScheduledCandleBlowUseCase(scheduledPartyId, session.endsAt)
+                }
+            }
             if (snapshot.status == CandleBlowStatus.ACTIVE && session.markAndCheckBroadcastNeeded(snapshot.status)) {
                 broadcastStarted(snapshot)
             }

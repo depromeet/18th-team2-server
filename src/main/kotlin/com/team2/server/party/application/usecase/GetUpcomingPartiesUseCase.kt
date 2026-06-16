@@ -23,6 +23,7 @@ class GetUpcomingPartiesUseCase(
             participantRepository.findNotEndedByUserId(
                 userId = userId,
                 startedAfter = now.minusDays(Party.ENDED_AFTER_DAYS),
+                now = now,
             )
         val inviteTokenByPartyId = findInviteTokenByPartyId(participants.map { it.party }, now)
 

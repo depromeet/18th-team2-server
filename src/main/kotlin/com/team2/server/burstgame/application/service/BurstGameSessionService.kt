@@ -40,13 +40,12 @@ class BurstGameSessionService(
 
     fun start(
         partyId: Long,
-        hostEnteredAt: LocalDateTime?,
         participant: BurstGameParticipantInfo,
         now: LocalDateTime,
     ): StartResult {
         val result =
             sessionStore.start(partyId, now) {
-                if (!candleBlowStatusReader.isCandleBlowFinished(partyId, hostEnteredAt, now)) {
+                if (!candleBlowStatusReader.isCandleBlowFinished(partyId, now)) {
                     throw BusinessException(ErrorCode.BURST_GAME_NOT_READY)
                 }
                 val startedAt = now.plusSeconds(BurstGamePolicy.COUNTDOWN_DURATION_SECONDS)

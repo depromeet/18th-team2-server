@@ -31,4 +31,4 @@ app:
   time-zone: ${APP_TIME_ZONE:Asia/Seoul}
 
 candle-blow:
-  duration-seconds: 45
+  duration-seconds: 180

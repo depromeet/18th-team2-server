@@ -8,7 +8,7 @@ data class CharacterResult(
     val characterId: Long,
     @Schema(description = "캐릭터 이름", example = "Default")
     val name: String,
-    @Schema(description = "캐릭터 이미지 URL", example = "/images/characters/blue.svg")
+    @Schema(description = "캐릭터 이미지 URL", example = "/images/characters/blue.png")
     val characterImageUrl: String?,
     @Schema(description = "캐릭터 썸네일 이미지 URL", example = "/images/character-thumbnails/Type=Default, Shape=Circle.png")
     val characterThumbnailImageUrl: String?,

@@ -3,6 +3,7 @@ package com.team2.server.burstgame.api
 import com.team2.server.burstgame.application.port.BurstGameSessionStore
 import com.team2.server.burstgame.application.port.CandleBlowSessionStore
 import com.team2.server.burstgame.application.service.BurstGameSessionService
+import com.team2.server.burstgame.application.usecase.StartCandleBlowUseCase
 import com.team2.server.burstgame.domain.BurstGameSession
 import com.team2.server.burstgame.domain.candle.CandleBlowPolicy
 import com.team2.server.burstgame.domain.policy.BurstGamePolicy
@@ -27,6 +28,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import java.time.LocalDateTime
+import kotlin.test.assertTrue
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -41,6 +43,7 @@ class BurstGameControllerTest
         private val sessionService: BurstGameSessionService,
         private val sessionStore: BurstGameSessionStore,
         private val candleBlowSessionStore: CandleBlowSessionStore,
+        private val startCandleBlowUseCase: StartCandleBlowUseCase,
         private val phaseStore: PartyPhaseStore,
         private val databaseCleanup: DatabaseCleanup,
     ) {
@@ -57,6 +60,7 @@ class BurstGameControllerTest
         @Test
         fun `participantToken으로 촛불끄기 상태 조회 성공`() {
             val fixture = saveRealtimeParticipant(startedAt = activeCandleBlowStartedAt())
+            startCandleBlow(fixture, activeCandleBlowStartedAt())
 
             mockMvc
                 .get("/api/v1/parties/${fixture.partyId}/candle-blow") {
@@ -77,6 +81,7 @@ class BurstGameControllerTest
         @Test
         fun `participantToken으로 촛불 끄기 성공`() {
             val fixture = saveRealtimeParticipant(startedAt = activeCandleBlowStartedAt())
+            startCandleBlow(fixture, activeCandleBlowStartedAt())
 
             mockMvc
                 .post("/api/v1/parties/${fixture.partyId}/candle-blow/candles/3") {
@@ -95,6 +100,7 @@ class BurstGameControllerTest
         @Test
         fun `허용 범위 밖 candleId 요청은 400을 반환한다`() {
             val fixture = saveRealtimeParticipant(startedAt = activeCandleBlowStartedAt())
+            startCandleBlow(fixture, activeCandleBlowStartedAt())
 
             mockMvc
                 .post("/api/v1/parties/${fixture.partyId}/candle-blow/candles/0") {
@@ -108,6 +114,7 @@ class BurstGameControllerTest
         @Test
         fun `이미 꺼진 촛불을 다시 꺼도 200 응답으로 현재 상태를 반환한다`() {
             val fixture = saveRealtimeParticipant(startedAt = activeCandleBlowStartedAt())
+            startCandleBlow(fixture, activeCandleBlowStartedAt())
 
             blowCandle(fixture, candleId = 3)
 
@@ -138,6 +145,7 @@ class BurstGameControllerTest
         @Test
         fun `모든 촛불이 꺼진 뒤 촛불 끄기 요청은 200 응답으로 종료 상태를 반환한다`() {
             val fixture = saveRealtimeParticipant(startedAt = activeCandleBlowStartedAt())
+            startCandleBlow(fixture, activeCandleBlowStartedAt())
 
             (1..CandleBlowPolicy.CANDLE_COUNT).forEach { candleId ->
                 blowCandle(fixture, candleId)
@@ -158,11 +166,9 @@ class BurstGameControllerTest
         fun `종료 시각이 지난 촛불끄기 조회는 TIMEOUT 종료 상태를 반환한다`() {
             val fixture =
                 saveRealtimeParticipant(
-                    startedAt =
-                        LocalDateTime
-                            .now()
-                            .minusSeconds(CandleBlowPolicy.START_DELAY_SECONDS + candleBlowDurationSeconds + 5),
+                    startedAt = LocalDateTime.now().minusMinutes(10),
                 )
+            startCandleBlow(fixture, LocalDateTime.now().minusSeconds(candleBlowDurationSeconds + 5))
 
             mockMvc
                 .get("/api/v1/parties/${fixture.partyId}/candle-blow") {
@@ -255,15 +261,14 @@ class BurstGameControllerTest
         }
 
         @Test
-        fun `촛불 세션이 없어도 촛불 종료 시각이 지난 파티는 BURST phase 전환 시 박터뜨리기 시작 성공`() {
+        fun `호스트 입장 후 오래 지나도 촛불 세션이 없으면 BURST phase 전환을 거부한다`() {
             val fixture =
                 saveRealtimeParticipant(
-                    startedAt =
-                        LocalDateTime
-                            .now()
-                            .minusSeconds(CandleBlowPolicy.START_DELAY_SECONDS + candleBlowDurationSeconds + 5),
+                    startedAt = LocalDateTime.now().minusMinutes(10),
                 )
-            moveToCandle(fixture.partyId)
+            val now = LocalDateTime.now()
+            assertTrue(phaseStore.advance(fixture.partyId, PartyPhase.ENTRY, PartyPhase.MUSIC, now))
+            assertTrue(phaseStore.advance(fixture.partyId, PartyPhase.MUSIC, PartyPhase.CANDLE, now))
 
             mockMvc
                 .post("/api/v1/parties/${fixture.partyId}/phase/advance") {
@@ -271,16 +276,8 @@ class BurstGameControllerTest
                     header("X-Participant-Token", fixture.participantToken)
                     content = """{"currentPhase":"CANDLE"}"""
                 }.andExpect {
-                    status { isOk() }
-                    jsonPath("$.data.phase") { value("BURST") }
-                }
-
-            mockMvc
-                .get("/api/v1/parties/${fixture.partyId}/burst-game") {
-                    header("X-Participant-Token", fixture.participantToken)
-                }.andExpect {
-                    status { isOk() }
-                    jsonPath("$.data.myParticipantId") { value(fixture.participantId) }
+                    status { isBadRequest() }
+                    jsonPath("$.error.code") { value("BURST_GAME_NOT_READY") }
                 }
         }
 
@@ -420,6 +417,7 @@ class BurstGameControllerTest
         }
 
         private fun prepareCandleBlowFinished(fixture: BurstGameFixture) {
+            startCandleBlow(fixture, LocalDateTime.now())
             (1..CandleBlowPolicy.CANDLE_COUNT).forEach { candleId ->
                 blowCandle(fixture, candleId)
             }
@@ -441,6 +439,14 @@ class BurstGameControllerTest
             val now = LocalDateTime.now()
             phaseStore.advance(partyId, PartyPhase.ENTRY, PartyPhase.MUSIC, now)
             phaseStore.advance(partyId, PartyPhase.MUSIC, PartyPhase.CANDLE, now)
+            startCandleBlowUseCase(partyId, now)
+        }
+
+        private fun startCandleBlow(
+            fixture: BurstGameFixture,
+            startedAt: LocalDateTime,
+        ) {
+            startCandleBlowUseCase(fixture.partyId, startedAt)
         }
 
         private fun startPlayableGame(fixture: BurstGameFixture) {
@@ -523,8 +529,7 @@ class BurstGameControllerTest
             )
         }
 
-        private fun activeCandleBlowStartedAt(): LocalDateTime =
-            LocalDateTime.now().minusSeconds(CandleBlowPolicy.START_DELAY_SECONDS + 1L)
+        private fun activeCandleBlowStartedAt(): LocalDateTime = LocalDateTime.now().minusSeconds(1)
 
         private fun saveRealtimeParticipants(): List<BurstGameFixture> {
             val party =

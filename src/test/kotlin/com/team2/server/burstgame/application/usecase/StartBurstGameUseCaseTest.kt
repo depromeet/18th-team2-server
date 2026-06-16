@@ -48,7 +48,7 @@ class StartBurstGameUseCaseTest {
         val startResult = BurstGameSessionService.StartResult.Started(snapshot, created = true)
         val now = LocalDateTime.ofInstant(clock.instant(), clock.zone)
         whenever(participantResolver.resolveWithParty(1L, null, "tok")).thenReturn(resolved(participant))
-        whenever(sessionService.start(eq(1L), eq(hostEnteredAt), eq(participant), any()))
+        whenever(sessionService.start(eq(1L), eq(participant), any()))
             .thenReturn(startResult)
         whenever(startSideEffectHandler.resolve(startResult)).thenReturn(startResult)
 
@@ -64,7 +64,7 @@ class StartBurstGameUseCaseTest {
         val snapshot = endedSnapshot()
         val startResult = BurstGameSessionService.StartResult.AlreadyEnded(snapshot, endedNow = true)
         whenever(participantResolver.resolveWithParty(1L, null, "tok")).thenReturn(resolved(participant))
-        whenever(sessionService.start(eq(1L), eq(hostEnteredAt), eq(participant), any()))
+        whenever(sessionService.start(eq(1L), eq(participant), any()))
             .thenReturn(startResult)
         whenever(startSideEffectHandler.resolve(startResult))
             .thenThrow(BusinessException(ErrorCode.BURST_GAME_ALREADY_ENDED))

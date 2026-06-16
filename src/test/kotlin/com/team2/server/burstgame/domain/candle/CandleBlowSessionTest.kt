@@ -10,19 +10,18 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class CandleBlowSessionTest {
-    private val hostEnteredAt = LocalDateTime.of(2026, 5, 24, 20, 0)
+    private val startedAt = LocalDateTime.of(2026, 5, 24, 20, 0)
     private val durationSeconds = 300L
-    private val startedAt = hostEnteredAt.plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS)
     private val endsAt = startedAt.plusSeconds(durationSeconds)
     private val session =
-        CandleBlowSession.fromHostEnteredAt(
+        CandleBlowSession.fromStartedAt(
             partyId = 1L,
-            hostEnteredAt = hostEnteredAt,
+            startedAt = startedAt,
             durationSeconds = durationSeconds,
         )
 
     @Test
-    fun `주최자 입장 시각으로 촛불 시작 종료 시각을 계산한다`() {
+    fun `CANDLE phase 시작 시각으로 촛불 시작 종료 시각을 계산한다`() {
         assertEquals(startedAt, session.startedAt)
         assertEquals(endsAt, session.endsAt)
     }

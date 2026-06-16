@@ -4,6 +4,8 @@ import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
 import com.team2.server.burstgame.application.port.BurstGameSessionStore
 import com.team2.server.burstgame.application.port.CandleBlowSessionStore
+import com.team2.server.burstgame.application.usecase.StartCandleBlowUseCase
+import com.team2.server.burstgame.domain.candle.CandleBlowPolicy
 import com.team2.server.common.DatabaseCleanup
 import com.team2.server.config.TestcontainersConfiguration
 import com.team2.server.party.application.port.PartyPhaseStore
@@ -44,6 +46,7 @@ class PartyPhaseControllerTest
         private val phaseStore: PartyPhaseStore,
         private val sessionStore: BurstGameSessionStore,
         private val candleBlowSessionStore: CandleBlowSessionStore,
+        private val startCandleBlowUseCase: StartCandleBlowUseCase,
         private val jwtProperties: JwtProperties,
     ) {
         private val tokenProvider = JwtTokenProvider(jwtProperties)
@@ -120,8 +123,15 @@ class PartyPhaseControllerTest
                 saveParticipantAndParty(
                     startedAt = LocalDateTime.now().minusMinutes(6),
                 )
-            phaseStore.advance(fixture.partyId, PartyPhase.ENTRY, PartyPhase.MUSIC, LocalDateTime.now())
-            phaseStore.advance(fixture.partyId, PartyPhase.MUSIC, PartyPhase.CANDLE, LocalDateTime.now())
+            val now = LocalDateTime.now()
+            phaseStore.advance(fixture.partyId, PartyPhase.ENTRY, PartyPhase.MUSIC, now)
+            phaseStore.advance(fixture.partyId, PartyPhase.MUSIC, PartyPhase.CANDLE, now)
+            startCandleBlowUseCase(fixture.partyId, now)
+            candleBlowSessionStore.withSessionLock(fixture.partyId) { session ->
+                (1..CandleBlowPolicy.CANDLE_COUNT).forEach { candleId ->
+                    session.blow(candleId, now.plusSeconds(candleId.toLong()))
+                }
+            }
 
             mockMvc
                 .post("/api/v1/parties/${fixture.partyId}/phase/advance") {

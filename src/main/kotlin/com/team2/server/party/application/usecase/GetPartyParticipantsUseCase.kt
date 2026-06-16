@@ -34,6 +34,7 @@ class GetPartyParticipantsUseCase(
                 .filter { it.participantToken in onlineParticipantTokens }
         val characterIds = profiles.mapNotNull { it.character?.id }.distinct()
         val defaultImageByCharacterId = findCharacterImageUrls(characterIds, DEFAULT_CHARACTER_IMAGE_SORT_ORDER)
+        val thumbnailImageByCharacterId = findCharacterImageUrls(characterIds, THUMBNAIL_CHARACTER_IMAGE_SORT_ORDER)
         val ownerImageByCharacterId = findCharacterImageUrls(characterIds, OWNER_CHARACTER_IMAGE_SORT_ORDER)
 
         val items =
@@ -48,6 +49,7 @@ class GetPartyParticipantsUseCase(
                     nickname = profile.nickname,
                     characterId = characterId,
                     characterImageUrl = ownerImageUrl ?: characterId?.let { defaultImageByCharacterId[it] },
+                    thumbnailImageUrl = characterId?.let { thumbnailImageByCharacterId[it] },
                     isOwner = isOwner,
                     isCelebrant = participant.isCelebrant,
                     isMe = participant.id == callerParticipantId,
@@ -69,6 +71,7 @@ class GetPartyParticipantsUseCase(
     private companion object {
         // CHARACTER 이미지 sort_order — V2 시드: 기본(Shape=Default)=0, 썸네일(Shape=Circle)=1 / V8 시드: 주최자 꼬깔모자=2
         private const val DEFAULT_CHARACTER_IMAGE_SORT_ORDER = 0
+        private const val THUMBNAIL_CHARACTER_IMAGE_SORT_ORDER = 1
         private const val OWNER_CHARACTER_IMAGE_SORT_ORDER = 2
     }
 }

@@ -11,7 +11,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class InMemoryCandleBlowSessionStoreTest {
-    private val hostEnteredAt = LocalDateTime.of(2026, 5, 24, 20, 0)
+    private val startedAt = LocalDateTime.of(2026, 5, 24, 20, 0)
     private val durationSeconds = 300L
     private val store = InMemoryCandleBlowSessionStore()
 
@@ -114,7 +114,7 @@ class InMemoryCandleBlowSessionStoreTest {
                             session
                                 .blow(
                                     candleId = candleId,
-                                    now = hostEnteredAt.plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS),
+                                    now = startedAt,
                                 ).changed
                         } == true
                     }
@@ -126,7 +126,7 @@ class InMemoryCandleBlowSessionStoreTest {
             assertTrue(futures.all { it.get(1, TimeUnit.SECONDS) })
             val remainingCount =
                 store.withSessionLock(1L) {
-                    it.snapshot(hostEnteredAt.plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS)).remainingCount
+                    it.snapshot(startedAt).remainingCount
                 }
             assertEquals(0, remainingCount)
         } finally {
@@ -141,8 +141,8 @@ class InMemoryCandleBlowSessionStoreTest {
         store.getOrCreateWithLock(1L, { session(1L) }) { _, _ -> }
 
         store.removeExpired(
-            hostEnteredAt
-                .plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS + durationSeconds)
+            startedAt
+                .plusSeconds(durationSeconds)
                 .plus(CandleBlowPolicy.SESSION_TTL),
         )
 
@@ -154,8 +154,8 @@ class InMemoryCandleBlowSessionStoreTest {
         store.getOrCreateWithLock(1L, { session(1L) }) { _, _ -> }
 
         store.removeExpired(
-            hostEnteredAt
-                .plusSeconds(CandleBlowPolicy.START_DELAY_SECONDS + durationSeconds)
+            startedAt
+                .plusSeconds(durationSeconds)
                 .plus(CandleBlowPolicy.SESSION_TTL)
                 .minusNanos(1),
         )
@@ -164,9 +164,9 @@ class InMemoryCandleBlowSessionStoreTest {
     }
 
     private fun session(partyId: Long): CandleBlowSession =
-        CandleBlowSession.fromHostEnteredAt(
+        CandleBlowSession.fromStartedAt(
             partyId = partyId,
-            hostEnteredAt = hostEnteredAt,
+            startedAt = startedAt,
             durationSeconds = durationSeconds,
         )
 }
