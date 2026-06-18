@@ -85,7 +85,6 @@ class PartyRealtimePartyEntryProfileAdapter(
         val RECONNECTABLE_STATUSES: Set<RealtimePartyStatus> =
             setOf(
                 RealtimePartyStatus.LIVE_OPEN,
-                RealtimePartyStatus.LIVE_ENDING,
             )
     }
 }
