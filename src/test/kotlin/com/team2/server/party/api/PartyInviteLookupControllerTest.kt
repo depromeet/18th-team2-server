@@ -85,6 +85,8 @@ class PartyInviteLookupControllerTest
                     )
                 }
                 jsonPath("$.data.realtimeSchedule") { value(nullValue()) }
+                jsonPath("$.data.realtimeStatus") { value(nullValue()) }
+                jsonPath("$.data.realtimeEnterable") { value(false) }
             }
 
             assertEquals(0, participantRepository.count())
@@ -351,6 +353,35 @@ class PartyInviteLookupControllerTest
                 jsonPath("$.data.realtimeSchedule.liveDurationMinutes") {
                     value(RealtimeParty.LIVE_DURATION_MINUTES)
                 }
+                jsonPath("$.data.realtimeStatus") { value("ROLLING_PAPER_OPEN") }
+                jsonPath("$.data.realtimeEnterable") { value(false) }
+            }
+        }
+
+        @Test
+        fun `REALTIME 초대장 조회는 현재 실시간 상태와 입장 가능 여부를 내려준다`() {
+            val liveStartAt =
+                LocalDateTime
+                    .now()
+                    .minusMinutes(10)
+                    .minusSeconds(1)
+                    .truncatedTo(ChronoUnit.SECONDS)
+            val party =
+                saveParty(
+                    RealtimeParty(
+                        ownerId = 1L,
+                        celebrantNickname = "홍길동",
+                        startedAt = liveStartAt,
+                    ),
+                    LocalDateTime.now().minusDays(1),
+                )
+            saveInvite(party, "endinglookup001")
+
+            mockMvc.get("/api/v1/party-invites/endinglookup001").andExpect {
+                status { isOk() }
+                jsonPath("$.data.partyOption") { value("REALTIME") }
+                jsonPath("$.data.realtimeStatus") { value("LIVE_ENDING") }
+                jsonPath("$.data.realtimeEnterable") { value(false) }
             }
         }
 

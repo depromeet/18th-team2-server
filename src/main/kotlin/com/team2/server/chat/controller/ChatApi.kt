@@ -31,10 +31,10 @@ interface ChatApi {
 
 **입장 가능 조건**
 - 초대 링크가 만료되지 않아야 합니다
-- 신규 입장은 실시간 파티가 LIVE_OPEN 상태일 때만 가능합니다
+- 실시간 파티가 LIVE_OPEN 상태일 때만 입장할 수 있습니다
 
 **재입장**
-기존 participantToken으로 다시 호출하면 LIVE_ENDING 상태에서도 SSE 스트림을 복구할 수 있습니다.
+기존 participantToken으로 다시 호출해도 LIVE_ENDING 상태에서는 입장할 수 없습니다.
 
 ---
 

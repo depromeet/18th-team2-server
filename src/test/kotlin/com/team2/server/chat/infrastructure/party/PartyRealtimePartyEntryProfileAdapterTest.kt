@@ -75,7 +75,7 @@ class PartyRealtimePartyEntryProfileAdapterTest {
     }
 
     @Test
-    fun `participantToken 재입장은 LIVE_ENDING 상태에서 profile을 갱신한다`() {
+    fun `participantToken 재입장은 LIVE_ENDING 상태에서 CHAT_NOT_ACTIVE`() {
         val party = RealtimeParty(ownerId = 1L, startedAt = now.minusMinutes(10).minusSeconds(1))
         val character = Character(name = "토끼")
         val participant = Participant(party = party)
@@ -101,11 +101,14 @@ class PartyRealtimePartyEntryProfileAdapterTest {
             ),
         ).thenReturn(profile)
 
-        val result = adapter.resolve(party = party, userId = 99L, request = reenterRequest, now = now)
+        val ex =
+            assertThrows<BusinessException> {
+                adapter.resolve(party = party, userId = 99L, request = reenterRequest, now = now)
+            }
 
-        assertEquals("existing-token", result.participantToken)
-        assertEquals("새닉네임", profile.nickname)
-        assertEquals(character, profile.character)
+        assertEquals(ErrorCode.CHAT_NOT_ACTIVE, ex.errorCode)
+        assertEquals("기존닉네임", profile.nickname)
+        assertEquals(null, profile.character)
     }
 
     @Test

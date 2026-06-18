@@ -7,8 +7,10 @@ import com.team2.server.party.application.dto.RealtimeScheduleResult
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.PartyOption
 import com.team2.server.party.domain.entity.RealtimeParty
+import com.team2.server.party.domain.entity.RealtimePartyStatus
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.PartyInviteRepository
+import org.hibernate.Hibernate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -30,6 +32,8 @@ class LookupPartyInviteUseCase(
         val now = LocalDateTime.now()
         val partyEndAt = party.endedAt()
         val isRealtime = party.partyOption == PartyOption.REALTIME
+        val realtimeParty = if (isRealtime) Hibernate.unproxy(party) as RealtimeParty else null
+        val realtimeStatus = realtimeParty?.status(now)
 
         return PartyInviteLookupResult(
             partyId = party.id,
@@ -40,7 +44,9 @@ class LookupPartyInviteUseCase(
             rollingPaperWritten = hasWrittenPaper(party, userId),
             partyStartDate = party.startedAt.toLocalDate(),
             partyEndDate = partyEndAt.toLocalDate(),
-            realtimeSchedule = if (isRealtime) createRealtimeSchedule(party) else null,
+            realtimeSchedule = realtimeParty?.let { createRealtimeSchedule(it) },
+            realtimeStatus = realtimeStatus,
+            realtimeEnterable = realtimeStatus == RealtimePartyStatus.LIVE_OPEN,
         )
     }
 

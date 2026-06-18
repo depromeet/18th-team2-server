@@ -185,7 +185,7 @@ class EnterRealtimePartyUseCaseTest {
     }
 
     @Test
-    fun `회원도 participantToken이 있으면 LIVE_ENDING에서 재입장할 수 있다`() {
+    fun `participantToken이 있어도 LIVE_ENDING이면 CHAT_NOT_ACTIVE`() {
         val party = RealtimeParty(ownerId = 1L, startedAt = now.minusMinutes(10).minusSeconds(1))
         val invite = PartyInvite(party = party, token = "tok", expiresAt = now.plusDays(7))
         val reenterRequest =
@@ -197,12 +197,11 @@ class EnterRealtimePartyUseCaseTest {
 
         whenever(partyInviteService.findUsableInvite(any(), any())).thenReturn(invite)
         whenever(resolveEntry(party, userId = 99L, reenterRequest))
-            .thenReturn(entryResult(participantToken = "existing-uuid", nickname = "새닉네임"))
+            .thenThrow(BusinessException(ErrorCode.CHAT_NOT_ACTIVE))
 
-        val result = useCase.enter("tok", userId = 99L, reenterRequest)
+        val ex = assertThrows<BusinessException> { useCase.enter("tok", userId = 99L, reenterRequest) }
 
-        assertEquals("existing-uuid", result.participantToken)
-        assertEquals("새닉네임", result.nickname)
+        assertEquals(ErrorCode.CHAT_NOT_ACTIVE, ex.errorCode)
     }
 
     @Test
