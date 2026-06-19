@@ -51,6 +51,8 @@ class PartyInviteLookupController(
             partyStartDate = partyStartDate,
             partyEndDate = partyEndDate,
             realtimeSchedule = realtimeSchedule?.toResponse(),
+            realtimeStatus = realtimeStatus,
+            realtimeEnterable = realtimeEnterable,
         )
 
     private fun RealtimeScheduleResult.toResponse(): RealtimeSchedule =
