@@ -34,6 +34,8 @@ class AdvancePartyPhaseActorValidator(
         userId: Long?,
     ) {
         if (party.ownerId != userId) throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
-        if (now.isBefore(party.startedAt)) throw BusinessException(ErrorCode.REALTIME_PARTY_INVALID_STATE)
+        // 라이브 창 밖에서의 시작은 거부한다. startedAt 이전이면 종료 시각이 startedAt보다 앞설 수 있고,
+        // 마감선을 넘겼으면 이미 끝났어야 할 파티가 시작 시각 기록으로 되살아난다. 마킹은 1회성이라 복구 불가.
+        if (!party.isLiveOpen(now)) throw BusinessException(ErrorCode.REALTIME_PARTY_INVALID_STATE)
     }
 }

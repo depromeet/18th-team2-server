@@ -141,7 +141,7 @@ class StartRealtimePartyEndUseCaseTest {
                 ownerId = 1L,
                 startedAt = startedAt,
                 liveEndingStartedAt = party.automaticEndingStartedAt(),
-            )
+            ).apply { liveStartedAt = startedAt }
         whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
         whenever(
             realtimePartyEndService.startIfNotStarted(

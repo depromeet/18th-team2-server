@@ -131,6 +131,19 @@ class PartyRepositoryTest
             assertEquals(firstLiveStartedAt, found.liveStartedAt)
         }
 
+        @Test
+        fun `findRealtimePartiesWaitingAutomaticEnding은 조회 경계 정각의 파티를 포함한다`() {
+            val boundary = BASE_TIME.minusMinutes(40)
+            val onBoundary = partyRepository.save(realtimeParty(startedAt = boundary))
+            val beforeBoundary = partyRepository.save(realtimeParty(startedAt = boundary.minusSeconds(1)))
+            entityManager.flush()
+            entityManager.clear()
+
+            val found = partyRepository.findRealtimePartiesWaitingAutomaticEnding(boundary).map { it.id }
+
+            assertEquals(listOf(onBoundary.id), found.filter { it in listOf(onBoundary.id, beforeBoundary.id) })
+        }
+
         private fun realtimeParty(
             startedAt: LocalDateTime,
             liveEndingStartedAt: LocalDateTime? = null,

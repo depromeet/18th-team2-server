@@ -4,7 +4,9 @@
 
 **Goal:** 실시간 파티의 라이브 10분을 예약 시각이 아니라 주최자가 파티를 시작한 시점부터 흐르게 한다.
 
-**Architecture:** `realtime_party.host_entered_at`을 `live_started_at`으로 rename하고 기록 지점을 채팅 입장에서 `POST /phase/advance`(ENTRY→MUSIC)로 옮긴다. `RealtimeParty.automaticEndingStartedAt()`이 시작 시각 유무에 따라 `liveStartedAt + 10분` 또는 `startedAt + 30분`(마감선)을 반환하고, 나머지 파생 계산은 모두 이 함수를 경유하므로 자동으로 따라온다. `PartyEndScheduler`는 파티 생성 시 마감선에 fallback 태스크를 걸고, 시작 이벤트를 받으면 취소 후 재스케줄한다.
+> **실행 후 정정 (2026-08-11)** — 아래 Task 1은 컬럼 rename으로 작성되어 있으나, 실제로는 **컬럼 추가 방식으로 변경해 구현했다.** 이 프로젝트는 블루/그린 배포를 공유 DB 하나에 대해 수행하므로(`scripts/deploy.sh`) rename하면 구슬롯이 `Unknown column`으로 죽는다. 최종 마이그레이션은 `V13__add_realtime_party_live_started_at.sql`이며 `live_started_at`을 추가하고 `COALESCE(host_entered_at, started_at)`으로 백필한 뒤 `host_entered_at`을 남겨둔다. 제거는 후속 릴리즈의 별도 마이그레이션 몫이다. 최신 설계는 스펙 문서를 따른다.
+
+**Architecture:** `realtime_party`에 `live_started_at`을 추가하고 기록 지점을 채팅 입장에서 `POST /phase/advance`(ENTRY→MUSIC)로 옮긴다. `RealtimeParty.automaticEndingStartedAt()`이 시작 시각 유무에 따라 `liveStartedAt + 10분` 또는 `startedAt + 30분`(마감선)을 반환하고, 나머지 파생 계산은 모두 이 함수를 경유하므로 자동으로 따라온다. `PartyEndScheduler`는 파티 생성 시 마감선에 fallback 태스크를 걸고, 시작 이벤트를 받으면 취소 후 재스케줄한다.
 
 **Tech Stack:** Kotlin, Spring Boot, JPA/Hibernate, Flyway, MySQL 8.0, JUnit5 + mockito-kotlin, Testcontainers
 
@@ -1166,5 +1168,5 @@ git commit -m "feat: 입장 가능 창과 SSE 타임아웃에 마감선 반영"
 
 PR 본문에 다음 두 가지를 리뷰 포인트로 명시한다:
 
-- 컬럼 rename은 구버전 앱과 호환되지 않는다. 롤링 배포를 쓰면 구버전 인스턴스가 `host_entered_at` 조회에 실패한다.
+- 마이그레이션은 컬럼 추가만 하고 `host_entered_at`을 남긴다. 제거하는 후속 마이그레이션이 다음 릴리즈에 필요하다.
 - SSE emitter 타임아웃이 약 16분에서 약 46분으로 늘어난다. 동시 커넥션 유지 시간이 3배 가까이 증가한다.

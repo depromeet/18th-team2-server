@@ -1,6 +1,7 @@
 package com.team2.server.party.application.usecase
 
 import com.team2.server.common.exception.BusinessException
+import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.port.PartyPhaseStore
 import com.team2.server.party.application.service.ParticipantService
 import com.team2.server.party.application.service.PartyPhaseTransitionService
@@ -71,10 +72,32 @@ class AdvancePartyPhaseUseCaseTest {
         val party = RealtimeParty(ownerId = ownerId, startedAt = fixedNow.plusSeconds(1))
         whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
 
-        assertFailsWith<BusinessException> {
-            useCase(partyId, userId = ownerId, participantToken = null, currentPhase = PartyPhase.ENTRY)
-        }
+        val ex =
+            assertFailsWith<BusinessException> {
+                useCase(partyId, userId = ownerId, participantToken = null, currentPhase = PartyPhase.ENTRY)
+            }
+
+        assertEquals(ErrorCode.REALTIME_PARTY_INVALID_STATE, ex.errorCode)
         verify(phaseTransitionService, never()).advance(any(), any(), any(), any(), any(), any())
+        verify(markRealtimePartyStartedUseCase, never()).invoke(any(), any())
+    }
+
+    @Test
+    fun `마감선 정각의 ENTRY 진입은 거부된다`() {
+        val partyId = 1L
+        val ownerId = 10L
+        val startedAt = fixedNow.minusMinutes(RealtimeParty.START_GRACE_MINUTES)
+        val party = RealtimeParty(ownerId = ownerId, startedAt = startedAt)
+        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+
+        val ex =
+            assertFailsWith<BusinessException> {
+                useCase(partyId, userId = ownerId, participantToken = null, currentPhase = PartyPhase.ENTRY)
+            }
+
+        assertEquals(ErrorCode.REALTIME_PARTY_INVALID_STATE, ex.errorCode)
+        verify(phaseTransitionService, never()).advance(any(), any(), any(), any(), any(), any())
+        verify(markRealtimePartyStartedUseCase, never()).invoke(any(), any())
     }
 
     @Test

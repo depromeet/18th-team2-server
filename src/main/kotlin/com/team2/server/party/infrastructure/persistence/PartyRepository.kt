@@ -97,7 +97,7 @@ interface PartyRepository : JpaRepository<Party, Long> {
         SELECT party
         FROM RealtimeParty party
         WHERE party.liveEndingStartedAt IS NULL
-          AND party.startedAt > :startedAfter
+          AND party.startedAt >= :startedAfter
         """,
     )
     fun findRealtimePartiesWaitingAutomaticEnding(startedAfter: LocalDateTime): List<RealtimeParty>
