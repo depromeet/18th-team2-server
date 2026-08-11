@@ -15,15 +15,24 @@
 | 미시작 방치 | `startedAt + 30분` 마감선에서 자동 종료 |
 | 대기 구간 status | `LIVE_OPEN` 유지 (입장·채팅이 가능해야 함) |
 | 작별인사 기준 | 주최자 입장 시각 → 파티 시작 시각 + 4분 |
-| 컬럼 | `host_entered_at` → `live_started_at` rename |
-| 기존 데이터 | `started_at <= NOW()` 인 행만 `started_at`으로 백필 |
+| 컬럼 | `live_started_at` 추가 (`host_entered_at`은 다음 릴리즈에서 제거) |
+| 기존 데이터 | `started_at <= NOW()` 인 행만 `COALESCE(host_entered_at, started_at)`으로 백필 |
 
 **FE 변경 없음** — 웹은 이미 `phase/advance`를 호출하고 종료는 SSE로 받기만 한다.
 
-컬럼을 rename하는 이유: `hostEnteredAt`은 API에 노출되지 않고 유일한 소비처가 `hostFarewellAvailableAt`인데,
-그 소비처가 시작 시각을 원한다. 새 컬럼을 추가하면 죽은 컬럼이 남는다.
+`hostEnteredAt`은 API에 노출되지 않고 유일한 소비처가 `hostFarewellAvailableAt`인데, 그 소비처가 시작 시각을 원한다.
+따라서 이 컬럼은 실질적으로 죽은 값이 되며, 최종적으로는 제거 대상이다.
 
-⚠️ 컬럼 rename은 구버전 앱과 호환되지 않는다. 롤링 배포가 필요하면 "추가 → 다음 배포에서 제거" 2단계로 나눈다.
+⚠️ **다만 한 번에 rename하면 안 된다.** 이 프로젝트는 블루/그린 배포를 **공유 DB** 하나에 대해 수행한다
+(`scripts/deploy.sh`). 신규 슬롯이 뜨면서 Flyway가 먼저 돌고, health check를 통과한 뒤에야 nginx가 전환된다.
+`Party`가 `InheritanceType.JOINED`라 실시간 파티 조회는 모두 `realtime_party`를 select하므로,
+컬럼을 곧바로 rename하면 그 사이 구버전 슬롯이 `Unknown column`으로 죽는다. 신규 슬롯이 health check를
+통과하지 못하면 구버전이 이미 마이그레이션된 스키마를 계속 바라보게 되어 수동 복구가 필요해진다.
+
+그래서 **2단계로 나눈다.** 이번 릴리즈(V13)는 컬럼 추가와 백필만 하고 `host_entered_at`을 남겨둔다.
+백필에 `COALESCE(host_entered_at, started_at)`을 쓰면 실제 주최자 입장 시각이 있는 행은 그 값을 보존하고,
+없는 행만 `started_at`으로 채워 진행 중이던 파티의 기존 종료 시각을 유지한다.
+`host_entered_at` 제거는 다음 릴리즈의 별도 마이그레이션으로 미룬다.
 
 ## 변경 내용
 
@@ -50,6 +59,11 @@ ENTRY→MUSIC 전환(CAS)이 성공했을 때만 시작 시각을 기록하고 �
 
 멱등성은 DB가 보장한다. `live_started_at IS NULL` 조건부 UPDATE라 동시 요청이든 재클릭이든 최초 1회만 성공한다.
 
+**`startedAt` 이전 ENTRY 진입은 거부한다** (`REALTIME_PARTY_INVALID_STATE`). 앵커가 시각이 된 이상
+이른 시작은 파티 시간을 깎을 뿐 아니라, 충분히 이르면 종료 시각이 `startedAt`보다 앞서 파티가 열리자마자
+닫힌 상태가 된다. 마킹이 1회성이라 되돌릴 수 없으므로 clamp 대신 거부한다. `startedAt` 정각은 허용된다.
+검증은 `AdvancePartyPhaseActorValidator`로 분리했다.
+
 ### 3. 스케줄러 (`PartyEndScheduler`)
 
 - `onRealtimePartyCreated`: 자동 종료를 `startedAt + 10분` → `startedAt + 30분`(fallback)으로 변경
@@ -68,9 +82,10 @@ ENTRY→MUSIC 전환(CAS)이 성공했을 때만 시작 시각을 기록하고 �
 `phaseStore`는 인메모리라 재기동 시 ENTRY로 리셋되지만, `live_started_at`이 DB에 남아 있어
 주최자가 시작 버튼을 다시 눌러도 타이머가 밀리지 않는다.
 
-### 5. 마이그레이션 (`V13__rename_host_entered_at_to_live_started_at.sql`)
+### 5. 마이그레이션 (`V13__add_realtime_party_live_started_at.sql`)
 
-컬럼을 rename한 뒤(MySQL 8.0의 `RENAME COLUMN`), `started_at`이 이미 지난 행만 `started_at`으로 백필한다.
+`live_started_at` 컬럼을 추가하고, `started_at`이 이미 지난 행만
+`COALESCE(host_entered_at, started_at)`으로 백필한다. `host_entered_at`은 남겨둔다(위 배포 제약 참고).
 
 `WHERE started_at <= NOW()` 조건이 핵심이다. 조건 없이 전체를 채우면 배포 시점에 아직 열리지 않은
 미래 예약 파티까지 "이미 시작됨"이 되어, 주최자가 시작 버튼을 눌러도 조건부 UPDATE가 막아 새 기능이 적용되지 않는다.
@@ -82,7 +97,7 @@ ENTRY→MUSIC 전환(CAS)이 성공했을 때만 시작 시각을 기록하고 �
 | 위치 | 변경 |
 |---|---|
 | `PartyInviteService.kt:76` | 입장 가능 종료 시각을 `effectiveEndingStartedAt()`으로 |
-| `LookupPartyInviteUseCase.kt:72` | `liveEndAt`을 `effectiveEndingStartedAt()`으로. `:73` `liveDurationMinutes`는 10 유지 (안내 문구용) |
+| `LookupPartyInviteUseCase.kt:72` | 변경 없음 — `liveEndAt`은 `startedAt + 10분` 유지. 게이트가 아니라 표시용이고, `GetUpcomingPartiesUseCase`의 같은 라벨과 어긋나면 안 된다 |
 | `EnterAndSubscribeChatUseCase.kt:117-124` | SSE 타임아웃에 마감선 반영 → 약 46분 (현재 16분) |
 | `RealtimePartyEndResults.kt:64` | `hostFarewellAvailableAt` Swagger 설명을 "입장 기준" → "시작 기준" |
 
