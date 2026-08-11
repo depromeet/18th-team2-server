@@ -230,7 +230,7 @@ class PartyPhaseControllerTest
                     RealtimeParty(
                         ownerId = host.id,
                         startedAt = startedAt,
-                        hostEnteredAt = startedAt,
+                        liveStartedAt = startedAt,
                     ),
                 )
             val hostParticipant =

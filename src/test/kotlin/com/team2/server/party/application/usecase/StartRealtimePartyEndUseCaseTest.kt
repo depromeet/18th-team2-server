@@ -79,7 +79,7 @@ class StartRealtimePartyEndUseCaseTest {
         val endingStartedAt = now
         val party =
             realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(1)).apply {
-                hostEnteredAt = now.minusMinutes(1)
+                liveStartedAt = now.minusMinutes(1)
             }
         val endedParty =
             realtimeParty(
@@ -108,7 +108,7 @@ class StartRealtimePartyEndUseCaseTest {
         val endingStartedAt = now.minusSeconds(10)
         val party =
             realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(10), endingStartedAt).apply {
-                hostEnteredAt = now.minusMinutes(5)
+                liveStartedAt = now.minusMinutes(5)
             }
         whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
         whenever(

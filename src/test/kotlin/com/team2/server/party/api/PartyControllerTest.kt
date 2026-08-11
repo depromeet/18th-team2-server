@@ -290,10 +290,10 @@ class PartyControllerTest
         @Test
         fun `실시간 파티 상태는 주최자 종료 인사 가능 여부와 기준 시각을 제공한다`() {
             val owner = saveUser("kakao-realtime-state-farewell", "state-farewell@kakao.local")
-            val hostEnteredAt = LocalDateTime.now().minusMinutes(1)
+            val liveStartedAt = LocalDateTime.now().minusMinutes(1)
             val party =
                 saveRealtimeParty(owner, LocalDateTime.now().minusMinutes(1)).also {
-                    it.hostEnteredAt = hostEnteredAt
+                    it.liveStartedAt = liveStartedAt
                     partyRepository.save(it)
                 }
 
@@ -313,7 +313,7 @@ class PartyControllerTest
             val owner = saveUser("kakao-realtime-state-burst-ended", "state-burst-ended@kakao.local")
             val party =
                 saveRealtimeParty(owner, LocalDateTime.now().minusMinutes(1)).also {
-                    it.hostEnteredAt = LocalDateTime.now().minusMinutes(1)
+                    it.liveStartedAt = LocalDateTime.now().minusMinutes(1)
                     it.burstGameEndedAt = LocalDateTime.now().minusSeconds(1)
                     partyRepository.save(it)
                 }

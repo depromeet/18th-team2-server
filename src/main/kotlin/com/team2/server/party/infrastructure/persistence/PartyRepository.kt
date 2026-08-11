@@ -37,14 +37,14 @@ interface PartyRepository : JpaRepository<Party, Long> {
     @Query(
         """
         UPDATE RealtimeParty party
-        SET party.hostEnteredAt = :hostEnteredAt
+        SET party.liveStartedAt = :liveStartedAt
         WHERE party.id = :partyId
-          AND party.hostEnteredAt IS NULL
+          AND party.liveStartedAt IS NULL
         """,
     )
-    fun markHostEnteredIfAbsent(
+    fun markLiveStartedIfAbsent(
         partyId: Long,
-        hostEnteredAt: LocalDateTime,
+        liveStartedAt: LocalDateTime,
     ): Int
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)

@@ -165,29 +165,29 @@ class PartyStatusTest {
 
     @Test
     fun `RealtimeParty - 주최자 입장 4분 전 수동 종료는 HOST_LEFT`() {
-        val hostEnteredAt = liveStart.plusSeconds(10)
-        val party = realtimeParty().apply { this.hostEnteredAt = hostEnteredAt }
+        val liveStartedAt = liveStart.plusSeconds(10)
+        val party = realtimeParty().apply { this.liveStartedAt = liveStartedAt }
 
         assertEquals(
             RealtimePartyEndingReason.HOST_LEFT,
-            party.endingReasonForManualRequest(hostEnteredAt.plusMinutes(4).minusNanos(1)),
+            party.endingReasonForManualRequest(liveStartedAt.plusMinutes(4).minusNanos(1)),
         )
     }
 
     @Test
     fun `RealtimeParty - 주최자 입장 정확히 4분 뒤 수동 종료는 HOST_REQUEST`() {
-        val hostEnteredAt = liveStart.plusSeconds(10)
-        val party = realtimeParty().apply { this.hostEnteredAt = hostEnteredAt }
+        val liveStartedAt = liveStart.plusSeconds(10)
+        val party = realtimeParty().apply { this.liveStartedAt = liveStartedAt }
 
         assertEquals(
             RealtimePartyEndingReason.HOST_REQUEST,
-            party.endingReasonForManualRequest(hostEnteredAt.plusMinutes(4)),
+            party.endingReasonForManualRequest(liveStartedAt.plusMinutes(4)),
         )
     }
 
     @Test
     fun `RealtimeParty - 정확히 10분 시점 수동 종료는 TIME_LIMIT_REACHED`() {
-        val party = realtimeParty().apply { hostEnteredAt = liveStart }
+        val party = realtimeParty().apply { liveStartedAt = liveStart }
 
         assertEquals(
             RealtimePartyEndingReason.TIME_LIMIT_REACHED,
@@ -197,11 +197,11 @@ class PartyStatusTest {
 
     @Test
     fun `RealtimeParty - 주최자 입장 4분 전이어도 박터뜨리기가 끝났으면 HOST_REQUEST`() {
-        val hostEnteredAt = liveStart
-        val requestAt = hostEnteredAt.plusMinutes(2)
+        val liveStartedAt = liveStart
+        val requestAt = liveStartedAt.plusMinutes(2)
         val party =
             realtimeParty().apply {
-                this.hostEnteredAt = hostEnteredAt
+                this.liveStartedAt = liveStartedAt
                 burstGameEndedAt = requestAt.minusNanos(1)
             }
 
@@ -213,7 +213,7 @@ class PartyStatusTest {
         val endingStartedAt = liveStart.plusMinutes(5)
         val party =
             realtimeParty().apply {
-                hostEnteredAt = liveStart
+                liveStartedAt = liveStart
                 liveEndingStartedAt = endingStartedAt
                 liveEndingReason = RealtimePartyEndingReason.HOST_REQUEST
             }

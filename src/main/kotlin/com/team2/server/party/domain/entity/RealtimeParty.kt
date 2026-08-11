@@ -22,8 +22,8 @@ class RealtimeParty(
     @Column(name = "live_ending_reason")
     @Enumerated(EnumType.STRING)
     var liveEndingReason: RealtimePartyEndingReason? = null,
-    @Column(name = "host_entered_at")
-    var hostEnteredAt: LocalDateTime? = null,
+    @Column(name = "live_started_at")
+    var liveStartedAt: LocalDateTime? = null,
     @Column(name = "burst_game_ended_at")
     var burstGameEndedAt: LocalDateTime? = null,
 ) : Party(ownerId, name, celebrantNickname, startedAt, purpose) {
@@ -67,7 +67,7 @@ class RealtimeParty(
         }
 
     val hostFarewellAvailableAt: LocalDateTime?
-        get() = hostEnteredAt?.plusMinutes(HOST_FAREWELL_AVAILABLE_AFTER_MINUTES)
+        get() = liveStartedAt?.plusMinutes(HOST_FAREWELL_AVAILABLE_AFTER_MINUTES)
 
     fun isHostFarewellAvailable(now: LocalDateTime): Boolean =
         isLiveOpen(now) &&

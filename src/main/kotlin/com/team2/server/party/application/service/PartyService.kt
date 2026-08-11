@@ -138,10 +138,10 @@ class PartyService(
     fun findRealtimePartiesWaitingAutomaticEnding(startedAfter: LocalDateTime): List<RealtimeParty> =
         partyRepository.findRealtimePartiesWaitingAutomaticEnding(startedAfter)
 
-    fun markHostEnteredIfAbsent(
+    fun markLiveStartedIfAbsent(
         partyId: Long,
-        hostEnteredAt: LocalDateTime,
-    ): Boolean = partyRepository.markHostEnteredIfAbsent(partyId, hostEnteredAt) == 1
+        liveStartedAt: LocalDateTime,
+    ): Boolean = partyRepository.markLiveStartedIfAbsent(partyId, liveStartedAt) == 1
 
     private fun requireRealtimePartyForChat(party: Party): RealtimeParty {
         if (party.partyOption != PartyOption.REALTIME) {

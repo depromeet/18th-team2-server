@@ -6,15 +6,15 @@ import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
 
 @Service
-class MarkRealtimePartyHostEnteredUseCase(
+class MarkRealtimePartyStartedUseCase(
     private val partyService: PartyService,
 ) {
     @Transactional
     operator fun invoke(
         partyId: Long,
-        hostEnteredAt: LocalDateTime,
+        liveStartedAt: LocalDateTime,
     ): LocalDateTime? {
-        if (!partyService.markHostEnteredIfAbsent(partyId, hostEnteredAt)) return null
-        return hostEnteredAt
+        if (!partyService.markLiveStartedIfAbsent(partyId, liveStartedAt)) return null
+        return liveStartedAt
     }
 }

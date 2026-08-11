@@ -27,11 +27,13 @@ class AdvancePartyPhaseUseCaseTest {
     private val phaseTransitionService: PartyPhaseTransitionService = mock()
     private val fixedNow = LocalDateTime.of(2026, 5, 26, 20, 0, 5)
     private val clock: Clock = Clock.fixed(fixedNow.toInstant(ZoneOffset.UTC), ZoneOffset.UTC)
+    private val markRealtimePartyStartedUseCase: MarkRealtimePartyStartedUseCase = mock()
     private val useCase =
         AdvancePartyPhaseUseCase(
             partyService,
             participantService,
             phaseTransitionService,
+            markRealtimePartyStartedUseCase,
             clock,
         )
 
@@ -114,6 +116,55 @@ class AdvancePartyPhaseUseCaseTest {
         assertFailsWith<BusinessException> {
             useCase(partyId, userId = 10L, participantToken = null, currentPhase = PartyPhase.BURST)
         }
+    }
+
+    @Test
+    fun `ENTRY→MUSIC 전환에 성공하면 파티 시작 시각을 기록한다`() {
+        val partyId = 1L
+        val ownerId = 10L
+        val party = RealtimeParty(ownerId = ownerId, startedAt = LocalDateTime.of(2026, 5, 26, 19, 55))
+        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+        wheneverTransitionSucceeds(partyId, PartyPhase.ENTRY, PartyPhase.MUSIC)
+
+        useCase(partyId, userId = ownerId, participantToken = null, currentPhase = PartyPhase.ENTRY)
+
+        verify(markRealtimePartyStartedUseCase).invoke(partyId, fixedNow)
+    }
+
+    @Test
+    fun `ENTRY→MUSIC 전환에 실패하면 파티 시작 시각을 기록하지 않는다`() {
+        val partyId = 1L
+        val ownerId = 10L
+        val party = RealtimeParty(ownerId = ownerId, startedAt = LocalDateTime.of(2026, 5, 26, 19, 55))
+        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+        whenever(
+            phaseTransitionService.advance(
+                eq(partyId),
+                eq(PartyPhase.ENTRY),
+                eq(PartyPhase.MUSIC),
+                any(),
+                anyOrNull(),
+                anyOrNull(),
+            ),
+        ).thenReturn(false)
+        whenever(phaseTransitionService.getEntry(partyId))
+            .thenReturn(PartyPhaseStore.PhaseEntry(PartyPhase.MUSIC, fixedNow.minusMinutes(1)))
+
+        useCase(partyId, userId = ownerId, participantToken = null, currentPhase = PartyPhase.ENTRY)
+
+        verify(markRealtimePartyStartedUseCase, never()).invoke(any(), any())
+    }
+
+    @Test
+    fun `MUSIC→CANDLE 전환은 파티 시작 시각을 기록하지 않는다`() {
+        val partyId = 1L
+        val party = RealtimeParty(ownerId = 10L, startedAt = LocalDateTime.of(2026, 5, 26, 19, 55))
+        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+        wheneverTransitionSucceeds(partyId, PartyPhase.MUSIC, PartyPhase.CANDLE)
+
+        useCase(partyId, userId = 10L, participantToken = null, currentPhase = PartyPhase.MUSIC)
+
+        verify(markRealtimePartyStartedUseCase, never()).invoke(any(), any())
     }
 
     private fun wheneverTransitionSucceeds(

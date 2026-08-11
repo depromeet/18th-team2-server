@@ -71,33 +71,33 @@ class PartyRepositoryTest
         }
 
         @Test
-        fun `markHostEnteredIfAbsent는 hostEnteredAt을 한 번만 저장한다`() {
+        fun `markLiveStartedIfAbsent는 liveStartedAt을 한 번만 저장한다`() {
             val party = partyRepository.save(realtimeParty(startedAt = BASE_TIME.minusMinutes(1)))
-            val firstHostEnteredAt = BASE_TIME
-            val secondHostEnteredAt = BASE_TIME.plusSeconds(5)
+            val firstLiveStartedAt = BASE_TIME
+            val secondLiveStartedAt = BASE_TIME.plusSeconds(5)
 
-            val firstUpdated = partyRepository.markHostEnteredIfAbsent(party.id, firstHostEnteredAt)
-            val secondUpdated = partyRepository.markHostEnteredIfAbsent(party.id, secondHostEnteredAt)
+            val firstUpdated = partyRepository.markLiveStartedIfAbsent(party.id, firstLiveStartedAt)
+            val secondUpdated = partyRepository.markLiveStartedIfAbsent(party.id, secondLiveStartedAt)
             entityManager.flush()
             entityManager.clear()
 
             val found = partyRepository.findById(party.id).orElseThrow() as RealtimeParty
             assertEquals(1, firstUpdated)
             assertEquals(0, secondUpdated)
-            assertEquals(firstHostEnteredAt, found.hostEnteredAt)
+            assertEquals(firstLiveStartedAt, found.liveStartedAt)
         }
 
         private fun realtimeParty(
             startedAt: LocalDateTime,
             liveEndingStartedAt: LocalDateTime? = null,
-            hostEnteredAt: LocalDateTime? = null,
+            liveStartedAt: LocalDateTime? = null,
         ): RealtimeParty =
             RealtimeParty(
                 ownerId = 1L,
                 name = "테스트파티",
                 startedAt = startedAt,
                 liveEndingStartedAt = liveEndingStartedAt,
-                hostEnteredAt = hostEnteredAt,
+                liveStartedAt = liveStartedAt,
             )
 
         private companion object {

@@ -83,15 +83,15 @@ class GetCandleBlowStateUseCaseTest {
         assertEquals(null, sessionStore.withSessionLock(1L) { it })
     }
 
-    private fun resolved(hostEnteredAt: LocalDateTime): ResolvedRealtimeParticipant =
+    private fun resolved(liveStartedAt: LocalDateTime): ResolvedRealtimeParticipant =
         ResolvedRealtimeParticipant(
             party =
                 RealtimeParty(
                     ownerId = 1L,
                     name = "실시간 파티",
                     celebrantNickname = "주인공",
-                    startedAt = hostEnteredAt.minusMinutes(1),
-                    hostEnteredAt = hostEnteredAt,
+                    startedAt = liveStartedAt.minusMinutes(1),
+                    liveStartedAt = liveStartedAt,
                 ),
             participant =
                 BurstGameParticipantInfo(
