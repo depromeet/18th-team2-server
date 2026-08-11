@@ -69,7 +69,7 @@ class LookupPartyInviteUseCase(
         RealtimeScheduleResult(
             liveStartAt = party.startedAt,
             enterableFrom = party.startedAt.minusMinutes(RealtimeParty.ENTERABLE_BEFORE_MINUTES),
-            liveEndAt = party.effectiveEndingStartedAt(),
+            liveEndAt = party.startedAt.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES),
             liveDurationMinutes = RealtimeParty.LIVE_DURATION_MINUTES,
         )
 }
