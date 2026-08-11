@@ -61,6 +61,9 @@ interface PartyRepository : JpaRepository<Party, Long> {
         endedAt: LocalDateTime,
     ): Int
 
+    // 주의: SET 절과 WHERE 절의 COALESCE(...) 마감 시각 계산식은 반드시 동일하게 유지해야 한다.
+    // SET 절은 실제로 찍히는 종료 시각을, WHERE 절은 대상 row 선택 기준을 계산하는데,
+    // 한쪽만 수정하면 선택 기준과 저장되는 값이 어긋나는 버그가 조용히 발생한다.
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(
         value =
