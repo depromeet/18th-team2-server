@@ -346,7 +346,7 @@ class PartyInviteLookupControllerTest
                 jsonPath("$.data.realtimeSchedule.liveEndAt") {
                     value(
                         liveStartAt
-                            .plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES)
+                            .plusMinutes(RealtimeParty.START_GRACE_MINUTES)
                             .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
                     )
                 }
