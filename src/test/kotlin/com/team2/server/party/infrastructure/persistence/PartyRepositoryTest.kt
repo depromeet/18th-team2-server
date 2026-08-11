@@ -35,13 +35,18 @@ class PartyRepositoryTest
         }
 
         @Test
-        fun `startAutomaticRealtimeEndings는 전달받은 종료 사유를 저장한다`() {
-            val party = partyRepository.save(realtimeParty(startedAt = BASE_TIME.minusMinutes(10)))
+        fun `startAutomaticRealtimeEndings는 시작된 파티를 시작 10분 후로 종료한다`() {
+            val liveStartedAt = BASE_TIME.minusMinutes(10)
+            val party =
+                partyRepository.save(
+                    realtimeParty(startedAt = BASE_TIME.minusMinutes(20), liveStartedAt = liveStartedAt),
+                )
 
             val updated =
                 partyRepository.startAutomaticRealtimeEndings(
                     now = BASE_TIME,
                     liveDurationMinutes = 10,
+                    startGraceMinutes = 30,
                     partyEndedAfterDays = 7,
                     endingReason = RealtimePartyEndingReason.TIME_LIMIT_REACHED.name,
                 )
@@ -49,8 +54,47 @@ class PartyRepositoryTest
 
             val found = partyRepository.findById(party.id).orElseThrow() as RealtimeParty
             assertEquals(1, updated)
-            assertEquals(BASE_TIME, found.liveEndingStartedAt)
+            assertEquals(liveStartedAt.plusMinutes(10), found.liveEndingStartedAt)
+        }
+
+        @Test
+        fun `startAutomaticRealtimeEndings는 미시작 파티를 마감선에 종료한다`() {
+            val startedAt = BASE_TIME.minusMinutes(30)
+            val party = partyRepository.save(realtimeParty(startedAt = startedAt))
+
+            val updated =
+                partyRepository.startAutomaticRealtimeEndings(
+                    now = BASE_TIME,
+                    liveDurationMinutes = 10,
+                    startGraceMinutes = 30,
+                    partyEndedAfterDays = 7,
+                    endingReason = RealtimePartyEndingReason.TIME_LIMIT_REACHED.name,
+                )
+            entityManager.clear()
+
+            val found = partyRepository.findById(party.id).orElseThrow() as RealtimeParty
+            assertEquals(1, updated)
+            assertEquals(startedAt.plusMinutes(30), found.liveEndingStartedAt)
             assertEquals(RealtimePartyEndingReason.TIME_LIMIT_REACHED, found.liveEndingReason)
+        }
+
+        @Test
+        fun `startAutomaticRealtimeEndings는 마감선 전 미시작 파티를 종료하지 않는다`() {
+            val party = partyRepository.save(realtimeParty(startedAt = BASE_TIME.minusMinutes(29)))
+
+            val updated =
+                partyRepository.startAutomaticRealtimeEndings(
+                    now = BASE_TIME,
+                    liveDurationMinutes = 10,
+                    startGraceMinutes = 30,
+                    partyEndedAfterDays = 7,
+                    endingReason = RealtimePartyEndingReason.TIME_LIMIT_REACHED.name,
+                )
+            entityManager.clear()
+
+            val found = partyRepository.findById(party.id).orElseThrow() as RealtimeParty
+            assertEquals(0, updated)
+            assertEquals(null, found.liveEndingStartedAt)
         }
 
         @Test

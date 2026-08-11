@@ -85,6 +85,7 @@ class RealtimePartyEndServiceTest {
         verify(partyRepository).startAutomaticRealtimeEndings(
             now = now,
             liveDurationMinutes = RealtimeParty.LIVE_DURATION_MINUTES,
+            startGraceMinutes = RealtimeParty.START_GRACE_MINUTES,
             partyEndedAfterDays = Party.ENDED_AFTER_DAYS,
             endingReason = RealtimePartyEndingReason.TIME_LIMIT_REACHED.name,
         )
@@ -118,6 +119,17 @@ class RealtimePartyEndServiceTest {
         assertEquals(RealtimePartyEndingReason.HOST_REQUEST, result.single().endingReason)
         assertEquals("주최자", result.single().hostNickname)
         assertEquals(false, result.single().startedNow)
+    }
+
+    @Test
+    fun `복구 조회 범위는 마감선과 라이브 시간을 합친 만큼 거슬러 올라간다`() {
+        val now = LocalDateTime.of(2026, 5, 24, 21, 0)
+        whenever(partyRepository.findRealtimePartiesWaitingAutomaticEnding(any())).thenReturn(emptyList())
+        whenever(partyRepository.findRealtimePartiesWithEndingStarted(any())).thenReturn(emptyList())
+
+        service.findRecoverySchedules(now)
+
+        verify(partyRepository).findRealtimePartiesWaitingAutomaticEnding(now.minusMinutes(40))
     }
 
     @Test

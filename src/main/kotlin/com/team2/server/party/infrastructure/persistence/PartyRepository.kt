@@ -67,13 +67,16 @@ interface PartyRepository : JpaRepository<Party, Long> {
             """
             UPDATE realtime_party realtime_party
             JOIN party party ON party.id = realtime_party.id
-            SET realtime_party.live_ending_started_at = DATE_ADD(
-                party.started_at,
-                INTERVAL :liveDurationMinutes MINUTE
-            ),
+            SET realtime_party.live_ending_started_at = COALESCE(
+                    DATE_ADD(realtime_party.live_started_at, INTERVAL :liveDurationMinutes MINUTE),
+                    DATE_ADD(party.started_at, INTERVAL :startGraceMinutes MINUTE)
+                ),
                 realtime_party.live_ending_reason = :endingReason
             WHERE realtime_party.live_ending_started_at IS NULL
-              AND DATE_ADD(party.started_at, INTERVAL :liveDurationMinutes MINUTE) <= :now
+              AND COALESCE(
+                    DATE_ADD(realtime_party.live_started_at, INTERVAL :liveDurationMinutes MINUTE),
+                    DATE_ADD(party.started_at, INTERVAL :startGraceMinutes MINUTE)
+                  ) <= :now
               AND DATE_ADD(party.started_at, INTERVAL :partyEndedAfterDays DAY) > :now
             """,
         nativeQuery = true,
@@ -81,6 +84,7 @@ interface PartyRepository : JpaRepository<Party, Long> {
     fun startAutomaticRealtimeEndings(
         now: LocalDateTime,
         liveDurationMinutes: Long,
+        startGraceMinutes: Long,
         partyEndedAfterDays: Long,
         endingReason: String,
     ): Int
