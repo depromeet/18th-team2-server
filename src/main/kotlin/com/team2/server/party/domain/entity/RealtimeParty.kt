@@ -11,6 +11,7 @@ import java.time.LocalDateTime
 @Entity
 @Table(name = "realtime_party")
 @DiscriminatorValue("REALTIME")
+@Suppress("TooManyFunctions")
 class RealtimeParty(
     ownerId: Long,
     name: String? = null,
@@ -31,7 +32,10 @@ class RealtimeParty(
 
     override fun hostViewableAt(): LocalDateTime = effectiveEndingStartedAt()
 
-    fun automaticEndingStartedAt(): LocalDateTime = startedAt.plusMinutes(LIVE_DURATION_MINUTES)
+    fun startDeadlineAt(): LocalDateTime = startedAt.plusMinutes(START_GRACE_MINUTES)
+
+    fun automaticEndingStartedAt(): LocalDateTime =
+        liveStartedAt?.plusMinutes(LIVE_DURATION_MINUTES) ?: startDeadlineAt()
 
     fun effectiveEndingStartedAt(): LocalDateTime = liveEndingStartedAt ?: automaticEndingStartedAt()
 
@@ -91,6 +95,7 @@ class RealtimeParty(
     companion object {
         const val LIVE_DURATION_MINUTES: Long = 10
         const val LIVE_END_COUNTDOWN_SECONDS: Long = 60
+        const val START_GRACE_MINUTES: Long = 30
         const val HOST_FAREWELL_AVAILABLE_AFTER_MINUTES: Long = 4
         const val ENTERABLE_BEFORE_MINUTES: Long = 5
         const val MAX_PARTICIPANTS: Int = 14
