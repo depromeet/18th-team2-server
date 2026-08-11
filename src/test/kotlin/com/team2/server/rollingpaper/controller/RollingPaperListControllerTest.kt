@@ -66,7 +66,9 @@ class RollingPaperListControllerTest
 
         @Test
         fun `참가자용 목록은 인증 없이 content와 position 없이 최신순 7개씩 조회된다`() {
-            val party = saveRealtimeParty(startedAt = DEFAULT_NOW.withHour(22).withMinute(0))
+            val party = saveRealtimeParty(startedAt = DEFAULT_NOW.withHour(22).withMinute(0)) as RealtimeParty
+            party.liveStartedAt = party.startedAt
+            partyRepository.saveAndFlush(party)
             val invite = saveInvite(party, "listtoken000001")
             val topping = saveToppingWithImages()
             (1..8).forEach { index ->

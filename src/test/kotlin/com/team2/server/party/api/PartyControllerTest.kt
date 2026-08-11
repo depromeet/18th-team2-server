@@ -330,7 +330,10 @@ class PartyControllerTest
         @Test
         fun `자동 종료 카운트다운 상태는 종료 원인과 주최자 닉네임을 조회할 수 있다`() {
             val owner = saveUser("kakao-realtime-state-ending", "state-ending@kakao.local")
-            val party = saveRealtimeParty(owner, LocalDateTime.now().minusMinutes(10).minusSeconds(10))
+            val startedAt = LocalDateTime.now().minusMinutes(10).minusSeconds(10)
+            val party = saveRealtimeParty(owner, startedAt)
+            party.liveStartedAt = startedAt
+            partyRepository.save(party)
 
             mockMvc
                 .get("/api/v1/parties/${party.id}/realtime-state") {
@@ -360,7 +363,10 @@ class PartyControllerTest
         @Test
         fun `LIVE_CLOSED 상태에서는 주최자 다음 행동을 조회할 수 있다`() {
             val owner = saveUser("kakao-next-closed", "next-closed@kakao.local")
-            val party = saveRealtimeParty(owner, LocalDateTime.now().minusMinutes(12))
+            val startedAt = LocalDateTime.now().minusMinutes(12)
+            val party = saveRealtimeParty(owner, startedAt)
+            party.liveStartedAt = startedAt
+            partyRepository.save(party)
 
             mockMvc
                 .get("/api/v1/parties/${party.id}/realtime-next-action") {

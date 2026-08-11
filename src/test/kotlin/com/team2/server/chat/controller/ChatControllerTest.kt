@@ -176,6 +176,8 @@ class ChatControllerTest
         @Test
         fun `LIVE_OPEN이 아닌 파티에 메시지 전송 시 400`() {
             val (party, _) = savePartyWithInvite(LocalDateTime.now().minusMinutes(11))
+            party.liveStartedAt = party.startedAt
+            partyRepository.save(party)
             val participant = participantRepository.save(Participant(party = party))
             val profile =
                 profileRepository.save(

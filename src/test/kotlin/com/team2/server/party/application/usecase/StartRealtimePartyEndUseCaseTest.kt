@@ -56,7 +56,8 @@ class StartRealtimePartyEndUseCaseTest {
 
     @Test
     fun `LIVE_CLOSED party cannot start ending again`() {
-        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(12))
+        val startedAt = now.minusMinutes(12)
+        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = startedAt).apply { liveStartedAt = startedAt }
         whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
 
         val ex = assertThrows<BusinessException> { useCase(1L, userId = 1L) }
@@ -132,12 +133,13 @@ class StartRealtimePartyEndUseCaseTest {
 
     @Test
     fun `automatic LIVE_ENDING without persisted ending is persisted and notifies only when affected`() {
-        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(10).minusSeconds(10))
+        val startedAt = now.minusMinutes(10).minusSeconds(10)
+        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = startedAt).apply { liveStartedAt = startedAt }
         val endedParty =
             realtimeParty(
                 id = 1L,
                 ownerId = 1L,
-                startedAt = now.minusMinutes(10).minusSeconds(10),
+                startedAt = startedAt,
                 liveEndingStartedAt = party.automaticEndingStartedAt(),
             )
         whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)

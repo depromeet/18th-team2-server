@@ -50,7 +50,8 @@ class GetRealtimePartyNextActionUseCaseTest {
 
     @Test
     fun `invalid participant token throws PARTY_FORBIDDEN after state validation`() {
-        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(12))
+        val startedAt = now.minusMinutes(12)
+        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = startedAt).apply { liveStartedAt = startedAt }
         whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
         whenever(participantService.requireCallerParticipant(1L, null, "bad-token"))
             .thenThrow(BusinessException(ErrorCode.PARTY_FORBIDDEN))
@@ -65,7 +66,8 @@ class GetRealtimePartyNextActionUseCaseTest {
 
     @Test
     fun `host gets host rolling paper list action`() {
-        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(12))
+        val startedAt = now.minusMinutes(12)
+        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = startedAt).apply { liveStartedAt = startedAt }
         whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
 
         val result = useCase(1L, userId = 1L, participantToken = null)
@@ -75,7 +77,8 @@ class GetRealtimePartyNextActionUseCaseTest {
 
     @Test
     fun `participant gets rolling paper write action`() {
-        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(12))
+        val startedAt = now.minusMinutes(12)
+        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = startedAt).apply { liveStartedAt = startedAt }
         val participant = Participant(party = party).apply { hasWrittenPaper = true }
         whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
         whenever(participantService.requireCallerParticipant(1L, null, "tok")).thenReturn(participant)
@@ -88,7 +91,8 @@ class GetRealtimePartyNextActionUseCaseTest {
 
     @Test
     fun `host participant token gets host rolling paper list action`() {
-        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(12))
+        val startedAt = now.minusMinutes(12)
+        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = startedAt).apply { liveStartedAt = startedAt }
         val hostParticipant = Participant(party = party, isCelebrant = true)
         whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
         whenever(participantService.requireCallerParticipant(1L, null, "host-token")).thenReturn(hostParticipant)
