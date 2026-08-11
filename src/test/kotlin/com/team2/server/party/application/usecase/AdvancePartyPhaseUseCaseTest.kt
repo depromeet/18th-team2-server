@@ -28,12 +28,13 @@ class AdvancePartyPhaseUseCaseTest {
     private val fixedNow = LocalDateTime.of(2026, 5, 26, 20, 0, 5)
     private val clock: Clock = Clock.fixed(fixedNow.toInstant(ZoneOffset.UTC), ZoneOffset.UTC)
     private val markRealtimePartyStartedUseCase: MarkRealtimePartyStartedUseCase = mock()
+    private val actorValidator = AdvancePartyPhaseActorValidator(participantService)
     private val useCase =
         AdvancePartyPhaseUseCase(
             partyService,
-            participantService,
             phaseTransitionService,
             markRealtimePartyStartedUseCase,
+            actorValidator,
             clock,
         )
 
@@ -61,6 +62,33 @@ class AdvancePartyPhaseUseCaseTest {
             useCase(partyId, userId = 99L, participantToken = null, currentPhase = PartyPhase.ENTRY)
         }
         verify(phaseTransitionService, never()).advance(any(), any(), any(), any(), any(), any())
+    }
+
+    @Test
+    fun `startedAt 이전에 ENTRY 진입을 시도하면 400`() {
+        val partyId = 1L
+        val ownerId = 10L
+        val party = RealtimeParty(ownerId = ownerId, startedAt = fixedNow.plusSeconds(1))
+        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+
+        assertFailsWith<BusinessException> {
+            useCase(partyId, userId = ownerId, participantToken = null, currentPhase = PartyPhase.ENTRY)
+        }
+        verify(phaseTransitionService, never()).advance(any(), any(), any(), any(), any(), any())
+    }
+
+    @Test
+    fun `startedAt 정각의 ENTRY 진입은 허용된다`() {
+        val partyId = 1L
+        val ownerId = 10L
+        val party = RealtimeParty(ownerId = ownerId, startedAt = fixedNow)
+        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+        wheneverTransitionSucceeds(partyId, PartyPhase.ENTRY, PartyPhase.MUSIC)
+
+        val result = useCase(partyId, userId = ownerId, participantToken = null, currentPhase = PartyPhase.ENTRY)
+
+        assertEquals(PartyPhase.MUSIC, result.phase)
+        verify(phaseTransitionService).advance(partyId, PartyPhase.ENTRY, PartyPhase.MUSIC, fixedNow, ownerId, null)
     }
 
     @Test
