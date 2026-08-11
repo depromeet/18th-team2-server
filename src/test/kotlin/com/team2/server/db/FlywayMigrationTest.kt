@@ -94,10 +94,17 @@ class FlywayMigrationTest {
                         id, party_option, created_at, updated_at, owner_id, started_at
                     ) values
                         (1, 'REALTIME', NOW(), NOW(), 1, DATE_SUB(NOW(), INTERVAL 1 HOUR)),
-                        (2, 'REALTIME', NOW(), NOW(), 1, DATE_ADD(NOW(), INTERVAL 1 DAY))
+                        (2, 'REALTIME', NOW(), NOW(), 1, DATE_ADD(NOW(), INTERVAL 1 DAY)),
+                        (3, 'REALTIME', NOW(), NOW(), 1, DATE_SUB(NOW(), INTERVAL 2 HOUR))
                     """.trimIndent(),
                 )
                 statement.executeUpdate("insert into realtime_party (id) values (1), (2)")
+                statement.executeUpdate(
+                    """
+                    insert into realtime_party (id, host_entered_at) values
+                        (3, DATE_SUB(NOW(), INTERVAL 90 MINUTE))
+                    """.trimIndent(),
+                )
             }
 
             Flyway
@@ -109,6 +116,17 @@ class FlywayMigrationTest {
 
             assertEquals(true, connection.hasLiveStartedAt(1L))
             assertEquals(false, connection.hasLiveStartedAt(2L))
+            // host_entered_at이 있으면 started_at이 아니라 host_entered_at을 그대로 보존한다
+            assertEquals(true, connection.hasLiveStartedAt(3L))
+            assertEquals(
+                connection.findColumnValue(3L, "host_entered_at"),
+                connection.findColumnValue(3L, "live_started_at"),
+            )
+            // host_entered_at 컬럼은 다음 배포(구버전 슬롯)를 위해 그대로 남아있어야 한다
+            assertEquals(
+                ColumnDefinition(dataType = "datetime", datetimePrecision = 6, nullable = true),
+                connection.findColumn("realtime_party", "host_entered_at"),
+            )
         }
     }
 
@@ -204,6 +222,18 @@ class FlywayMigrationTest {
             statement.executeQuery().use { rs ->
                 rs.next()
                 rs.getTimestamp("live_started_at") != null
+            }
+        }
+
+    private fun java.sql.Connection.findColumnValue(
+        partyId: Long,
+        column: String,
+    ): java.sql.Timestamp? =
+        prepareStatement("select $column from realtime_party where id = ?").use { statement ->
+            statement.setLong(1, partyId)
+            statement.executeQuery().use { rs ->
+                rs.next()
+                rs.getTimestamp(column)
             }
         }
 
