@@ -104,7 +104,7 @@ class PartyStatusTest {
 
     @Test
     fun `RealtimeParty - 라이브 시작 +9분은 LIVE_OPEN`() {
-        val party = realtimeParty()
+        val party = realtimeParty().apply { liveStartedAt = liveStart }
         val now = liveStart.plusMinutes(9)
         assertEquals(RealtimePartyStatus.LIVE_OPEN, party.status(now))
     }
