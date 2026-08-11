@@ -119,7 +119,11 @@ class EnterAndSubscribeChatUseCase(
         private const val SSE_GRACE_CLEANUP_SECONDS = 2L
         private const val EMITTER_TIMEOUT_MS =
             (
-                (RealtimeParty.ENTERABLE_BEFORE_MINUTES + RealtimeParty.LIVE_DURATION_MINUTES) * 60 +
+                (
+                    RealtimeParty.ENTERABLE_BEFORE_MINUTES +
+                        RealtimeParty.START_GRACE_MINUTES +
+                        RealtimeParty.LIVE_DURATION_MINUTES
+                ) * 60 +
                     RealtimeParty.LIVE_END_COUNTDOWN_SECONDS +
                     SSE_GRACE_CLEANUP_SECONDS
             ) * 1000L

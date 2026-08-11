@@ -65,11 +65,11 @@ class LookupPartyInviteUseCase(
         return participantRepository.findByPartyIdAndUserId(party.id, userId)?.hasWrittenPaper ?: false
     }
 
-    private fun createRealtimeSchedule(party: Party): RealtimeScheduleResult =
+    private fun createRealtimeSchedule(party: RealtimeParty): RealtimeScheduleResult =
         RealtimeScheduleResult(
             liveStartAt = party.startedAt,
             enterableFrom = party.startedAt.minusMinutes(RealtimeParty.ENTERABLE_BEFORE_MINUTES),
-            liveEndAt = party.startedAt.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES),
+            liveEndAt = party.effectiveEndingStartedAt(),
             liveDurationMinutes = RealtimeParty.LIVE_DURATION_MINUTES,
         )
 }
