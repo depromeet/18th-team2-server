@@ -1,14 +1,11 @@
 name: Claude Code Review
 
+# 비활성화 — CLAUDE_CODE_OAUTH_TOKEN 만료로 실패 중.
+# 되살리려면 workflow_dispatch를 지우고 아래 주석을 해제한다.
 on:
-  pull_request:
-    types: [opened, synchronize, ready_for_review, reopened]
-    # Optional: Only run on specific file changes
-    # paths:
-    #   - "src/**/*.ts"
-    #   - "src/**/*.tsx"
-    #   - "src/**/*.js"
-    #   - "src/**/*.jsx"
+  workflow_dispatch:
+  # pull_request:
+  #   types: [opened, synchronize, ready_for_review, reopened]
 
 jobs:
   claude-review:
