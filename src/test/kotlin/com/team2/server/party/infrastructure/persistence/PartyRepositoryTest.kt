@@ -35,13 +35,18 @@ class PartyRepositoryTest
         }
 
         @Test
-        fun `startAutomaticRealtimeEndings는 전달받은 종료 사유를 저장한다`() {
-            val party = partyRepository.save(realtimeParty(startedAt = BASE_TIME.minusMinutes(10)))
+        fun `startAutomaticRealtimeEndings는 시작된 파티를 시작 10분 후로 종료한다`() {
+            val liveStartedAt = BASE_TIME.minusMinutes(10)
+            val party =
+                partyRepository.save(
+                    realtimeParty(startedAt = BASE_TIME.minusMinutes(20), liveStartedAt = liveStartedAt),
+                )
 
             val updated =
                 partyRepository.startAutomaticRealtimeEndings(
                     now = BASE_TIME,
                     liveDurationMinutes = 10,
+                    startGraceMinutes = 30,
                     partyEndedAfterDays = 7,
                     endingReason = RealtimePartyEndingReason.TIME_LIMIT_REACHED.name,
                 )
@@ -49,8 +54,47 @@ class PartyRepositoryTest
 
             val found = partyRepository.findById(party.id).orElseThrow() as RealtimeParty
             assertEquals(1, updated)
-            assertEquals(BASE_TIME, found.liveEndingStartedAt)
+            assertEquals(liveStartedAt.plusMinutes(10), found.liveEndingStartedAt)
+        }
+
+        @Test
+        fun `startAutomaticRealtimeEndings는 미시작 파티를 마감선에 종료한다`() {
+            val startedAt = BASE_TIME.minusMinutes(30)
+            val party = partyRepository.save(realtimeParty(startedAt = startedAt))
+
+            val updated =
+                partyRepository.startAutomaticRealtimeEndings(
+                    now = BASE_TIME,
+                    liveDurationMinutes = 10,
+                    startGraceMinutes = 30,
+                    partyEndedAfterDays = 7,
+                    endingReason = RealtimePartyEndingReason.TIME_LIMIT_REACHED.name,
+                )
+            entityManager.clear()
+
+            val found = partyRepository.findById(party.id).orElseThrow() as RealtimeParty
+            assertEquals(1, updated)
+            assertEquals(startedAt.plusMinutes(30), found.liveEndingStartedAt)
             assertEquals(RealtimePartyEndingReason.TIME_LIMIT_REACHED, found.liveEndingReason)
+        }
+
+        @Test
+        fun `startAutomaticRealtimeEndings는 마감선 전 미시작 파티를 종료하지 않는다`() {
+            val party = partyRepository.save(realtimeParty(startedAt = BASE_TIME.minusMinutes(29)))
+
+            val updated =
+                partyRepository.startAutomaticRealtimeEndings(
+                    now = BASE_TIME,
+                    liveDurationMinutes = 10,
+                    startGraceMinutes = 30,
+                    partyEndedAfterDays = 7,
+                    endingReason = RealtimePartyEndingReason.TIME_LIMIT_REACHED.name,
+                )
+            entityManager.clear()
+
+            val found = partyRepository.findById(party.id).orElseThrow() as RealtimeParty
+            assertEquals(0, updated)
+            assertEquals(null, found.liveEndingStartedAt)
         }
 
         @Test
@@ -71,33 +115,46 @@ class PartyRepositoryTest
         }
 
         @Test
-        fun `markHostEnteredIfAbsent는 hostEnteredAt을 한 번만 저장한다`() {
+        fun `markLiveStartedIfAbsent는 liveStartedAt을 한 번만 저장한다`() {
             val party = partyRepository.save(realtimeParty(startedAt = BASE_TIME.minusMinutes(1)))
-            val firstHostEnteredAt = BASE_TIME
-            val secondHostEnteredAt = BASE_TIME.plusSeconds(5)
+            val firstLiveStartedAt = BASE_TIME
+            val secondLiveStartedAt = BASE_TIME.plusSeconds(5)
 
-            val firstUpdated = partyRepository.markHostEnteredIfAbsent(party.id, firstHostEnteredAt)
-            val secondUpdated = partyRepository.markHostEnteredIfAbsent(party.id, secondHostEnteredAt)
+            val firstUpdated = partyRepository.markLiveStartedIfAbsent(party.id, firstLiveStartedAt)
+            val secondUpdated = partyRepository.markLiveStartedIfAbsent(party.id, secondLiveStartedAt)
             entityManager.flush()
             entityManager.clear()
 
             val found = partyRepository.findById(party.id).orElseThrow() as RealtimeParty
             assertEquals(1, firstUpdated)
             assertEquals(0, secondUpdated)
-            assertEquals(firstHostEnteredAt, found.hostEnteredAt)
+            assertEquals(firstLiveStartedAt, found.liveStartedAt)
+        }
+
+        @Test
+        fun `findRealtimePartiesWaitingAutomaticEnding은 조회 경계 정각의 파티를 포함한다`() {
+            val boundary = BASE_TIME.minusMinutes(40)
+            val onBoundary = partyRepository.save(realtimeParty(startedAt = boundary))
+            val beforeBoundary = partyRepository.save(realtimeParty(startedAt = boundary.minusSeconds(1)))
+            entityManager.flush()
+            entityManager.clear()
+
+            val found = partyRepository.findRealtimePartiesWaitingAutomaticEnding(boundary).map { it.id }
+
+            assertEquals(listOf(onBoundary.id), found.filter { it in listOf(onBoundary.id, beforeBoundary.id) })
         }
 
         private fun realtimeParty(
             startedAt: LocalDateTime,
             liveEndingStartedAt: LocalDateTime? = null,
-            hostEnteredAt: LocalDateTime? = null,
+            liveStartedAt: LocalDateTime? = null,
         ): RealtimeParty =
             RealtimeParty(
                 ownerId = 1L,
                 name = "테스트파티",
                 startedAt = startedAt,
                 liveEndingStartedAt = liveEndingStartedAt,
-                hostEnteredAt = hostEnteredAt,
+                liveStartedAt = liveStartedAt,
             )
 
         private companion object {

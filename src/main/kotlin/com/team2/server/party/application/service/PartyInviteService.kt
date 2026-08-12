@@ -73,7 +73,7 @@ class PartyInviteService(
         }
         val realtimeParty = Hibernate.unproxy(party) as RealtimeParty
         val enterableFrom = realtimeParty.startedAt.minusMinutes(RealtimeParty.ENTERABLE_BEFORE_MINUTES)
-        val enterableTo = realtimeParty.startedAt.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES)
+        val enterableTo = realtimeParty.effectiveEndingStartedAt()
         if (now.isBefore(enterableFrom) || !now.isBefore(enterableTo)) {
             throw BusinessException(ErrorCode.CHAT_NOT_ACTIVE)
         }

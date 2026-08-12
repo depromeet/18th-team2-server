@@ -8,7 +8,6 @@ import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.dto.RealtimePartyEndingInfo
 import com.team2.server.party.application.service.PartyInviteService
-import com.team2.server.party.application.usecase.MarkRealtimePartyHostEnteredUseCase
 import com.team2.server.party.application.usecase.ResolveRealtimePartyEndingInfoUseCase
 import com.team2.server.party.domain.entity.PaperOnlyParty
 import com.team2.server.party.domain.entity.PartyInvite
@@ -22,8 +21,6 @@ import org.mockito.Mockito
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
-import org.mockito.kotlin.never
-import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.Clock
 import java.time.LocalDateTime
@@ -36,8 +33,6 @@ class EnterRealtimePartyUseCaseTest {
     @Mock lateinit var partyInviteService: PartyInviteService
 
     @Mock lateinit var entryProfilePort: RealtimePartyEntryProfilePort
-
-    @Mock lateinit var markRealtimePartyHostEnteredUseCase: MarkRealtimePartyHostEnteredUseCase
 
     @Mock lateinit var resolveRealtimePartyEndingInfoUseCase: ResolveRealtimePartyEndingInfoUseCase
 
@@ -54,7 +49,6 @@ class EnterRealtimePartyUseCaseTest {
             EnterRealtimePartyUseCase(
                 partyInviteService = partyInviteService,
                 profileResolver = RealtimePartyEntryProfileResolver(entryProfilePort),
-                markRealtimePartyHostEnteredUseCase = markRealtimePartyHostEnteredUseCase,
                 resolveRealtimePartyEndingInfoUseCase = resolveRealtimePartyEndingInfoUseCase,
                 clock = clock,
             )
@@ -124,51 +118,6 @@ class EnterRealtimePartyUseCaseTest {
         val result = useCase.enter("tok", userId = null, request)
 
         assertNotNull(result.participantToken)
-    }
-
-    @Test
-    fun `주최자 첫 채팅 입장은 주최자 입장 시각을 기록한다`() {
-        val party = RealtimeParty(ownerId = 1L, startedAt = now.minusMinutes(1))
-        val invite = PartyInvite(party = party, token = "tok", expiresAt = now.plusDays(7))
-
-        whenever(partyInviteService.findUsableInvite(any(), any())).thenReturn(invite)
-        whenever(resolveEntry(party, userId = 1L, request)).thenReturn(entryResult(isCelebrant = true))
-        whenever(markRealtimePartyHostEnteredUseCase(party.id, now)).thenReturn(now)
-
-        useCase.enter("tok", userId = 1L, request)
-
-        verify(markRealtimePartyHostEnteredUseCase).invoke(party.id, now)
-        assertEquals(now, party.hostEnteredAt)
-    }
-
-    @Test
-    fun `주최자가 아니면 입장해도 주최자 입장 시각을 기록하지 않는다`() {
-        val party = RealtimeParty(ownerId = 1L, startedAt = now.minusMinutes(1))
-        val invite = PartyInvite(party = party, token = "tok", expiresAt = now.plusDays(7))
-
-        whenever(partyInviteService.findUsableInvite(any(), any())).thenReturn(invite)
-        whenever(resolveEntry(party, userId = null, request)).thenReturn(entryResult(isCelebrant = false))
-
-        useCase.enter("tok", userId = null, request)
-
-        verify(markRealtimePartyHostEnteredUseCase, never()).invoke(any(), any())
-        assertEquals(null, party.hostEnteredAt)
-    }
-
-    @Test
-    fun `주최자 입장 시각이 이미 저장되어 있으면 기존 값을 유지한다`() {
-        val existingHostEnteredAt = now.minusSeconds(10)
-        val party = RealtimeParty(ownerId = 1L, startedAt = now.minusMinutes(1), hostEnteredAt = existingHostEnteredAt)
-        val invite = PartyInvite(party = party, token = "tok", expiresAt = now.plusDays(7))
-
-        whenever(partyInviteService.findUsableInvite(any(), any())).thenReturn(invite)
-        whenever(resolveEntry(party, userId = 1L, request)).thenReturn(entryResult(isCelebrant = true))
-        whenever(markRealtimePartyHostEnteredUseCase(party.id, now)).thenReturn(null)
-
-        useCase.enter("tok", userId = 1L, request)
-
-        verify(markRealtimePartyHostEnteredUseCase).invoke(party.id, now)
-        assertEquals(existingHostEnteredAt, party.hostEnteredAt)
     }
 
     @Test

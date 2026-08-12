@@ -372,7 +372,7 @@ class PartyInviteLookupControllerTest
                         ownerId = 1L,
                         celebrantNickname = "홍길동",
                         startedAt = liveStartAt,
-                    ),
+                    ).apply { liveStartedAt = liveStartAt },
                     LocalDateTime.now().minusDays(1),
                 )
             saveInvite(party, "endinglookup001")

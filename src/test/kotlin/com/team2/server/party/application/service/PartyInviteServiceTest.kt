@@ -222,6 +222,46 @@ class PartyInviteServiceTest {
     }
 
     @Test
+    fun `resolveEnterableRealtimeInvite 미시작 파티는 마감선 직전까지 입장 가능`() {
+        val now = LocalDateTime.now()
+        val realtimeParty = makeParty(startedAt = now.minusMinutes(29))
+        val invite = makeInvite(party = realtimeParty, expiresAt = now.plusDays(1))
+        whenever(partyInviteRepository.findByToken("tok")).thenReturn(invite)
+
+        val result = service.resolveEnterableRealtimeInvite("tok", now)
+
+        assertEquals(invite, result)
+    }
+
+    @Test
+    fun `resolveEnterableRealtimeInvite 늦게 시작한 파티는 시작 10분 이내면 입장 가능`() {
+        val now = LocalDateTime.now()
+        val realtimeParty =
+            makeParty(startedAt = now.minusMinutes(20)).apply { liveStartedAt = now.minusMinutes(5) }
+        val invite = makeInvite(party = realtimeParty, expiresAt = now.plusDays(1))
+        whenever(partyInviteRepository.findByToken("tok")).thenReturn(invite)
+
+        val result = service.resolveEnterableRealtimeInvite("tok", now)
+
+        assertEquals(invite, result)
+    }
+
+    @Test
+    fun `resolveEnterableRealtimeInvite 시작 10분이 지나면 입장 불가`() {
+        val now = LocalDateTime.now()
+        val realtimeParty =
+            makeParty(startedAt = now.minusMinutes(15)).apply { liveStartedAt = now.minusMinutes(11) }
+        val invite = makeInvite(party = realtimeParty, expiresAt = now.plusDays(1))
+        whenever(partyInviteRepository.findByToken("tok")).thenReturn(invite)
+
+        val e =
+            assertThrows<BusinessException> {
+                service.resolveEnterableRealtimeInvite("tok", now)
+            }
+        assertEquals(ErrorCode.CHAT_NOT_ACTIVE, e.errorCode)
+    }
+
+    @Test
     fun `findLatestUsableInviteToken 파티가 없으면 PARTY_NOT_FOUND`() {
         whenever(partyRepository.existsById(1L)).thenReturn(false)
 

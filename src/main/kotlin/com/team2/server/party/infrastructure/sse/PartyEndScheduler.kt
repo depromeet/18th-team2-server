@@ -4,6 +4,7 @@ import com.team2.server.party.application.dto.RealtimeEndingScheduleTarget
 import com.team2.server.party.application.event.RealtimePartyBurstGameEndedEvent
 import com.team2.server.party.application.event.RealtimePartyCreatedEvent
 import com.team2.server.party.application.event.RealtimePartyEndingStartedEvent
+import com.team2.server.party.application.event.RealtimePartyStartedEvent
 import com.team2.server.party.application.port.PartyPhaseStore
 import com.team2.server.party.application.port.RealtimePartyEventBroadcaster
 import com.team2.server.party.application.usecase.RecoverRealtimePartyEndScheduleUseCase
@@ -75,7 +76,12 @@ class PartyEndScheduler(
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     fun onRealtimePartyCreated(event: RealtimePartyCreatedEvent) {
-        scheduleAutomaticEnd(event.partyId, event.startedAt.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES))
+        scheduleAutomaticEnd(event.partyId, event.startedAt.plusMinutes(RealtimeParty.START_GRACE_MINUTES))
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    fun onRealtimePartyStarted(event: RealtimePartyStartedEvent) {
+        scheduleAutomaticEnd(event.partyId, event.liveStartedAt.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES))
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
