@@ -51,16 +51,22 @@ class PartyCalendarInfoAdapter(
     }
 
     /**
-     * 사용 가능한 초대 링크가 없어도 캘린더 등록 자체는 성공시킨다.
-     * PartyInviteService 에는 nullable 조회가 없어 예외를 흡수한다.
+     * 사용 가능한 초대 링크가 없을 때(PARTY_INVITE_NOT_FOUND)만 흡수해 inviteUrl 을 null 로 둔다.
+     * 그 외 실패(예: 조회 사이 파티 삭제로 인한 PARTY_NOT_FOUND, 인프라 오류)는 그대로 전파한다.
      */
     private fun findInviteUrl(
         partyId: Long,
         now: LocalDateTime,
-    ): String? =
-        runCatching { partyInviteService.findLatestUsableInviteToken(partyId, now) }
-            .getOrNull()
-            ?.let { "$webBaseUrl/invite/$it" }
+    ): String? {
+        val token =
+            try {
+                partyInviteService.findLatestUsableInviteToken(partyId, now)
+            } catch (e: BusinessException) {
+                if (e.errorCode != ErrorCode.PARTY_INVITE_NOT_FOUND) throw e
+                return null
+            }
+        return "$webBaseUrl/invite/$token"
+    }
 
     private fun PartyPurpose.toCelebrationKind(): CelebrationKind =
         when (this) {

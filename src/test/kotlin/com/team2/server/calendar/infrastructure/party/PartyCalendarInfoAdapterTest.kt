@@ -91,6 +91,19 @@ class PartyCalendarInfoAdapterTest {
     }
 
     @Test
+    fun `초대 링크 조회가 다른 사유로 실패하면 그대로 전파한다`() {
+        val party = PaperOnlyParty(ownerId = 10L, startedAt = startedAt, celebrantNickname = "지민")
+        whenever(partyService.requireParty(1L)).thenReturn(party)
+        whenever(partyInviteService.findLatestUsableInviteToken(any(), any()))
+            .thenThrow(BusinessException(ErrorCode.PARTY_NOT_FOUND))
+
+        val exception =
+            kotlin.runCatching { adapter.loadForMember(partyId = 1L, userId = 10L, now = now) }.exceptionOrNull()
+
+        assertEquals(ErrorCode.PARTY_NOT_FOUND, (exception as BusinessException).errorCode)
+    }
+
+    @Test
     fun `파티 목적을 CelebrationKind 로 매핑한다`() {
         val party =
             PaperOnlyParty(ownerId = 10L, startedAt = startedAt, purpose = PartyPurpose.WEDDING)
