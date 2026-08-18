@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.eq
+import org.mockito.kotlin.inOrder
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
@@ -73,6 +74,9 @@ class RegisterPartyTalkCalendarEventUseCaseTest {
         assertEquals("event-1", result.eventId)
         assertFalse(result.updated)
         verify(calendarRegistrationService).linkEvent(reserved, "event-1")
+        val order = inOrder(calendarRegistrationService, talkCalendarPort)
+        order.verify(calendarRegistrationService).reserve(10L, 1L)
+        order.verify(talkCalendarPort).createEvent(eq("kakao-token"), any())
     }
 
     @Test
