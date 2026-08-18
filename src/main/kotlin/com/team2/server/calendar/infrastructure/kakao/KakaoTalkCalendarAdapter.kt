@@ -4,6 +4,7 @@ import com.team2.server.calendar.application.port.TalkCalendarPort
 import com.team2.server.calendar.domain.vo.CalendarEvent
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpHeaders
@@ -34,6 +35,8 @@ class KakaoTalkCalendarAdapter(
     private val objectMapper: ObjectMapper,
     @Value("\${app.time-zone:Asia/Seoul}") private val zoneId: ZoneId,
 ) : TalkCalendarPort {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     override fun createEvent(
         accessToken: String,
         event: CalendarEvent,
@@ -89,6 +92,7 @@ class KakaoTalkCalendarAdapter(
                 .onStatus({ it.isError }) { _, _ -> }
                 .toEntity(String::class.java)
         } catch (e: RestClientException) {
+            log.warn("카카오 톡캘린더 호출 실패. path={}", path, e)
             throw BusinessException(ErrorCode.KAKAO_CALENDAR_UNAVAILABLE)
         }
 
@@ -110,7 +114,10 @@ class KakaoTalkCalendarAdapter(
     private fun readEventId(body: String?): String {
         val parsed =
             runCatching { objectMapper.readValue(body ?: "", Map::class.java) }
-                .getOrElse { throw BusinessException(ErrorCode.KAKAO_CALENDAR_UNAVAILABLE) }
+                .getOrElse { e ->
+                    log.warn("카카오 응답 파싱 실패. bodyLength={}", body?.length ?: 0, e)
+                    throw BusinessException(ErrorCode.KAKAO_CALENDAR_UNAVAILABLE)
+                }
         return parsed["event_id"] as? String
             ?: throw BusinessException(ErrorCode.KAKAO_CALENDAR_UNAVAILABLE)
     }
