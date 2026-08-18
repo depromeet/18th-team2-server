@@ -108,6 +108,7 @@ class TalkCalendarControllerTest
                     header("X-Kakao-Access-Token", "kakao-token")
                 }.andExpect {
                     status { isForbidden() }
+                    jsonPath("$.error.code") { value("PARTY_FORBIDDEN") }
                 }
         }
 
