@@ -31,11 +31,16 @@ spring:
             user-name-attribute: id
 
 app:
+  web-base-url: "https://test.example.com"
   jwt:
     secret: dGVzdC1zZWNyZXQta2V5LXdpdGgtYXQtbGVhc3QtMjU2LWJpdHMtZm9yLWhtYWMtc2hhMjU2LWFsZ29yaXRobS0xMjM0NTY3OA==
     expiration-hours: 24
   oauth2:
     authorized-redirect-uris: http://localhost:3000/oauth/redirect
+
+kakao:
+  talk-calendar:
+    base-url: "https://kapi.kakao.com"
 
 support:
   chat-url: "https://open.kakao.com/o/test-support"

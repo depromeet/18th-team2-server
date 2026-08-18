@@ -36,6 +36,14 @@ spring:
         dialect: org.hibernate.dialect.MySQLDialect
 
 # 배포 전 환경별 yml(application-prod.yml 등)에서 실제 운영 URL로 반드시 override
+app:
+  web-base-url: "https://localhost:3000"
+
+kakao:
+  talk-calendar:
+    base-url: "https://kapi.kakao.com"
+
+# 배포 전 환경별 yml(application-prod.yml 등)에서 실제 운영 URL로 반드시 override
 support:
   chat-url: "https://open.kakao.com/o/placeholder"
 
