@@ -35,9 +35,9 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.MySQLDialect
 
-# 배포 전 환경별 yml(application-prod.yml 등)에서 실제 운영 URL로 반드시 override
+# 환경변수 APP_WEB_BASE_URL 로 환경별 실제 운영 URL을 override (미설정 시 로컬 기본값 사용)
 app:
-  web-base-url: "https://localhost:3000"
+  web-base-url: ${APP_WEB_BASE_URL:https://localhost:3000}
 
 kakao:
   talk-calendar:

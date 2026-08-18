@@ -27,6 +27,7 @@ private const val CREATE_EVENT_PATH = "/v2/api/calendar/create/event"
 private const val UPDATE_EVENT_PATH = "/v2/api/calendar/update/event/host"
 private const val DEFAULT_CALENDAR_ID = "primary"
 private const val RECUR_UPDATE_TYPE_ALL = "ALL"
+private const val ERROR_BODY_LOG_MAX_LENGTH = 500
 private val KAKAO_DATE_TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'")
 
 @Component
@@ -48,7 +49,7 @@ class KakaoTalkCalendarAdapter(
             }
         val response = post(CREATE_EVENT_PATH, accessToken, body)
         if (!response.statusCode.is2xxSuccessful) {
-            throw toBusinessException(response.statusCode)
+            throw toBusinessException(CREATE_EVENT_PATH, response.statusCode, response.body)
         }
         return readEventId(response.body)
     }
@@ -70,7 +71,7 @@ class KakaoTalkCalendarAdapter(
             return false
         }
         if (!response.statusCode.is2xxSuccessful) {
-            throw toBusinessException(response.statusCode)
+            throw toBusinessException(UPDATE_EVENT_PATH, response.statusCode, response.body)
         }
         return true
     }
@@ -122,12 +123,23 @@ class KakaoTalkCalendarAdapter(
             ?: throw BusinessException(ErrorCode.KAKAO_CALENDAR_UNAVAILABLE)
     }
 
-    private fun toBusinessException(status: HttpStatusCode): BusinessException =
-        when (status.value()) {
+    private fun toBusinessException(
+        path: String,
+        status: HttpStatusCode,
+        body: String?,
+    ): BusinessException {
+        log.warn(
+            "카카오 톡캘린더 오류 응답. path={}, status={}, body={}",
+            path,
+            status.value(),
+            body?.take(ERROR_BODY_LOG_MAX_LENGTH),
+        )
+        return when (status.value()) {
             HttpStatus.UNAUTHORIZED.value() -> BusinessException(ErrorCode.KAKAO_TOKEN_INVALID)
             HttpStatus.FORBIDDEN.value() -> BusinessException(ErrorCode.KAKAO_CALENDAR_CONSENT_REQUIRED)
             else -> BusinessException(ErrorCode.KAKAO_CALENDAR_UNAVAILABLE)
         }
+    }
 
     private fun LocalDateTime.toKakaoUtc(): String =
         atZone(zoneId).withZoneSameInstant(ZoneOffset.UTC).format(KAKAO_DATE_TIME)
