@@ -122,4 +122,15 @@ class KakaoTalkCalendarAdapterTest {
 
         assertEquals(ErrorCode.KAKAO_CALENDAR_UNAVAILABLE, (exception as BusinessException).errorCode)
     }
+
+    @Test
+    fun `연결 실패나 타임아웃이면 KAKAO_CALENDAR_UNAVAILABLE 로 변환한다`() {
+        server
+            .expect(requestTo("https://kapi.kakao.com/v2/api/calendar/create/event"))
+            .andRespond { throw java.io.IOException("connect timed out") }
+
+        val exception = kotlin.runCatching { adapter.createEvent("kakao-token", event) }.exceptionOrNull()
+
+        assertEquals(ErrorCode.KAKAO_CALENDAR_UNAVAILABLE, (exception as BusinessException).errorCode)
+    }
 }
