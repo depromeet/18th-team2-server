@@ -878,6 +878,8 @@ calendar feature 가 party feature 에서 필요한 것만 가져오는 경계. 
 - Modify: `src/main/kotlin/com/team2/server/party/application/service/PartyService.kt`
 - Create: `src/main/kotlin/com/team2/server/calendar/application/port/PartyCalendarInfoPort.kt`
 - Create: `src/main/kotlin/com/team2/server/calendar/infrastructure/party/PartyCalendarInfoAdapter.kt`
+- Modify: `src/main/resources/application.yml`
+- Modify: `src/test/resources/application.yml`
 - Test: `src/test/kotlin/com/team2/server/calendar/infrastructure/party/PartyCalendarInfoAdapterTest.kt`
 
 **Interfaces:**
@@ -1121,17 +1123,58 @@ class PartyCalendarInfoAdapter(
 }
 ```
 
-- [ ] **Step 6: 테스트를 실행해 통과를 확인한다**
+- [ ] **Step 6: 운영 설정을 추가한다**
+
+`src/main/resources/application.yml` 의 `support:` 블록 위에 추가한다.
+
+```yaml
+# 배포 전 환경별 yml(application-prod.yml 등)에서 실제 운영 URL로 반드시 override
+app:
+  web-base-url: "https://localhost:3000"
+
+kakao:
+  talk-calendar:
+    base-url: "https://kapi.kakao.com"
+```
+
+- [ ] **Step 7: 테스트 설정을 추가한다**
+
+`src/test/resources/application.yml` 의 기존 `app:` 블록 안에 `web-base-url` 을 넣고, 최상위에 `kakao:` 를 추가한다.
+
+```yaml
+app:
+  web-base-url: "https://test.example.com"
+  jwt:
+    secret: dGVzdC1zZWNyZXQta2V5LXdpdGgtYXQtbGVhc3QtMjU2LWJpdHMtZm9yLWhtYWMtc2hhMjU2LWFsZ29yaXRobS0xMjM0NTY3OA==
+    expiration-hours: 24
+  oauth2:
+    authorized-redirect-uris: http://localhost:3000/oauth/redirect
+
+kakao:
+  talk-calendar:
+    base-url: "https://kapi.kakao.com"
+```
+
+- [ ] **Step 8: 어댑터 단위 테스트를 실행해 통과를 확인한다**
 
 Run: `./gradlew test --tests "com.team2.server.calendar.infrastructure.party.PartyCalendarInfoAdapterTest"`
 Expected: PASS (5 tests)
 
-- [ ] **Step 7: 커밋**
+- [ ] **Step 9: Spring 컨텍스트가 여전히 뜨는지 확인한다**
+
+`PartyCalendarInfoAdapter` 는 기본값 없는 `@Value("\${app.web-base-url}")` 를 요구한다. Step 6-7 의 설정이 빠지면 이 태스크 커밋 시점부터 모든 `@SpringBootTest` 가 깨진다. 단위 테스트로는 잡히지 않으므로 컨텍스트 로딩을 따로 확인한다.
+
+Run: `./gradlew test --tests "com.team2.server.ServerApplicationTests"`
+Expected: PASS
+
+- [ ] **Step 10: 커밋**
 
 ```bash
 git add src/main/kotlin/com/team2/server/party/application/service/PartyService.kt \
         src/main/kotlin/com/team2/server/calendar/application/port/PartyCalendarInfoPort.kt \
         src/main/kotlin/com/team2/server/calendar/infrastructure/party/PartyCalendarInfoAdapter.kt \
+        src/main/resources/application.yml \
+        src/test/resources/application.yml \
         src/test/kotlin/com/team2/server/calendar/infrastructure/party/PartyCalendarInfoAdapterTest.kt
 git commit -m "feat: 캘린더용 파티 정보 조회 어댑터 추가"
 ```
@@ -1509,14 +1552,12 @@ HTTP 껍데기, Swagger 스펙, 환경 설정, 그리고 카카오를 호출하�
 **Files:**
 - Create: `src/main/kotlin/com/team2/server/calendar/api/TalkCalendarApi.kt`
 - Create: `src/main/kotlin/com/team2/server/calendar/api/TalkCalendarController.kt`
-- Modify: `src/main/resources/application.yml`
-- Modify: `src/test/resources/application.yml`
 - Test: `src/test/kotlin/com/team2/server/calendar/api/TalkCalendarControllerTest.kt`
 
 **Interfaces:**
 - Consumes: `RegisterPartyTalkCalendarEventUseCase`, `RegisterPartyTalkCalendarEventCommand`, `RegisterPartyTalkCalendarEventResult` (Task 5)
 - Produces: `POST /api/v1/parties/{partyId}/talk-calendar`, 헤더 `X-Kakao-Access-Token`
-- 설정 키: `app.web-base-url`, `kakao.talk-calendar.base-url`
+- 설정 키 `app.web-base-url` / `kakao.talk-calendar.base-url` 은 Task 4 에서 이미 추가돼 있다
 
 - [ ] **Step 1: 실패하는 컨트롤러 통합 테스트 작성**
 
@@ -1670,7 +1711,7 @@ class TalkCalendarControllerTest
 - [ ] **Step 2: 테스트를 실행해 실패를 확인한다**
 
 Run: `./gradlew test --tests "com.team2.server.calendar.api.TalkCalendarControllerTest"`
-Expected: 404 (핸들러 없음) 또는 컨텍스트 로딩 실패 — `app.web-base-url` 미설정
+Expected: 컴파일 실패 또는 404 (핸들러 없음)
 
 - [ ] **Step 3: Swagger 스펙 인터페이스를 작성한다**
 
@@ -1784,60 +1825,26 @@ class TalkCalendarController(
 
 `required = false` 로 받고 직접 검사하는 이유는 헤더 누락을 `KAKAO_ACCESS_TOKEN_REQUIRED` 로 내려주기 위해서다. `required = true` 면 Spring 이 먼저 일반 400 을 던진다.
 
-- [ ] **Step 5: 운영 설정을 추가한다**
-
-`src/main/resources/application.yml` 의 `support:` 블록 위에 추가한다.
-
-```yaml
-# 배포 전 환경별 yml(application-prod.yml 등)에서 실제 운영 URL로 반드시 override
-app:
-  web-base-url: "https://localhost:3000"
-
-kakao:
-  talk-calendar:
-    base-url: "https://kapi.kakao.com"
-```
-
-- [ ] **Step 6: 테스트 설정을 추가한다**
-
-`src/test/resources/application.yml` 의 기존 `app:` 블록 안에 `web-base-url` 을 넣고, 최상위에 `kakao:` 를 추가한다.
-
-```yaml
-app:
-  web-base-url: "https://test.example.com"
-  jwt:
-    secret: dGVzdC1zZWNyZXQta2V5LXdpdGgtYXQtbGVhc3QtMjU2LWJpdHMtZm9yLWhtYWMtc2hhMjU2LWFsZ29yaXRobS0xMjM0NTY3OA==
-    expiration-hours: 24
-  oauth2:
-    authorized-redirect-uris: http://localhost:3000/oauth/redirect
-
-kakao:
-  talk-calendar:
-    base-url: "https://kapi.kakao.com"
-```
-
-- [ ] **Step 7: 테스트를 실행해 통과를 확인한다**
+- [ ] **Step 5: 테스트를 실행해 통과를 확인한다**
 
 Run: `./gradlew test --tests "com.team2.server.calendar.api.TalkCalendarControllerTest"`
 Expected: PASS (5 tests)
 
-- [ ] **Step 8: 전체 빌드로 회귀를 확인한다**
+- [ ] **Step 6: 전체 빌드로 회귀를 확인한다**
 
 Run: `./gradlew build`
 Expected: BUILD SUCCESSFUL — ktlint 포맷 오류가 나면 지적된 파일을 고친다. ArchUnit 테스트도 함께 통과해야 한다.
 
-- [ ] **Step 9: 컨테이너 누수를 확인한다**
+- [ ] **Step 7: 컨테이너 누수를 확인한다**
 
 Run: `docker ps -a --filter "label=org.testcontainers"`
 Expected: 잔존 컨테이너 0개
 
-- [ ] **Step 10: 커밋**
+- [ ] **Step 8: 커밋**
 
 ```bash
 git add src/main/kotlin/com/team2/server/calendar/api/TalkCalendarApi.kt \
         src/main/kotlin/com/team2/server/calendar/api/TalkCalendarController.kt \
-        src/main/resources/application.yml \
-        src/test/resources/application.yml \
         src/test/kotlin/com/team2/server/calendar/api/TalkCalendarControllerTest.kt
 git commit -m "feat: 카카오 톡캘린더 일정 등록 API 추가"
 ```
