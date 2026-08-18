@@ -96,7 +96,7 @@ UNIQUE 제약이 걸린 행을 카카오 호출보다 먼저 확보하면 두 �
 | 시작 | 파티의 `startedAt` |
 | 종료 | `startedAt` + 30분 |
 | 타임존 | `Asia/Seoul`. 카카오에 넘기는 시각은 UTC RFC5545 형식 |
-| 설명 | 초대 링크 URL. `PartyInviteService.findLatestUsableInviteToken`으로 얻은 토큰과 `app.web-base-url`을 조합 |
+| 설명 | `초대 링크: {URL}` 한 줄. URL 은 `PartyInviteService.findLatestUsableInviteToken` 의 토큰과 `app.web-base-url` 을 조합. 사용 가능한 초대가 없으면 빈 문자열 |
 
 파티 엔티티의 `endedAt()`은 롤링페이퍼 열람 기한인 7일 뒤라 캘린더 일정 종료 시각으로 쓰지 않는다.
 
