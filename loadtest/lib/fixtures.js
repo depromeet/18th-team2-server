@@ -14,7 +14,11 @@ export function seedFixtures(baseUrl, partyCount) {
     headers: { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' },
   };
 
-  const now = new Date(Date.now() - 60 * 1000); // 1분 전 시작 -> LIVE_OPEN 보장
+  // 서버는 Asia/Seoul(KST, UTC+9) 로컬 시각의 LocalDate/LocalTime을 그대로 받아 비교한다.
+  // toISOString()은 항상 UTC 기준이므로 KST로 보정한 시각의 UTC 표현을 사용해
+  // 실행 환경의 시스템 타임존과 무관하게 KST 기준 "1분 전"을 얻는다.
+  const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+  const now = new Date(Date.now() - 60 * 1000 + KST_OFFSET_MS); // KST 기준 1분 전 시작 -> LIVE_OPEN 보장
   const startedDate = now.toISOString().slice(0, 10);
   const startTime = now.toISOString().slice(11, 16);
 
