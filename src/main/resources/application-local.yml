@@ -1,3 +1,12 @@
+spring:
+  datasource:
+    hikari:
+      # 부하테스트(loadtest/) 목적의 로컬 전용 튜닝. 기본값(10)으로는 동시 SSE 입장이
+      # 50건 안팎만 몰려도 HikariPool 커넥션 고갈로 서버가 멈춰서(SSE/WS 전송 계층과
+      # 무관한 원인으로) 두 전송 방식 비교가 무의미해진다. MySQL max_connections(151)
+      # 여유 안에서 80으로 올려 전송 계층 자체의 한계를 측정한다.
+      maximum-pool-size: 80
+
 management:
   endpoints:
     web:
