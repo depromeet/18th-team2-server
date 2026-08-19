@@ -4,6 +4,7 @@ import com.team2.server.calendar.domain.vo.CelebrationKind
 import org.junit.jupiter.api.Test
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class PartyCalendarEventPolicyTest {
@@ -60,6 +61,22 @@ class PartyCalendarEventPolicyTest {
 
         assertEquals(50, event.title.length)
         assertTrue(event.title.startsWith("가가가"))
+    }
+
+    @Test
+    fun `절단 경계에 이모지가 걸리면 짝 없는 서로게이트를 남기지 않는다`() {
+        // "가" 49자 뒤에 이모지를 두면 50번째 UTF-16 단위가 이모지의 상위 서로게이트가 된다
+        val event =
+            PartyCalendarEventPolicy.compose(
+                kind = CelebrationKind.BIRTHDAY,
+                celebrantName = "가".repeat(49) + "\uD83C\uDF89",
+                startedAt = startedAt,
+                inviteUrl = null,
+            )
+
+        assertEquals(49, event.title.length)
+        assertFalse(event.title.last().isHighSurrogate())
+        assertFalse(event.title.last().isLowSurrogate())
     }
 
     @Test

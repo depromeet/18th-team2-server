@@ -33,6 +33,16 @@ object PartyCalendarEventPolicy {
             } else {
                 "${celebrantName.trim()}님의 ${kind.partyLabel}"
             }
-        return title.take(MAX_TITLE_LENGTH)
+        return title.truncateToTitleLimit()
+    }
+
+    /**
+     * 카카오 제목 제한에 맞춰 자른다.
+     * 경계가 이모지 한가운데면 짝 없는 상위 서로게이트가 남아 직렬화가 깨지므로 그 한 글자를 더 버린다.
+     */
+    private fun String.truncateToTitleLimit(): String {
+        if (length <= MAX_TITLE_LENGTH) return this
+        val cut = take(MAX_TITLE_LENGTH)
+        return if (cut.last().isHighSurrogate()) cut.dropLast(1) else cut
     }
 }
