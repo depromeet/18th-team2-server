@@ -70,16 +70,36 @@ class ChatSocketControllerTest {
     }
 
     @Test
-    fun `WebSocket으로 입장하면 개인 entered 응답을 받는다`() {
+    fun `WebSocket으로 입장하면 개인 entered 응답과 다른 참가자에게 브로드캐스트가 전달된다`() {
         val fixture = seedParty()
 
-        val session = connect()
-        val entered = enter(session, fixture, nickname = "테스트유저").get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        // 먼저 입장해 있는 참가자(session1). 입장에 성공해야 브로드캐스트 토픽 구독이 인가된다.
+        val session1 = connect()
+        enter(session1, fixture, nickname = "먼저온유저").get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+
+        val broadcastFuture = CompletableFuture<Map<String, Any>>()
+        session1.subscribe(
+            "/topic/parties/${fixture.partyId}",
+            // 개인 ack("entered")는 커밋 이전에, "user-entered" 브로드캐스트는 커밋 이후에 전송된다.
+            // 따라서 session1이 ack를 받고 구독을 붙이는 시점에 따라 자기 자신의 입장 브로드캐스트를
+            // 받을 수도 있다. 닉네임으로 걸러 session2의 입장만 확인해야 테스트가 결정적이다.
+            eventHandler("user-entered", broadcastFuture) { data -> data["nickname"] == "나중온유저" },
+        )
+
+        // 뒤이어 입장하는 참가자(session2)
+        val session2 = connect()
+        val entered = enter(session2, fixture, nickname = "나중온유저").get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
 
         assertEquals("entered", entered["event"])
         assertTrue((entered["data"] as Map<*, *>).containsKey("participantToken"))
 
-        session.disconnect()
+        // session1은 session2의 입장을 브로드캐스트로 수신해야 한다.
+        val broadcast = broadcastFuture.get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        assertEquals("user-entered", broadcast["event"])
+        assertEquals("나중온유저", (broadcast["data"] as Map<*, *>)["nickname"])
+
+        session1.disconnect()
+        session2.disconnect()
     }
 
     @Test
@@ -223,6 +243,7 @@ class ChatSocketControllerTest {
     private fun eventHandler(
         eventName: String,
         future: CompletableFuture<Map<String, Any>>,
+        dataPredicate: (Map<*, *>) -> Boolean = { true },
     ): StompFrameHandler =
         object : StompFrameHandler {
             override fun getPayloadType(headers: StompHeaders): Type = Map::class.java
@@ -233,7 +254,7 @@ class ChatSocketControllerTest {
                 payload: Any?,
             ) {
                 val body = payload as Map<String, Any>
-                if (body["event"] == eventName) {
+                if (body["event"] == eventName && dataPredicate(body["data"] as Map<*, *>)) {
                     future.complete(body)
                 }
             }
