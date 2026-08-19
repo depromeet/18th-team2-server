@@ -1,12 +1,9 @@
 package com.team2.server.chat.usecase
 
+import com.team2.server.chat.application.support.ChatMessagePersister
 import com.team2.server.chat.dto.ChatMessageResponse
 import com.team2.server.chat.dto.SendChatMessageRequest
-import com.team2.server.chat.entity.ChatMessage
 import com.team2.server.chat.infrastructure.sse.ChatSseGateway
-import com.team2.server.chat.repository.ChatMessageRepository
-import com.team2.server.common.image.entity.ImageTargetType
-import com.team2.server.common.image.persistence.ImageUrlReader
 import com.team2.server.party.application.usecase.ResolveLiveOpenRealtimePartyUseCase
 import com.team2.server.party.application.usecase.ResolveRealtimeParticipantProfileUseCase
 import org.springframework.stereotype.Service
@@ -17,8 +14,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 class SendChatMessageUseCase(
     private val resolveLiveOpenRealtimePartyUseCase: ResolveLiveOpenRealtimePartyUseCase,
     private val resolveRealtimeParticipantProfileUseCase: ResolveRealtimeParticipantProfileUseCase,
-    private val chatMessageRepository: ChatMessageRepository,
-    private val imageUrlReader: ImageUrlReader,
+    private val chatMessagePersister: ChatMessagePersister,
     private val chatSseGateway: ChatSseGateway,
 ) {
     @Transactional
@@ -31,20 +27,7 @@ class SendChatMessageUseCase(
         val party = resolveLiveOpenRealtimePartyUseCase.invoke(partyId)
         val profile = resolveRealtimeParticipantProfileUseCase.invoke(partyId, userId, participantToken)
 
-        val message =
-            chatMessageRepository.save(
-                ChatMessage(content = request.content, party = party, profile = profile),
-            )
-
-        val imageUrl =
-            message.profile.character?.id?.let {
-                imageUrlReader.findImageUrlByTargetIdsAndSortOrder(
-                    ImageTargetType.CHARACTER,
-                    listOf(it),
-                    CHARACTER_THUMBNAIL_SORT_ORDER,
-                )[it]
-            }
-        val response = ChatMessageResponse.from(message, message.profile.participant.isCelebrant, imageUrl)
+        val response = chatMessagePersister.persist(party, profile, request.content)
         chatSseGateway.broadcastAfterCommit(
             partyId,
             SseEmitter
@@ -54,9 +37,5 @@ class SendChatMessageUseCase(
                 .build(),
         )
         return response
-    }
-
-    private companion object {
-        private const val CHARACTER_THUMBNAIL_SORT_ORDER = 1
     }
 }
