@@ -52,7 +52,9 @@ class ChatSocketController(
         @DestinationVariable partyId: Long,
         @Valid @Payload request: SendChatMessageSocketRequest,
     ) {
-        sendChatMessageSocketUseCase.send(partyId, request.participantToken, request.content)
+        val response = sendChatMessageSocketUseCase.send(partyId, request.participantToken, request.content)
+        // REST 의 201 응답에 해당하는 개인 완료 신호. 없으면 발신자는 성공·실패를 구분할 수 없다.
+        chatSocketGateway.sendPersonal(partyId, request.clientRequestId, "message-sent", response)
     }
 
     @MessageMapping("/parties/{partyId}/leave")
@@ -61,9 +63,16 @@ class ChatSocketController(
         @Valid @Payload request: LeaveChatSocketRequest,
         headerAccessor: SimpMessageHeaderAccessor,
     ) {
-        leaveChatSocketUseCase.leave(partyId, request.participantToken)
-        // 퇴장한 세션은 더 이상 이 파티의 브로드캐스트 토픽을 새로 구독할 수 없어야 한다.
-        stompSessionPartyRegistry.markLeft(headerAccessor.sessionAttributes, partyId)
+        val payload =
+            leaveChatSocketUseCase.leave(
+                partyId = partyId,
+                participantToken = request.participantToken,
+                // 퇴장한 세션은 더 이상 이 파티의 브로드캐스트 토픽을 새로 구독할 수 없어야 한다.
+                // 입장 경로의 onEntered 와 대칭으로, 브로드캐스트가 나가기 전에 인가를 회수한다.
+                onLeft = { id -> stompSessionPartyRegistry.markLeft(headerAccessor.sessionAttributes, id) },
+            )
+        // REST 의 204 응답에 해당하는 개인 완료 신호.
+        chatSocketGateway.sendPersonal(partyId, request.clientRequestId, "left", payload)
     }
 
     /**
@@ -74,8 +83,10 @@ class ChatSocketController(
      * clientRequestId 가 없으면 변환이 다시 실패해 통지할 수 없고 Spring 이 서버 로그에만 남긴다
      * (그 경우 주소를 알 방법이 없다).
      *
-     * 요청 타입별로 핸들러를 나눌 수는 없다. `@MessageExceptionHandler` 는 예외 타입으로만 매핑되므로
-     * 같은 예외 타입을 처리하는 핸들러가 둘 이상이면 기동 시점에 Ambiguous @ExceptionHandler 로 실패한다.
+     * 요청 타입별로 핸들러를 나눌 수는 없다. `@MessageExceptionHandler` 는 `@Payload` 타입이 아니라
+     * 예외 타입으로만 매핑되므로, 같은 예외 타입을 처리하는 핸들러가 둘 이상이면
+     * Ambiguous @ExceptionHandler 로 실패한다(기동 시점이 아니라 이 컨트롤러에서 처음 예외가 난 순간
+     * 예외 핸들러 매핑을 만들면서 터진다 — 즉 실패 통지 자체가 사라진다).
      * 그래서 세 경로가 공통으로 싣는 [SocketRequestEnvelope] 로 한 번만 변환한다.
      */
     @MessageExceptionHandler
