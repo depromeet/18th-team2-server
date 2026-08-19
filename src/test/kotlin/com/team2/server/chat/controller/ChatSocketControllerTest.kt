@@ -215,6 +215,94 @@ class ChatSocketControllerTest {
         )
     }
 
+    @Test
+    fun `WebSocket으로 보낸 메시지가 파티 참가자에게 브로드캐스트된다`() {
+        val fixture = seedParty()
+
+        val receiver = connect()
+        enter(receiver, fixture, nickname = "수신자").get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        val messageFuture = CompletableFuture<Map<String, Any>>()
+        receiver.subscribe("/topic/parties/${fixture.partyId}", eventHandler("message", messageFuture))
+
+        val sender = connect()
+        val entered = enter(sender, fixture, nickname = "발신자").get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        sendMessage(sender, fixture.partyId, participantTokenOf(entered), "안녕하세요!")
+
+        val broadcast = messageFuture.get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        val data = broadcast["data"] as Map<*, *>
+        assertEquals("안녕하세요!", data["content"])
+        assertEquals("발신자", data["senderNickname"])
+
+        receiver.disconnect()
+        sender.disconnect()
+    }
+
+    @Test
+    fun `입장하지 않은 파티로 메시지를 보내면 에러 채널로 실패가 통지된다`() {
+        val myParty = seedParty()
+        val othersParty = seedParty()
+
+        // participantToken 은 발급받은 파티에서만 유효해야 한다. 다른 파티로 그대로 보내면 거부된다.
+        val session = connect()
+        val entered = enter(session, myParty, nickname = "침입자").get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+
+        val clientRequestId = UUID.randomUUID().toString()
+        val errorFuture = CompletableFuture<Map<String, Any>>()
+        session.subscribe("/topic/errors/$clientRequestId", eventHandler("error", errorFuture))
+        sendMessage(session, othersParty.partyId, participantTokenOf(entered), "남의 파티", clientRequestId)
+
+        val error = errorFuture.get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        assertEquals("PARTY_FORBIDDEN", (error["data"] as Map<*, *>)["code"])
+
+        session.disconnect()
+    }
+
+    @Test
+    fun `WebSocket으로 퇴장하면 남은 참가자에게 user-left가 브로드캐스트된다`() {
+        val fixture = seedParty()
+
+        val stayer = connect()
+        enter(stayer, fixture, nickname = "남는사람").get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        val leftFuture = CompletableFuture<Map<String, Any>>()
+        stayer.subscribe("/topic/parties/${fixture.partyId}", eventHandler("user-left", leftFuture))
+
+        val leaver = connect()
+        val entered = enter(leaver, fixture, nickname = "떠나는사람").get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        leaveParty(leaver, fixture.partyId, participantTokenOf(entered))
+
+        val broadcast = leftFuture.get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        assertEquals("떠나는사람", (broadcast["data"] as Map<*, *>)["nickname"])
+
+        stayer.disconnect()
+        leaver.disconnect()
+    }
+
+    @Test
+    fun `퇴장한 세션은 파티 브로드캐스트 토픽을 다시 구독할 수 없다`() {
+        val fixture = seedParty()
+
+        // 퇴장 처리가 끝난 시점을 관측하기 위해 다른 세션이 user-left 브로드캐스트를 기다린다.
+        val observer = connect()
+        enter(observer, fixture, nickname = "관찰자").get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        val leftFuture = CompletableFuture<Map<String, Any>>()
+        observer.subscribe("/topic/parties/${fixture.partyId}", eventHandler("user-left", leftFuture))
+
+        val errorHandler = ErrorCapturingSessionHandler()
+        val leaver = connect(errorHandler)
+        val entered = enter(leaver, fixture, nickname = "떠나는사람").get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        leaveParty(leaver, fixture.partyId, participantTokenOf(entered))
+        leftFuture.get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+
+        leaver.subscribe("/topic/parties/${fixture.partyId}", anyEventHandler(CompletableFuture()))
+
+        assertTrue(
+            errorHandler.error.get(TIMEOUT_SECONDS, TimeUnit.SECONDS).isNotBlank(),
+            "퇴장한 세션의 브로드캐스트 재구독은 거부되어야 한다",
+        )
+
+        observer.disconnect()
+    }
+
     // --- 헬퍼 ---
 
     private data class PartyFixture(
@@ -291,6 +379,41 @@ class ChatSocketControllerTest {
             ),
         )
         return enteredFuture
+    }
+
+    private fun participantTokenOf(entered: Map<String, Any>): String =
+        (entered["data"] as Map<*, *>)["participantToken"] as String
+
+    private fun sendMessage(
+        session: StompSession,
+        partyId: Long,
+        participantToken: String,
+        content: String,
+        clientRequestId: String = UUID.randomUUID().toString(),
+    ) {
+        session.send(
+            "/app/parties/$partyId/chat-messages",
+            mapOf(
+                "content" to content,
+                "participantToken" to participantToken,
+                "clientRequestId" to clientRequestId,
+            ),
+        )
+    }
+
+    private fun leaveParty(
+        session: StompSession,
+        partyId: Long,
+        participantToken: String,
+        clientRequestId: String = UUID.randomUUID().toString(),
+    ) {
+        session.send(
+            "/app/parties/$partyId/leave",
+            mapOf(
+                "participantToken" to participantToken,
+                "clientRequestId" to clientRequestId,
+            ),
+        )
     }
 
     private fun eventHandler(
