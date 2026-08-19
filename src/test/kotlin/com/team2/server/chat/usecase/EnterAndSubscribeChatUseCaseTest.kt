@@ -85,7 +85,12 @@ class EnterAndSubscribeChatUseCaseTest {
             )
         whenever(enterRealtimePartyUseCase.enter("tok", null, request)).thenReturn(enterResult)
         whenever(chatHistorySnapshotResolver.resolve(1L, 1L))
-            .thenReturn(ChatHistorySnapshotResolver.Snapshot(messages = snapshotMessages, enteringCharacterImageUrl = null))
+            .thenReturn(
+                ChatHistorySnapshotResolver.Snapshot(
+                    messages = snapshotMessages,
+                    enteringCharacterImageUrl = null,
+                ),
+            )
 
         val emitter = useCase.enterAndSubscribe("tok", null, request)
 

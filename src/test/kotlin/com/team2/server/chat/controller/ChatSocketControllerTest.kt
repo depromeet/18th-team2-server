@@ -67,6 +67,14 @@ class ChatSocketControllerTest {
         stompClient.stop()
     }
 
+    // PartyInvite.token 컬럼은 length=16 — UUID 원본(36자)을 그대로 쓰면 DB 저장 시 길이 초과로 실패한다.
+    private fun randomInviteToken(): String =
+        UUID
+            .randomUUID()
+            .toString()
+            .replace("-", "")
+            .take(16)
+
     @Test
     fun `WebSocket으로 입장하면 개인 entered 응답과 브로드캐스트를 받는다`() {
         val now = LocalDateTime.now()
@@ -79,10 +87,9 @@ class ChatSocketControllerTest {
             )
         val invite =
             partyInviteRepository.save(
-                // PartyInvite.token 컬럼은 length=16 — UUID 원본(36자)을 그대로 쓰면 DB 저장 시 길이 초과로 실패한다.
                 PartyInvite(
                     party = party,
-                    token = UUID.randomUUID().toString().replace("-", "").take(16),
+                    token = randomInviteToken(),
                     expiresAt = now.plusHours(1),
                 ),
             )
