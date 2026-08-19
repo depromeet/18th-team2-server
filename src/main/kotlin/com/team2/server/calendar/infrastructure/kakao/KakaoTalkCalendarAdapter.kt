@@ -94,10 +94,13 @@ class KakaoTalkCalendarAdapter(
                 .header(HttpHeaders.AUTHORIZATION, "Bearer $accessToken")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body(body)
-                .retrieve()
-                // 상태 코드를 직접 분기하려고 기본 예외 변환을 끈다.
-                .onStatus({ it.isError }) { _, _ -> }
-                .toEntity(String::class.java)
+                // retrieve().onStatus 로 예외 변환만 끄면 오류 응답 본문이 소비돼 body 가 null 이 된다.
+                // 카카오가 실패 사유를 본문(code/msg)에 담아 주므로 exchange 로 상태와 본문을 직접 읽는다.
+                .exchange { _, response ->
+                    ResponseEntity
+                        .status(response.statusCode)
+                        .body(response.bodyTo(String::class.java))
+                }
         } catch (e: RestClientException) {
             log.warn("카카오 톡캘린더 호출 실패. path={}", path, e)
             throw BusinessException(ErrorCode.KAKAO_CALENDAR_UNAVAILABLE)

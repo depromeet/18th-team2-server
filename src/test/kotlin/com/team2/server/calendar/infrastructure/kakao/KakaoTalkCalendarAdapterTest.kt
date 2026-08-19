@@ -1,9 +1,13 @@
 package com.team2.server.calendar.infrastructure.kakao
 
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import com.team2.server.calendar.domain.vo.CalendarEvent
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import org.junit.jupiter.api.Test
+import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.test.web.client.MockRestServiceServer
@@ -78,6 +82,32 @@ class KakaoTalkCalendarAdapterTest {
 
         assertFalse(adapter.updateEvent("kakao-token", "event-1", event))
         server.verify()
+    }
+
+    @Test
+    fun `오류 응답 본문을 진단 로그에 남긴다`() {
+        // 카카오는 실패 사유를 본문(code/msg)에 담아 준다. 이 본문이 유실되면 배포 후 실패를 진단할 수 없다.
+        // 주의: MockRestServiceServer 는 본문을 버퍼링하므로 이 테스트는 실제 전송 계층의 본문 유실을 잡지 못한다.
+        // 로깅 포맷(경로/상태/본문이 메시지에 들어가는지)만 고정하는 용도다.
+        val appender = ListAppender<ILoggingEvent>().apply { start() }
+        val logger = LoggerFactory.getLogger(KakaoTalkCalendarAdapter::class.java) as Logger
+        logger.addAppender(appender)
+
+        server
+            .expect(requestTo("https://kapi.kakao.com/v2/api/calendar/create/event"))
+            .andRespond(
+                withStatus(HttpStatus.UNAUTHORIZED)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body("""{"msg":"this access token does not exist","code":-401}"""),
+            )
+
+        kotlin.runCatching { adapter.createEvent("kakao-token", event) }
+        logger.detachAppender(appender)
+
+        val logged = appender.list.single().formattedMessage
+        assertTrue(logged.contains("this access token does not exist"), logged)
+        assertTrue(logged.contains("-401"), logged)
+        assertTrue(logged.contains("/v2/api/calendar/create/event"), logged)
     }
 
     @Test
