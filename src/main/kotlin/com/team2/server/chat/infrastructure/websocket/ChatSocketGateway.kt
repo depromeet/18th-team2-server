@@ -24,6 +24,24 @@ class ChatSocketGateway(
         )
     }
 
+    /**
+     * 입장 실패를 클라이언트에 알린다.
+     *
+     * 입장 자체가 실패하면(만료된 초대, 종료된 파티, 없는 캐릭터 등) partyId 를 알 수 없어
+     * 개인 ack 채널(/topic/parties/{partyId}/personal/{clientRequestId})을 쓸 수 없다.
+     * 그래서 clientRequestId 만으로 주소가 정해지는 별도 에러 채널을 사용한다.
+     */
+    fun sendError(
+        clientRequestId: String,
+        code: String,
+        message: String,
+    ) {
+        messagingTemplate.convertAndSend(
+            "/topic/errors/$clientRequestId",
+            SocketEventMessage("error", SocketErrorPayload(code, message)),
+        )
+    }
+
     fun broadcastAfterCommit(
         partyId: Long,
         eventName: String,

@@ -50,6 +50,14 @@ export default function (data) {
             '',
           ),
         );
+        // 입장 실패 통지 채널. 구독하지 않으면 실패한 입장이 아무 신호 없이 매달린다.
+        ws.send(
+          encodeFrame(
+            'SUBSCRIBE',
+            { id: 'sub-errors', destination: `/topic/errors/${clientRequestId}` },
+            '',
+          ),
+        );
         ws.send(
           encodeFrame(
             'SEND',
@@ -66,7 +74,10 @@ export default function (data) {
         );
       } else if (frame.command === 'MESSAGE' && !entered) {
         const body = JSON.parse(frame.body);
-        if (body.event === 'entered') {
+        if (body.event === 'error') {
+          connectSuccess.add(false);
+          ws.close();
+        } else if (body.event === 'entered') {
           entered = true;
           connectSuccess.add(true);
           enteredResponseTime.add(Date.now() - startedAt);

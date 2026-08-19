@@ -103,6 +103,25 @@ class ChatSocketControllerTest {
     }
 
     @Test
+    fun `만료된 초대로 입장하면 에러 채널로 실패가 통지된다`() {
+        val fixture = seedParty(inviteExpired = true)
+
+        val session = connect()
+        val clientRequestId = UUID.randomUUID().toString()
+        val errorFuture = CompletableFuture<Map<String, Any>>()
+        session.subscribe("/topic/errors/$clientRequestId", eventHandler("error", errorFuture))
+        // 개인 ack 채널도 함께 구독해 두고, 실패 시 그쪽으로는 아무것도 오지 않음을 확인한다.
+        val enteredFuture = enter(session, fixture, nickname = "만료유저", clientRequestId = clientRequestId)
+
+        val error = errorFuture.get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        assertEquals("error", error["event"])
+        assertEquals("INVITE_LINK_EXPIRED", (error["data"] as Map<*, *>)["code"])
+        assertTrue(!enteredFuture.isDone, "입장에 실패하면 entered ack는 오지 않아야 한다")
+
+        session.disconnect()
+    }
+
+    @Test
     fun `와일드카드 목적지 구독은 거부된다`() {
         val fixture = seedParty()
 
@@ -170,7 +189,7 @@ class ChatSocketControllerTest {
         val characterId: Long,
     )
 
-    private fun seedParty(): PartyFixture {
+    private fun seedParty(inviteExpired: Boolean = false): PartyFixture {
         val now = LocalDateTime.now()
         // CharacterService.requireCharacter()가 characterId로 DB에서 실제 Character 존재 여부를 검증하므로
         // 하드코딩된 id 대신 실제로 저장한 Character의 id를 사용해야 한다.
@@ -190,7 +209,7 @@ class ChatSocketControllerTest {
                             .toString()
                             .replace("-", "")
                             .take(16),
-                    expiresAt = now.plusHours(1),
+                    expiresAt = if (inviteExpired) now.minusHours(1) else now.plusHours(1),
                 ),
             )
         // ResolveRealtimePartyEndingInfoUseCase가 셀러브런트(host) RealtimeParticipantProfile을
