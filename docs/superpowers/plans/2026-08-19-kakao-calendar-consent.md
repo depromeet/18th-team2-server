@@ -280,13 +280,11 @@ class EncryptedStringConverter(
 
 ```yaml
 app:
-  # 일정 설명의 초대 링크(/invite/{token})를 조립할 프론트엔드 origin
-  # 기본값은 로컬 프론트 개발 서버(Vite). 배포 환경은 application-dev/prod.yml 에서 지정한다
   web-base-url: ${APP_WEB_BASE_URL:http://localhost:5173}
-  crypto:
-    # 저장된 카카오 토큰 암호화 키. Base64 32바이트. 시크릿 저장소에서 환경별로 주입한다
-    token-secret: ${APP_CRYPTO_TOKEN_SECRET:}
 ```
+
+`app.crypto.token-secret` 은 base yml 에 두지 않는다. 시크릿 서브모듈의 `application-secret*.yml` 이
+직접 정의하므로 base 의 플레이스홀더는 평가되지 않고, 없을 때의 에러 메시지도 실제 프로퍼티 이름을 짚어준다.
 
 `src/test/resources/application.yml` 의 `app:` 블록에도 고정 키를 추가한다.
 

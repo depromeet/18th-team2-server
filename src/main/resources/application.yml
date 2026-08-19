@@ -35,15 +35,8 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.MySQLDialect
 
-# 일정 설명의 초대 링크(/invite/{token})를 조립할 프론트엔드 origin
-# 기본값은 로컬 프론트 개발 서버(Vite). 배포 환경은 application-dev/prod.yml 에서 지정한다
 app:
   web-base-url: ${APP_WEB_BASE_URL:http://localhost:5173}
-  crypto:
-    # 저장된 카카오 토큰 암호화 키. Base64 32바이트.
-    # 기본값을 두지 않는다 — 값이 없으면 기동에 실패해야 한다. 빈 기본값은 키 누락을 조용히 넘긴다.
-    # local/dev/prod 모두 시크릿 서브모듈(config/secret)의 application-secret*.yml 에서 온다.
-    token-secret: ${APP_CRYPTO_TOKEN_SECRET}
 
 kakao:
   talk-calendar:
