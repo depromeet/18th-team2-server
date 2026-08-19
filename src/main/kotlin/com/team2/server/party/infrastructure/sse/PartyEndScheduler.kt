@@ -14,6 +14,7 @@ import com.team2.server.party.domain.vo.PartyPhase
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.dao.DataAccessException
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.stereotype.Component
@@ -28,7 +29,7 @@ import java.util.concurrent.ScheduledFuture
 @Component
 @Suppress("TooManyFunctions")
 class PartyEndScheduler(
-    private val taskScheduler: TaskScheduler,
+    @Qualifier("chatTaskScheduler") private val taskScheduler: TaskScheduler,
     private val realtimePartyEventBroadcaster: RealtimePartyEventBroadcaster,
     private val recoverRealtimePartyEndScheduleUseCase: RecoverRealtimePartyEndScheduleUseCase,
     private val startAutomaticRealtimePartyEndUseCase: StartAutomaticRealtimePartyEndUseCase,
