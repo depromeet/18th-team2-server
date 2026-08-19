@@ -1,7 +1,7 @@
 import { WebSocket } from 'k6/experimental/websockets';
 import { Trend, Rate } from 'k6/metrics';
 import { seedFixtures } from './lib/fixtures.js';
-import { encodeFrame, parseFrames } from './lib/stomp.js';
+import { encodeFrame, parseFrames, uuidv4 } from './lib/stomp.js';
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
 const WS_URL = __ENV.WS_URL || 'ws://localhost:8080/ws';
@@ -29,7 +29,7 @@ export function setup() {
 
 export default function (data) {
   const invite = data.invites[__VU % data.invites.length];
-  const clientRequestId = `${__VU}-${__ITER}-${Date.now()}`;
+  const clientRequestId = uuidv4();
   const startedAt = Date.now();
   let entered = false;
 
@@ -47,13 +47,6 @@ export default function (data) {
           encodeFrame(
             'SUBSCRIBE',
             { id: 'sub-personal', destination: `/topic/parties/${invite.partyId}/personal/${clientRequestId}` },
-            '',
-          ),
-        );
-        ws.send(
-          encodeFrame(
-            'SUBSCRIBE',
-            { id: 'sub-broadcast', destination: `/topic/parties/${invite.partyId}` },
             '',
           ),
         );
@@ -77,6 +70,14 @@ export default function (data) {
           entered = true;
           connectSuccess.add(true);
           enteredResponseTime.add(Date.now() - startedAt);
+          // 브로드캐스트 토픽 구독은 입장 성공 이후에만 인가된다(StompDestinationAuthorizationInterceptor).
+          ws.send(
+            encodeFrame(
+              'SUBSCRIBE',
+              { id: 'sub-broadcast', destination: `/topic/parties/${invite.partyId}` },
+              '',
+            ),
+          );
           setTimeout(() => ws.close(), HOLD_SECONDS * 1000);
         }
       } else if (frame.command === 'ERROR') {
