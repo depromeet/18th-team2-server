@@ -2,7 +2,7 @@
 
 - 작성일: 2026-08-18
 - 근거: `loadtest/results/{sse,ws}-loadtest-*.json` (로컬 1대 머신 실측)
-- 실측 결과 시각화: https://claude.ai/code/artifact/10e6c648-fe93-4d33-a1f1-f186cbab1489
+- 실측 결과 시각화: https://claude.ai/code/artifact/10e6c648-fe93-4d33-a1f1-f186cbab1489 (비공개 아티팩트 링크 — 팀과 공유하려면 발행자가 공유 메뉴에서 공개로 전환해야 함)
 
 ## 실측 요약
 
