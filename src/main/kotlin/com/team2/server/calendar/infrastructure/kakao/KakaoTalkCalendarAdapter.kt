@@ -28,7 +28,13 @@ private const val UPDATE_EVENT_PATH = "/v2/api/calendar/update/event/host"
 private const val DEFAULT_CALENDAR_ID = "primary"
 private const val RECUR_UPDATE_TYPE_ALL = "ALL"
 private const val ERROR_BODY_LOG_MAX_LENGTH = 500
-private val KAKAO_DATE_TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'")
+
+/**
+ * 카카오 문서의 일정 생성 예시가 쓰는 형태(`2022-10-27T03:00:00Z`).
+ * 문서 본문은 RFC5545 DATE-TIME 이라고 적혀 있으나 예시는 extended ISO 8601 이므로 예시를 따른다.
+ * 파티 시작 시각은 `datetime(6)` 이라 나노초가 있을 수 있어, 초 단위로 끊는 고정 패턴을 쓴다.
+ */
+private val KAKAO_DATE_TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")
 
 @Component
 class KakaoTalkCalendarAdapter(

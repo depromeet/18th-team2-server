@@ -48,7 +48,8 @@ class KakaoTalkCalendarAdapterTest {
             .andExpect(header("Authorization", "Bearer kakao-token"))
             .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_FORM_URLENCODED))
             .andExpect(content().string(org.hamcrest.Matchers.containsString("calendar_id=primary")))
-            .andExpect(content().string(org.hamcrest.Matchers.containsString("20260820T100000Z")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("2026-08-20T10%3A00%3A00Z")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("2026-08-20T10%3A30%3A00Z")))
             .andRespond(withSuccess("""{"event_id":"event-1"}""", MediaType.APPLICATION_JSON))
 
         val eventId = adapter.createEvent("kakao-token", event)
