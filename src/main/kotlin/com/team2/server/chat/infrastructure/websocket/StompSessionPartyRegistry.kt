@@ -25,6 +25,23 @@ class StompSessionPartyRegistry {
         }
     }
 
+    /**
+     * 퇴장한 파티의 구독 인가를 회수한다.
+     *
+     * 이미 붙어 있는 SUBSCRIBE 를 강제로 끊지는 못하지만, 퇴장 이후의 새 구독은 막힌다.
+     */
+    fun markLeft(
+        sessionAttributes: MutableMap<String, Any>?,
+        partyId: Long,
+    ) {
+        if (sessionAttributes == null) return
+        synchronized(sessionAttributes) {
+            @Suppress("UNCHECKED_CAST")
+            val enteredPartyIds = sessionAttributes[ENTERED_PARTY_IDS] as? MutableSet<Long> ?: return
+            enteredPartyIds.remove(partyId)
+        }
+    }
+
     fun hasEntered(
         sessionAttributes: Map<String, Any>?,
         partyId: Long,
