@@ -50,7 +50,7 @@ class AesGcmTokenEncryptor(
 
     private fun decodeCipherText(cipherText: String): ByteArray =
         runCatching { Base64.getDecoder().decode(cipherText) }
-            .getOrElse { throw IllegalStateException("암호문 형식이 올바르지 않습니다") }
+            .getOrElse { throw IllegalStateException("암호문 형식이 올바르지 않습니다", it) }
 
     private fun decryptBody(
         iv: ByteArray,
@@ -61,7 +61,7 @@ class AesGcmTokenEncryptor(
                 init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(TAG_LENGTH_BITS, iv))
             }
         return runCatching { String(cipher.doFinal(body), Charsets.UTF_8) }
-            .getOrElse { throw IllegalStateException("복호화에 실패했습니다") }
+            .getOrElse { throw IllegalStateException("복호화에 실패했습니다", it) }
     }
 
     companion object {
