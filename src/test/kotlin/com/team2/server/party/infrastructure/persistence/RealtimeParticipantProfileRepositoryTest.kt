@@ -1,24 +1,20 @@
 package com.team2.server.party.infrastructure.persistence
 
-import com.team2.server.config.TestcontainersConfiguration
 import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.PartyPurpose
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
+import com.team2.server.support.JpaSliceTestSupport
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
 import com.team2.server.user.repository.UserRepository
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
-import org.springframework.context.annotation.Import
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-@DataJpaTest
-@Import(TestcontainersConfiguration::class)
 class RealtimeParticipantProfileRepositoryTest
     @Autowired
     constructor(
@@ -26,7 +22,7 @@ class RealtimeParticipantProfileRepositoryTest
         private val participantRepository: ParticipantRepository,
         private val partyRepository: PartyRepository,
         private val userRepository: UserRepository,
-    ) {
+    ) : JpaSliceTestSupport() {
         @Test
         fun `findAllByPartyIdOrderByIdAsc - 특정 파티의 프로필 전체를 id ASC로 반환`() {
             val party =
