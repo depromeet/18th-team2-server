@@ -32,6 +32,8 @@ spring:
 
 app:
   web-base-url: "https://test.example.com"
+  crypto:
+    token-secret: dGVzdC1jcnlwdG8ta2V5LTMyYnl0ZXMtYWVzLWdjbSE=
   jwt:
     secret: dGVzdC1zZWNyZXQta2V5LXdpdGgtYXQtbGVhc3QtMjU2LWJpdHMtZm9yLWhtYWMtc2hhMjU2LWFsZ29yaXRobS0xMjM0NTY3OA==
     expiration-hours: 24
