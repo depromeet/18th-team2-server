@@ -38,9 +38,10 @@ app:
   oauth2:
     authorized-redirect-uris: http://localhost:3000/oauth/redirect
 
+# 테스트는 절대 실제 카카오를 호출하지 않는다. 루프백 스텁(TalkCalendarControllerTest)이 이 포트를 연다
 kakao:
   talk-calendar:
-    base-url: "https://kapi.kakao.com"
+    base-url: "http://localhost:19595"
 
 support:
   chat-url: "https://open.kakao.com/o/test-support"
