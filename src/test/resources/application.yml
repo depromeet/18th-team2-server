@@ -44,6 +44,8 @@ app:
 kakao:
   talk-calendar:
     base-url: "http://localhost:19595"
+  auth:
+    base-url: "http://localhost:19596"
 
 support:
   chat-url: "https://open.kakao.com/o/test-support"

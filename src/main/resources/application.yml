@@ -46,6 +46,8 @@ app:
 kakao:
   talk-calendar:
     base-url: "https://kapi.kakao.com"
+  auth:
+    base-url: "https://kauth.kakao.com"
 
 # 배포 전 환경별 yml(application-prod.yml 등)에서 실제 운영 URL로 반드시 override
 support:
