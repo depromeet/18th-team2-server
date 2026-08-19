@@ -7,11 +7,13 @@ import com.team2.server.chat.infrastructure.websocket.StompSessionPartyRegistry
 import com.team2.server.chat.usecase.EnterAndSubscribeChatSocketUseCase
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
+import jakarta.validation.Valid
 import org.slf4j.LoggerFactory
 import org.springframework.messaging.handler.annotation.DestinationVariable
 import org.springframework.messaging.handler.annotation.MessageExceptionHandler
 import org.springframework.messaging.handler.annotation.MessageMapping
 import org.springframework.messaging.handler.annotation.Payload
+import org.springframework.messaging.handler.annotation.support.MethodArgumentNotValidException
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
 import org.springframework.stereotype.Controller
 
@@ -24,7 +26,7 @@ class ChatSocketController(
     @MessageMapping("/party-invites/{inviteToken}/realtime-participants")
     fun enterAndSubscribe(
         @DestinationVariable inviteToken: String,
-        @Payload request: EnterRealtimePartySocketRequest,
+        @Valid @Payload request: EnterRealtimePartySocketRequest,
         headerAccessor: SimpMessageHeaderAccessor,
     ) {
         enterAndSubscribeChatSocketUseCase.enterAndSubscribe(
@@ -52,6 +54,7 @@ class ChatSocketController(
         val errorCode =
             when (exception) {
                 is BusinessException -> exception.errorCode
+                is MethodArgumentNotValidException -> ErrorCode.INVALID_INPUT
                 else -> ErrorCode.INTERNAL_SERVER_ERROR
             }
         log.warn(

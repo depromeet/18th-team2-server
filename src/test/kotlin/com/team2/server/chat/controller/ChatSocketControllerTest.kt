@@ -122,6 +122,40 @@ class ChatSocketControllerTest {
     }
 
     @Test
+    fun `닉네임이 비어 있으면 입장이 거부된다`() {
+        val fixture = seedParty()
+
+        val session = connect()
+        val clientRequestId = UUID.randomUUID().toString()
+        val errorFuture = CompletableFuture<Map<String, Any>>()
+        session.subscribe("/topic/errors/$clientRequestId", eventHandler("error", errorFuture))
+        val enteredFuture = enter(session, fixture, nickname = "  ", clientRequestId = clientRequestId)
+
+        val error = errorFuture.get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        assertEquals("INVALID_INPUT", (error["data"] as Map<*, *>)["code"])
+        assertTrue(!enteredFuture.isDone, "유효성 검증에 실패하면 입장 처리가 되지 않아야 한다")
+
+        session.disconnect()
+    }
+
+    @Test
+    fun `닉네임이 20자를 초과하면 입장이 거부된다`() {
+        val fixture = seedParty()
+
+        val session = connect()
+        val clientRequestId = UUID.randomUUID().toString()
+        val errorFuture = CompletableFuture<Map<String, Any>>()
+        session.subscribe("/topic/errors/$clientRequestId", eventHandler("error", errorFuture))
+        val enteredFuture = enter(session, fixture, nickname = "가".repeat(21), clientRequestId = clientRequestId)
+
+        val error = errorFuture.get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        assertEquals("INVALID_INPUT", (error["data"] as Map<*, *>)["code"])
+        assertTrue(!enteredFuture.isDone, "유효성 검증에 실패하면 입장 처리가 되지 않아야 한다")
+
+        session.disconnect()
+    }
+
+    @Test
     fun `와일드카드 목적지 구독은 거부된다`() {
         val fixture = seedParty()
 
