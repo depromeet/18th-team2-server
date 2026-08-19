@@ -35,6 +35,15 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.MySQLDialect
 
+# 일정 설명의 초대 링크(/invite/{token})를 조립할 프론트엔드 origin
+# 기본값은 로컬 프론트 개발 서버(Vite). 배포 환경은 application-dev/prod.yml 에서 지정한다
+app:
+  web-base-url: ${APP_WEB_BASE_URL:http://localhost:5173}
+
+kakao:
+  talk-calendar:
+    base-url: "https://kapi.kakao.com"
+
 # 배포 전 환경별 yml(application-prod.yml 등)에서 실제 운영 URL로 반드시 override
 support:
   chat-url: "https://open.kakao.com/o/placeholder"

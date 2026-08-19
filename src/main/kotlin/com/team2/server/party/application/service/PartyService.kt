@@ -135,6 +135,9 @@ class PartyService(
         return Hibernate.unproxy(party) as RealtimeParty
     }
 
+    /** 파티 종류와 무관하게 파티를 조회한다. 없으면 PARTY_NOT_FOUND. */
+    fun requireParty(partyId: Long): Party = findParty(partyId)
+
     fun findRealtimePartiesWaitingAutomaticEnding(startedAfter: LocalDateTime): List<RealtimeParty> =
         partyRepository.findRealtimePartiesWaitingAutomaticEnding(startedAfter)
 

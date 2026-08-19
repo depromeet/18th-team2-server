@@ -44,4 +44,11 @@ enum class ErrorCode(
     BURST_GAME_NOT_READY(HttpStatus.BAD_REQUEST, "박터뜨리기를 시작할 수 있는 상태가 아닙니다"),
     BURST_GAME_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "박터뜨리기 터치 요청이 너무 많습니다"),
     CANDLE_BLOW_NOT_STARTED(HttpStatus.BAD_REQUEST, "아직 촛불끄기를 시작할 수 없습니다"),
+
+    KAKAO_ACCESS_TOKEN_REQUIRED(HttpStatus.BAD_REQUEST, "카카오 액세스 토큰이 필요합니다"),
+    KAKAO_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "카카오 재로그인이 필요합니다"),
+    KAKAO_CALENDAR_CONSENT_REQUIRED(HttpStatus.FORBIDDEN, "톡캘린더 사용 동의가 필요합니다"),
+    KAKAO_CALENDAR_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "카카오 톡캘린더 연동에 실패했습니다"),
+    TALK_CALENDAR_PARTY_ALREADY_STARTED(HttpStatus.CONFLICT, "이미 시작된 파티는 캘린더에 등록할 수 없습니다"),
+    CALENDAR_REGISTRATION_IN_PROGRESS(HttpStatus.CONFLICT, "캘린더 등록이 이미 진행 중입니다"),
 }

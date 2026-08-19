@@ -3,7 +3,7 @@ package com.team2.server.architecture
 object ArchUnitConstants {
     const val BASE_PACKAGE = "com.team2.server"
 
-    val FEATURES = listOf("auth", "user", "party", "chat", "rollingpaper", "me", "burstgame")
+    val FEATURES = listOf("auth", "user", "party", "chat", "rollingpaper", "me", "burstgame", "calendar")
 
     const val API = "..api.."
     const val USECASE = "..application.usecase.."
