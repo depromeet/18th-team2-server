@@ -2,6 +2,7 @@ package com.team2.server.chat.usecase
 
 import com.team2.server.chat.application.dto.EnterRealtimePartyResult
 import com.team2.server.chat.application.support.ChatHistorySnapshotResolver
+import com.team2.server.chat.dto.ChatMessageResponse
 import com.team2.server.chat.dto.EnterRealtimePartyRequest
 import com.team2.server.chat.infrastructure.sse.ChatSseGateway
 import com.team2.server.party.application.dto.RealtimePartyStateResult
@@ -13,6 +14,7 @@ import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.eq
+import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import java.time.LocalDateTime
@@ -60,7 +62,7 @@ class EnterAndSubscribeChatUseCaseTest {
         )
 
     @Test
-    fun `입장 성공 - entered 이벤트와 함께 emitter 반환`() {
+    fun `입장 성공 - 히스토리 없어도 entered 이벤트와 함께 emitter 반환`() {
         val enterResult = enterResult()
         whenever(enterRealtimePartyUseCase.enter("tok", null, request)).thenReturn(enterResult)
         whenever(chatHistorySnapshotResolver.resolve(1L, 1L))
@@ -74,15 +76,21 @@ class EnterAndSubscribeChatUseCaseTest {
     }
 
     @Test
-    fun `히스토리 없어도 entered 이벤트 전송`() {
+    fun `히스토리 존재하면 스냅샷을 조회해 메시지를 담은 emitter 반환`() {
         val enterResult = enterResult()
+        val snapshotMessages =
+            listOf(
+                mock<ChatMessageResponse>(),
+                mock<ChatMessageResponse>(),
+            )
         whenever(enterRealtimePartyUseCase.enter("tok", null, request)).thenReturn(enterResult)
         whenever(chatHistorySnapshotResolver.resolve(1L, 1L))
-            .thenReturn(ChatHistorySnapshotResolver.Snapshot(messages = emptyList(), enteringCharacterImageUrl = null))
+            .thenReturn(ChatHistorySnapshotResolver.Snapshot(messages = snapshotMessages, enteringCharacterImageUrl = null))
 
         val emitter = useCase.enterAndSubscribe("tok", null, request)
 
         assertNotNull(emitter)
+        verify(chatHistorySnapshotResolver).resolve(1L, 1L)
         verify(chatSseGateway).subscribe(eq(1L), any(), eq("abc12345"))
         verify(chatSseGateway).broadcastAfterCommit(eq(1L), any(), eq("abc12345"))
     }
