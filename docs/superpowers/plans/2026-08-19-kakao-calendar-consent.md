@@ -292,13 +292,13 @@ app:
 
 ```yaml
   crypto:
-    token-secret: dGVzdC1jcnlwdG8ta2V5LTMyLWJ5dGVzLWZvci1hZXMtZ2NtISE=
+    token-secret: dGVzdC1jcnlwdG8ta2V5LTMyYnl0ZXMtYWVzLWdjbSE=
 ```
 
 - [ ] **Step 6: 테스트 키가 32바이트인지 확인한다**
 
-Run: `echo -n 'dGVzdC1jcnlwdG8ta2V5LTMyLWJ5dGVzLWZvci1hZXMtZ2NtISE=' | base64 -d | wc -c`
-Expected: `36` 이 아니라 `32`. 32가 아니면 32바이트 값을 새로 만들어 넣는다 (`openssl rand -base64 32`).
+Run: `echo -n 'dGVzdC1jcnlwdG8ta2V5LTMyYnl0ZXMtYWVzLWdjbSE=' | base64 -d | wc -c`
+Expected: `32`. 다른 값이 나오면 진행하지 말고 보고한다 — AES-256 은 정확히 32바이트를 요구한다.
 
 - [ ] **Step 7: 테스트를 실행해 통과를 확인한다**
 
@@ -1490,7 +1490,7 @@ git commit -m "feat: 카카오 캘린더 토큰 확보 유스케이스 추가"
 **Interfaces:**
 - Consumes: `ConsentTicketSigner` (Task 4), `KakaoCalendarConnectionService` (Task 2)
 - Produces:
-  - `KakaoConsentUrlFactory(apiBaseUrl: String, clientId: String)` — `fun consentEntryUrl(ticket: String, redirectUri: String): String`, `fun kakaoAuthorizeUrl(ticket: String): String`, `fun callbackUri(): String`
+  - `KakaoConsentUrlFactory(apiBaseUrl: String, authBaseUrl: String, clientId: String)` — `fun consentEntryUrl(ticket: String, redirectUri: String): String`, `fun kakaoAuthorizeUrl(ticket: String): String`, `fun callbackUri(): String`
   - `data class KakaoCalendarConsentUrlResult(val consentUrl: String)`
   - `IssueKakaoCalendarConsentUrlUseCase` — `operator fun invoke(userId: Long, redirectUri: String): KakaoCalendarConsentUrlResult`
   - `DisconnectKakaoCalendarUseCase` — `operator fun invoke(userId: Long)`
