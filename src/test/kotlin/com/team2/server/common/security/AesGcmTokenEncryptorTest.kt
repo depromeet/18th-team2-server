@@ -12,6 +12,26 @@ class AesGcmTokenEncryptorTest {
     private val encryptor = AesGcmTokenEncryptor(secret)
 
     @Test
+    fun `키가 32바이트가 아니면 생성 단계에서 거부한다`() {
+        // SecretKeySpec 은 16·24·32바이트를 모두 받아들여 24바이트면 예외 없이 AES-192 로 동작한다.
+        // 스펙이 요구하는 AES-256 이 아닌 채로 조용히 넘어가는 것을 막는다.
+        val twentyFourBytes = Base64.getEncoder().encodeToString(ByteArray(24))
+        val thirtyThreeBytes = Base64.getEncoder().encodeToString(ByteArray(33))
+
+        for (wrong in listOf(twentyFourBytes, thirtyThreeBytes)) {
+            val exception = assertFailsWith<IllegalStateException> { AesGcmTokenEncryptor(wrong) }
+            assertTrue(exception.message!!.contains("app.crypto.token-secret"), exception.message!!)
+        }
+    }
+
+    @Test
+    fun `키가 Base64 가 아니면 생성 단계에서 거부한다`() {
+        val exception = assertFailsWith<IllegalStateException> { AesGcmTokenEncryptor("not!base64!!") }
+
+        assertTrue(exception.message!!.contains("Base64"), exception.message!!)
+    }
+
+    @Test
     fun `암호화한 값을 다시 복호화하면 원문이 나온다`() {
         val plain = "kakao-access-token-1234567890"
 

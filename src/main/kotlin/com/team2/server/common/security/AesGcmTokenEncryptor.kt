@@ -11,6 +11,7 @@ import javax.crypto.spec.SecretKeySpec
 private const val TRANSFORMATION = "AES/GCM/NoPadding"
 private const val IV_LENGTH = 12
 private const val TAG_LENGTH_BITS = 128
+private const val KEY_LENGTH_BYTES = 32
 
 /**
  * 저장용 자격증명을 AES-GCM 으로 암복호화한다.
@@ -25,7 +26,7 @@ private const val TAG_LENGTH_BITS = 128
 class AesGcmTokenEncryptor(
     @Value("\${app.crypto.token-secret}") secret: String,
 ) {
-    private val key = SecretKeySpec(Base64.getDecoder().decode(secret), "AES")
+    private val key = SecretKeySpec(decodeKey(secret), "AES")
     private val random = SecureRandom()
 
     fun encrypt(plainText: String): String {
@@ -62,6 +63,23 @@ class AesGcmTokenEncryptor(
             }
         return runCatching { String(cipher.doFinal(body), Charsets.UTF_8) }
             .getOrElse { throw IllegalStateException("복호화에 실패했습니다", it) }
+    }
+
+    /**
+     * 키 길이를 강제한다.
+     *
+     * `SecretKeySpec` 은 AES 키로 16·24·32바이트를 모두 받아들이므로, 24바이트 키를 넣으면 예외 없이
+     * AES-192 로 동작한다. 스펙이 요구하는 AES-256 이 아닌 채로 조용히 운영에 나갈 수 있어 여기서 막는다.
+     */
+    private fun decodeKey(secret: String): ByteArray {
+        val decoded =
+            runCatching { Base64.getDecoder().decode(secret) }
+                .getOrElse { throw IllegalStateException("app.crypto.token-secret 이 유효한 Base64 가 아닙니다", it) }
+        check(decoded.size == KEY_LENGTH_BYTES) {
+            "app.crypto.token-secret 은 Base64 로 디코딩했을 때 $KEY_LENGTH_BYTES 바이트여야 합니다 " +
+                "(현재 ${decoded.size}바이트). `openssl rand -base64 32` 로 만든 값을 그대로 넣으세요"
+        }
+        return decoded
     }
 
     companion object {
