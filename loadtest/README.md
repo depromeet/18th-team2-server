@@ -6,7 +6,18 @@ SSE와 WebSocket(STOMP) 각각의 동시접속 한계·응답시간을 측정하
 ## 사전 준비
 
 1. MySQL 기동: `docker compose -f docker/docker-compose.local.yml up -d`
-2. 서버 기동: `./gradlew bootRun` (기본 `local` 프로파일, `localhost:8080`)
+2. 서버 기동 — **부하테스트용 커넥션 풀 크기를 명시적으로 지정해야 한다**:
+
+   ```bash
+   SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=80 ./gradlew bootRun
+   ```
+
+   (기본 `local` 프로파일, `localhost:8080`)
+
+   `application-local.yml`의 풀 크기 기본값은 Spring Boot 기본값(10)이다. 이는 dev/prod와
+   같은 값으로, 커넥션 고갈 문제를 로컬에서도 같은 지점에서 재현하기 위한 의도적 설정이다.
+   부하테스트에서는 풀이 병목이 되면 전송 계층(SSE vs WS) 자체의 한계를 측정할 수 없으므로,
+   위와 같이 환경변수로 80을 **옵트인**해야 `loadtest/results/`의 기존 수치가 재현된다.
 3. SSE 부하테스트용 k6 바이너리 빌드 (WebSocket은 기본 k6로 충분, 별도 빌드 불필요):
 
    ```bash

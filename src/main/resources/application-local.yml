@@ -1,11 +1,15 @@
 spring:
   datasource:
     hikari:
-      # 부하테스트(loadtest/) 목적의 로컬 전용 튜닝. 기본값(10)으로는 동시 SSE 입장이
-      # 50건 안팎만 몰려도 HikariPool 커넥션 고갈로 서버가 멈춰서(SSE/WS 전송 계층과
-      # 무관한 원인으로) 두 전송 방식 비교가 무의미해진다. MySQL max_connections(151)
-      # 여유 안에서 80으로 올려 전송 계층 자체의 한계를 측정한다.
-      maximum-pool-size: 80
+      # 평소에는 Spring Boot 기본값(10)을 그대로 쓴다. dev/prod와 같은 풀 크기를 유지해야
+      # 커넥션 고갈 문제를 로컬에서도 동일한 지점에서 재현할 수 있기 때문이다.
+      #
+      # 부하테스트(loadtest/)를 돌릴 때만 환경변수로 명시적으로 키운다. 기본값(10)으로는
+      # 동시 SSE 입장이 50건 안팎만 몰려도 HikariPool 커넥션 고갈로 서버가 멈춰서
+      # (SSE/WS 전송 계층과 무관한 원인으로) 두 전송 방식 비교가 무의미해지므로,
+      # MySQL max_connections(151) 여유 안에서 80으로 올려 전송 계층 자체의 한계를 측정한다.
+      #   SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=80 ./gradlew bootRun
+      maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE:10}
 
 management:
   endpoints:
