@@ -30,9 +30,11 @@ import java.lang.reflect.Type
 import java.time.LocalDateTime
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.test.fail
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(TestcontainersConfiguration::class)
@@ -220,15 +222,19 @@ class ChatSocketControllerTest {
         val fixture = seedParty()
 
         val receiver = connect()
-        enter(receiver, fixture, nickname = "수신자").get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-        val messageFuture = CompletableFuture<Map<String, Any>>()
-        receiver.subscribe("/topic/parties/${fixture.partyId}", eventHandler("message", messageFuture))
+        val receiverEntered = enter(receiver, fixture, nickname = "수신자").get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        val broadcasts = subscribeBroadcast(receiver, fixture.partyId, participantTokenOf(receiverEntered))
+        val messageFuture = broadcasts.expect { it.event == "message" && it.data["content"] == "안녕하세요!" }
 
         val sender = connect()
         val entered = enter(sender, fixture, nickname = "발신자").get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-        sendMessage(sender, fixture.partyId, participantTokenOf(entered), "안녕하세요!")
+        val sent = sendMessage(sender, fixture.partyId, participantTokenOf(entered), "안녕하세요!")
 
-        val broadcast = messageFuture.get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        // 발신자에게는 개인 ack 가, 구독자에게는 브로드캐스트가 각각 전달되어야 한다.
+        val ack = await(sent.ack, sent.error)
+        assertEquals("안녕하세요!", (ack["data"] as Map<*, *>)["content"])
+
+        val broadcast = await(messageFuture, sent.error)
         val data = broadcast["data"] as Map<*, *>
         assertEquals("안녕하세요!", data["content"])
         assertEquals("발신자", data["senderNickname"])
@@ -246,13 +252,11 @@ class ChatSocketControllerTest {
         val session = connect()
         val entered = enter(session, myParty, nickname = "침입자").get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
 
-        val clientRequestId = UUID.randomUUID().toString()
-        val errorFuture = CompletableFuture<Map<String, Any>>()
-        session.subscribe("/topic/errors/$clientRequestId", eventHandler("error", errorFuture))
-        sendMessage(session, othersParty.partyId, participantTokenOf(entered), "남의 파티", clientRequestId)
+        val sent = sendMessage(session, othersParty.partyId, participantTokenOf(entered), "남의 파티")
 
-        val error = errorFuture.get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        val error = sent.error.get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
         assertEquals("PARTY_FORBIDDEN", (error["data"] as Map<*, *>)["code"])
+        assertTrue(!sent.ack.isDone, "실패한 전송에는 개인 ack 가 오지 않아야 한다")
 
         session.disconnect()
     }
@@ -262,15 +266,18 @@ class ChatSocketControllerTest {
         val fixture = seedParty()
 
         val stayer = connect()
-        enter(stayer, fixture, nickname = "남는사람").get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-        val leftFuture = CompletableFuture<Map<String, Any>>()
-        stayer.subscribe("/topic/parties/${fixture.partyId}", eventHandler("user-left", leftFuture))
+        val stayerEntered = enter(stayer, fixture, nickname = "남는사람").get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        val broadcasts = subscribeBroadcast(stayer, fixture.partyId, participantTokenOf(stayerEntered))
+        val leftFuture = broadcasts.expect { it.event == "user-left" }
 
         val leaver = connect()
         val entered = enter(leaver, fixture, nickname = "떠나는사람").get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-        leaveParty(leaver, fixture.partyId, participantTokenOf(entered))
+        val left = leaveParty(leaver, fixture.partyId, participantTokenOf(entered))
 
-        val broadcast = leftFuture.get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        val ack = await(left.ack, left.error)
+        assertEquals("떠나는사람", (ack["data"] as Map<*, *>)["nickname"])
+
+        val broadcast = await(leftFuture, left.error)
         assertEquals("떠나는사람", (broadcast["data"] as Map<*, *>)["nickname"])
 
         stayer.disconnect()
@@ -281,17 +288,13 @@ class ChatSocketControllerTest {
     fun `퇴장한 세션은 파티 브로드캐스트 토픽을 다시 구독할 수 없다`() {
         val fixture = seedParty()
 
-        // 퇴장 처리가 끝난 시점을 관측하기 위해 다른 세션이 user-left 브로드캐스트를 기다린다.
-        val observer = connect()
-        enter(observer, fixture, nickname = "관찰자").get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-        val leftFuture = CompletableFuture<Map<String, Any>>()
-        observer.subscribe("/topic/parties/${fixture.partyId}", eventHandler("user-left", leftFuture))
-
         val errorHandler = ErrorCapturingSessionHandler()
         val leaver = connect(errorHandler)
         val entered = enter(leaver, fixture, nickname = "떠나는사람").get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-        leaveParty(leaver, fixture.partyId, participantTokenOf(entered))
-        leftFuture.get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+
+        // 개인 ack("left")는 컨트롤러가 markLeft 이후에 보내므로, ack 수신은 인가 회수 완료를 의미한다.
+        val left = leaveParty(leaver, fixture.partyId, participantTokenOf(entered))
+        await(left.ack, left.error)
 
         leaver.subscribe("/topic/parties/${fixture.partyId}", anyEventHandler(CompletableFuture()))
 
@@ -299,8 +302,6 @@ class ChatSocketControllerTest {
             errorHandler.error.get(TIMEOUT_SECONDS, TimeUnit.SECONDS).isNotBlank(),
             "퇴장한 세션의 브로드캐스트 재구독은 거부되어야 한다",
         )
-
-        observer.disconnect()
     }
 
     // --- 헬퍼 ---
@@ -384,12 +385,74 @@ class ChatSocketControllerTest {
     private fun participantTokenOf(entered: Map<String, Any>): String =
         (entered["data"] as Map<*, *>)["participantToken"] as String
 
+    /**
+     * 브로드캐스트 토픽을 구독하고, 구독이 브로커에 실제로 등록될 때까지 기다린다.
+     *
+     * SimpleBroker 는 SUBSCRIBE 에 RECEIPT 를 돌려주지 않는다(서버가 RECEIPT 를 보내는 명령은
+     * DISCONNECT 뿐이다). 그래서 구독 등록 완료를 직접 기다릴 방법이 없고, `subscribe()` 직후
+     * 곧바로 이벤트를 유발하면 구독보다 브로드캐스트가 먼저 처리돼 프레임을 놓칠 수 있다.
+     * 대신 스스로 브로드캐스트(채팅 메시지)를 유발해 되돌아올 때까지 재시도한다.
+     * 한 번이라도 되돌아오면 그 구독은 확실히 살아 있으므로, 이후 관측할 이벤트는 놓치지 않는다.
+     */
+    private fun subscribeBroadcast(
+        session: StompSession,
+        partyId: Long,
+        participantToken: String,
+    ): BroadcastCollector {
+        val collector = BroadcastCollector()
+        session.subscribe("/topic/parties/$partyId", collector)
+
+        val marker = "probe-${UUID.randomUUID()}"
+        val probe = collector.expect { it.event == "message" && it.data["content"] == marker }
+        repeat(PROBE_ATTEMPTS) {
+            sendChatMessageFrame(session, partyId, participantToken, marker, UUID.randomUUID().toString())
+            if (completedWithin(probe, PROBE_INTERVAL_MILLIS)) return collector
+        }
+        fail("브로드캐스트 구독이 준비되지 않았습니다: partyId=$partyId")
+    }
+
+    private fun completedWithin(
+        future: CompletableFuture<*>,
+        millis: Long,
+    ): Boolean = runCatching { future.get(millis, TimeUnit.MILLISECONDS) }.isSuccess
+
+    /**
+     * 개인 ack 를 기다리되, 에러 채널로 실패가 오면 즉시 코드와 함께 실패시킨다.
+     * 그러지 않으면 업무 예외가 그냥 타임아웃으로 보여 원인을 알 수 없다.
+     */
+    private fun await(
+        target: CompletableFuture<Map<String, Any>>,
+        vararg failures: CompletableFuture<Map<String, Any>>,
+    ): Map<String, Any> {
+        CompletableFuture
+            .anyOf(target, *failures)
+            .get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        if (!target.isDone) {
+            val failure = failures.first { it.isDone }.get()
+            val data = failure["data"] as Map<*, *>
+            fail("WebSocket 요청이 실패했습니다: code=${data["code"]}, message=${data["message"]}")
+        }
+        return target.get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+    }
+
     private fun sendMessage(
         session: StompSession,
         partyId: Long,
         participantToken: String,
         content: String,
         clientRequestId: String = UUID.randomUUID().toString(),
+    ): SocketRequest {
+        val request = subscribeAckChannels(session, partyId, clientRequestId, "message-sent")
+        sendChatMessageFrame(session, partyId, participantToken, content, clientRequestId)
+        return request
+    }
+
+    private fun sendChatMessageFrame(
+        session: StompSession,
+        partyId: Long,
+        participantToken: String,
+        content: String,
+        clientRequestId: String,
     ) {
         session.send(
             "/app/parties/$partyId/chat-messages",
@@ -406,7 +469,8 @@ class ChatSocketControllerTest {
         partyId: Long,
         participantToken: String,
         clientRequestId: String = UUID.randomUUID().toString(),
-    ) {
+    ): SocketRequest {
+        val request = subscribeAckChannels(session, partyId, clientRequestId, "left")
         session.send(
             "/app/parties/$partyId/leave",
             mapOf(
@@ -414,6 +478,64 @@ class ChatSocketControllerTest {
                 "clientRequestId" to clientRequestId,
             ),
         )
+        return request
+    }
+
+    /** 개인 ack 채널과 에러 채널을 함께 구독해 성공/실패 어느 쪽이든 즉시 관측되게 한다. */
+    private fun subscribeAckChannels(
+        session: StompSession,
+        partyId: Long,
+        clientRequestId: String,
+        ackEvent: String,
+    ): SocketRequest {
+        val ack = CompletableFuture<Map<String, Any>>()
+        val error = CompletableFuture<Map<String, Any>>()
+        session.subscribe("/topic/parties/$partyId/personal/$clientRequestId", eventHandler(ackEvent, ack))
+        session.subscribe("/topic/errors/$clientRequestId", eventHandler("error", error))
+        return SocketRequest(ack, error)
+    }
+
+    private class SocketRequest(
+        val ack: CompletableFuture<Map<String, Any>>,
+        val error: CompletableFuture<Map<String, Any>>,
+    )
+
+    private class BroadcastEvent(
+        val event: String?,
+        val data: Map<*, *>,
+    )
+
+    /**
+     * 브로드캐스트 토픽 구독 하나로 여러 이벤트를 기다린다.
+     * 이벤트마다 새로 구독하면 구독 등록 여부를 매번 다시 증명해야 하므로 구독은 한 번만 만든다.
+     */
+    private class BroadcastCollector : StompFrameHandler {
+        private class Expectation(
+            val predicate: (BroadcastEvent) -> Boolean,
+            val future: CompletableFuture<Map<String, Any>>,
+        )
+
+        private val expectations = CopyOnWriteArrayList<Expectation>()
+
+        fun expect(predicate: (BroadcastEvent) -> Boolean): CompletableFuture<Map<String, Any>> {
+            val future = CompletableFuture<Map<String, Any>>()
+            expectations.add(Expectation(predicate, future))
+            return future
+        }
+
+        override fun getPayloadType(headers: StompHeaders): Type = Map::class.java
+
+        @Suppress("UNCHECKED_CAST")
+        override fun handleFrame(
+            headers: StompHeaders,
+            payload: Any?,
+        ) {
+            val body = payload as Map<String, Any>
+            val event = BroadcastEvent(body["event"] as? String, body["data"] as Map<*, *>)
+            expectations
+                .filter { it.predicate(event) }
+                .forEach { it.future.complete(body) }
+        }
     }
 
     private fun eventHandler(
@@ -481,6 +603,10 @@ class ChatSocketControllerTest {
     }
 
     companion object {
-        private const val TIMEOUT_SECONDS = 5L
+        // 전체 스위트를 함께 돌리면 컨텍스트 기동/종료가 겹쳐 DB 커넥션 대기가 길어진다.
+        // 이 값이 짧으면 정상 동작도 타임아웃으로 실패한다(실제로 5초에서 간헐 실패했다).
+        private const val TIMEOUT_SECONDS = 20L
+        private const val PROBE_ATTEMPTS = 20
+        private const val PROBE_INTERVAL_MILLIS = 250L
     }
 }
