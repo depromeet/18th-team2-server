@@ -32,6 +32,7 @@ spring:
 
 app:
   web-base-url: "https://test.example.com"
+  api-base-url: "http://localhost:8080"
   crypto:
     token-secret: dGVzdC1jcnlwdG8ta2V5LTMyYnl0ZXMtYWVzLWdjbSE=
   jwt:

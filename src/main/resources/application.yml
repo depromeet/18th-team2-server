@@ -37,6 +37,7 @@ spring:
 
 app:
   web-base-url: ${APP_WEB_BASE_URL:http://localhost:5173}
+  api-base-url: ${APP_API_BASE_URL:http://localhost:8080}
 
 kakao:
   talk-calendar:
