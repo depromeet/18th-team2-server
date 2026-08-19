@@ -1,6 +1,7 @@
 # 카카오 톡캘린더 일정 등록 API 설계
 
 - 작성일: 2026-08-18
+- 개정: 2026-08-19 — 토큰 확보 방식을 클라이언트 pass-through 에서 서버 주도 추가 동의로 변경
 - 이슈: [#251](https://github.com/depromeet/18th-team2-server/issues/251)
 - 브랜치: `feature/kakao-talk-calendar`
 
@@ -9,33 +10,68 @@
 사용자가 참여 중인 파티 일정을 본인의 카카오톡 캘린더에 등록할 수 있게 한다.
 현재 레포에는 아웃바운드 HTTP 클라이언트가 하나도 없어, 이 기능이 외부 API 연동 패턴의 첫 사례가 된다.
 
+### 개정 사유
+
+최초 설계는 클라이언트가 카카오 SDK 로 액세스 토큰을 받아 헤더로 전달하는 것을 전제했다.
+프론트엔드 저장소를 확인한 결과 그 전제가 성립하지 않는다. 로그인은 브라우저를 백엔드의
+`/oauth2/authorization/kakao` 로 보내는 서버 주도 방식이고, 카카오 액세스 토큰은 Spring Security 가
+받아 폐기한다. 프론트가 로드하는 카카오 JS SDK 에는 공유 기능만 선언돼 있어 토큰을 얻을 경로가 없다.
+
+로그인을 서버가 수행하는 구조에서는 서버가 토큰을 보유하는 것이 표준이다. 이 개정은 토큰 확보 경로만
+바꾸며, 일정 조립·등록 이력·동시성 방어·에러 계약은 최초 설계를 그대로 유지한다.
+
 ## 범위
 
 **포함**
 - 사용자가 명시적으로 요청할 때만 등록하는 온디맨드 엔드포인트 1개
 - 같은 파티를 다시 등록하면 기존 카카오 일정을 갱신
 - 파티 시작 전까지만 등록·갱신 허용
+- 서버 주도 톡캘린더 추가 동의 플로우
+- 카카오 토큰 암호화 저장과 만료 시 갱신
+- 연동 해제 엔드포인트
 - 사유별로 구분되는 에러 응답
 
 **제외**
 - 파티 생성·참여 시점의 자동 등록
-- 서버의 카카오 액세스 토큰 저장 및 갱신 (클라이언트가 매 요청 전달)
+- 파티 정보 변경 시 캘린더 일정 자동 갱신 — 파티 수정 API 자체가 없어 붙일 트리거가 없다.
+  토큰 저장이 이 기능의 전제 조건이므로 이번에 기반만 마련한다
+- 암호화 키 회전 자동화, 토큰 접근 감사 로그
 - 일정 삭제 API, 등록 상태 조회 API
 - 카카오 외 캘린더 제공자
 
 ## 핵심 결정
 
-### 토큰은 클라이언트가 전달한다
+### 서버가 추가 동의를 받고 토큰을 보관한다
 
-서버는 카카오 액세스 토큰을 저장하지 않는다. 클라이언트가 카카오 SDK로 톡캘린더 추가 동의를 받고,
-얻은 액세스 토큰을 요청 헤더에 실어 보낸다. 서버는 그대로 카카오에 전달한다.
+로그인을 서버가 수행하므로 토큰도 서버가 갖는다. 클라이언트는 카카오 자격증명을 다루지 않는다.
 
-결과적으로 토큰 암호화 저장, 갱신 스케줄러, 추가 동의 콜백 처리가 전부 불필요해진다.
+저장을 택한 결정적 근거는 파티 수정 시 일정을 자동 갱신하는 기능이다. 그때 사용자는 화면에 없으므로
+저장된 토큰 없이는 구현 자체가 불가능하다. 저장하지 않는 대안은 등록할 때마다 인가 리다이렉트를
+왕복해야 하는데, 그 방식으로는 이 기능을 영영 만들 수 없다.
 
-### 토큰은 body가 아니라 헤더로 받는다
+동의는 카카오가 기억하므로 두 번째부터 동의 화면은 뜨지 않는다. 리프레시 토큰 수명이 2달이고
+갱신할 때마다 연장되므로, 사용자는 사실상 최초 1회만 동의하면 된다.
 
-`HttpExchangeLoggingFilter`는 요청 body의 `token`, `accessToken` 등 특정 필드명만 마스킹하고 헤더는 로깅하지 않는다.
-body에 `kakaoAccessToken`이라는 이름으로 넣으면 마스킹 정규식에 걸리지 않아 평문으로 로그에 남는다.
+### 클라이언트가 동의 시점을 통제한다
+
+등록 API 는 순수 JSON 을 유지하고, 동의가 필요하면 인가 URL 을 응답에 실어 보낸다.
+클라이언트가 그 URL 로 이동시키고 돌아와 등록을 재시도한다.
+
+서버가 동의부터 등록까지 리다이렉트로 이어서 처리하는 방식도 가능하지만 SPA 와 맞지 않는다.
+어떤 파티를 등록할지를 OAuth `state` 에 실어야 하고, 콜백에서 등록이 실패하면 그 사유를 쿼리
+파라미터로 전달해야 해서 JSON 에러 계약과 별개의 두 번째 에러 채널이 생긴다.
+
+이 계약은 UI 배치를 강제하지 않는다. 프론트는 등록 시점에 인라인으로 동의를 유도할 수도,
+마이페이지의 연동 버튼 뒤에 둘 수도 있다.
+
+### 동의 플로우는 로그인 파이프라인과 분리한다
+
+Spring Security 의 `oauth2Login` 을 확장해 registration 을 하나 더 두는 방법 대신,
+동의 전용 컨트롤러가 인가 URL 조립·콜백·토큰 교환을 직접 처리한다.
+
+`OAuth2SuccessHandler` 가 "JWT 를 발급한다"와 "캘린더 토큰을 저장한다"를 registration 으로 분기하기
+시작하면 연동이 늘 때마다 그 분기가 자란다. 인증(로그인)과 인가(캘린더 권한)는 성격이 다른 일이다.
+`state` 생성·검증과 토큰 교환은 정형화된 작업이라 직접 지는 몫이 크지 않다.
 
 ### 일정 내용은 서버가 조립한다
 
@@ -49,14 +85,55 @@ cross-feature 접근은 `chat` feature가 쓰는 패턴(자기 feature의 port �
 
 ## API 계약
 
-`POST /api/v1/parties/{partyId}/talk-calendar`
+엔드포인트 세 개다. 모두 기존 서비스 JWT 로 인증한다. 클라이언트는 카카오 자격증명을 다루지 않는다.
 
-| 항목 | 값 |
+### 일정 등록
+
+`POST /api/v1/parties/{partyId}/talk-calendar` — 요청 body 없음.
+
+| 서버 상태 | 응답 |
 |---|---|
-| 인증 | 기존 서비스 JWT (`@AuthenticationPrincipal UserPrincipal`) |
-| 헤더 | `X-Kakao-Access-Token` (필수) |
-| 요청 body | 없음 |
-| 성공 응답 | 200, `data`에 `eventId`와 `updated` (기존 일정 갱신이면 `true`) |
+| 유효한 토큰 보유 | 200, `data` 에 `eventId` 와 `updated` |
+| 액세스 토큰 만료, 갱신 가능 | 갱신 후 200 |
+| 연동 없음 / 리프레시 만료 / 동의 철회됨 | 403 `KAKAO_CALENDAR_CONSENT_REQUIRED`, `data` 에 `consentUrl` |
+
+403 에 인가 URL 을 실어 보내므로 클라이언트는 카카오 REST 키도 scope 이름도 알 필요가 없다.
+
+상태 코드를 403 으로 두는 이유는 RFC 6750 이 scope 부족에 403 을 규정하고 있고, 이 의미의
+`KAKAO_CALENDAR_CONSENT_REQUIRED` 가 이미 403 으로 존재하기 때문이다. 409 는 이 엔드포인트에서
+이미 두 가지 의미로 쓰이고 있어 세 번째를 얹지 않는다. 401 은 프론트의 공통 인터셉터가 세션 만료로
+읽어 사용자를 로그아웃시킬 수 있어 쓰지 않는다.
+
+### 동의 진입
+
+`GET /api/v1/kakao-calendar/consent?redirect_uri={프론트 복귀 주소}`
+
+`redirect_uri` 는 기존 로그인과 같은 `app.oauth2.authorized-redirect-uris` 화이트리스트로 검증해
+쿠키에 담는다. CSRF 용 `state` 도 쿠키에 담고 카카오 인가 URL 로 리다이렉트한다.
+
+`state` 를 서버 메모리가 아니라 쿠키에 두는 이유는 blue/green 배포에서 콜백이 다른 인스턴스로 도착해도
+검증이 성립해야 하기 때문이다.
+
+### 동의 콜백
+
+`GET /api/v1/kakao-calendar/consent/callback`
+
+`state` 를 쿠키와 대조하고, 인가 코드를 토큰으로 교환한 뒤 연동을 저장한다.
+쿠키에 담아둔 프론트 주소로 `?calendarConsent=granted` 또는 `denied` 를 붙여 돌려보낸다.
+
+서비스 JWT 를 리다이렉트에 실어 나를 필요가 없다. 카카오 콜백이 곧 사용자 식별이므로
+`provider` 와 `providerId` 로 우리 사용자를 찾는다. 기존 로그인이 쓰는 것과 같은 키다.
+
+동의 진입과 콜백 두 경로는 브라우저 내비게이션이라 서비스 JWT 가 실리지 않으므로 `SecurityConfig` 에서
+인증 예외로 둔다. 진입 경로는 `redirect_uri` 화이트리스트로, 콜백은 `state` 쿠키 대조로 보호한다.
+콜백이 신원을 부여하는 근거는 카카오가 확인해 준 계정 하나뿐이며, 이는 로그인 콜백과 같은 성질이다.
+
+### 연동 해제
+
+`DELETE /api/v1/me/talk-calendar-connection` — 저장된 토큰을 지운다.
+
+카카오 쪽 연결 해제(`unlink`)는 하지 않는다. 그것은 앱 전체 연결을 끊어 사용자가 로그인조차 할 수 없게
+만들므로, 캘린더 연동만 끊는다는 의도와 맞지 않는다.
 
 ## 컴포넌트
 
@@ -70,16 +147,25 @@ cross-feature 접근은 `chat` feature가 쓰는 패턴(자기 feature의 port �
 | `calendar/domain/entity/CalendarRegistration` | 등록 이력 엔티티 |
 | `calendar/infrastructure/kakao/KakaoTalkCalendarAdapter` | `RestClient` 호출, 카카오 에러를 도메인 에러로 변환 |
 | `calendar/infrastructure/party/PartyCalendarInfoAdapter` | party의 `PartyService`, `ParticipantService`, `PartyInviteService` 호출 |
+| `calendar/api/KakaoCalendarConsentController` | 동의 진입과 콜백 |
+| `calendar/application/usecase/*` | 동의 저장, 연동 해제 |
+| `calendar/application/service/KakaoCalendarConnectionService` | 연동 aggregate 저장·조회·갱신 |
+| `calendar/application/port/KakaoOAuthPort` | 인가 코드 교환과 리프레시 인터페이스 |
+| `calendar/domain/entity/KakaoCalendarConnection` | 연동 엔티티 (토큰과 만료 시각) |
+| `calendar/infrastructure/kakao/KakaoOAuthAdapter` | `kauth.kakao.com` 호출. 일정 API 와 호스트가 달라 어댑터를 분리한다 |
+| `common/security/*` | AES-GCM 암호화와 JPA `AttributeConverter` |
 
 ## 처리 흐름
 
-1. Controller가 `userId`, `partyId`, 카카오 토큰을 UseCase에 넘긴다.
+1. Controller가 `userId`와 `partyId`를 UseCase에 넘긴다.
 2. `PartyCalendarInfoPort`로 파티를 조회하고, 요청자가 그 파티의 호스트이거나 현재 참여 중인 참여자인지 검증한다. 파티를 나간 참여자(`hasLeft`)는 등록할 수 없다. 아니면 `PARTY_FORBIDDEN`.
 3. 파티가 아직 시작되지 않았는지 확인한다. 현재 시각이 `startedAt` 이후면 `TALK_CALENDAR_PARTY_ALREADY_STARTED`.
-4. 등록 이력을 조회한다.
+4. 저장된 연동에서 사용할 액세스 토큰을 확보한다. 만료가 임박했으면 리프레시로 갱신한다.
+   연동이 없거나 갱신이 실패하면 인가 URL 과 함께 `KAKAO_CALENDAR_CONSENT_REQUIRED` 로 끝낸다.
+5. 등록 이력을 조회한다.
    - 없으면 `event_id`가 빈 행을 먼저 INSERT하고 flush한다. 그 다음 카카오 일정 생성을 호출하고 받은 `event_id`를 채운다.
    - 있으면 카카오 일정 수정을 호출한다.
-5. `event_id`를 응답한다.
+6. `event_id`를 응답한다.
 
 이미 시작된 파티를 캘린더에 넣는 것은 사용자에게 의미가 없고, 지난 일정을 갱신하는 경로도 필요 없다.
 그래서 생성과 갱신 모두 같은 조건으로 막는다. 파티 종료 여부는 따로 보지 않는다. 시작 전 조건이 더 강하기 때문이다.
@@ -94,6 +180,36 @@ UNIQUE 제약이 걸린 행을 카카오 호출보다 먼저 확보하면 두 �
 
 이력이 이미 있는데 사용자가 카카오 앱에서 일정을 지운 경우에는 INSERT 가 없어 UNIQUE 제약이 개입하지 못한다.
 이 경로는 이력 행을 잠그고 읽어(`PESSIMISTIC_WRITE`) 동시 요청을 직렬화한다.
+
+## 토큰 수명주기
+
+연동은 사용자당 한 행이다. 액세스 토큰과 리프레시 토큰, 각각의 만료 시각을 갖는다.
+카카오 기준으로 액세스 토큰은 6시간, 리프레시 토큰은 2달이며 갱신 시 만료가 1달 이내로 남았으면
+새 리프레시 토큰이 함께 온다. 두 달에 한 번이라도 사용하면 연동은 사실상 계속 유지된다.
+
+갱신은 등록 요청 시점의 지연 방식이다. 별도 스케줄러를 두지 않는다.
+
+갱신에도 동시성 문제가 있다. 같은 사용자의 요청 둘이 동시에 갱신하면 카카오에 갱신 요청이 두 번 나가고,
+카카오가 새 리프레시 토큰을 발급하며 기존 것을 폐기하면 한쪽이 무효한 토큰을 저장한다. 연동이 깨져
+사용자가 다시 동의해야 한다. 연동 행을 `PESSIMISTIC_WRITE` 로 잠그고 갱신해 직렬화한다.
+
+갱신이 실패하면(리프레시 만료, 사용자가 카카오에서 동의 철회) 저장된 연동을 지우고 동의를 다시 받는다.
+죽은 자격증명을 붙들고 있을 이유가 없다.
+
+## 토큰 보관
+
+액세스·리프레시 토큰은 컬럼 단위로 암호화해 저장한다. AES-GCM 을 쓰고 JPA `AttributeConverter` 로
+투명하게 처리한다. GCM 은 매번 랜덤 IV 를 쓰므로 같은 평문도 다른 암호문이 되어 암호문 검색은 불가능하지만,
+조회 키가 `user_id` 뿐이라 문제되지 않는다.
+
+키는 `app.crypto.token-secret` 으로 시크릿 저장소에 둔다. `app.jwt.secret` 이 이미 그 자리에 있어
+키 관리 방식을 새로 만들지 않는다.
+
+JWT 서명 키를 재사용하지 않는 이유는 수명주기가 묶이기 때문이다. JWT 시크릿 교체는 원래 가벼운 작업이지만
+(발급된 토큰이 무효가 되고 사용자가 다시 로그인할 뿐), 같은 키로 카카오 토큰을 암호화해 두면 교체하는 순간
+저장된 토큰을 전부 복호화할 수 없게 되어 모든 사용자의 연동이 조용히 깨진다. 같은 시크릿에서 키를 파생하는
+절충도 이 문제를 풀지 못한다. 파생 키는 원본이 바뀌면 함께 바뀐다.
+
 
 ## 일정 내용
 
@@ -121,13 +237,25 @@ UNIQUE 제약이 걸린 행을 카카오 호출보다 먼저 확보하면 두 �
 
 UNIQUE 제약 `(user_id, party_id, provider)` 이 멱등성의 실제 방어선이다.
 
+테이블 `kakao_calendar_connection`, 마이그레이션 `V15__create_kakao_calendar_connection.sql`
+
+| 컬럼 | 설명 |
+|---|---|
+| `id`, `created_at`, `updated_at` | `BaseEntity` 상속 |
+| `user_id` | NOT NULL, UNIQUE. 사용자당 한 행 |
+| `access_token` | 암호화 저장 |
+| `refresh_token` | 암호화 저장 |
+| `access_token_expires_at` | 카카오 응답의 `expires_in` 으로 계산 |
+| `refresh_token_expires_at` | `refresh_token_expires_in` 으로 계산 |
+
+암호문은 base64 이고 IV 와 인증 태그를 포함하므로 원문보다 길다. 컬럼 길이는 여유를 둔다.
+
 ## 에러 처리
 
 | 상황 | ErrorCode | HTTP |
 |---|---|---|
-| 헤더 누락 또는 빈 값 | `KAKAO_ACCESS_TOKEN_REQUIRED` | 400 |
-| 카카오 인증 실패 | `KAKAO_TOKEN_INVALID` — 카카오 재로그인 필요 | 401 |
-| 톡캘린더 동의 없음 | `KAKAO_CALENDAR_CONSENT_REQUIRED` — 추가 동의 필요 | 403 |
+| 연동 없음 / 리프레시 만료 / 동의 철회 | `KAKAO_CALENDAR_CONSENT_REQUIRED` — 응답에 `consentUrl` 포함 | 403 |
+| 저장된 토큰을 카카오가 거부 | `KAKAO_TOKEN_INVALID` | 401 |
 | 카카오 5xx 또는 타임아웃 | `KAKAO_CALENDAR_UNAVAILABLE` | 502 |
 | 이미 시작된 파티 | `TALK_CALENDAR_PARTY_ALREADY_STARTED` — 시작된 파티는 등록 불가 | 409 |
 | 동시 요청으로 UNIQUE 위반 | 기존 `DataIntegrityViolationExceptionExtensions`로 변환 | 409 |
@@ -135,7 +263,11 @@ UNIQUE 제약 `(user_id, party_id, provider)` 이 멱등성의 실제 방어선�
 
 사용자가 카카오 앱에서 일정을 직접 지운 경우 수정 호출이 404로 실패한다. 이때는 기존 이력 행을 재사용해 일정을 새로 만들고, 새 일정 ID로 이력을 갱신한다.
 
-카카오가 인증 실패와 동의 누락을 어떤 상태 코드·내부 코드로 구분하는지는 문서에 명시돼 있지 않다. 구현 중 실제 응답으로 확정한다.
+카카오가 인증 실패와 동의 누락을 어떤 상태 코드·내부 코드로 구분하는지는 문서에 명시돼 있지 않다.
+로컬에서 더미 토큰으로 확인한 결과 유효하지 않은 토큰에는 401 이 온다. 동의 누락의 응답은 실제 동의 없는
+토큰으로 확인해야 확정된다. 어댑터가 오류 응답 본문을 로그로 남기므로 배포 후 실제 값으로 조정한다.
+
+`KAKAO_ACCESS_TOKEN_REQUIRED`(400) 는 클라이언트가 토큰을 헤더로 전달하던 시절의 코드이므로 삭제한다.
 
 ## 외부 API 사용
 
@@ -143,6 +275,8 @@ UNIQUE 제약 `(user_id, party_id, provider)` 이 멱등성의 실제 방어선�
 |---|---|
 | 일정 생성 | `POST https://kapi.kakao.com/v2/api/calendar/create/event` |
 | 일정 수정 | `POST https://kapi.kakao.com/v2/api/calendar/update/event/host` |
+| 추가 동의 인가 | `GET https://kauth.kakao.com/oauth/authorize` — `scope=talk_calendar_task` |
+| 토큰 교환·갱신 | `POST https://kauth.kakao.com/oauth/token` |
 
 두 호출 모두 `Authorization: Bearer` 헤더를 쓰고, form-urlencoded 바디의 `event` 파라미터에 일정 정보를 JSON 문자열로 넣는다.
 생성 응답에 `event_id`가 담겨 온다. 필요한 동의항목의 영문 키(통상 `talk_calendar_task`)는 카카오 개발자 콘솔에서 확인해 확정한다.
@@ -155,7 +289,15 @@ UseCase의 트랜잭션 안에서 외부 HTTP를 호출하게 되므로 `RestCli
 | 키 | 용도 |
 |---|---|
 | `kakao.talk-calendar.base-url` | 기본값 `https://kapi.kakao.com`. 테스트에서 오버라이드 |
-| `app.web-base-url` | 일정 설명의 초대 링크 조립. `support.chat-url`처럼 환경별 yml에서 override |
+| `kakao.auth.base-url` | 기본값 `https://kauth.kakao.com`. 토큰 교환·갱신용. 테스트에서 오버라이드 |
+| `app.crypto.token-secret` | 토큰 암호화 키. Base64 32바이트. 시크릿 저장소에 환경별로 다른 값 |
+| `app.web-base-url` | 일정 설명의 초대 링크 조립. dev·prod 는 프론트 origin, 로컬은 프론트 개발 서버 |
+
+카카오 client-id 와 client-secret 은 새로 추가하지 않는다. 로그인이 쓰는
+`spring.security.oauth2.client.registration.kakao` 값을 `ClientRegistrationRepository` 로 읽어 재사용한다.
+
+설정 외에 카카오 개발자 콘솔에서 동의 콜백 주소를 Redirect URI 로 등록해야 한다.
+등록하지 않으면 카카오가 `KOE006` 으로 거부한다.
 
 ## 테스트 전략
 
@@ -164,8 +306,18 @@ UseCase의 트랜잭션 안에서 외부 HTTP를 호출하게 되므로 `RestCli
 - `KakaoTalkCalendarAdapter`: `MockRestServiceServer`로 form 바디, 헤더, 에러 매핑을 검증
 - `RegisterPartyTalkCalendarEventUseCase`: Port 스텁으로 생성·갱신 분기, 권한 실패, 시작 시각 경계, 일정 404 재시도를 검증
 - 통합 테스트: `TestcontainersConfiguration` 경유로 엔드포인트 동작과 UNIQUE 제약을 검증
+- 동의 플로우: 루프백 스텁을 카카오 인증 서버로 세우고 진입 → 콜백 → 저장 → 등록까지 한 흐름으로 검증
+- 암호화: 저장된 컬럼이 평문이 아님을 실제 DB 에서 확인
+
+단위 테스트만으로는 부족하다는 것이 이번 작업에서 두 번 확인됐다. 카카오 시각 포맷을 잘못 잡은 것과
+오류 응답 본문이 유실되던 것 모두 단위 테스트를 통과했고 실제 호출에서만 드러났다. `MockRestServiceServer`
+는 응답 본문을 버퍼링하므로 전송 계층의 동작 차이를 재현하지 못한다. 카카오와 주고받는 계약은
+루프백 스텁을 세워 실제 HTTP 로 검증한다.
 
 ## 알려진 부채
+
+동의 플로우가 붙기 전까지 이 API 는 아무도 호출할 수 없다. 프론트엔드에 톡캘린더 연동 진입점과
+`calendarConsent` 복귀 처리가 필요하다. 백엔드 배포만으로는 기능이 동작하지 않는다.
 
 `PartyService`에 `requireParty(partyId)` public 메서드를 추가한다. 기존 공개 메서드가 전부 `RealtimeParty` 전용이고 일반 `Party` 조회는 private이기 때문이다.
 이러면 `PartyService`의 public 메서드가 8개가 되어 아키텍처 규칙(5개 이내)에서 더 멀어진다. 이번 작업 범위를 넘어서므로 감수하고 넘어간다.
