@@ -45,7 +45,6 @@ enum class ErrorCode(
     BURST_GAME_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "박터뜨리기 터치 요청이 너무 많습니다"),
     CANDLE_BLOW_NOT_STARTED(HttpStatus.BAD_REQUEST, "아직 촛불끄기를 시작할 수 없습니다"),
 
-    KAKAO_ACCESS_TOKEN_REQUIRED(HttpStatus.BAD_REQUEST, "카카오 액세스 토큰이 필요합니다"),
     KAKAO_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "카카오 재로그인이 필요합니다"),
     KAKAO_CALENDAR_CONSENT_REQUIRED(HttpStatus.FORBIDDEN, "톡캘린더 사용 동의가 필요합니다"),
     KAKAO_CALENDAR_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "카카오 톡캘린더 연동에 실패했습니다"),

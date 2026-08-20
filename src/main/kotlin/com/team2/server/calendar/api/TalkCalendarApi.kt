@@ -7,7 +7,6 @@ import com.team2.server.common.web.ErrorResponse
 import com.team2.server.common.web.swagger.InternalServerErrorResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
-import io.swagger.v3.oas.annotations.enums.ParameterIn
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.ExampleObject
 import io.swagger.v3.oas.annotations.media.Schema
@@ -23,36 +22,14 @@ interface TalkCalendarApi {
 파티 시작 전까지만 등록할 수 있고, 파티의 호스트 또는 현재 참여자만 호출할 수 있다.
 이미 등록한 파티를 다시 호출하면 기존 일정을 갱신한다.
 
-**카카오 액세스 토큰**
-클라이언트가 카카오 SDK 로 톡캘린더 동의를 받은 뒤 얻은 액세스 토큰을 `X-Kakao-Access-Token` 헤더로 전달한다.
-서버는 이 토큰을 저장하지 않는다.
+**동의**
+서버가 저장한 카카오 토큰을 사용한다. 저장된 연동이 없거나 만료됐으면 403 `KAKAO_CALENDAR_CONSENT_REQUIRED` 를
+반환하므로, 클라이언트는 `GET /api/v1/me/talk-calendar-connection/consent-url` 로 동의 URL 을 받아
+브라우저를 그리로 보낸다. 동의를 마치고 돌아오면 이 API 를 다시 호출한다.
 """,
         security = [SecurityRequirement(name = "Bearer Authentication")],
     )
     @SwaggerApiResponse(responseCode = "200", description = "등록 또는 갱신 성공")
-    @SwaggerApiResponse(
-        responseCode = "400",
-        description = "카카오 액세스 토큰 헤더 누락",
-        content = [
-            Content(
-                mediaType = "application/json",
-                schema = Schema(implementation = ErrorResponse::class),
-                examples = [
-                    ExampleObject(
-                        value = """
-                            {
-                              "status": 400,
-                              "error": {
-                                "code": "KAKAO_ACCESS_TOKEN_REQUIRED",
-                                "message": "카카오 액세스 토큰이 필요합니다"
-                              }
-                            }
-                        """,
-                    ),
-                ],
-            ),
-        ],
-    )
     @SwaggerApiResponse(
         responseCode = "401",
         description = "인증 실패",
@@ -93,18 +70,6 @@ interface TalkCalendarApi {
                               "error": {
                                 "code": "AUTH_INVALID_TOKEN",
                                 "message": "유효하지 않은 토큰입니다"
-                              }
-                            }
-                        """,
-                    ),
-                    ExampleObject(
-                        name = "카카오 재로그인 필요",
-                        value = """
-                            {
-                              "status": 401,
-                              "error": {
-                                "code": "KAKAO_TOKEN_INVALID",
-                                "message": "카카오 재로그인이 필요합니다"
                               }
                             }
                         """,
@@ -235,12 +200,5 @@ interface TalkCalendarApi {
     fun registerPartyEvent(
         @Parameter(hidden = true) principal: UserPrincipal,
         @Parameter(description = "파티 ID", example = "1") partyId: Long,
-        @Parameter(
-            description = "카카오 액세스 토큰",
-            `in` = ParameterIn.HEADER,
-            name = "X-Kakao-Access-Token",
-            required = true,
-        )
-        kakaoAccessToken: String?,
     ): ApiResponse<RegisterPartyTalkCalendarEventResult>
 }

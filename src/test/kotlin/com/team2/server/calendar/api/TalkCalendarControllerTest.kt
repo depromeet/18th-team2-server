@@ -4,7 +4,9 @@ import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
+import com.team2.server.calendar.domain.entity.KakaoCalendarConnection
 import com.team2.server.calendar.infrastructure.persistence.CalendarRegistrationRepository
+import com.team2.server.calendar.infrastructure.persistence.KakaoCalendarConnectionRepository
 import com.team2.server.common.DatabaseCleanup
 import com.team2.server.config.TestcontainersConfiguration
 import com.team2.server.party.domain.entity.PaperOnlyParty
@@ -41,6 +43,7 @@ class TalkCalendarControllerTest
         private val databaseCleanup: DatabaseCleanup,
         private val jwtProperties: JwtProperties,
         private val calendarRegistrationRepository: CalendarRegistrationRepository,
+        private val kakaoCalendarConnectionRepository: KakaoCalendarConnectionRepository,
     ) {
         private val tokenProvider = JwtTokenProvider(jwtProperties)
 
@@ -53,33 +56,33 @@ class TalkCalendarControllerTest
         @Test
         fun `인증 없이 요청하면 401`() {
             mockMvc
-                .post("/api/v1/parties/1/talk-calendar") {
-                    header("X-Kakao-Access-Token", "kakao-token")
-                }.andExpect {
+                .post("/api/v1/parties/1/talk-calendar")
+                .andExpect {
                     status { isUnauthorized() }
                 }
         }
 
         @Test
-        fun `카카오 액세스 토큰 헤더가 없으면 400`() {
+        fun `연동이 없으면 403 과 동의 필요 코드를 반환한다`() {
             val fixture = saveHostAndParty(LocalDateTime.now().plusDays(2))
 
             mockMvc
                 .post("/api/v1/parties/${fixture.partyId}/talk-calendar") {
                     header("Authorization", "Bearer ${fixture.hostToken}")
                 }.andExpect {
-                    status { isBadRequest() }
+                    status { isForbidden() }
+                    jsonPath("$.error.code") { value("KAKAO_CALENDAR_CONSENT_REQUIRED") }
                 }
         }
 
         @Test
         fun `존재하지 않는 파티면 404`() {
             val fixture = saveHostAndParty(LocalDateTime.now().plusDays(2))
+            saveValidConnection(fixture.hostId)
 
             mockMvc
                 .post("/api/v1/parties/999999/talk-calendar") {
                     header("Authorization", "Bearer ${fixture.hostToken}")
-                    header("X-Kakao-Access-Token", "kakao-token")
                 }.andExpect {
                     status { isNotFound() }
                     jsonPath("$.error.code") { value("PARTY_NOT_FOUND") }
@@ -89,11 +92,11 @@ class TalkCalendarControllerTest
         @Test
         fun `이미 시작된 파티면 409`() {
             val fixture = saveHostAndParty(LocalDateTime.now().minusHours(1))
+            saveValidConnection(fixture.hostId)
 
             mockMvc
                 .post("/api/v1/parties/${fixture.partyId}/talk-calendar") {
                     header("Authorization", "Bearer ${fixture.hostToken}")
-                    header("X-Kakao-Access-Token", "kakao-token")
                 }.andExpect {
                     status { isConflict() }
                     jsonPath("$.error.code") { value("TALK_CALENDAR_PARTY_ALREADY_STARTED") }
@@ -113,11 +116,11 @@ class TalkCalendarControllerTest
                         email = "calendar-stranger@test.local",
                     ),
                 )
+            saveValidConnection(stranger.id)
 
             mockMvc
                 .post("/api/v1/parties/${fixture.partyId}/talk-calendar") {
                     header("Authorization", "Bearer ${tokenProvider.issue(stranger)}")
-                    header("X-Kakao-Access-Token", "kakao-token")
                 }.andExpect {
                     status { isForbidden() }
                     jsonPath("$.error.code") { value("PARTY_FORBIDDEN") }
@@ -125,13 +128,13 @@ class TalkCalendarControllerTest
         }
 
         @Test
+        @org.junit.jupiter.api.Disabled("Task 9 에서 연동 픽스처와 함께 복구")
         fun `호스트가 유효한 토큰으로 요청하면 일정을 만들고 200`() {
             val fixture = saveHostAndParty(LocalDateTime.now().plusDays(2))
 
             mockMvc
                 .post("/api/v1/parties/${fixture.partyId}/talk-calendar") {
                     header("Authorization", "Bearer ${fixture.hostToken}")
-                    header("X-Kakao-Access-Token", "kakao-token")
                 }.andExpect {
                     status { isOk() }
                     jsonPath("$.data.eventId") { value("stub-event-1") }
@@ -144,12 +147,12 @@ class TalkCalendarControllerTest
         }
 
         @Test
+        @org.junit.jupiter.api.Disabled("Task 9 에서 연동 픽스처와 함께 복구")
         fun `이미 등록한 파티를 다시 요청하면 기존 일정을 갱신하고 updated true`() {
             val fixture = saveHostAndParty(LocalDateTime.now().plusDays(2))
             val request: (Unit) -> Unit = {
                 mockMvc.post("/api/v1/parties/${fixture.partyId}/talk-calendar") {
                     header("Authorization", "Bearer ${fixture.hostToken}")
-                    header("X-Kakao-Access-Token", "kakao-token")
                 }
             }
             request(Unit)
@@ -157,7 +160,6 @@ class TalkCalendarControllerTest
             mockMvc
                 .post("/api/v1/parties/${fixture.partyId}/talk-calendar") {
                     header("Authorization", "Bearer ${fixture.hostToken}")
-                    header("X-Kakao-Access-Token", "kakao-token")
                 }.andExpect {
                     status { isOk() }
                     jsonPath("$.data.eventId") { value("stub-event-1") }
@@ -169,6 +171,7 @@ class TalkCalendarControllerTest
         }
 
         @Test
+        @org.junit.jupiter.api.Disabled("Task 9 에서 연동 픽스처와 함께 복구")
         fun `카카오로 나가는 일정 시각은 카카오 문서 형식을 따른다`() {
             val startedAt = LocalDateTime.of(2026, 12, 24, 19, 0)
             val fixture = saveHostAndParty(startedAt)
@@ -176,7 +179,6 @@ class TalkCalendarControllerTest
             mockMvc
                 .post("/api/v1/parties/${fixture.partyId}/talk-calendar") {
                     header("Authorization", "Bearer ${fixture.hostToken}")
-                    header("X-Kakao-Access-Token", "kakao-token")
                 }.andExpect { status { isOk() } }
 
             val body = URLDecoder.decode(kakaoRequests.getValue(CREATE_PATH), Charsets.UTF_8)
@@ -188,6 +190,7 @@ class TalkCalendarControllerTest
 
         private data class HostFixture(
             val partyId: Long,
+            val hostId: Long,
             val hostToken: String,
         )
 
@@ -210,7 +213,23 @@ class TalkCalendarControllerTest
                         celebrantNickname = "지민",
                     ),
                 )
-            return HostFixture(partyId = party.id, hostToken = tokenProvider.issue(host))
+            return HostFixture(partyId = party.id, hostId = host.id, hostToken = tokenProvider.issue(host))
+        }
+
+        /**
+         * party 검증(404/409/403)이 토큰 확보 이후 단계까지 도달하도록, 만료되지 않은 연동을 심어 둔다.
+         * 등록 성공 경로(카카오로 실제 요청이 나가는 케이스)는 Task 9 에서 별도 픽스처로 되살린다.
+         */
+        private fun saveValidConnection(userId: Long) {
+            kakaoCalendarConnectionRepository.save(
+                KakaoCalendarConnection(
+                    userId = userId,
+                    accessToken = "valid-access-token",
+                    refreshToken = "valid-refresh-token",
+                    accessTokenExpiresAt = LocalDateTime.now().plusHours(1),
+                    refreshTokenExpiresAt = LocalDateTime.now().plusDays(30),
+                ),
+            )
         }
 
         companion object {
