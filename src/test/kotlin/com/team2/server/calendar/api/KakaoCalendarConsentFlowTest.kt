@@ -83,6 +83,20 @@ class KakaoCalendarConsentFlowTest
         }
 
         @Test
+        fun `화이트리스트에 없는 redirectUri 로 발급을 요청하면 400`() {
+            val user = saveUser()
+
+            mockMvc
+                .get("/api/v1/me/talk-calendar-connection/consent-url") {
+                    header("Authorization", "Bearer ${tokenProvider.issue(user)}")
+                    param("redirectUri", "http://evil.example.com/callback")
+                }.andExpect {
+                    status { isBadRequest() }
+                    jsonPath("$.error.code") { value("INVALID_INPUT") }
+                }
+        }
+
+        @Test
         fun `진입 요청은 카카오 인가 주소로 리다이렉트하고 쿠키를 심는다`() {
             val user = saveUser()
             val ticket = consentTicketSigner.issue(user.id)

@@ -22,6 +22,8 @@ interface KakaoCalendarConnectionApi {
 
 일정 등록이 403 `KAKAO_CALENDAR_CONSENT_REQUIRED` 를 반환했을 때 이 엔드포인트를 호출한다.
 마이페이지에서 미리 연동하는 흐름에도 같은 엔드포인트를 쓴다.
+
+`redirectUri` 는 화이트리스트(`app.oauth2.authorized-redirect-uris`)에 등록된 주소여야 한다.
 """,
         security = [SecurityRequirement(name = "Bearer Authentication")],
     )
@@ -30,7 +32,7 @@ interface KakaoCalendarConnectionApi {
     @InternalServerErrorResponse
     fun issueConsentUrl(
         @Parameter(hidden = true) principal: UserPrincipal,
-        @Parameter(description = "동의 후 돌아올 프론트 주소", example = "https://hapalin.com/mypage")
+        @Parameter(description = "동의 후 돌아올 프론트 주소", example = "https://hapalin.com/oauth/redirect")
         redirectUri: String,
     ): ApiResponse<KakaoCalendarConsentUrlResult>
 

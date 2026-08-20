@@ -169,6 +169,23 @@ class TalkCalendarControllerTest
         }
 
         @Test
+        fun `카카오가 저장된 토큰을 거부하면 연동을 지우고 403 을 준다`() {
+            val fixture = saveHostAndParty(LocalDateTime.now().plusDays(2))
+            saveValidConnection(fixture.hostId)
+            KakaoStubServers.rejectNextCreateEventWithUnauthorized = true
+
+            mockMvc
+                .post("/api/v1/parties/${fixture.partyId}/talk-calendar") {
+                    header("Authorization", "Bearer ${fixture.hostToken}")
+                }.andExpect {
+                    status { isForbidden() }
+                    jsonPath("$.error.code") { value("KAKAO_CALENDAR_CONSENT_REQUIRED") }
+                }
+
+            assertTrue(kakaoCalendarConnectionRepository.findAll().isEmpty())
+        }
+
+        @Test
         fun `카카오로 나가는 일정 시각은 카카오 문서 형식을 따른다`() {
             val startedAt = LocalDateTime.of(2026, 12, 24, 19, 0)
             val fixture = saveHostAndParty(startedAt)

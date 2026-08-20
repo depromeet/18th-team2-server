@@ -93,10 +93,19 @@ cross-feature 접근은 `chat` feature가 쓰는 패턴(자기 feature의 port �
 `GET /api/v1/me/talk-calendar-connection/consent-url` — 서비스 JWT 로 인증되는 순수 JSON.
 
 요청자의 `userId` 를 담은 티켓을 만들고, 그 티켓이 포함된 동의 진입 주소를 반환한다.
-등록 API 가 403 을 낼 때 싣는 `consentUrl` 도 이 엔드포인트가 만드는 것과 같은 값이다.
 
-이 엔드포인트가 따로 필요한 이유는 티켓 발급 경로가 등록 API 의 403 하나뿐이면 마이페이지에서
-"톡캘린더 연동하기" 를 먼저 누르는 UI 를 만들 수 없기 때문이다. 그 경로에는 403 이 없다.
+`consentUrl` 은 카카오 `authorize` 주소가 아니라 **우리 동의 진입 엔드포인트 주소**다. 카카오 주소를
+직접 주면 티켓과 쿠키가 심기지 않아 콜백 검증이 반드시 실패한다. 클라이언트는 카카오 REST 키도
+scope 이름도 알 필요가 없다. 티켓이 URL 에 포함되므로 진입 엔드포인트가 사실상 인증된다.
+
+등록 API 가 403 `KAKAO_CALENDAR_CONSENT_REQUIRED` 를 반환하면 클라이언트는 이 엔드포인트를 호출해
+동의 URL 을 받는다. 응답 본문에 `consentUrl` 을 직접 싣는 대안도 검토했으나, 공통 `ErrorResponse` 가
+`{status, error:{code, message}}` 구조라 403 에만 필드를 얹으면 모든 에러 응답의 형태가 바뀐다. 대신
+이 엔드포인트 하나를 동의 URL 을 만드는 유일한 경로로 유지한다. 왕복이 한 번 늘지만 사용자당
+최초 1회뿐이다.
+
+이 엔드포인트가 따로 필요한 이유는 이뿐만이 아니다. 티켓 발급 경로가 등록 API 의 403 하나뿐이면
+마이페이지에서 "톡캘린더 연동하기" 를 먼저 누르는 UI 를 만들 수 없다. 그 경로에는 403 이 없다.
 
 ### 일정 등록
 
@@ -106,13 +115,10 @@ cross-feature 접근은 `chat` feature가 쓰는 패턴(자기 feature의 port �
 |---|---|
 | 유효한 토큰 보유 | 200, `data` 에 `eventId` 와 `updated` |
 | 액세스 토큰 만료, 갱신 가능 | 갱신 후 200 |
-| 연동 없음 / 리프레시 만료 / 동의 철회됨 | 403 `KAKAO_CALENDAR_CONSENT_REQUIRED`, `data` 에 `consentUrl` |
+| 연동 없음 / 리프레시 만료 / 동의 철회됨 | 403 `KAKAO_CALENDAR_CONSENT_REQUIRED` |
 
-`consentUrl` 은 카카오 `authorize` 주소가 아니라 **우리 동의 진입 엔드포인트 주소**다. 카카오 주소를
-직접 주면 티켓과 쿠키가 심기지 않아 콜백 검증이 반드시 실패한다. 클라이언트는 카카오 REST 키도
-scope 이름도 알 필요가 없다.
-
-티켓이 URL 에 포함되므로 진입 엔드포인트가 사실상 인증된다.
+403 응답 본문에는 동의 URL 이 실리지 않는다. 클라이언트는 위 "동의 URL 발급" 엔드포인트를 별도로
+호출해 받는다.
 
 상태 코드를 403 으로 두는 이유는 RFC 6750 이 scope 부족에 403 을 규정하고 있고, 이 의미의
 `KAKAO_CALENDAR_CONSENT_REQUIRED` 가 이미 403 으로 존재하기 때문이다. 409 는 이 엔드포인트에서
@@ -364,7 +370,7 @@ UNIQUE 제약 `(user_id, party_id, provider)` 이 멱등성의 실제 방어선�
 
 | 상황 | ErrorCode | HTTP |
 |---|---|---|
-| 연동 없음 / 리프레시 만료 | `KAKAO_CALENDAR_CONSENT_REQUIRED` — 응답에 `consentUrl` 포함 | 403 |
+| 연동 없음 / 리프레시 만료 | `KAKAO_CALENDAR_CONSENT_REQUIRED` — 동의 URL 은 별도 발급 엔드포인트로 | 403 |
 | 카카오가 scope 부족(`-402`) 응답 | 연동을 지우고 위 403 으로 | 403 |
 | 저장된 토큰을 카카오가 거부(`-401`) | 갱신을 시도하고, 실패하면 위 403 으로 흡수 | — |
 | 카카오 5xx 또는 타임아웃 | `KAKAO_CALENDAR_UNAVAILABLE` | 502 |
