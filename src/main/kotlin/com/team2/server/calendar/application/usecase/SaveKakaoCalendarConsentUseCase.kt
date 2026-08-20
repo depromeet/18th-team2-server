@@ -4,7 +4,6 @@ import com.team2.server.calendar.application.port.CalendarUserPort
 import com.team2.server.calendar.application.port.KakaoAccountPort
 import com.team2.server.calendar.application.port.KakaoOAuthPort
 import com.team2.server.calendar.application.service.KakaoCalendarConnectionService
-import com.team2.server.calendar.application.service.KakaoConsentUrlFactory
 import com.team2.server.calendar.domain.entity.KakaoCalendarConnection
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -35,7 +34,6 @@ class SaveKakaoCalendarConsentUseCase(
     private val kakaoAccountPort: KakaoAccountPort,
     private val calendarUserPort: CalendarUserPort,
     private val kakaoCalendarConnectionService: KakaoCalendarConnectionService,
-    private val kakaoConsentUrlFactory: KakaoConsentUrlFactory,
     private val clock: Clock,
 ) {
     @Suppress("ReturnCount")
@@ -43,8 +41,9 @@ class SaveKakaoCalendarConsentUseCase(
     operator fun invoke(
         code: String,
         ticketUserId: Long,
+        redirectUri: String,
     ): ConsentOutcome {
-        val tokens = kakaoOAuthPort.exchange(code, kakaoConsentUrlFactory.callbackUri()) ?: return ConsentOutcome.FAILED
+        val tokens = kakaoOAuthPort.exchange(code, redirectUri) ?: return ConsentOutcome.FAILED
         val providerId = kakaoAccountPort.fetchProviderId(tokens.accessToken) ?: return ConsentOutcome.FAILED
         if (calendarUserPort.findUserIdByKakaoProviderId(providerId) != ticketUserId) {
             return ConsentOutcome.ACCOUNT_MISMATCH

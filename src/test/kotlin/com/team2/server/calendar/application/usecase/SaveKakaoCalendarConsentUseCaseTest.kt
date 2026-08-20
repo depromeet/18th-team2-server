@@ -5,7 +5,6 @@ import com.team2.server.calendar.application.port.KakaoAccountPort
 import com.team2.server.calendar.application.port.KakaoOAuthPort
 import com.team2.server.calendar.application.port.KakaoOAuthTokens
 import com.team2.server.calendar.application.service.KakaoCalendarConnectionService
-import com.team2.server.calendar.application.service.KakaoConsentUrlFactory
 import com.team2.server.calendar.domain.entity.KakaoCalendarConnection
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
@@ -24,7 +23,6 @@ class SaveKakaoCalendarConsentUseCaseTest {
     private val kakaoAccountPort: KakaoAccountPort = mock()
     private val calendarUserPort: CalendarUserPort = mock()
     private val connectionService: KakaoCalendarConnectionService = mock()
-    private val urlFactory: KakaoConsentUrlFactory = mock()
     private val fixedNow = LocalDateTime.of(2026, 8, 19, 12, 0)
     private val clock: Clock = Clock.fixed(fixedNow.toInstant(ZoneOffset.UTC), ZoneOffset.UTC)
     private val useCase =
@@ -33,15 +31,14 @@ class SaveKakaoCalendarConsentUseCaseTest {
             kakaoAccountPort,
             calendarUserPort,
             connectionService,
-            urlFactory,
             clock,
         )
 
     private val tokens = KakaoOAuthTokens("access-1", 21599L, "refresh-1", 5183999L)
+    private val redirectUri = "https://api.example.com/callback"
 
     private fun stubHappyPath() {
-        whenever(urlFactory.callbackUri()).thenReturn("https://api.example.com/callback")
-        whenever(kakaoOAuthPort.exchange("code-1", "https://api.example.com/callback")).thenReturn(tokens)
+        whenever(kakaoOAuthPort.exchange("code-1", redirectUri)).thenReturn(tokens)
         whenever(kakaoAccountPort.fetchProviderId("access-1")).thenReturn("kakao-1")
         whenever(calendarUserPort.findUserIdByKakaoProviderId("kakao-1")).thenReturn(10L)
     }
@@ -51,7 +48,7 @@ class SaveKakaoCalendarConsentUseCaseTest {
         stubHappyPath()
         whenever(connectionService.find(10L)).thenReturn(null)
 
-        assertEquals(ConsentOutcome.GRANTED, useCase("code-1", ticketUserId = 10L))
+        assertEquals(ConsentOutcome.GRANTED, useCase("code-1", ticketUserId = 10L, redirectUri = redirectUri))
 
         val captor = argumentCaptor<KakaoCalendarConnection>()
         verify(connectionService).save(captor.capture())
@@ -74,7 +71,7 @@ class SaveKakaoCalendarConsentUseCaseTest {
             )
         whenever(connectionService.find(10L)).thenReturn(existing)
 
-        assertEquals(ConsentOutcome.GRANTED, useCase("code-1", ticketUserId = 10L))
+        assertEquals(ConsentOutcome.GRANTED, useCase("code-1", ticketUserId = 10L, redirectUri = redirectUri))
 
         assertEquals("access-1", existing.accessToken)
         assertEquals("refresh-1", existing.refreshToken)
@@ -85,39 +82,36 @@ class SaveKakaoCalendarConsentUseCaseTest {
     fun `카카오 계정이 티켓의 사용자와 다르면 저장하지 않는다`() {
         stubHappyPath()
 
-        assertEquals(ConsentOutcome.ACCOUNT_MISMATCH, useCase("code-1", ticketUserId = 99L))
+        assertEquals(ConsentOutcome.ACCOUNT_MISMATCH, useCase("code-1", ticketUserId = 99L, redirectUri = redirectUri))
 
         verify(connectionService, never()).save(any())
     }
 
     @Test
     fun `카카오 계정에 대응하는 사용자가 없으면 저장하지 않는다`() {
-        whenever(urlFactory.callbackUri()).thenReturn("https://api.example.com/callback")
-        whenever(kakaoOAuthPort.exchange("code-1", "https://api.example.com/callback")).thenReturn(tokens)
+        whenever(kakaoOAuthPort.exchange("code-1", redirectUri)).thenReturn(tokens)
         whenever(kakaoAccountPort.fetchProviderId("access-1")).thenReturn("kakao-1")
         whenever(calendarUserPort.findUserIdByKakaoProviderId("kakao-1")).thenReturn(null)
 
-        assertEquals(ConsentOutcome.ACCOUNT_MISMATCH, useCase("code-1", ticketUserId = 10L))
+        assertEquals(ConsentOutcome.ACCOUNT_MISMATCH, useCase("code-1", ticketUserId = 10L, redirectUri = redirectUri))
 
         verify(connectionService, never()).save(any())
     }
 
     @Test
     fun `토큰 교환이 거부되면 FAILED 를 반환한다`() {
-        whenever(urlFactory.callbackUri()).thenReturn("https://api.example.com/callback")
-        whenever(kakaoOAuthPort.exchange("code-1", "https://api.example.com/callback")).thenReturn(null)
+        whenever(kakaoOAuthPort.exchange("code-1", redirectUri)).thenReturn(null)
 
-        assertEquals(ConsentOutcome.FAILED, useCase("code-1", ticketUserId = 10L))
+        assertEquals(ConsentOutcome.FAILED, useCase("code-1", ticketUserId = 10L, redirectUri = redirectUri))
 
         verify(connectionService, never()).save(any())
     }
 
     @Test
     fun `카카오 계정 조회가 실패하면 FAILED 를 반환한다`() {
-        whenever(urlFactory.callbackUri()).thenReturn("https://api.example.com/callback")
-        whenever(kakaoOAuthPort.exchange("code-1", "https://api.example.com/callback")).thenReturn(tokens)
+        whenever(kakaoOAuthPort.exchange("code-1", redirectUri)).thenReturn(tokens)
         whenever(kakaoAccountPort.fetchProviderId("access-1")).thenReturn(null)
 
-        assertEquals(ConsentOutcome.FAILED, useCase("code-1", ticketUserId = 10L))
+        assertEquals(ConsentOutcome.FAILED, useCase("code-1", ticketUserId = 10L, redirectUri = redirectUri))
     }
 }

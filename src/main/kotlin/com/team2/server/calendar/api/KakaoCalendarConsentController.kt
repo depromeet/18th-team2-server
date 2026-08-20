@@ -7,6 +7,7 @@ import com.team2.server.calendar.application.usecase.ConsentOutcome
 import com.team2.server.calendar.application.usecase.SaveKakaoCalendarConsentUseCase
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import org.slf4j.LoggerFactory
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -29,6 +30,8 @@ class KakaoCalendarConsentController(
     private val saveKakaoCalendarConsentUseCase: SaveKakaoCalendarConsentUseCase,
     private val oAuth2Properties: OAuth2Properties,
 ) {
+    private val log = LoggerFactory.getLogger(javaClass)
+
     /** 실패 사유별로 다른 결과를 돌려보내야 해 가드 절이 여러 개다. 합치면 사유 구분이 사라진다. */
     @Suppress("ReturnCount")
     @GetMapping
@@ -71,7 +74,8 @@ class KakaoCalendarConsentController(
                 ?: return RedirectView(resultUrl(redirectUri, ConsentOutcome.EXPIRED))
 
         val outcome =
-            runCatching { saveKakaoCalendarConsentUseCase(code, userId) }
+            runCatching { saveKakaoCalendarConsentUseCase(code, userId, kakaoConsentUrlFactory.callbackUri()) }
+                .onFailure { log.error("카카오 캘린더 동의 저장 실패", it) }
                 .getOrDefault(ConsentOutcome.FAILED)
         return RedirectView(resultUrl(redirectUri, outcome))
     }
