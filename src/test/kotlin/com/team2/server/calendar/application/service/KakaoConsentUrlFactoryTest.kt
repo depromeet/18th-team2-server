@@ -57,7 +57,7 @@ class KakaoConsentUrlFactoryTest {
     }
 
     @Test
-    fun `프론트 origin 의 끝 슬래시는 정규화한다`() {
+    fun `프론트 주소의 끝 슬래시는 정규화한다`() {
         val trailing =
             KakaoConsentUrlFactory(
                 apiBaseUrl = "https://api.example.com",
@@ -70,7 +70,20 @@ class KakaoConsentUrlFactoryTest {
     }
 
     @Test
-    fun `프론트 origin 설정이 잘못되면 생성 단계에서 거부한다`() {
+    fun `프론트가 하위 경로에 배포돼 있으면 그 경로까지 붙인다`() {
+        val subPath =
+            KakaoConsentUrlFactory(
+                apiBaseUrl = "https://api.example.com",
+                authBaseUrl = "https://kauth.kakao.com",
+                clientId = "test-client-id",
+                webBaseUrl = "https://web.example.com/app",
+            )
+
+        assertEquals("https://web.example.com/app/party/366", subPath.returnUrl("/party/366"))
+    }
+
+    @Test
+    fun `프론트 주소 설정이 잘못되면 생성 단계에서 거부한다`() {
         val wrong =
             listOf(
                 "hapalin.com",

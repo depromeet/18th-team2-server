@@ -48,7 +48,7 @@ class KakaoConsentUrlFactory(
     )
 
     /** 설정 오타를 기동 시점에 드러낸다. 매 요청 검사로 미루면 "복귀가 조용히 안 맞는" 형태로만 보인다. */
-    private val returnOrigin: String = normalizeOrigin(webBaseUrl)
+    private val returnBaseUrl: String = normalizeBaseUrl(webBaseUrl)
 
     /** 클라이언트가 브라우저를 보낼 주소. 카카오 주소가 아니라 우리 진입점이다. */
     fun consentEntryUrl(
@@ -76,8 +76,8 @@ class KakaoConsentUrlFactory(
     /** 인가 요청과 토큰 교환에서 반드시 같은 값을 써야 한다. 다르면 카카오가 거부한다. */
     fun callbackUri(): String = apiBaseUrl + CONSENT_CALLBACK_PATH
 
-    /** origin 은 서버 설정에서 오므로 클라이언트가 호스트를 지정할 방법이 없다. */
-    fun returnUrl(returnPath: String): String = returnOrigin + returnPath
+    /** 호스트는 서버 설정에서 오므로 클라이언트가 지정할 방법이 없다. 프론트가 하위 경로에 배포돼 있으면 설정에 그 경로까지 담는다. */
+    fun returnUrl(returnPath: String): String = returnBaseUrl + returnPath
 
     /**
      * `//evil.com` 과 `/\evil.com` 은 브라우저가 프로토콜 상대 주소로 읽어 다른 호스트로 나간다.
@@ -112,7 +112,7 @@ class KakaoConsentUrlFactory(
 
     private fun Char.isHexDigit(): Boolean = this in '0'..'9' || this in 'a'..'f' || this in 'A'..'F'
 
-    private fun normalizeOrigin(value: String): String {
+    private fun normalizeBaseUrl(value: String): String {
         val uri =
             runCatching { URI(value.trim()) }
                 .getOrElse { throw IllegalStateException("app.web-base-url 을 URL 로 읽을 수 없습니다: $value", it) }
