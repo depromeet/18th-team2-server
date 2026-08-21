@@ -26,7 +26,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
-private const val WHITELISTED_REDIRECT_URI = "http://localhost:3000/oauth/redirect"
+private const val RETURN_PATH = "/party/366"
+private const val WEB_BASE_URL = "https://test.example.com"
 
 /**
  * 동의 URL 발급부터 진입, 콜백, 등록, 해제까지 전 구간을 실제 HTTP 로 관통해 검증한다.
@@ -75,7 +76,7 @@ class KakaoCalendarConsentFlowTest
             mockMvc
                 .get("/api/v1/me/talk-calendar-connection/consent-url") {
                     header("Authorization", "Bearer ${tokenProvider.issue(user)}")
-                    param("redirectUri", WHITELISTED_REDIRECT_URI)
+                    param("returnPath", RETURN_PATH)
                 }.andExpect {
                     status { isOk() }
                     jsonPath("$.data.consentUrl") { exists() }
@@ -83,13 +84,13 @@ class KakaoCalendarConsentFlowTest
         }
 
         @Test
-        fun `화이트리스트에 없는 redirectUri 로 발급을 요청하면 400`() {
+        fun `경로가 아닌 returnPath 로 발급을 요청하면 400`() {
             val user = saveUser()
 
             mockMvc
                 .get("/api/v1/me/talk-calendar-connection/consent-url") {
                     header("Authorization", "Bearer ${tokenProvider.issue(user)}")
-                    param("redirectUri", "http://evil.example.com/callback")
+                    param("returnPath", "https://evil.example.com/callback")
                 }.andExpect {
                     status { isBadRequest() }
                     jsonPath("$.error.code") { value("INVALID_INPUT") }
@@ -104,7 +105,7 @@ class KakaoCalendarConsentFlowTest
             mockMvc
                 .get("/api/v1/kakao-calendar/consent") {
                     param("ticket", ticket)
-                    param("redirect_uri", WHITELISTED_REDIRECT_URI)
+                    param("return_path", RETURN_PATH)
                 }.andExpect {
                     status { is3xxRedirection() }
                     redirectedUrlPattern("http://localhost:19596/oauth/authorize?*")
@@ -117,7 +118,7 @@ class KakaoCalendarConsentFlowTest
             mockMvc
                 .get("/api/v1/kakao-calendar/consent") {
                     param("ticket", "forged.ticket")
-                    param("redirect_uri", WHITELISTED_REDIRECT_URI)
+                    param("return_path", RETURN_PATH)
                 }.andExpect {
                     status { is3xxRedirection() }
                     redirectedUrlPattern("**/*calendarConsent=expired*")
@@ -129,14 +130,14 @@ class KakaoCalendarConsentFlowTest
          * 카카오로 보내지 않고 (화이트리스트의 첫 항목으로) failed 결과만 돌려보낸다.
          */
         @Test
-        fun `화이트리스트에 없는 redirect_uri 로 진입하면 failed 로 돌려보낸다`() {
+        fun `경로가 아닌 return_path 로 진입하면 failed 로 돌려보낸다`() {
             val user = saveUser()
             val ticket = consentTicketSigner.issue(user.id)
 
             mockMvc
                 .get("/api/v1/kakao-calendar/consent") {
                     param("ticket", ticket)
-                    param("redirect_uri", "http://evil.example.com/callback")
+                    param("return_path", "//evil.example.com")
                 }.andExpect {
                     status { is3xxRedirection() }
                     redirectedUrlPattern("**/*calendarConsent=failed*")
@@ -156,8 +157,8 @@ class KakaoCalendarConsentFlowTest
                     cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_ticket", ticket))
                     cookie(
                         jakarta.servlet.http.Cookie(
-                            "kakao_calendar_consent_redirect_uri",
-                            WHITELISTED_REDIRECT_URI,
+                            "kakao_calendar_consent_return_path",
+                            RETURN_PATH,
                         ),
                     )
                 }.andExpect {
@@ -184,8 +185,8 @@ class KakaoCalendarConsentFlowTest
                     cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_ticket", ticket))
                     cookie(
                         jakarta.servlet.http.Cookie(
-                            "kakao_calendar_consent_redirect_uri",
-                            WHITELISTED_REDIRECT_URI,
+                            "kakao_calendar_consent_return_path",
+                            RETURN_PATH,
                         ),
                     )
                 }.andExpect {
@@ -208,8 +209,8 @@ class KakaoCalendarConsentFlowTest
                     cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_ticket", "other-ticket"))
                     cookie(
                         jakarta.servlet.http.Cookie(
-                            "kakao_calendar_consent_redirect_uri",
-                            WHITELISTED_REDIRECT_URI,
+                            "kakao_calendar_consent_return_path",
+                            RETURN_PATH,
                         ),
                     )
                 }.andExpect {
@@ -221,7 +222,7 @@ class KakaoCalendarConsentFlowTest
         }
 
         @Test
-        fun `복귀 주소 쿠키가 화이트리스트 밖이면 그리로 보내지 않는다`() {
+        fun `복귀 경로 쿠키가 경로 형식이 아니면 그리로 보내지 않는다`() {
             val user = saveUser()
             val ticket = consentTicketSigner.issue(user.id)
 
@@ -232,13 +233,35 @@ class KakaoCalendarConsentFlowTest
                     cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_ticket", ticket))
                     cookie(
                         jakarta.servlet.http.Cookie(
-                            "kakao_calendar_consent_redirect_uri",
-                            "http://evil.example.com/callback",
+                            "kakao_calendar_consent_return_path",
+                            "https://evil.example.com/callback",
                         ),
                     )
                 }.andExpect {
                     status { is3xxRedirection() }
-                    redirectedUrlPattern("$WHITELISTED_REDIRECT_URI*")
+                    redirectedUrl("$WEB_BASE_URL/?calendarConsent=granted")
+                }
+        }
+
+        @Test
+        fun `이미 인코딩된 복귀 경로를 다시 인코딩하지 않는다`() {
+            val user = saveUser()
+            val ticket = consentTicketSigner.issue(user.id)
+
+            mockMvc
+                .get("/api/v1/kakao-calendar/consent/callback") {
+                    param("code", "auth-code")
+                    param("state", ticket)
+                    cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_ticket", ticket))
+                    cookie(
+                        jakarta.servlet.http.Cookie(
+                            "kakao_calendar_consent_return_path",
+                            "/party/366?q=%20x",
+                        ),
+                    )
+                }.andExpect {
+                    status { is3xxRedirection() }
+                    redirectedUrl("$WEB_BASE_URL/party/366?q=%20x&calendarConsent=granted")
                 }
         }
 
@@ -249,8 +272,8 @@ class KakaoCalendarConsentFlowTest
                     param("error", "access_denied")
                     cookie(
                         jakarta.servlet.http.Cookie(
-                            "kakao_calendar_consent_redirect_uri",
-                            WHITELISTED_REDIRECT_URI,
+                            "kakao_calendar_consent_return_path",
+                            RETURN_PATH,
                         ),
                     )
                 }.andExpect {
@@ -269,8 +292,8 @@ class KakaoCalendarConsentFlowTest
                 cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_ticket", ticket))
                 cookie(
                     jakarta.servlet.http.Cookie(
-                        "kakao_calendar_consent_redirect_uri",
-                        WHITELISTED_REDIRECT_URI,
+                        "kakao_calendar_consent_return_path",
+                        RETURN_PATH,
                     ),
                 )
             }
