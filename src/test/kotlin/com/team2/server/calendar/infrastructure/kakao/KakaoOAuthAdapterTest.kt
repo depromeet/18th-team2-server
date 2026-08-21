@@ -95,6 +95,21 @@ class KakaoOAuthAdapterTest {
     }
 
     @Test
+    fun `invalid_grant 가 아닌 4xx 는 연동을 지우지 않도록 KAKAO_CALENDAR_UNAVAILABLE 로 변환한다`() {
+        server
+            .expect(requestTo("https://kauth.kakao.com/oauth/token"))
+            .andRespond(
+                withStatus(HttpStatus.TOO_MANY_REQUESTS)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body("""{"error":"too_many_requests","error_description":"quota exceeded"}"""),
+            )
+
+        val exception = kotlin.runCatching { adapter.refresh("refresh-1") }.exceptionOrNull()
+
+        assertEquals(ErrorCode.KAKAO_CALENDAR_UNAVAILABLE, (exception as BusinessException).errorCode)
+    }
+
+    @Test
     fun `카카오 장애면 KAKAO_CALENDAR_UNAVAILABLE 로 변환한다`() {
         server
             .expect(requestTo("https://kauth.kakao.com/oauth/token"))

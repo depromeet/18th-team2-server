@@ -57,8 +57,13 @@ class ResolveKakaoCalendarAccessTokenUseCaseTest {
         whenever(kakaoOAuthPort.refresh("stored-refresh"))
             .thenReturn(KakaoOAuthTokens("new-access", 21599L, null, null))
 
+        val refreshTokenBefore = target.refreshToken
+        val refreshExpiresBefore = target.refreshTokenExpiresAt
+
         assertEquals("new-access", useCase(10L))
         assertEquals(fixedNow.plusSeconds(21599), target.accessTokenExpiresAt)
+        assertEquals(refreshTokenBefore, target.refreshToken)
+        assertEquals(refreshExpiresBefore, target.refreshTokenExpiresAt)
         verify(connectionService, never()).delete(any())
     }
 

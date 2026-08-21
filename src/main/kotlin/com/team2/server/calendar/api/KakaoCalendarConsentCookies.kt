@@ -57,5 +57,7 @@ object KakaoCalendarConsentCookies {
             isHttpOnly = true
             this.secure = secure
             this.maxAge = maxAge
+            // 콜백은 카카오에서 오는 교차 사이트 최상위 이동이다. Strict 면 쿠키가 실리지 않아 플로우가 깨진다.
+            setAttribute("SameSite", "Lax")
         }
 }

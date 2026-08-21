@@ -221,6 +221,28 @@ class KakaoCalendarConsentFlowTest
         }
 
         @Test
+        fun `복귀 주소 쿠키가 화이트리스트 밖이면 그리로 보내지 않는다`() {
+            val user = saveUser()
+            val ticket = consentTicketSigner.issue(user.id)
+
+            mockMvc
+                .get("/api/v1/kakao-calendar/consent/callback") {
+                    param("code", "auth-code")
+                    param("state", ticket)
+                    cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_ticket", ticket))
+                    cookie(
+                        jakarta.servlet.http.Cookie(
+                            "kakao_calendar_consent_redirect_uri",
+                            "http://evil.example.com/callback",
+                        ),
+                    )
+                }.andExpect {
+                    status { is3xxRedirection() }
+                    redirectedUrlPattern("$WHITELISTED_REDIRECT_URI*")
+                }
+        }
+
+        @Test
         fun `사용자가 동의를 거부하면 denied 로 돌려보낸다`() {
             mockMvc
                 .get("/api/v1/kakao-calendar/consent/callback") {

@@ -7,6 +7,7 @@ import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.util.Base64
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 
 class ConsentTicketSignerTest {
@@ -74,6 +75,6 @@ class ConsentTicketSignerTest {
         val second = signerAt(issuedAt.plusSeconds(1)).issue(42L)
 
         assertEquals(42L, signerAt(issuedAt.plusSeconds(1)).verify(first))
-        assert(first != second)
+        assertNotEquals(first, second)
     }
 }

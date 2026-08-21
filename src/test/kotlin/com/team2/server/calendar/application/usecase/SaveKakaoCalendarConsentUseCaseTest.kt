@@ -114,4 +114,40 @@ class SaveKakaoCalendarConsentUseCaseTest {
 
         assertEquals(ConsentOutcome.FAILED, useCase("code-1", ticketUserId = 10L, redirectUri = redirectUri))
     }
+
+    @Test
+    fun `신규 연동인데 리프레시 토큰 만료가 없으면 FAILED 를 반환한다`() {
+        whenever(kakaoOAuthPort.exchange("code-1", redirectUri))
+            .thenReturn(KakaoOAuthTokens("access-1", 21599L, "refresh-1", null))
+        whenever(kakaoAccountPort.fetchProviderId("access-1")).thenReturn("kakao-1")
+        whenever(calendarUserPort.findUserIdByKakaoProviderId("kakao-1")).thenReturn(10L)
+        whenever(connectionService.find(10L)).thenReturn(null)
+
+        assertEquals(ConsentOutcome.FAILED, useCase("code-1", ticketUserId = 10L, redirectUri = redirectUri))
+
+        verify(connectionService, never()).save(any())
+    }
+
+    @Test
+    fun `기존 연동은 리프레시 토큰 만료가 없어도 갖고 있던 만료를 지킨다`() {
+        whenever(kakaoOAuthPort.exchange("code-1", redirectUri))
+            .thenReturn(KakaoOAuthTokens("access-1", 21599L, "refresh-1", null))
+        whenever(kakaoAccountPort.fetchProviderId("access-1")).thenReturn("kakao-1")
+        whenever(calendarUserPort.findUserIdByKakaoProviderId("kakao-1")).thenReturn(10L)
+        val existing =
+            KakaoCalendarConnection(
+                userId = 10L,
+                accessToken = "old-access",
+                refreshToken = "old-refresh",
+                accessTokenExpiresAt = fixedNow,
+                refreshTokenExpiresAt = fixedNow.plusSeconds(5183999),
+            )
+        whenever(connectionService.find(10L)).thenReturn(existing)
+
+        assertEquals(ConsentOutcome.GRANTED, useCase("code-1", ticketUserId = 10L, redirectUri = redirectUri))
+
+        assertEquals("access-1", existing.accessToken)
+        assertEquals("old-refresh", existing.refreshToken)
+        assertEquals(fixedNow.plusSeconds(5183999), existing.refreshTokenExpiresAt)
+    }
 }

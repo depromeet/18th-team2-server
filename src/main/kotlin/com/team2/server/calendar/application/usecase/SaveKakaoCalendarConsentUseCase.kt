@@ -27,6 +27,10 @@ enum class ConsentOutcome {
  *
  * 카카오 계정에 대응하는 서비스 사용자가 없는 경우도 같은 실패로 다룬다. 추가 동의는 기존 사용자의
  * 권한을 확장하는 경로이지 가입 경로가 아니다.
+ *
+ * 리프레시 토큰 만료가 응답에 없으면 만료 시각을 모른다는 뜻이다. `now` 로 대신 채우면 저장 직후
+ * 만료로 판정돼 다음 요청에서 연동이 지워지므로, 기존 연동은 갖고 있던 만료를 지키고 신규 연동은
+ * 실패로 돌린다.
  */
 @Service
 class SaveKakaoCalendarConsentUseCase(
@@ -51,7 +55,7 @@ class SaveKakaoCalendarConsentUseCase(
 
         val now = LocalDateTime.now(clock)
         val accessTokenExpiresAt = now.plusSeconds(tokens.accessTokenExpiresInSeconds)
-        val refreshTokenExpiresAt = now.plusSeconds(tokens.refreshTokenExpiresInSeconds ?: 0L)
+        val refreshTokenExpiresAt = tokens.refreshTokenExpiresInSeconds?.let { now.plusSeconds(it) }
         val existing = kakaoCalendarConnectionService.find(ticketUserId)
         if (existing != null) {
             existing.applyRefreshed(
@@ -68,7 +72,7 @@ class SaveKakaoCalendarConsentUseCase(
                 accessToken = tokens.accessToken,
                 refreshToken = tokens.refreshToken ?: return ConsentOutcome.FAILED,
                 accessTokenExpiresAt = accessTokenExpiresAt,
-                refreshTokenExpiresAt = refreshTokenExpiresAt,
+                refreshTokenExpiresAt = refreshTokenExpiresAt ?: return ConsentOutcome.FAILED,
             ),
         )
         return ConsentOutcome.GRANTED

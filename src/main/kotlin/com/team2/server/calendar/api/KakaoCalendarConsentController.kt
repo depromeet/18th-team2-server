@@ -59,7 +59,7 @@ class KakaoCalendarConsentController(
         request: HttpServletRequest,
         response: HttpServletResponse,
     ): RedirectView {
-        val redirectUri = KakaoCalendarConsentCookies.readRedirectUri(request) ?: fallbackRedirectUri()
+        val redirectUri = validatedRedirectUri(KakaoCalendarConsentCookies.readRedirectUri(request))
         val cookieTicket = KakaoCalendarConsentCookies.readTicket(request)
         KakaoCalendarConsentCookies.clear(response, oAuth2Properties.cookieSecure)
 
@@ -80,7 +80,14 @@ class KakaoCalendarConsentController(
         return RedirectView(resultUrl(redirectUri, outcome))
     }
 
-    /** 복귀 주소를 알 수 없을 때 쓸 기본값. 화이트리스트의 첫 항목이다. */
+    /**
+     * 쿠키 값은 무결성이 보장되지 않으므로 진입 때와 같은 화이트리스트를 다시 통과시킨다.
+     * 통과하지 못하면 기본값으로 돌려보낸다.
+     */
+    private fun validatedRedirectUri(cookieValue: String?): String =
+        cookieValue?.takeIf { oAuth2Properties.authorizedRedirectUris.contains(it) } ?: fallbackRedirectUri()
+
+    /** 복귀 주소를 알 수 없을 때 쓸 기본값. 화이트리스트의 첫 항목이다(`@NotEmpty` 로 기동 시 보장된다). */
     private fun fallbackRedirectUri(): String = oAuth2Properties.authorizedRedirectUris.first()
 
     private fun resultUrl(

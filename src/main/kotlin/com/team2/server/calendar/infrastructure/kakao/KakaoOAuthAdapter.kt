@@ -77,6 +77,9 @@ class KakaoOAuthAdapter(
                 response.statusCode.value(),
                 response.body?.take(ERROR_BODY_LOG_MAX_LENGTH),
             )
+            if (!isInvalidGrant(response.body)) {
+                throw BusinessException(ErrorCode.KAKAO_CALENDAR_UNAVAILABLE)
+            }
             return null
         }
         if (!response.statusCode.is2xxSuccessful) {
@@ -89,6 +92,16 @@ class KakaoOAuthAdapter(
         }
         return parse(response.body)
     }
+
+    /**
+     * 자격증명이 무효해졌을 때만 `null` 이다.
+     *
+     * 4xx 를 통째로 `null` 로 뭉뚱그리면 갱신 경로가 429 나 `invalid_client` 까지 "리프레시 토큰이 죽었다"로
+     * 읽고 멀쩡한 연동을 지운다. 되살릴 수 있는 실패는 장애로 올려 연동을 남긴다.
+     */
+    private fun isInvalidGrant(body: String?): Boolean =
+        runCatching { objectMapper.readValue(body ?: "", Map::class.java)["error"] == "invalid_grant" }
+            .getOrDefault(false)
 
     private fun post(form: MultiValueMap<String, String>): ResponseEntity<String> =
         try {

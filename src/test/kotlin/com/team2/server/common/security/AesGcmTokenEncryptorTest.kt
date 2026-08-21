@@ -87,4 +87,13 @@ class AesGcmTokenEncryptorTest {
 
         assertTrue(exception.message!!.contains("키 식별자"), exception.message!!)
     }
+
+    @Test
+    fun `잘린 암호문은 진단 가능한 예외로 거부한다`() {
+        val truncated = Base64.getEncoder().encodeToString(byteArrayOf(AesGcmTokenEncryptor.CURRENT_KEY_ID, 2, 3))
+
+        val exception = assertFailsWith<IllegalStateException> { encryptor.decrypt(truncated) }
+
+        assertTrue(exception.message!!.contains("잘렸"), exception.message!!)
+    }
 }

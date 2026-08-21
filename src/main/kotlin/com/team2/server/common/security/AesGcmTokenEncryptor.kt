@@ -41,7 +41,10 @@ class AesGcmTokenEncryptor(
 
     fun decrypt(cipherText: String): String {
         val decoded = decodeCipherText(cipherText)
-        if (decoded.isEmpty() || decoded[0] != CURRENT_KEY_ID) {
+        if (decoded.size <= 1 + IV_LENGTH) {
+            throw IllegalStateException("암호문이 잘렸습니다")
+        }
+        if (decoded[0] != CURRENT_KEY_ID) {
             throw IllegalStateException("알 수 없는 키 식별자입니다")
         }
         val iv = decoded.copyOfRange(1, 1 + IV_LENGTH)

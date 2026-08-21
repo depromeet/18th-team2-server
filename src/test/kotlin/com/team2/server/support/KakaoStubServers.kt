@@ -37,7 +37,10 @@ object KakaoStubServers {
 
     @Synchronized
     fun start() {
-        if (refCount++ > 0) return
+        if (refCount > 0) {
+            refCount++
+            return
+        }
         calendar =
             HttpServer.create(InetSocketAddress("127.0.0.1", CALENDAR_PORT), 0).apply {
                 createContext(CREATE_EVENT_PATH) {
@@ -57,6 +60,7 @@ object KakaoStubServers {
                 createContext("/oauth/token") { respond(it, TOKEN_BODY) }
                 start()
             }
+        refCount = 1
     }
 
     @Synchronized

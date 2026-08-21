@@ -23,9 +23,11 @@ interface TalkCalendarApi {
 이미 등록한 파티를 다시 호출하면 기존 일정을 갱신한다.
 
 **동의**
-서버가 저장한 카카오 토큰을 사용한다. 저장된 연동이 없거나 만료됐으면 403 `KAKAO_CALENDAR_CONSENT_REQUIRED` 를
-반환하므로, 클라이언트는 `GET /api/v1/me/talk-calendar-connection/consent-url` 로 동의 URL 을 받아
-브라우저를 그리로 보낸다. 동의를 마치고 돌아오면 이 API 를 다시 호출한다.
+서버가 저장한 카카오 토큰을 사용한다. 액세스 토큰이 만료됐으면 리프레시 토큰으로 자동 갱신하므로 그것만으로는
+동의를 다시 받지 않는다. 저장된 연동이 아예 없거나, 갱신에 실패해 연동이 해제된 경우에만
+403 `KAKAO_CALENDAR_CONSENT_REQUIRED` 를 반환한다. 이때 클라이언트는
+`GET /api/v1/me/talk-calendar-connection/consent-url` 로 동의 URL 을 받아 브라우저를 그리로 보내고,
+동의를 마치고 돌아오면 이 API 를 다시 호출한다.
 """,
         security = [SecurityRequirement(name = "Bearer Authentication")],
     )
