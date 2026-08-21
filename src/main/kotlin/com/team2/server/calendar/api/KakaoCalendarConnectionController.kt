@@ -23,11 +23,11 @@ class KakaoCalendarConnectionController(
     @GetMapping("/consent-url")
     override fun issueConsentUrl(
         @AuthenticationPrincipal principal: UserPrincipal,
-        @RequestParam redirectUri: String,
+        @RequestParam returnPath: String,
     ): ApiResponse<KakaoCalendarConsentUrlResult> =
         ApiResponse.success(
             HttpStatus.OK,
-            issueKakaoCalendarConsentUrlUseCase(principal.userId, redirectUri),
+            issueKakaoCalendarConsentUrlUseCase(principal.userId, returnPath),
         )
 
     @ResponseStatus(HttpStatus.NO_CONTENT)

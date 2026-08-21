@@ -16,11 +16,12 @@ import org.springframework.web.servlet.view.RedirectView
 import org.springframework.web.util.UriComponentsBuilder
 
 private const val RESULT_PARAM = "calendarConsent"
+private const val FALLBACK_RETURN_PATH = "/"
 
 /**
  * 브라우저 내비게이션으로 오가는 두 경로다. 서비스 JWT 가 실리지 않으므로 `SecurityConfig` 에서
- * 인증 예외로 두되, 진입은 서명된 티켓과 `redirect_uri` 화이트리스트로, 콜백은 쿠키 티켓과 `state`
- * 대조로 보호한다.
+ * 인증 예외로 두되, 진입은 서명된 티켓과 `return_path` 형식 검증으로, 콜백은 쿠키 티켓과 `state`
+ * 대조로 보호한다. 복귀 origin 은 서버 설정이라 클라이언트가 호스트를 지정할 방법이 없다.
  */
 @RestController
 @RequestMapping("/api/v1/kakao-calendar/consent")
@@ -37,16 +38,16 @@ class KakaoCalendarConsentController(
     @GetMapping
     fun enter(
         @RequestParam ticket: String,
-        @RequestParam("redirect_uri") redirectUri: String,
+        @RequestParam("return_path") returnPath: String,
         response: HttpServletResponse,
     ): RedirectView {
         if (consentTicketSigner.verify(ticket) == null) {
-            return RedirectView(resultUrl(fallbackRedirectUri(), ConsentOutcome.EXPIRED))
+            return RedirectView(resultUrl(FALLBACK_RETURN_PATH, ConsentOutcome.EXPIRED))
         }
-        if (!oAuth2Properties.authorizedRedirectUris.contains(redirectUri)) {
-            return RedirectView(resultUrl(fallbackRedirectUri(), ConsentOutcome.FAILED))
+        if (!kakaoConsentUrlFactory.isValidReturnPath(returnPath)) {
+            return RedirectView(resultUrl(FALLBACK_RETURN_PATH, ConsentOutcome.FAILED))
         }
-        KakaoCalendarConsentCookies.write(response, ticket, redirectUri, oAuth2Properties.cookieSecure)
+        KakaoCalendarConsentCookies.write(response, ticket, returnPath, oAuth2Properties.cookieSecure)
         return RedirectView(kakaoConsentUrlFactory.kakaoAuthorizeUrl(ticket))
     }
 
@@ -59,44 +60,38 @@ class KakaoCalendarConsentController(
         request: HttpServletRequest,
         response: HttpServletResponse,
     ): RedirectView {
-        val redirectUri = validatedRedirectUri(KakaoCalendarConsentCookies.readRedirectUri(request))
+        val returnPath = validatedReturnPath(KakaoCalendarConsentCookies.readReturnPath(request))
         val cookieTicket = KakaoCalendarConsentCookies.readTicket(request)
         KakaoCalendarConsentCookies.clear(response, oAuth2Properties.cookieSecure)
 
         if (code.isNullOrBlank()) {
-            return RedirectView(resultUrl(redirectUri, ConsentOutcome.DENIED))
+            return RedirectView(resultUrl(returnPath, ConsentOutcome.DENIED))
         }
         if (cookieTicket == null || state == null || cookieTicket != state) {
-            return RedirectView(resultUrl(redirectUri, ConsentOutcome.EXPIRED))
+            return RedirectView(resultUrl(returnPath, ConsentOutcome.EXPIRED))
         }
         val userId =
             consentTicketSigner.verify(cookieTicket)
-                ?: return RedirectView(resultUrl(redirectUri, ConsentOutcome.EXPIRED))
+                ?: return RedirectView(resultUrl(returnPath, ConsentOutcome.EXPIRED))
 
         val outcome =
             runCatching { saveKakaoCalendarConsentUseCase(code, userId, kakaoConsentUrlFactory.callbackUri()) }
                 .onFailure { log.error("카카오 캘린더 동의 저장 실패", it) }
                 .getOrDefault(ConsentOutcome.FAILED)
-        return RedirectView(resultUrl(redirectUri, outcome))
+        return RedirectView(resultUrl(returnPath, outcome))
     }
 
-    /**
-     * 쿠키 값은 무결성이 보장되지 않으므로 진입 때와 같은 화이트리스트를 다시 통과시킨다.
-     * 통과하지 못하면 기본값으로 돌려보낸다.
-     */
-    private fun validatedRedirectUri(cookieValue: String?): String =
-        cookieValue?.takeIf { oAuth2Properties.authorizedRedirectUris.contains(it) } ?: fallbackRedirectUri()
-
-    /** 복귀 주소를 알 수 없을 때 쓸 기본값. 화이트리스트의 첫 항목이다(`@NotEmpty` 로 기동 시 보장된다). */
-    private fun fallbackRedirectUri(): String = oAuth2Properties.authorizedRedirectUris.first()
+    /** 쿠키 값은 무결성이 보장되지 않으므로 진입 때와 같은 검증을 다시 통과시킨다. */
+    private fun validatedReturnPath(cookieValue: String?): String =
+        cookieValue?.takeIf { kakaoConsentUrlFactory.isValidReturnPath(it) } ?: FALLBACK_RETURN_PATH
 
     private fun resultUrl(
-        redirectUri: String,
+        returnPath: String,
         outcome: ConsentOutcome,
     ): String =
         UriComponentsBuilder
-            .fromUriString(redirectUri)
+            .fromUriString(kakaoConsentUrlFactory.returnUrl(returnPath))
             .queryParam(RESULT_PARAM, outcome.name.lowercase())
-            .encode()
+            .build(true)
             .toUriString()
 }
