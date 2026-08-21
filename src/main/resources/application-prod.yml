@@ -30,6 +30,7 @@ app:
   env: prod
   time-zone: ${APP_TIME_ZONE:Asia/Seoul}
   web-base-url: ${APP_WEB_BASE_URL:https://hapalin.com}
+  api-base-url: ${APP_API_BASE_URL:https://api.hapalin.com}
 
 candle-blow:
   duration-seconds: 180

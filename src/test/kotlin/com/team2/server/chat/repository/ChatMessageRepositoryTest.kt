@@ -1,26 +1,22 @@
 package com.team2.server.chat.repository
 
 import com.team2.server.chat.entity.ChatMessage
-import com.team2.server.config.TestcontainersConfiguration
 import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.PartyRepository
 import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProfileRepository
+import com.team2.server.support.JpaSliceTestSupport
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
 import com.team2.server.user.repository.UserRepository
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
-import org.springframework.context.annotation.Import
 import org.springframework.data.domain.PageRequest
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
 
-@DataJpaTest
-@Import(TestcontainersConfiguration::class)
 class ChatMessageRepositoryTest
     @Autowired
     constructor(
@@ -29,7 +25,7 @@ class ChatMessageRepositoryTest
         private val participantRepository: ParticipantRepository,
         private val partyRepository: PartyRepository,
         private val userRepository: UserRepository,
-    ) {
+    ) : JpaSliceTestSupport() {
         @Test
         fun `countByPartyId - 해당 파티의 메시지 수 반환`() {
             val (party, profile) = saveRealtimeContext("counter")

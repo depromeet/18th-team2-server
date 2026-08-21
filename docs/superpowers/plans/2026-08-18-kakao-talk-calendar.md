@@ -1855,7 +1855,7 @@ git commit -m "feat: 카카오 톡캘린더 일정 등록 API 추가"
 
 구현 중 또는 직후에 사람이 확인해야 하는 것들이다. 코드로 해결되지 않는다.
 
-- 카카오 개발자 콘솔에서 톡캘린더 동의항목의 영문 키를 확인하고 앱에 활성화한다 (통상 `talk_calendar_task`). 클라이언트가 이 scope 로 추가 동의를 받아야 한다.
+- 카카오 개발자 콘솔에서 톡캘린더 동의항목 `talk_calendar` 를 활성화한다. (2026-08-19 정정: 초기에 `talk_calendar_task` 로 적었으나 그것은 톡캘린더 **할 일** 권한이고, 일정 생성에 필요한 것은 `talk_calendar` 다.)
 - 카카오가 "동의 없음"을 401 로 주는지 403 으로 주는지 실제 응답으로 확인하고, 다르면 `KakaoTalkCalendarAdapter.toBusinessException` 의 분기를 고친다.
 - `app.web-base-url` 을 `application-dev.yml` / `application-prod.yml` 에 환경별 실제 값으로 넣는다.
 - 초대 링크 경로 `/invite/{token}` 이 프론트 라우팅과 맞는지 확인한다. 다르면 `PartyCalendarInfoAdapter.findInviteUrl` 을 고친다.

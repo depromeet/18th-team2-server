@@ -84,7 +84,7 @@ Spring TestContext 캐시는 어노테이션 조합 (fingerprint) 이 정확히 
 |---|---|
 | `@SpringBootTest + @Import(TC)` | `IntegrationTestSupport` 상속 |
 | `@SpringBootTest + @AutoConfigureMockMvc + @Import(TC)` | MockMvc 컨트롤러 테스트들 |
-| `@DataJpaTest + @Import(TC)` | `JpaSliceTestSupport` 상속 |
+| `@DataJpaTest + @Import(TC, AesGcmTokenEncryptor, EncryptedStringConverter)` | `JpaSliceTestSupport` 상속. 암호화 컨버터의 의존을 슬라이스에 포함 |
 
 ## 검증 명령어
 
