@@ -337,6 +337,7 @@ JWT 서명 키를 재사용하지 않는 이유는 수명주기가 묶이기 때
 | 종료 | `startedAt` + 30분 |
 | 타임존 | `Asia/Seoul`. 카카오에 넘기는 시각은 UTC RFC5545 형식 |
 | 설명 | `초대 링크: {URL}` 한 줄. URL 은 `PartyInviteService.findLatestUsableInviteToken` 의 토큰과 `app.web-base-url` 을 조합. 사용 가능한 초대가 없으면 빈 문자열 |
+| 미리 알림 | 시작 5분 전 하나. 카카오는 `0(시작 시각) < 값 ≤ 43200` 만 받으므로 시작 시각 알림은 지정할 수 없다 |
 
 파티 엔티티의 `endedAt()`은 롤링페이퍼 열람 기한인 7일 뒤라 캘린더 일정 종료 시각으로 쓰지 않는다.
 

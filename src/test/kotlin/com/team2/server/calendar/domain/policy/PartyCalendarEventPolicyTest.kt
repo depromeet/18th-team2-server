@@ -1,9 +1,11 @@
 package com.team2.server.calendar.domain.policy
 
+import com.team2.server.calendar.domain.vo.CalendarEvent
 import com.team2.server.calendar.domain.vo.CelebrationKind
 import org.junit.jupiter.api.Test
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -117,5 +119,36 @@ class PartyCalendarEventPolicyTest {
             )
 
         assertEquals("", event.description)
+    }
+
+    @Test
+    fun `미리 알림은 시작 5분 전 하나다`() {
+        // 카카오는 0(시작 시각) 을 허용하지 않으므로 시작 시각 알림은 지정할 수 없다.
+        val event =
+            PartyCalendarEventPolicy.compose(
+                kind = CelebrationKind.BIRTHDAY,
+                celebrantName = "지민",
+                startedAt = LocalDateTime.of(2026, 8, 20, 19, 0),
+                inviteUrl = null,
+            )
+
+        assertEquals(listOf(5), event.reminderMinutes)
+    }
+
+    @Test
+    fun `카카오 제약을 벗어난 미리 알림은 일정을 만들 수 없다`() {
+        val rejected = listOf(listOf(0), listOf(3), listOf(43205), listOf(-5), listOf(5, 10, 15))
+
+        for (reminders in rejected) {
+            assertFailsWith<IllegalArgumentException>(message = "$reminders") {
+                CalendarEvent(
+                    title = "제목",
+                    startAt = startedAt,
+                    endAt = startedAt.plusMinutes(30),
+                    description = "",
+                    reminderMinutes = reminders,
+                )
+            }
+        }
     }
 }

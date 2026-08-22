@@ -118,6 +118,7 @@ class KakaoTalkCalendarAdapter(
                         "all_day" to false,
                     ),
                 "description" to event.description,
+                "reminders" to event.reminderMinutes,
             ),
         )
 
