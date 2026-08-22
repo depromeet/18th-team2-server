@@ -10,6 +10,14 @@ object PartyCalendarEventPolicy {
     /** 카카오 톡캘린더 일정 제목 제한. */
     const val MAX_TITLE_LENGTH = 50
 
+    /**
+     * 미리 알림 시점(분).
+     *
+     * 카카오는 `0 < 값 ≤ 43200` 만 받으므로 시작 시각 알림(0)은 지정할 수 없다.
+     * 파티가 [DURATION_MINUTES] 분짜리라 한 번이면 충분하다.
+     */
+    const val REMINDER_MINUTES_BEFORE = 5
+
     fun compose(
         kind: CelebrationKind,
         celebrantName: String?,
@@ -21,6 +29,7 @@ object PartyCalendarEventPolicy {
             startAt = startedAt,
             endAt = startedAt.plusMinutes(DURATION_MINUTES),
             description = inviteUrl?.let { "초대 링크: $it" } ?: "",
+            reminderMinutes = listOf(REMINDER_MINUTES_BEFORE),
         )
 
     private fun composeTitle(

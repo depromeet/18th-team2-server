@@ -118,4 +118,18 @@ class PartyCalendarEventPolicyTest {
 
         assertEquals("", event.description)
     }
+
+    @Test
+    fun `미리 알림은 시작 5분 전 하나다`() {
+        // 카카오는 0(시작 시각) 을 허용하지 않으므로 시작 시각 알림은 지정할 수 없다.
+        val event =
+            PartyCalendarEventPolicy.compose(
+                kind = CelebrationKind.BIRTHDAY,
+                celebrantName = "지민",
+                startedAt = LocalDateTime.of(2026, 8, 20, 19, 0),
+                inviteUrl = null,
+            )
+
+        assertEquals(listOf(5), event.reminderMinutes)
+    }
 }

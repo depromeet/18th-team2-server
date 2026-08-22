@@ -42,6 +42,7 @@ class KakaoTalkCalendarAdapterTest {
             startAt = LocalDateTime.of(2026, 8, 20, 19, 0),
             endAt = LocalDateTime.of(2026, 8, 20, 19, 30),
             description = "초대 링크: https://example.com/invite/abc",
+            reminderMinutes = listOf(5),
         )
 
     @Test
@@ -54,6 +55,7 @@ class KakaoTalkCalendarAdapterTest {
             .andExpect(content().string(org.hamcrest.Matchers.containsString("calendar_id=primary")))
             .andExpect(content().string(org.hamcrest.Matchers.containsString("2026-08-20T10%3A00%3A00Z")))
             .andExpect(content().string(org.hamcrest.Matchers.containsString("2026-08-20T10%3A30%3A00Z")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("%22reminders%22%3A%5B5%5D")))
             .andRespond(withSuccess("""{"event_id":"event-1"}""", MediaType.APPLICATION_JSON))
 
         val eventId = adapter.createEvent("kakao-token", event)
