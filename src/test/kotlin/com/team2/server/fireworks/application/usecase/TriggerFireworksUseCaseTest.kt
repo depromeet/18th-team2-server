@@ -1,6 +1,7 @@
 package com.team2.server.fireworks.application.usecase
 
 import com.team2.server.chat.application.port.PartySseEventPublisher
+import com.team2.server.chat.infrastructure.websocket.ChatSocketGateway
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.usecase.ResolveLiveOpenRealtimePartyUseCase
@@ -30,6 +31,8 @@ class TriggerFireworksUseCaseTest {
 
     @Mock lateinit var partySseEventPublisher: PartySseEventPublisher
 
+    @Mock lateinit var chatSocketGateway: ChatSocketGateway
+
     private lateinit var useCase: TriggerFireworksUseCase
 
     @BeforeEach
@@ -39,6 +42,7 @@ class TriggerFireworksUseCaseTest {
                 resolveLiveOpenRealtimePartyUseCase = resolveLiveOpenRealtimePartyUseCase,
                 resolveRealtimeParticipantProfileUseCase = resolveRealtimeParticipantProfileUseCase,
                 partySseEventPublisher = partySseEventPublisher,
+                chatSocketGateway = chatSocketGateway,
             )
     }
 
@@ -77,7 +81,7 @@ class TriggerFireworksUseCaseTest {
     }
 
     @Test
-    fun `참가자가 폭죽을 트리거하면 SSE fireworks 이벤트가 broadcast된다`() {
+    fun `참가자가 폭죽을 트리거하면 SSE와 WebSocket 양쪽에 fireworks 이벤트가 broadcast된다`() {
         val profile = makeProfile(participantId = 5L, nickname = "토끼왕")
 
         whenever(resolveLiveOpenRealtimePartyUseCase.invoke(10L)).thenReturn(makeParty())
@@ -86,5 +90,6 @@ class TriggerFireworksUseCaseTest {
         useCase.invoke(10L, null, "tok")
 
         verify(partySseEventPublisher).broadcastAfterCommit(eq(10L), any(), anyOrNull())
+        verify(chatSocketGateway).broadcastAfterCommit(eq(10L), eq("fireworks"), any())
     }
 }

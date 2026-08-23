@@ -1,17 +1,14 @@
 package com.team2.server.chat.usecase
 
+import com.team2.server.chat.application.support.ChatMessagePersister
 import com.team2.server.chat.domain.vo.ParticipantRole
+import com.team2.server.chat.dto.ChatMessageResponse
 import com.team2.server.chat.dto.SendChatMessageRequest
-import com.team2.server.chat.entity.ChatMessage
 import com.team2.server.chat.infrastructure.sse.ChatSseGateway
-import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
-import com.team2.server.common.image.entity.ImageTargetType
-import com.team2.server.common.image.persistence.ImageUrlReader
 import com.team2.server.party.application.usecase.ResolveLiveOpenRealtimePartyUseCase
 import com.team2.server.party.application.usecase.ResolveRealtimeParticipantProfileUseCase
-import com.team2.server.party.domain.entity.Character
 import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
@@ -34,9 +31,7 @@ class SendChatMessageUseCaseTest {
 
     @Mock lateinit var resolveRealtimeParticipantProfileUseCase: ResolveRealtimeParticipantProfileUseCase
 
-    @Mock lateinit var chatMessageRepository: ChatMessageRepository
-
-    @Mock lateinit var imageUrlReader: ImageUrlReader
+    @Mock lateinit var chatMessagePersister: ChatMessagePersister
 
     @Mock lateinit var chatSseGateway: ChatSseGateway
 
@@ -113,14 +108,17 @@ class SendChatMessageUseCaseTest {
     fun `JWT로 메시지 전송 성공`() {
         val party = RealtimeParty(ownerId = 1L, startedAt = LocalDateTime.now().minusMinutes(5))
         val participant = Participant(party = party, isCelebrant = true)
-        val character = Character(name = "토끼")
-        val profile = RealtimeParticipantProfile(participant = participant, nickname = "토끼왕", character = character)
-        val savedMessage = ChatMessage(content = "안녕하세요!", party = party, profile = profile)
+        val profile = RealtimeParticipantProfile(participant = participant, nickname = "토끼왕")
         whenever(resolveLiveOpenRealtimePartyUseCase.invoke(1L)).thenReturn(party)
         whenever(resolveRealtimeParticipantProfileUseCase.invoke(1L, 10L, null)).thenReturn(profile)
-        whenever(chatMessageRepository.save(any())).thenReturn(savedMessage)
-        whenever(imageUrlReader.findImageUrlByTargetIdsAndSortOrder(ImageTargetType.CHARACTER, listOf(character.id), 1))
-            .thenReturn(mapOf(character.id to "https://example.com/rabbit.png"))
+        whenever(chatMessagePersister.persist(party, profile, "안녕하세요!"))
+            .thenReturn(
+                chatMessageResponse(
+                    nickname = "토끼왕",
+                    role = ParticipantRole.CELEBRANT,
+                    imageUrl = "https://example.com/rabbit.png",
+                ),
+            )
 
         val response = useCase.send(partyId = 1L, userId = 10L, participantToken = null, request)
 
@@ -136,10 +134,10 @@ class SendChatMessageUseCaseTest {
         val party = RealtimeParty(ownerId = 1L, startedAt = LocalDateTime.now().minusMinutes(5))
         val participant = Participant(party = party, isCelebrant = false)
         val profile = RealtimeParticipantProfile(participant = participant, nickname = "손님", participantToken = "tok")
-        val savedMessage = ChatMessage(content = "안녕하세요!", party = party, profile = profile)
         whenever(resolveLiveOpenRealtimePartyUseCase.invoke(party.id)).thenReturn(party)
         whenever(resolveRealtimeParticipantProfileUseCase.invoke(party.id, null, "tok")).thenReturn(profile)
-        whenever(chatMessageRepository.save(any())).thenReturn(savedMessage)
+        whenever(chatMessagePersister.persist(party, profile, "안녕하세요!"))
+            .thenReturn(chatMessageResponse(nickname = "손님", role = ParticipantRole.PARTICIPANT, imageUrl = null))
 
         val response = useCase.send(partyId = party.id, userId = null, participantToken = "tok", request)
 
@@ -162,4 +160,18 @@ class SendChatMessageUseCaseTest {
             }
         assertEquals(ErrorCode.UNAUTHORIZED, ex.errorCode)
     }
+
+    private fun chatMessageResponse(
+        nickname: String,
+        role: ParticipantRole,
+        imageUrl: String?,
+    ) = ChatMessageResponse(
+        messageId = 1L,
+        content = "안녕하세요!",
+        senderNickname = nickname,
+        senderCharacterId = null,
+        senderCharacterImageUrl = imageUrl,
+        senderRole = role,
+        sentAt = LocalDateTime.now(),
+    )
 }

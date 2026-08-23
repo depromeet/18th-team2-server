@@ -5,6 +5,7 @@ import com.team2.server.burstgame.domain.BurstGameRankingEntry
 import com.team2.server.burstgame.domain.BurstGameRoundStatus
 import com.team2.server.burstgame.domain.BurstGameSnapshot
 import com.team2.server.chat.application.port.PartySseEventPublisher
+import com.team2.server.chat.infrastructure.websocket.ChatSocketGateway
 import org.mockito.Mockito.timeout
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
@@ -19,10 +20,12 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-class SseBurstGameEventBroadcasterTest {
+class RealtimeBurstGameEventBroadcasterTest {
     private val partySseEventPublisher: PartySseEventPublisher = mock()
+    private val chatSocketGateway: ChatSocketGateway = mock()
     private val applicationEventPublisher: ApplicationEventPublisher = mock()
-    private val broadcaster = SseBurstGameEventBroadcaster(partySseEventPublisher, applicationEventPublisher)
+    private val broadcaster =
+        RealtimeBurstGameEventBroadcaster(partySseEventPublisher, chatSocketGateway, applicationEventPublisher)
 
     @AfterTest
     fun tearDown() {
@@ -42,11 +45,15 @@ class SseBurstGameEventBroadcasterTest {
         val payload =
             eventCaptor.firstValue
                 .map { it.data }
-                .filterIsInstance<SseBurstGameEventBroadcaster.BurstGameStartedPayload>()
+                .filterIsInstance<RealtimeBurstGameEventBroadcaster.BurstGameStartedPayload>()
                 .single()
         assertEquals(startedAt, payload.startedAt)
         assertEquals(serverTime, payload.serverTime)
         verify(applicationEventPublisher).publishEvent(BurstGameStartedEvent(1L, serverTime))
+
+        val wsCaptor = argumentCaptor<RealtimeBurstGameEventBroadcaster.BurstGameStartedPayload>()
+        verify(chatSocketGateway).broadcastAfterCommit(eq(1L), eq("burst-game-started"), wsCaptor.capture())
+        assertEquals(payload, wsCaptor.firstValue)
     }
 
     @Test
@@ -68,11 +75,14 @@ class SseBurstGameEventBroadcasterTest {
         val payload =
             eventCaptor.firstValue
                 .map { it.data }
-                .filterIsInstance<SseBurstGameEventBroadcaster.BurstGameProgressPayload>()
+                .filterIsInstance<RealtimeBurstGameEventBroadcaster.BurstGameProgressPayload>()
                 .single()
         assertEquals(latest.endsAt, payload.endsAt)
         assertEquals(latest.serverTime, payload.serverTime)
         assertEquals(latest.totalTapCount, payload.totalTapCount)
+
+        verify(chatSocketGateway, timeout(1_000).times(1))
+            .broadcastAfterCommit(eq(1L), eq("burst-game-progress"), eq(payload))
     }
 
     @Test
@@ -82,6 +92,7 @@ class SseBurstGameEventBroadcasterTest {
         broadcaster.broadcastEnded(endedSnapshot)
 
         verify(partySseEventPublisher, timeout(400).times(1)).broadcastAfterCommit(eq(1L), anyEvent(), isNull())
+        verify(chatSocketGateway, timeout(400).times(1)).broadcastAfterCommit(eq(1L), eq("burst-game-ended"), any())
     }
 
     @Test
@@ -100,6 +111,7 @@ class SseBurstGameEventBroadcasterTest {
         broadcaster.broadcastProgress(snapshot(totalTapCount = 2, stateVersion = 1, startedAt = newStartedAt))
 
         verify(partySseEventPublisher, timeout(1_000).times(2)).broadcastAfterCommit(eq(1L), anyEvent(), isNull())
+        verify(chatSocketGateway, timeout(1_000).times(2)).broadcastAfterCommit(eq(1L), any(), any())
     }
 
     private fun anyEvent(): Set<ResponseBodyEmitter.DataWithMediaType> = any()

@@ -24,11 +24,36 @@ class PartyPhaseTransitionServiceTest {
     private val service =
         PartyPhaseTransitionService(
             phaseStore = phaseStore,
-            eventBroadcaster = eventBroadcaster,
+            eventBroadcasters = listOf(eventBroadcaster),
             burstGameStartPort = burstGameStartPort,
             candleBlowStartPort = candleBlowStartPort,
         )
     private val now = LocalDateTime.of(2026, 6, 8, 20, 30)
+
+    @Test
+    fun `등록된 모든 브로드캐스터에 phase 변경을 전달한다`() {
+        val secondBroadcaster: RealtimePartyEventBroadcaster = mock()
+        val serviceWithTwoBroadcasters =
+            PartyPhaseTransitionService(
+                phaseStore = phaseStore,
+                eventBroadcasters = listOf(eventBroadcaster, secondBroadcaster),
+                burstGameStartPort = burstGameStartPort,
+                candleBlowStartPort = candleBlowStartPort,
+            )
+        whenever(phaseStore.advance(1L, PartyPhase.MUSIC, PartyPhase.CANDLE, now)).thenReturn(true)
+
+        serviceWithTwoBroadcasters.advance(
+            partyId = 1L,
+            currentPhase = PartyPhase.MUSIC,
+            nextPhase = PartyPhase.CANDLE,
+            now = now,
+            userId = 10L,
+            participantToken = null,
+        )
+
+        verify(eventBroadcaster).broadcastPhaseChanged(1L, PartyPhase.CANDLE, now, now)
+        verify(secondBroadcaster).broadcastPhaseChanged(1L, PartyPhase.CANDLE, now, now)
+    }
 
     @Test
     fun `MUSIC에서 CANDLE로 전환되면 phase 이벤트와 촛불끄기 시작을 처리한다`() {
