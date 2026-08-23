@@ -1,5 +1,6 @@
 package com.team2.server.chat.controller
 
+import com.team2.server.auth.jwt.JwtTokenProvider
 import com.team2.server.config.TestcontainersConfiguration
 import com.team2.server.party.domain.entity.Character
 import com.team2.server.party.domain.entity.Participant
@@ -11,7 +12,11 @@ import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.PartyInviteRepository
 import com.team2.server.party.infrastructure.persistence.PartyRepository
 import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProfileRepository
+import com.team2.server.user.entity.AuthProvider
+import com.team2.server.user.entity.User
+import com.team2.server.user.repository.UserRepository
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -24,6 +29,7 @@ import org.springframework.messaging.simp.stomp.StompFrameHandler
 import org.springframework.messaging.simp.stomp.StompHeaders
 import org.springframework.messaging.simp.stomp.StompSession
 import org.springframework.messaging.simp.stomp.StompSessionHandlerAdapter
+import org.springframework.web.socket.WebSocketHttpHeaders
 import org.springframework.web.socket.client.standard.StandardWebSocketClient
 import org.springframework.web.socket.messaging.WebSocketStompClient
 import java.lang.reflect.Type
@@ -31,6 +37,7 @@ import java.time.LocalDateTime
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -56,6 +63,12 @@ class ChatSocketControllerTest {
 
     @Autowired
     private lateinit var realtimeParticipantProfileRepository: RealtimeParticipantProfileRepository
+
+    @Autowired
+    private lateinit var userRepository: UserRepository
+
+    @Autowired
+    private lateinit var jwtTokenProvider: JwtTokenProvider
 
     private lateinit var stompClient: WebSocketStompClient
 
@@ -304,6 +317,89 @@ class ChatSocketControllerTest {
         )
     }
 
+    @Test
+    fun `유효하지 않은 JWT로 연결하면 CONNECT 자체가 거부된다`() {
+        val connectHeaders = StompHeaders()
+        connectHeaders["Authorization"] = "Bearer invalid-token"
+
+        val ex =
+            assertThrows(ExecutionException::class.java) {
+                stompClient
+                    .connectAsync(
+                        "ws://localhost:$port/ws",
+                        WebSocketHttpHeaders(),
+                        connectHeaders,
+                        object : StompSessionHandlerAdapter() {},
+                    ).get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            }
+
+        assertTrue(ex.cause != null, "유효하지 않은 JWT로 연결하면 CONNECT가 예외로 거부되어야 한다")
+    }
+
+    @Test
+    fun `JWT로 인증된 호스트가 participantToken 없이 입장하면 celebrant로 인식된다`() {
+        val owner =
+            userRepository.save(
+                User(
+                    name = "주최자",
+                    birthDay = "01-01",
+                    provider = AuthProvider.KAKAO,
+                    providerId = "host-${UUID.randomUUID()}",
+                    email = "host-${UUID.randomUUID()}@test.local",
+                ),
+            )
+        val fixture = seedPartyWithHost(owner)
+        val token = jwtTokenProvider.issue(owner)
+
+        val bystander = connect()
+        val bystanderEntered = enter(bystander, fixture, nickname = "먼저온유저").get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        val broadcasts = subscribeBroadcast(bystander, fixture.partyId, participantTokenOf(bystanderEntered))
+        val hostBroadcast = broadcasts.expect { it.event == "user-entered" && it.data["role"] == "CELEBRANT" }
+
+        val connectHeaders = StompHeaders()
+        connectHeaders["Authorization"] = "Bearer $token"
+        val hostSession = connect(connectHeaders = connectHeaders)
+        val entered = enter(hostSession, fixture, nickname = "주최자").get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+
+        assertEquals("entered", entered["event"])
+        val broadcast = hostBroadcast.get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        assertEquals("CELEBRANT", (broadcast["data"] as Map<*, *>)["role"])
+
+        bystander.disconnect()
+        hostSession.disconnect()
+    }
+
+    private fun seedPartyWithHost(owner: User): PartyFixture {
+        val now = LocalDateTime.now()
+        val character = characterRepository.save(Character(name = "테스트캐릭터-${UUID.randomUUID()}"))
+        val party =
+            partyRepository.save(
+                RealtimeParty(ownerId = owner.id, celebrantNickname = "주최자", startedAt = now.minusMinutes(1)),
+            )
+        val invite =
+            partyInviteRepository.save(
+                PartyInvite(
+                    party = party,
+                    token =
+                        UUID
+                            .randomUUID()
+                            .toString()
+                            .replace("-", "")
+                            .take(16),
+                    expiresAt = now.plusHours(1),
+                ),
+            )
+        val hostParticipant =
+            participantRepository.save(
+                Participant(party = party, user = owner, isCelebrant = true, hasWrittenPaper = false),
+            )
+        realtimeParticipantProfileRepository.save(
+            RealtimeParticipantProfile(participant = hostParticipant, nickname = "주최자"),
+        )
+
+        return PartyFixture(party.id, invite.token, character.id)
+    }
+
     // --- 헬퍼 ---
 
     private data class PartyFixture(
@@ -350,9 +446,12 @@ class ChatSocketControllerTest {
         return PartyFixture(party.id, invite.token, character.id)
     }
 
-    private fun connect(handler: StompSessionHandlerAdapter = object : StompSessionHandlerAdapter() {}): StompSession =
+    private fun connect(
+        handler: StompSessionHandlerAdapter = object : StompSessionHandlerAdapter() {},
+        connectHeaders: StompHeaders = StompHeaders(),
+    ): StompSession =
         stompClient
-            .connectAsync("ws://localhost:$port/ws", handler)
+            .connectAsync("ws://localhost:$port/ws", WebSocketHttpHeaders(), connectHeaders, handler)
             .get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
 
     /**
