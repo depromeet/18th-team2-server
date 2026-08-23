@@ -47,7 +47,7 @@ class PartyEndSchedulerTest {
         scheduler =
             PartyEndScheduler(
                 taskScheduler = taskScheduler,
-                realtimePartyEventBroadcaster = realtimePartyEventBroadcaster,
+                realtimePartyEventBroadcasters = listOf(realtimePartyEventBroadcaster),
                 recoverRealtimePartyEndScheduleUseCase = recoverRealtimePartyEndScheduleUseCase,
                 startAutomaticRealtimePartyEndUseCase = startAutomaticRealtimePartyEndUseCase,
                 clock = clock,
@@ -57,6 +57,42 @@ class PartyEndSchedulerTest {
             scheduledTasks.add(invocation.getArgument(0))
             mock<ScheduledFuture<*>>().also { scheduledFutures.add(it) }
         }
+    }
+
+    @Test
+    fun `등록된 모든 브로드캐스터에 종료 이벤트를 전달한다`() {
+        val secondBroadcaster: RealtimePartyEventBroadcaster = mock()
+        val schedulerWithTwoBroadcasters =
+            PartyEndScheduler(
+                taskScheduler = taskScheduler,
+                realtimePartyEventBroadcasters = listOf(realtimePartyEventBroadcaster, secondBroadcaster),
+                recoverRealtimePartyEndScheduleUseCase = recoverRealtimePartyEndScheduleUseCase,
+                startAutomaticRealtimePartyEndUseCase = startAutomaticRealtimePartyEndUseCase,
+                clock = clock,
+                phaseStore = phaseStore,
+            )
+        val startedAt = now.minusMinutes(10)
+        val endingStartedAt = startedAt.plusMinutes(30)
+        val target =
+            RealtimeEndingScheduleTarget(
+                partyId = 1L,
+                endingStartedAt = endingStartedAt,
+                endedAt = endingStartedAt.plusSeconds(60),
+                endingReason = RealtimePartyEndingReason.TIME_LIMIT_REACHED,
+                hostNickname = "주최자",
+                startedNow = true,
+            )
+        whenever(startAutomaticRealtimePartyEndUseCase(1L, endingStartedAt)).thenReturn(target)
+
+        schedulerWithTwoBroadcasters.onRealtimePartyCreated(RealtimePartyCreatedEvent(1L, startedAt))
+        scheduledTasks[0].run()
+        scheduledTasks[1].run()
+        scheduledTasks[2].run()
+
+        verify(realtimePartyEventBroadcaster).broadcastPartyEnded(1L, endingStartedAt.plusSeconds(60), "주최자")
+        verify(secondBroadcaster).broadcastPartyEnded(1L, endingStartedAt.plusSeconds(60), "주최자")
+        verify(realtimePartyEventBroadcaster).completeParty(1L)
+        verify(secondBroadcaster).completeParty(1L)
     }
 
     @Test

@@ -30,7 +30,7 @@ import java.util.concurrent.ScheduledFuture
 @Suppress("TooManyFunctions")
 class PartyEndScheduler(
     @Qualifier("chatTaskScheduler") private val taskScheduler: TaskScheduler,
-    private val realtimePartyEventBroadcaster: RealtimePartyEventBroadcaster,
+    private val realtimePartyEventBroadcasters: List<RealtimePartyEventBroadcaster>,
     private val recoverRealtimePartyEndScheduleUseCase: RecoverRealtimePartyEndScheduleUseCase,
     private val startAutomaticRealtimePartyEndUseCase: StartAutomaticRealtimePartyEndUseCase,
     private val clock: Clock,
@@ -173,13 +173,15 @@ class PartyEndScheduler(
                 }
             }
         if (!shouldSend) return
-        realtimePartyEventBroadcaster.broadcastPartyEnding(
-            partyId = target.partyId,
-            endingStartedAt = target.endingStartedAt,
-            endedAt = target.endedAt,
-            endingReason = target.endingReason,
-            hostNickname = target.hostNickname,
-        )
+        realtimePartyEventBroadcasters.forEach {
+            it.broadcastPartyEnding(
+                partyId = target.partyId,
+                endingStartedAt = target.endingStartedAt,
+                endedAt = target.endedAt,
+                endingReason = target.endingReason,
+                hostNickname = target.hostNickname,
+            )
+        }
     }
 
     private fun sendPartyEnded(target: RealtimeEndingScheduleTarget) {
@@ -197,10 +199,16 @@ class PartyEndScheduler(
                 }
             }
         if (!shouldSend) return
-        realtimePartyEventBroadcaster.broadcastPartyEnded(target.partyId, target.endedAt, target.hostNickname)
+        realtimePartyEventBroadcasters.forEach {
+            it.broadcastPartyEnded(
+                target.partyId,
+                target.endedAt,
+                target.hostNickname,
+            )
+        }
         taskScheduler.schedule(
             {
-                realtimePartyEventBroadcaster.completeParty(target.partyId)
+                realtimePartyEventBroadcasters.forEach { it.completeParty(target.partyId) }
                 phaseStore.removeByPartyId(target.partyId)
                 partyStates.remove(target.partyId, state)
             },

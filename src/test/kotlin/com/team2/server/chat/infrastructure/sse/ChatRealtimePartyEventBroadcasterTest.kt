@@ -1,5 +1,7 @@
 package com.team2.server.chat.infrastructure.sse
 
+import com.team2.server.chat.dto.PartyEndedEventPayload
+import com.team2.server.chat.dto.PartyEndingEventPayload
 import com.team2.server.party.domain.entity.RealtimePartyEndingReason
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.anyOrNull
@@ -34,7 +36,7 @@ class ChatRealtimePartyEventBroadcasterTest {
         verify(sseEmitterRegistry).completeAll(1L)
         assertEquals(listOf("party-ending", "party-ended"), eventCaptor.allValues.map(::eventName))
         assertEquals(
-            ChatRealtimePartyEventBroadcaster.PartyEndingPayload(
+            PartyEndingEventPayload(
                 partyId = 1L,
                 endingStartedAt = now,
                 endedAt = now.plusSeconds(60),
@@ -44,7 +46,7 @@ class ChatRealtimePartyEventBroadcasterTest {
             payload(eventCaptor.firstValue),
         )
         assertEquals(
-            ChatRealtimePartyEventBroadcaster.PartyEndedPayload(
+            PartyEndedEventPayload(
                 partyId = 1L,
                 endedAt = now.plusSeconds(60),
                 hostNickname = "주최자",

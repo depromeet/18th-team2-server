@@ -11,7 +11,7 @@ import java.time.LocalDateTime
 @Service
 class PartyPhaseTransitionService(
     private val phaseStore: PartyPhaseStore,
-    private val eventBroadcaster: RealtimePartyEventBroadcaster,
+    private val eventBroadcasters: List<RealtimePartyEventBroadcaster>,
     private val burstGameStartPort: BurstGameStartPort,
     private val candleBlowStartPort: CandleBlowStartPort,
 ) {
@@ -32,7 +32,7 @@ class PartyPhaseTransitionService(
                 phaseStore.advance(partyId, currentPhase, nextPhase, now)
             }
         if (advanced) {
-            eventBroadcaster.broadcastPhaseChanged(partyId, nextPhase, now, now)
+            eventBroadcasters.forEach { it.broadcastPhaseChanged(partyId, nextPhase, now, now) }
             startCandleBlowIfNeeded(partyId, nextPhase, now)
         }
         return advanced
