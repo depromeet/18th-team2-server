@@ -6,6 +6,7 @@ import com.team2.server.burstgame.application.port.BurstGameEventBroadcaster
 import com.team2.server.burstgame.domain.BurstGameRankingEntry
 import com.team2.server.burstgame.domain.BurstGameSnapshot
 import com.team2.server.chat.application.port.PartySseEventPublisher
+import com.team2.server.chat.infrastructure.websocket.ChatSocketGateway
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
@@ -17,9 +18,16 @@ import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 
+/**
+ * 박터뜨리기 진행 이벤트를 SSE와 WebSocket 양쪽에 브로드캐스트한다.
+ *
+ * progress throttle·ended 이후 정리 등 전송 방식과 무관한 로직을 한 곳에서만 관리하고,
+ * [emit]만 두 게이트웨이로 나눠 보낸다.
+ */
 @Component
-class SseBurstGameEventBroadcaster(
+class RealtimeBurstGameEventBroadcaster(
     private val partySseEventPublisher: PartySseEventPublisher,
+    private val chatSocketGateway: ChatSocketGateway,
     private val applicationEventPublisher: ApplicationEventPublisher,
 ) : BurstGameEventBroadcaster {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -117,6 +125,7 @@ class SseBurstGameEventBroadcaster(
                 .data(payload)
                 .build(),
         )
+        chatSocketGateway.broadcastAfterCommit(partyId, eventName, payload)
     }
 
     @PreDestroy
