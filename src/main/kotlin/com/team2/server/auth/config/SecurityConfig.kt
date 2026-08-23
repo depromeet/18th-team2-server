@@ -48,6 +48,7 @@ class SecurityConfig(
                         "/swagger-ui/**",
                         "/v3/api-docs/**",
                         "/api/dev/**",
+                        "/api/v1/kakao-calendar/consent/**",
                     ).permitAll()
                 auth.requestMatchers(HttpMethod.GET, "/api/v1/characters").permitAll()
                 auth.requestMatchers(HttpMethod.GET, "/api/v1/rolling-paper-toppings").permitAll()

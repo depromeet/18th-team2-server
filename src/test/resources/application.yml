@@ -31,11 +31,21 @@ spring:
             user-name-attribute: id
 
 app:
+  web-base-url: "https://test.example.com"
+  api-base-url: "http://localhost:8080"
+  crypto:
+    token-secret: dGVzdC1jcnlwdG8ta2V5LTMyYnl0ZXMtYWVzLWdjbSE=
   jwt:
     secret: dGVzdC1zZWNyZXQta2V5LXdpdGgtYXQtbGVhc3QtMjU2LWJpdHMtZm9yLWhtYWMtc2hhMjU2LWFsZ29yaXRobS0xMjM0NTY3OA==
     expiration-hours: 24
   oauth2:
     authorized-redirect-uris: http://localhost:3000/oauth/redirect
+
+kakao:
+  talk-calendar:
+    base-url: "http://localhost:19595"
+  auth:
+    base-url: "http://localhost:19596"
 
 support:
   chat-url: "https://open.kakao.com/o/test-support"
