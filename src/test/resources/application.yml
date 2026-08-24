@@ -6,6 +6,8 @@ spring:
   flyway:
     enabled: false
   jpa:
+    # main 의 application.yml 은 이 파일에 가려지므로 여기서도 명시한다
+    open-in-view: false
     hibernate:
       ddl-auto: create-drop
     properties:
