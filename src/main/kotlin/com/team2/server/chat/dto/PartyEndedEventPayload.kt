@@ -6,4 +6,5 @@ data class PartyEndedEventPayload(
     val partyId: Long,
     val endedAt: LocalDateTime,
     val hostNickname: String,
+    val serverNow: LocalDateTime,
 )

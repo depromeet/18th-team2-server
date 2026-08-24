@@ -26,6 +26,7 @@ class RealtimePartyEndingEventPublisherTest {
                 endedAt = endedAt,
                 endingReason = RealtimePartyEndingReason.HOST_REQUEST,
                 hostNickname = "주최자",
+                serverNow = endingStartedAt,
             ),
         )
 

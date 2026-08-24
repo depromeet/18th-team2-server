@@ -9,4 +9,5 @@ data class PartyEndingEventPayload(
     val endedAt: LocalDateTime,
     val endingReason: RealtimePartyEndingReason,
     val hostNickname: String,
+    val serverNow: LocalDateTime,
 )
