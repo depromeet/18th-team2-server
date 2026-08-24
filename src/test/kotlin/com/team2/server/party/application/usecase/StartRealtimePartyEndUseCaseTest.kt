@@ -126,6 +126,7 @@ class StartRealtimePartyEndUseCaseTest {
         val result = useCase(1L, userId = 1L)
 
         assertEquals(endingStartedAt, result.endingStartedAt)
+        assertEquals(now, result.serverNow)
         verify(realtimePartyEndService)
             .startIfNotStarted(1L, endingStartedAt, RealtimePartyEndingReason.HOST_REQUEST)
         verify(phaseStore).forceSet(1L, PartyPhase.END, endingStartedAt)
