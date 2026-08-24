@@ -100,6 +100,7 @@ class StartRealtimePartyEndUseCaseTest {
 
         assertEquals(endingStartedAt, result.endingStartedAt)
         assertEquals(RealtimePartyEndingReason.HOST_LEFT, result.endingReason)
+        assertEquals(now, result.serverNow)
         verify(phaseStore).forceSet(1L, PartyPhase.END, endingStartedAt)
         verify(eventPublisher).publish(result)
     }

@@ -89,8 +89,8 @@ class PartyEndSchedulerTest {
         scheduledTasks[1].run()
         scheduledTasks[2].run()
 
-        verify(realtimePartyEventBroadcaster).broadcastPartyEnded(1L, endingStartedAt.plusSeconds(60), "주최자")
-        verify(secondBroadcaster).broadcastPartyEnded(1L, endingStartedAt.plusSeconds(60), "주최자")
+        verify(realtimePartyEventBroadcaster).broadcastPartyEnded(1L, endingStartedAt.plusSeconds(60), "주최자", now)
+        verify(secondBroadcaster).broadcastPartyEnded(1L, endingStartedAt.plusSeconds(60), "주최자", now)
         verify(realtimePartyEventBroadcaster).completeParty(1L)
         verify(secondBroadcaster).completeParty(1L)
     }
@@ -121,8 +121,9 @@ class PartyEndSchedulerTest {
             endedAt = eq(endingStartedAt.plusSeconds(60)),
             endingReason = eq(RealtimePartyEndingReason.TIME_LIMIT_REACHED),
             hostNickname = eq("주최자"),
+            serverNow = eq(now),
         )
-        verify(realtimePartyEventBroadcaster).broadcastPartyEnded(1L, endingStartedAt.plusSeconds(60), "주최자")
+        verify(realtimePartyEventBroadcaster).broadcastPartyEnded(1L, endingStartedAt.plusSeconds(60), "주최자", now)
         verify(realtimePartyEventBroadcaster).completeParty(1L)
     }
 
@@ -136,7 +137,8 @@ class PartyEndSchedulerTest {
         scheduledTasks[0].run()
 
         assertEquals(1, scheduledTasks.size)
-        verify(realtimePartyEventBroadcaster, never()).broadcastPartyEnding(any(), any(), any(), any(), any())
+        verify(realtimePartyEventBroadcaster, never())
+            .broadcastPartyEnding(any(), any(), any(), any(), any(), any())
     }
 
     @Test
@@ -166,6 +168,7 @@ class PartyEndSchedulerTest {
             endedAt = eq(endingStartedAt.plusSeconds(60)),
             endingReason = eq(RealtimePartyEndingReason.TIME_LIMIT_REACHED),
             hostNickname = eq("주최자"),
+            serverNow = eq(now),
         )
     }
 
@@ -189,7 +192,8 @@ class PartyEndSchedulerTest {
         scheduler.recoverSchedules()
 
         assertEquals(2, scheduledTasks.size)
-        verify(realtimePartyEventBroadcaster, never()).broadcastPartyEnding(eq(2L), any(), any(), any(), any())
+        verify(realtimePartyEventBroadcaster, never())
+            .broadcastPartyEnding(eq(2L), any(), any(), any(), any(), any())
     }
 
     @Test
@@ -214,7 +218,35 @@ class PartyEndSchedulerTest {
             ),
         )
 
-        verify(realtimePartyEventBroadcaster, times(1)).broadcastPartyEnded(eq(1L), any(), eq("주최자"))
+        verify(realtimePartyEventBroadcaster, times(1)).broadcastPartyEnded(eq(1L), any(), eq("주최자"), any())
+    }
+
+    @Test
+    fun `종료 카운트다운 이벤트에 서버 기준 시각을 함께 실어 보낸다`() {
+        val endingStartedAt = now.minusSeconds(5)
+        val target = target(1L, endingStartedAt, endingStartedAt.plusSeconds(60))
+
+        scheduler.onRealtimePartyEndingStarted(
+            RealtimePartyEndingStartedEvent(
+                partyId = target.partyId,
+                endingStartedAt = target.endingStartedAt,
+                endedAt = target.endedAt,
+                endingReason = target.endingReason,
+                hostNickname = target.hostNickname,
+            ),
+        )
+        scheduledTasks[0].run()
+
+        verify(realtimePartyEventBroadcaster).broadcastPartyEnding(
+            partyId = eq(1L),
+            endingStartedAt = eq(endingStartedAt),
+            endedAt = eq(endingStartedAt.plusSeconds(60)),
+            endingReason = eq(RealtimePartyEndingReason.HOST_REQUEST),
+            hostNickname = eq("주최자"),
+            serverNow = eq(now),
+        )
+        verify(realtimePartyEventBroadcaster)
+            .broadcastPartyEnded(1L, endingStartedAt.plusSeconds(60), "주최자", now)
     }
 
     @Test

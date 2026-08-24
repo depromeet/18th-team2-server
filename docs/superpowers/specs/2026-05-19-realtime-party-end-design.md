@@ -196,6 +196,11 @@ Authorization: Bearer {accessToken} 또는 X-Participant-Token: {participantToke
 `hostNickname`은 종료 원인과 상태에 관계없이 항상 제공한다. 따라서 종료 시작 전 상태 응답은 `endingReason = null`, `hostNickname = 주최자 닉네임`으로 내려준다.
 `hostFarewellAvailable`은 응답 시점의 파티 상태 스냅샷이며 현재 조회자가 주최자인지와 관계없이 동일하게 제공한다.
 `hostFarewellAvailable`, `hostFarewellAvailableAt`, `serverNow`는 `realtime-state`와 SSE 연결 직후 전송하는 `party-state`에 포함한다. 종료 요청 응답과 phase API에는 포함하지 않는다.
+
+> **개정 (2026-08-24)**: `serverNow`를 종료 요청 응답, phase API, `party-ending`, `party-ended`에도 포함하도록 변경했다.
+> 클라이언트가 `endedAt - Date.now()`로 60초 카운트다운을 계산하면 기기 시계 오차가 그대로 표시 오차가 되어,
+> 화면에 시간이 남은 상태에서 `party-ended`가 도착해 파티가 먼저 끝난 것처럼 보이는 문제가 있었다.
+> 아래 두 표의 `serverNow` "미포함" 항목은 이 개정으로 무효하다.
 `LIVE_ENDING`, `LIVE_CLOSED`, `ROLLING_PAPER_OPEN`, `ROLLING_PAPER_CLOSED`에서는 `false`다.
 `hostEnteredAt == null`이면 `hostFarewellAvailableAt`은 `null`이다.
 프론트는 `serverNow`를 기준으로 `hostFarewellAvailableAt`까지 남은 시간을 계산하고, 도달 시 로컬 상태를 `true`로 전환한다.

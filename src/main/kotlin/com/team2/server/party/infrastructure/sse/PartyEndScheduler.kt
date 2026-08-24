@@ -173,6 +173,7 @@ class PartyEndScheduler(
                 }
             }
         if (!shouldSend) return
+        val serverNow = LocalDateTime.now(clock)
         realtimePartyEventBroadcasters.forEach {
             it.broadcastPartyEnding(
                 partyId = target.partyId,
@@ -180,6 +181,7 @@ class PartyEndScheduler(
                 endedAt = target.endedAt,
                 endingReason = target.endingReason,
                 hostNickname = target.hostNickname,
+                serverNow = serverNow,
             )
         }
     }
@@ -199,11 +201,13 @@ class PartyEndScheduler(
                 }
             }
         if (!shouldSend) return
+        val serverNow = LocalDateTime.now(clock)
         realtimePartyEventBroadcasters.forEach {
             it.broadcastPartyEnded(
                 target.partyId,
                 target.endedAt,
                 target.hostNickname,
+                serverNow,
             )
         }
         taskScheduler.schedule(

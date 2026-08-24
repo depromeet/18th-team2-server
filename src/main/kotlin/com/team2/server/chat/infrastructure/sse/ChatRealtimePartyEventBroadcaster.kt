@@ -20,6 +20,7 @@ class ChatRealtimePartyEventBroadcaster(
         endedAt: LocalDateTime,
         endingReason: RealtimePartyEndingReason,
         hostNickname: String,
+        serverNow: LocalDateTime,
     ) {
         sseEmitterRegistry.broadcast(
             partyId,
@@ -33,6 +34,7 @@ class ChatRealtimePartyEventBroadcaster(
                         endedAt = endedAt,
                         endingReason = endingReason,
                         hostNickname = hostNickname,
+                        serverNow = serverNow,
                     ),
                 ).build(),
         )
@@ -42,14 +44,21 @@ class ChatRealtimePartyEventBroadcaster(
         partyId: Long,
         endedAt: LocalDateTime,
         hostNickname: String,
+        serverNow: LocalDateTime,
     ) {
         sseEmitterRegistry.broadcast(
             partyId,
             SseEmitter
                 .event()
                 .name("party-ended")
-                .data(PartyEndedEventPayload(partyId = partyId, endedAt = endedAt, hostNickname = hostNickname))
-                .build(),
+                .data(
+                    PartyEndedEventPayload(
+                        partyId = partyId,
+                        endedAt = endedAt,
+                        hostNickname = hostNickname,
+                        serverNow = serverNow,
+                    ),
+                ).build(),
         )
     }
 

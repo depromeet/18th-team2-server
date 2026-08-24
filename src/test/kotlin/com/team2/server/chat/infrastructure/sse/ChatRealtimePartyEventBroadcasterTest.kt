@@ -27,8 +27,14 @@ class ChatRealtimePartyEventBroadcasterTest {
             endedAt = now.plusSeconds(60),
             endingReason = RealtimePartyEndingReason.TIME_LIMIT_REACHED,
             hostNickname = "주최자",
+            serverNow = now.plusSeconds(1),
         )
-        broadcaster.broadcastPartyEnded(partyId = 1L, endedAt = now.plusSeconds(60), hostNickname = "주최자")
+        broadcaster.broadcastPartyEnded(
+            partyId = 1L,
+            endedAt = now.plusSeconds(60),
+            hostNickname = "주최자",
+            serverNow = now.plusSeconds(60),
+        )
         broadcaster.completeParty(partyId = 1L)
 
         val eventCaptor = argumentCaptor<Set<ResponseBodyEmitter.DataWithMediaType>>()
@@ -42,6 +48,7 @@ class ChatRealtimePartyEventBroadcasterTest {
                 endedAt = now.plusSeconds(60),
                 endingReason = RealtimePartyEndingReason.TIME_LIMIT_REACHED,
                 hostNickname = "주최자",
+                serverNow = now.plusSeconds(1),
             ),
             payload(eventCaptor.firstValue),
         )
@@ -50,6 +57,7 @@ class ChatRealtimePartyEventBroadcasterTest {
                 partyId = 1L,
                 endedAt = now.plusSeconds(60),
                 hostNickname = "주최자",
+                serverNow = now.plusSeconds(60),
             ),
             payload(eventCaptor.secondValue),
         )

@@ -25,6 +25,7 @@ class ChatSocketRealtimePartyEventBroadcasterTest {
             endedAt = now.plusSeconds(60),
             endingReason = RealtimePartyEndingReason.TIME_LIMIT_REACHED,
             hostNickname = "주최자",
+            serverNow = now.plusSeconds(1),
         )
 
         verify(chatSocketGateway).broadcastAfterCommit(
@@ -36,18 +37,29 @@ class ChatSocketRealtimePartyEventBroadcasterTest {
                 endedAt = now.plusSeconds(60),
                 endingReason = RealtimePartyEndingReason.TIME_LIMIT_REACHED,
                 hostNickname = "주최자",
+                serverNow = now.plusSeconds(1),
             ),
         )
     }
 
     @Test
     fun `party-ended를 WebSocket 브로드캐스트 토픽으로 전송한다`() {
-        broadcaster.broadcastPartyEnded(partyId = 1L, endedAt = now.plusSeconds(60), hostNickname = "주최자")
+        broadcaster.broadcastPartyEnded(
+            partyId = 1L,
+            endedAt = now.plusSeconds(60),
+            hostNickname = "주최자",
+            serverNow = now.plusSeconds(60),
+        )
 
         verify(chatSocketGateway).broadcastAfterCommit(
             1L,
             "party-ended",
-            PartyEndedEventPayload(partyId = 1L, endedAt = now.plusSeconds(60), hostNickname = "주최자"),
+            PartyEndedEventPayload(
+                partyId = 1L,
+                endedAt = now.plusSeconds(60),
+                hostNickname = "주최자",
+                serverNow = now.plusSeconds(60),
+            ),
         )
     }
 

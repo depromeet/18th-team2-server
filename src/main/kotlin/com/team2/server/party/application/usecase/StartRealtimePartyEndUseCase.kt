@@ -36,6 +36,7 @@ class StartRealtimePartyEndUseCase(
                         party.liveEndingStartedAt ?: party.automaticEndingStartedAt(),
                         party.endingReason(now) ?: party.endingReasonForManualRequest(now),
                     ),
+                    now,
                 )
             RealtimePartyStatus.LIVE_OPEN ->
                 toResultAndPublish(
@@ -44,11 +45,14 @@ class StartRealtimePartyEndUseCase(
                         now,
                         party.endingReasonForManualRequest(now),
                     ),
+                    now,
                 )
             else -> throwPartyBusiness(ErrorCode.REALTIME_PARTY_INVALID_STATE)
         }
     }
 
-    private fun toResultAndPublish(startResult: RealtimePartyEndStartResult) =
-        endResultService.toResultAndPublish(startResult)
+    private fun toResultAndPublish(
+        startResult: RealtimePartyEndStartResult,
+        now: LocalDateTime,
+    ) = endResultService.toResultAndPublish(startResult, now)
 }

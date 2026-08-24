@@ -27,6 +27,7 @@ class ChatSocketRealtimePartyEventBroadcaster(
         endedAt: LocalDateTime,
         endingReason: RealtimePartyEndingReason,
         hostNickname: String,
+        serverNow: LocalDateTime,
     ) {
         chatSocketGateway.broadcastAfterCommit(
             partyId,
@@ -37,6 +38,7 @@ class ChatSocketRealtimePartyEventBroadcaster(
                 endedAt = endedAt,
                 endingReason = endingReason,
                 hostNickname = hostNickname,
+                serverNow = serverNow,
             ),
         )
     }
@@ -45,11 +47,17 @@ class ChatSocketRealtimePartyEventBroadcaster(
         partyId: Long,
         endedAt: LocalDateTime,
         hostNickname: String,
+        serverNow: LocalDateTime,
     ) {
         chatSocketGateway.broadcastAfterCommit(
             partyId,
             "party-ended",
-            PartyEndedEventPayload(partyId = partyId, endedAt = endedAt, hostNickname = hostNickname),
+            PartyEndedEventPayload(
+                partyId = partyId,
+                endedAt = endedAt,
+                hostNickname = hostNickname,
+                serverNow = serverNow,
+            ),
         )
     }
 

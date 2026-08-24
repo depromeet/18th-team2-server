@@ -214,8 +214,8 @@ const client = new StompJs.Client({
 | `message` | 누군가 메시지 전송 | `ChatMessageResponse` |
 | `user-left` | 누군가 퇴장 | `{ nickname, role }` |
 | `party-phase-changed` | 파티 진행 단계 전환(음악 → 촛불끄기 → 박터뜨리기 등) | `{ partyId, phase, phaseStartedAt, serverNow }` |
-| `party-ending` | 60초 종료 카운트다운 시작 | `{ partyId, endingStartedAt, endedAt, endingReason, hostNickname }` |
-| `party-ended` | 실시간 파티 종료 | `{ partyId, endedAt, hostNickname }` |
+| `party-ending` | 60초 종료 카운트다운 시작 | `{ partyId, endingStartedAt, endedAt, endingReason, hostNickname, serverNow }` |
+| `party-ended` | 실시간 파티 종료 | `{ partyId, endedAt, hostNickname, serverNow }` |
 | `candle-blow-started` / `candle-blow-progress` / `candle-blow-ended` | 촛불끄기 세션 시작/진행/종료 | `CandleBlowResponse` (위 참고) |
 | `burst-game-started` | 박터뜨리기 라운드 시작 | `{ partyId, status, startedAt, endsAt, totalTapCount, stateVersion, serverTime }` |
 | `burst-game-progress` | 박터뜨리기 탭 집계 갱신(250ms 단위로 묶어서 전송) | `{ partyId, totalTapCount, endsAt, stateVersion, serverTime, rankings }` |
@@ -246,9 +246,16 @@ const client = new StompJs.Client({
   "endingStartedAt": "2026-05-19T20:10:00",
   "endedAt": "2026-05-19T20:11:00",
   "endingReason": "TIME_LIMIT_REACHED",
-  "hostNickname": "홍길동"
+  "hostNickname": "홍길동",
+  "serverNow": "2026-05-19T20:10:00"
 }
 ```
+
+`serverNow`는 이벤트를 보낸 시점의 서버 시각입니다. 남은 시간을 `endedAt - Date.now()`로 계산하면
+기기 시계가 서버보다 느린 만큼 카운트다운이 실제보다 크게 표시되어, 화면에 아직 시간이 남은 상태로
+`party-ended`가 도착합니다. 수신 즉시 `offset = Date.now() - serverNow`를 구해 두고
+`남은 시간 = endedAt - (Date.now() - offset)`으로 계산하세요 (`burst-game-*`의 `serverTime`과 같은 방식).
+`party-ended`와 `POST /api/v1/parties/{partyId}/realtime-end` 응답에도 같은 목적의 `serverNow`가 들어 있습니다.
 
 `party-ended`를 받으면 서버는 별도로 접속을 끊지 않습니다 — 클라이언트가 이 이벤트를 신호로 직접 연결을 종료하세요.
 
