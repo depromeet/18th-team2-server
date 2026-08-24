@@ -1,6 +1,6 @@
 addAssignees: author
 
-addReviewers: true
+addReviewers: false
 reviewers:
   - lydbsdud
   - suker80
