@@ -3,6 +3,7 @@ package com.team2.server.party.api
 import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
 import com.team2.server.chat.infrastructure.sse.SseEmitterRegistry
+import com.team2.server.chat.infrastructure.websocket.StompPartyPresenceRegistry
 import com.team2.server.common.image.entity.Image
 import com.team2.server.common.image.entity.ImageTargetType
 import com.team2.server.common.image.persistence.ImageRepository
@@ -47,6 +48,7 @@ class ParticipantControllerTest
         private val userRepository: UserRepository,
         private val jwtProperties: JwtProperties,
         private val sseEmitterRegistry: SseEmitterRegistry,
+        private val stompPartyPresenceRegistry: StompPartyPresenceRegistry,
     ) {
         private val tokenProvider = JwtTokenProvider(jwtProperties)
 
@@ -201,6 +203,39 @@ class ParticipantControllerTest
                     status { isOk() }
                     jsonPath("$.data.totalCount") { value(0) }
                     jsonPath("$.data.participants", hasSize<Any>(0))
+                }
+        }
+
+        @Test
+        fun `SSE 연결 없이 WebSocket 으로만 입장한 참여자도 온라인 참여자 목록에 포함된다`() {
+            val soloOwner = saveUser("participant-ws-owner", "ws-owner@e.com")
+            val soloParty =
+                partyRepository.save(
+                    RealtimeParty(
+                        ownerId = soloOwner.id,
+                        celebrantNickname = "웹소켓입장",
+                        startedAt = LocalDateTime.now().plusHours(5),
+                    ),
+                )
+            val character = characterRepository.save(Character(name = "ws-char"))
+            val participant =
+                participantRepository.save(Participant(party = soloParty, user = soloOwner, isCelebrant = true))
+            val profile =
+                realtimeParticipantProfileRepository.save(
+                    RealtimeParticipantProfile(participant = participant, nickname = "웹소켓입장", character = character),
+                )
+            // SSE 는 연결하지 않고, WebSocket 입장만 기록한다.
+            stompPartyPresenceRegistry.markOnline("session-ws-1", soloParty.id, profile.participantToken)
+            val token = tokenProvider.issue(soloOwner)
+
+            mockMvc
+                .get("/api/v1/parties/${soloParty.id}/participants") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.totalCount") { value(1) }
+                    jsonPath("$.data.participants", hasSize<Any>(1))
+                    jsonPath("$.data.participants[0].nickname") { value("웹소켓입장") }
                 }
         }
 

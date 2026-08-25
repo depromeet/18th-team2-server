@@ -16,7 +16,7 @@ class GetPartyParticipantsUseCase(
     private val partyService: PartyService,
     private val participantService: ParticipantService,
     private val imageUrlPort: ImageUrlPort,
-    private val realtimePartyPresencePort: RealtimePartyPresencePort,
+    private val realtimePartyPresencePorts: List<RealtimePartyPresencePort>,
 ) {
     @Transactional(readOnly = true)
     fun invoke(
@@ -27,7 +27,9 @@ class GetPartyParticipantsUseCase(
         val callerParticipantId = participantService.requireCallerParticipant(partyId, userId, participantToken).id
         val party = partyService.requireRealtimeParty(partyId)
 
-        val onlineParticipantTokens = realtimePartyPresencePort.findOnlineParticipantTokens(partyId)
+        // 입장 채널(SSE/WebSocket)마다 별도 presence 어댑터가 있으므로 합집합으로 온라인 여부를 판단한다.
+        val onlineParticipantTokens =
+            realtimePartyPresencePorts.flatMapTo(mutableSetOf()) { it.findOnlineParticipantTokens(partyId) }
         val profiles =
             participantService
                 .findOrderedProfiles(partyId)
