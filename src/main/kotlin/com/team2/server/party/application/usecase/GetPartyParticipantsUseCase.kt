@@ -4,7 +4,6 @@ import com.team2.server.common.image.application.port.ImageUrlPort
 import com.team2.server.common.image.entity.ImageTargetType
 import com.team2.server.party.application.dto.PartyParticipantResult
 import com.team2.server.party.application.dto.PartyParticipantsResult
-import com.team2.server.party.application.port.RealtimePartyPresencePort
 import com.team2.server.party.application.service.ParticipantService
 import com.team2.server.party.application.service.PartyService
 import com.team2.server.party.domain.entity.RealtimeParty
@@ -16,7 +15,6 @@ class GetPartyParticipantsUseCase(
     private val partyService: PartyService,
     private val participantService: ParticipantService,
     private val imageUrlPort: ImageUrlPort,
-    private val realtimePartyPresencePort: RealtimePartyPresencePort,
 ) {
     @Transactional(readOnly = true)
     fun invoke(
@@ -27,11 +25,12 @@ class GetPartyParticipantsUseCase(
         val callerParticipantId = participantService.requireCallerParticipant(partyId, userId, participantToken).id
         val party = partyService.requireRealtimeParty(partyId)
 
-        val onlineParticipantTokens = realtimePartyPresencePort.findOnlineParticipantTokens(partyId)
+        // SSE/WebSocket 연결 상태(presence)는 신뢰할 수 없는 신호라 판단 기준으로 쓰지 않는다.
+        // 명시적으로 퇴장(hasLeft)하지 않은 참여자는 실시간 연결 여부와 무관하게 목록에 포함한다.
         val profiles =
             participantService
                 .findOrderedProfiles(partyId)
-                .filter { it.participantToken in onlineParticipantTokens }
+                .filter { !it.participant.hasLeft }
         val characterIds = profiles.mapNotNull { it.character?.id }.distinct()
         val defaultImageByCharacterId = findCharacterImageUrls(characterIds, DEFAULT_CHARACTER_IMAGE_SORT_ORDER)
         val thumbnailImageByCharacterId = findCharacterImageUrls(characterIds, THUMBNAIL_CHARACTER_IMAGE_SORT_ORDER)

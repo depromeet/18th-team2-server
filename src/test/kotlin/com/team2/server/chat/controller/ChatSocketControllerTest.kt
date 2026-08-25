@@ -1,5 +1,6 @@
 package com.team2.server.chat.controller
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.team2.server.auth.jwt.JwtTokenProvider
 import com.team2.server.config.TestcontainersConfiguration
 import com.team2.server.party.domain.entity.Character
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.server.LocalServerPort
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.context.annotation.Import
 import org.springframework.messaging.converter.MappingJackson2MessageConverter
 import org.springframework.messaging.simp.stomp.StompCommand
@@ -29,6 +31,8 @@ import org.springframework.messaging.simp.stomp.StompFrameHandler
 import org.springframework.messaging.simp.stomp.StompHeaders
 import org.springframework.messaging.simp.stomp.StompSession
 import org.springframework.messaging.simp.stomp.StompSessionHandlerAdapter
+import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.get
 import org.springframework.web.socket.WebSocketHttpHeaders
 import org.springframework.web.socket.client.standard.StandardWebSocketClient
 import org.springframework.web.socket.messaging.WebSocketStompClient
@@ -44,6 +48,7 @@ import kotlin.test.assertTrue
 import kotlin.test.fail
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureMockMvc
 @Import(TestcontainersConfiguration::class)
 class ChatSocketControllerTest {
     @LocalServerPort
@@ -69,6 +74,9 @@ class ChatSocketControllerTest {
 
     @Autowired
     private lateinit var jwtTokenProvider: JwtTokenProvider
+
+    @Autowired
+    private lateinit var mockMvc: MockMvc
 
     private lateinit var stompClient: WebSocketStompClient
 
@@ -115,6 +123,70 @@ class ChatSocketControllerTest {
 
         session1.disconnect()
         session2.disconnect()
+    }
+
+    @Test
+    fun `참여자와 주최자가 WebSocket으로 입장하면 REST participants 조회에 둘 다 나타난다`() {
+        val fixture = seedParty()
+
+        // 참여자 입장 -> 주최자 입장 순서로 재현 (버그 리포트와 동일한 순서)
+        val participantSession = connect()
+        val participantEntered =
+            enter(participantSession, fixture, nickname = "참여자").get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        val participantToken = participantTokenOf(participantEntered)
+
+        val hostSession = connect()
+        enter(hostSession, fixture, nickname = "주최자").get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+
+        // seedParty()가 미리 심어 둔 호스트 참가자("생일자")도 hasLeft=false 라 함께 나타난다.
+        assertParticipantNicknames(fixture.partyId, participantToken, setOf("생일자", "참여자", "주최자"))
+
+        participantSession.disconnect()
+        hostSession.disconnect()
+    }
+
+    @Test
+    fun `WebSocket으로 퇴장하면 REST participants 조회에서 즉시 제외된다`() {
+        val fixture = seedParty()
+
+        val stayer = connect()
+        val stayerToken =
+            participantTokenOf(enter(stayer, fixture, nickname = "남는사람").get(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+        val leaver = connect()
+        val leaverToken =
+            participantTokenOf(enter(leaver, fixture, nickname = "떠나는사람").get(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+
+        assertParticipantNicknames(fixture.partyId, stayerToken, setOf("생일자", "남는사람", "떠나는사람"))
+
+        val left = leaveParty(leaver, fixture.partyId, leaverToken)
+        await(left.ack, left.error)
+
+        assertParticipantNicknames(fixture.partyId, stayerToken, setOf("생일자", "남는사람"))
+
+        stayer.disconnect()
+        leaver.disconnect()
+    }
+
+    @Test
+    fun `명시적 퇴장 없이 WebSocket 연결만 끊겨도(disconnect) REST participants 조회에는 계속 남아있다`() {
+        val fixture = seedParty()
+
+        // presence(연결 상태)는 신뢰할 수 없는 신호라 참가자 목록 판단에 쓰지 않는다.
+        // 네트워크 단절·새로고침 등으로 연결만 끊긴 경우 재연결 전까지도 참가자여야 한다.
+        val stayer = connect()
+        val stayerToken =
+            participantTokenOf(enter(stayer, fixture, nickname = "남는사람").get(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+        val disconnecting = connect()
+        enter(disconnecting, fixture, nickname = "끊기는사람").get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+
+        assertParticipantNicknames(fixture.partyId, stayerToken, setOf("생일자", "남는사람", "끊기는사람"))
+
+        // 명시적 leave 프레임 없이 연결만 끊는다.
+        disconnecting.disconnect()
+
+        assertParticipantNicknames(fixture.partyId, stayerToken, setOf("생일자", "남는사람", "끊기는사람"))
+
+        stayer.disconnect()
     }
 
     @Test
@@ -483,6 +555,29 @@ class ChatSocketControllerTest {
 
     private fun participantTokenOf(entered: Map<String, Any>): String =
         (entered["data"] as Map<*, *>)["participantToken"] as String
+
+    private fun fetchParticipantNicknames(
+        partyId: Long,
+        participantToken: String,
+    ): Set<String> {
+        val json =
+            mockMvc
+                .get("/api/v1/parties/$partyId/participants") {
+                    header("X-Participant-Token", participantToken)
+                }.andReturn()
+                .response
+                .contentAsString
+        val participants = ObjectMapper().readTree(json)["data"]["participants"]
+        return participants.map { it["nickname"].asText() }.toSet()
+    }
+
+    private fun assertParticipantNicknames(
+        partyId: Long,
+        participantToken: String,
+        expectedNicknames: Set<String>,
+    ) {
+        assertEquals(expectedNicknames, fetchParticipantNicknames(partyId, participantToken))
+    }
 
     /**
      * 브로드캐스트 토픽을 구독하고, 구독이 브로커에 실제로 등록될 때까지 기다린다.
