@@ -16,7 +16,6 @@ import com.team2.server.party.infrastructure.persistence.RealtimeParticipantProf
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
 import com.team2.server.user.repository.UserRepository
-import org.hamcrest.Matchers.hasSize
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.BeforeEach
@@ -127,7 +126,7 @@ class ChatSocketControllerTest {
     }
 
     @Test
-    fun `참여자와 주최자가 WebSocket으로 입장하면 REST participants 조회에 둘 다 온라인으로 나타난다`() {
+    fun `참여자와 주최자가 WebSocket으로 입장하면 REST participants 조회에 둘 다 나타난다`() {
         val fixture = seedParty()
 
         // 참여자 입장 -> 주최자 입장 순서로 재현 (버그 리포트와 동일한 순서)
@@ -139,14 +138,8 @@ class ChatSocketControllerTest {
         val hostSession = connect()
         enter(hostSession, fixture, nickname = "주최자").get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
 
-        mockMvc
-            .get("/api/v1/parties/${fixture.partyId}/participants") {
-                header("X-Participant-Token", participantToken)
-            }.andExpect {
-                status { isOk() }
-                jsonPath("$.data.totalCount") { value(2) }
-                jsonPath("$.data.participants", hasSize<Any>(2))
-            }
+        // seedParty()가 미리 심어 둔 호스트 참가자("생일자")도 hasLeft=false 라 함께 나타난다.
+        assertParticipantNicknames(fixture.partyId, participantToken, setOf("생일자", "참여자", "주최자"))
 
         participantSession.disconnect()
         hostSession.disconnect()
@@ -163,34 +156,35 @@ class ChatSocketControllerTest {
         val leaverToken =
             participantTokenOf(enter(leaver, fixture, nickname = "떠나는사람").get(TIMEOUT_SECONDS, TimeUnit.SECONDS))
 
-        assertParticipantNicknames(fixture.partyId, stayerToken, setOf("남는사람", "떠나는사람"))
+        assertParticipantNicknames(fixture.partyId, stayerToken, setOf("생일자", "남는사람", "떠나는사람"))
 
         val left = leaveParty(leaver, fixture.partyId, leaverToken)
         await(left.ack, left.error)
 
-        assertParticipantNicknames(fixture.partyId, stayerToken, setOf("남는사람"))
+        assertParticipantNicknames(fixture.partyId, stayerToken, setOf("생일자", "남는사람"))
 
         stayer.disconnect()
         leaver.disconnect()
     }
 
     @Test
-    fun `명시적 퇴장 없이 WebSocket 연결이 끊기면(disconnect) REST participants 조회에서 제외된다`() {
+    fun `명시적 퇴장 없이 WebSocket 연결만 끊겨도(disconnect) REST participants 조회에는 계속 남아있다`() {
         val fixture = seedParty()
 
+        // presence(연결 상태)는 신뢰할 수 없는 신호라 참가자 목록 판단에 쓰지 않는다.
+        // 네트워크 단절·새로고침 등으로 연결만 끊긴 경우 재연결 전까지도 참가자여야 한다.
         val stayer = connect()
         val stayerToken =
             participantTokenOf(enter(stayer, fixture, nickname = "남는사람").get(TIMEOUT_SECONDS, TimeUnit.SECONDS))
-        val leaver = connect()
-        enter(leaver, fixture, nickname = "끊기는사람").get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        val disconnecting = connect()
+        enter(disconnecting, fixture, nickname = "끊기는사람").get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
 
-        assertParticipantNicknames(fixture.partyId, stayerToken, setOf("남는사람", "끊기는사람"))
+        assertParticipantNicknames(fixture.partyId, stayerToken, setOf("생일자", "남는사람", "끊기는사람"))
 
-        // 명시적 leave 프레임 없이 연결만 끊는다 (새로고침, 네트워크 단절 등을 흉내낸다).
-        // SessionDisconnectEvent 처리가 비동기라 즉시 반영되지 않을 수 있어 폴링으로 확인한다.
-        leaver.disconnect()
+        // 명시적 leave 프레임 없이 연결만 끊는다.
+        disconnecting.disconnect()
 
-        awaitParticipantNicknames(fixture.partyId, stayerToken, setOf("남는사람"))
+        assertParticipantNicknames(fixture.partyId, stayerToken, setOf("생일자", "남는사람", "끊기는사람"))
 
         stayer.disconnect()
     }
@@ -585,22 +579,6 @@ class ChatSocketControllerTest {
         assertEquals(expectedNicknames, fetchParticipantNicknames(partyId, participantToken))
     }
 
-    /** SessionDisconnectEvent 처리는 비동기라 즉시 반영되지 않을 수 있어 폴링으로 수렴을 기다린다. */
-    private fun awaitParticipantNicknames(
-        partyId: Long,
-        participantToken: String,
-        expectedNicknames: Set<String>,
-    ) {
-        repeat(POLL_ATTEMPTS) {
-            if (fetchParticipantNicknames(partyId, participantToken) == expectedNicknames) return
-            Thread.sleep(POLL_INTERVAL_MILLIS)
-        }
-        fail(
-            "participants 목록이 기대값으로 수렴하지 않았습니다: expected=$expectedNicknames, " +
-                "actual=${fetchParticipantNicknames(partyId, participantToken)}",
-        )
-    }
-
     /**
      * 브로드캐스트 토픽을 구독하고, 구독이 브로커에 실제로 등록될 때까지 기다린다.
      *
@@ -824,7 +802,5 @@ class ChatSocketControllerTest {
         private const val TIMEOUT_SECONDS = 20L
         private const val PROBE_ATTEMPTS = 20
         private const val PROBE_INTERVAL_MILLIS = 250L
-        private const val POLL_ATTEMPTS = 20
-        private const val POLL_INTERVAL_MILLIS = 250L
     }
 }

@@ -5,7 +5,6 @@ import com.team2.server.chat.dto.EnterRealtimePartySocketRequest
 import com.team2.server.chat.dto.LeaveChatSocketRequest
 import com.team2.server.chat.dto.SendChatMessageSocketRequest
 import com.team2.server.chat.infrastructure.websocket.ChatSocketGateway
-import com.team2.server.chat.infrastructure.websocket.StompPartyPresenceRegistry
 import com.team2.server.chat.infrastructure.websocket.StompSessionPartyRegistry
 import com.team2.server.chat.infrastructure.websocket.StompSessionUserRegistry
 import com.team2.server.chat.usecase.EnterAndSubscribeChatSocketUseCase
@@ -25,7 +24,6 @@ class ChatSocketController(
     private val leaveChatSocketUseCase: LeaveChatSocketUseCase,
     private val stompSessionPartyRegistry: StompSessionPartyRegistry,
     private val stompSessionUserRegistry: StompSessionUserRegistry,
-    private val stompPartyPresenceRegistry: StompPartyPresenceRegistry,
     private val chatSocketGateway: ChatSocketGateway,
 ) {
     @MessageMapping("/party-invites/{inviteToken}/realtime-participants")
@@ -34,18 +32,13 @@ class ChatSocketController(
         @Valid @Payload request: EnterRealtimePartySocketRequest,
         headerAccessor: SimpMessageHeaderAccessor,
     ) {
-        val sessionId = requireNotNull(headerAccessor.sessionId) { "STOMP 세션 id 가 없습니다" }
         enterAndSubscribeChatSocketUseCase.enterAndSubscribe(
             inviteToken = inviteToken,
             userId = stompSessionUserRegistry.resolveUserId(headerAccessor.sessionAttributes),
             request = EnterRealtimePartyRequest(request.nickname, request.characterId, request.participantToken),
             clientRequestId = request.clientRequestId,
-            onEntered = { partyId, participantToken ->
-                // 입장에 성공한 세션만 해당 파티의 브로드캐스트 토픽을 구독할 수 있도록 세션에 기록한다.
-                stompSessionPartyRegistry.markEntered(headerAccessor.sessionAttributes, partyId)
-                // `/participants` 조회가 참조하는 온라인 상태를 등록한다.
-                stompPartyPresenceRegistry.markOnline(sessionId, partyId, participantToken)
-            },
+            // 입장에 성공한 세션만 해당 파티의 브로드캐스트 토픽을 구독할 수 있도록 세션에 기록한다.
+            onEntered = { partyId -> stompSessionPartyRegistry.markEntered(headerAccessor.sessionAttributes, partyId) },
         )
     }
 
@@ -65,17 +58,13 @@ class ChatSocketController(
         @Valid @Payload request: LeaveChatSocketRequest,
         headerAccessor: SimpMessageHeaderAccessor,
     ) {
-        val sessionId = requireNotNull(headerAccessor.sessionId) { "STOMP 세션 id 가 없습니다" }
         val payload =
             leaveChatSocketUseCase.leave(
                 partyId = partyId,
                 participantToken = request.participantToken,
-                onLeft = { id ->
-                    // 퇴장한 세션은 더 이상 이 파티의 브로드캐스트 토픽을 새로 구독할 수 없어야 한다.
-                    // 입장 경로의 onEntered 와 대칭으로, 브로드캐스트가 나가기 전에 인가를 회수한다.
-                    stompSessionPartyRegistry.markLeft(headerAccessor.sessionAttributes, id)
-                    stompPartyPresenceRegistry.markOffline(sessionId, id, request.participantToken)
-                },
+                // 퇴장한 세션은 더 이상 이 파티의 브로드캐스트 토픽을 새로 구독할 수 없어야 한다.
+                // 입장 경로의 onEntered 와 대칭으로, 브로드캐스트가 나가기 전에 인가를 회수한다.
+                onLeft = { id -> stompSessionPartyRegistry.markLeft(headerAccessor.sessionAttributes, id) },
             )
         // REST 의 204 응답에 해당하는 개인 완료 신호.
         chatSocketGateway.sendPersonal(partyId, request.clientRequestId, "left", payload)
