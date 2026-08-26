@@ -104,21 +104,21 @@ class PartyStatusTest {
 
     @Test
     fun `RealtimeParty - 라이브 시작 +9분은 LIVE_OPEN`() {
-        val party = realtimeParty()
+        val party = realtimeParty().apply { liveStartedAt = liveStart }
         val now = liveStart.plusMinutes(9)
         assertEquals(RealtimePartyStatus.LIVE_OPEN, party.status(now))
     }
 
     @Test
     fun `RealtimeParty - 라이브 종료 시작(+10분) 시각은 LIVE_ENDING`() {
-        val party = realtimeParty()
+        val party = realtimeParty().apply { liveStartedAt = liveStart }
         val now = liveStart.plusMinutes(10)
         assertEquals(RealtimePartyStatus.LIVE_ENDING, party.status(now))
     }
 
     @Test
     fun `RealtimeParty - 종료 카운트다운 60초 이후는 LIVE_CLOSED`() {
-        val party = realtimeParty()
+        val party = realtimeParty().apply { liveStartedAt = liveStart }
         val now = liveStart.plusMinutes(10).plusSeconds(60)
         assertEquals(RealtimePartyStatus.LIVE_CLOSED, party.status(now))
     }
@@ -132,7 +132,7 @@ class PartyStatusTest {
 
     @Test
     fun `RealtimeParty - 주최자 롤링페이퍼 열람 시각은 라이브 종료 시각`() {
-        val party = realtimeParty()
+        val party = realtimeParty().apply { liveStartedAt = liveStart }
         val hostViewableAt = liveStart.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES)
         assertEquals(hostViewableAt, party.hostViewableAt())
         assertEquals(false, party.canHostViewRollingPapers(hostViewableAt.minusNanos(1)))
@@ -165,29 +165,29 @@ class PartyStatusTest {
 
     @Test
     fun `RealtimeParty - 주최자 입장 4분 전 수동 종료는 HOST_LEFT`() {
-        val hostEnteredAt = liveStart.plusSeconds(10)
-        val party = realtimeParty().apply { this.hostEnteredAt = hostEnteredAt }
+        val liveStartedAt = liveStart.plusSeconds(10)
+        val party = realtimeParty().apply { this.liveStartedAt = liveStartedAt }
 
         assertEquals(
             RealtimePartyEndingReason.HOST_LEFT,
-            party.endingReasonForManualRequest(hostEnteredAt.plusMinutes(4).minusNanos(1)),
+            party.endingReasonForManualRequest(liveStartedAt.plusMinutes(4).minusNanos(1)),
         )
     }
 
     @Test
     fun `RealtimeParty - 주최자 입장 정확히 4분 뒤 수동 종료는 HOST_REQUEST`() {
-        val hostEnteredAt = liveStart.plusSeconds(10)
-        val party = realtimeParty().apply { this.hostEnteredAt = hostEnteredAt }
+        val liveStartedAt = liveStart.plusSeconds(10)
+        val party = realtimeParty().apply { this.liveStartedAt = liveStartedAt }
 
         assertEquals(
             RealtimePartyEndingReason.HOST_REQUEST,
-            party.endingReasonForManualRequest(hostEnteredAt.plusMinutes(4)),
+            party.endingReasonForManualRequest(liveStartedAt.plusMinutes(4)),
         )
     }
 
     @Test
     fun `RealtimeParty - 정확히 10분 시점 수동 종료는 TIME_LIMIT_REACHED`() {
-        val party = realtimeParty().apply { hostEnteredAt = liveStart }
+        val party = realtimeParty().apply { liveStartedAt = liveStart }
 
         assertEquals(
             RealtimePartyEndingReason.TIME_LIMIT_REACHED,
@@ -197,11 +197,11 @@ class PartyStatusTest {
 
     @Test
     fun `RealtimeParty - 주최자 입장 4분 전이어도 박터뜨리기가 끝났으면 HOST_REQUEST`() {
-        val hostEnteredAt = liveStart
-        val requestAt = hostEnteredAt.plusMinutes(2)
+        val liveStartedAt = liveStart
+        val requestAt = liveStartedAt.plusMinutes(2)
         val party =
             realtimeParty().apply {
-                this.hostEnteredAt = hostEnteredAt
+                this.liveStartedAt = liveStartedAt
                 burstGameEndedAt = requestAt.minusNanos(1)
             }
 
@@ -213,7 +213,7 @@ class PartyStatusTest {
         val endingStartedAt = liveStart.plusMinutes(5)
         val party =
             realtimeParty().apply {
-                hostEnteredAt = liveStart
+                liveStartedAt = liveStart
                 liveEndingStartedAt = endingStartedAt
                 liveEndingReason = RealtimePartyEndingReason.HOST_REQUEST
             }
@@ -226,5 +226,42 @@ class PartyStatusTest {
         val now = liveStart.plusDays(7)
         val party = realtimeParty().apply { liveEndingStartedAt = now.minusSeconds(60) }
         assertEquals(RealtimePartyStatus.ROLLING_PAPER_CLOSED, party.status(now))
+    }
+
+    @Test
+    fun `RealtimeParty - 시작 시각이 있으면 시작 10분 후 종료가 시작된다`() {
+        val liveStartedAt = liveStart.plusMinutes(3)
+        val party = realtimeParty().apply { this.liveStartedAt = liveStartedAt }
+
+        assertEquals(liveStartedAt.plusMinutes(10), party.automaticEndingStartedAt())
+    }
+
+    @Test
+    fun `RealtimeParty - 시작 시각이 없으면 startedAt 30분 후가 마감선이다`() {
+        val party = realtimeParty()
+
+        assertEquals(liveStart.plusMinutes(30), party.automaticEndingStartedAt())
+        assertEquals(liveStart.plusMinutes(30), party.startDeadlineAt())
+    }
+
+    @Test
+    fun `RealtimeParty - 미시작 대기 구간은 LIVE_OPEN이다`() {
+        val party = realtimeParty()
+
+        assertEquals(RealtimePartyStatus.LIVE_OPEN, party.status(liveStart.plusMinutes(29)))
+    }
+
+    @Test
+    fun `RealtimeParty - 마감선에 도달하면 LIVE_ENDING이다`() {
+        val party = realtimeParty()
+
+        assertEquals(RealtimePartyStatus.LIVE_ENDING, party.status(liveStart.plusMinutes(30)))
+    }
+
+    @Test
+    fun `RealtimeParty - 미시작이면 작별인사 시각이 없다`() {
+        val party = realtimeParty()
+
+        assertEquals(null, party.hostFarewellAvailableAt)
     }
 }

@@ -1,5 +1,8 @@
 package com.team2.server.chat.infrastructure.sse
 
+import com.team2.server.chat.dto.PartyEndedEventPayload
+import com.team2.server.chat.dto.PartyEndingEventPayload
+import com.team2.server.chat.dto.PartyPhaseChangedEventPayload
 import com.team2.server.party.application.port.RealtimePartyEventBroadcaster
 import com.team2.server.party.domain.entity.RealtimePartyEndingReason
 import com.team2.server.party.domain.vo.PartyPhase
@@ -17,6 +20,7 @@ class ChatRealtimePartyEventBroadcaster(
         endedAt: LocalDateTime,
         endingReason: RealtimePartyEndingReason,
         hostNickname: String,
+        serverNow: LocalDateTime,
     ) {
         sseEmitterRegistry.broadcast(
             partyId,
@@ -24,12 +28,13 @@ class ChatRealtimePartyEventBroadcaster(
                 .event()
                 .name("party-ending")
                 .data(
-                    PartyEndingPayload(
+                    PartyEndingEventPayload(
                         partyId = partyId,
                         endingStartedAt = endingStartedAt,
                         endedAt = endedAt,
                         endingReason = endingReason,
                         hostNickname = hostNickname,
+                        serverNow = serverNow,
                     ),
                 ).build(),
         )
@@ -39,14 +44,21 @@ class ChatRealtimePartyEventBroadcaster(
         partyId: Long,
         endedAt: LocalDateTime,
         hostNickname: String,
+        serverNow: LocalDateTime,
     ) {
         sseEmitterRegistry.broadcast(
             partyId,
             SseEmitter
                 .event()
                 .name("party-ended")
-                .data(PartyEndedPayload(partyId = partyId, endedAt = endedAt, hostNickname = hostNickname))
-                .build(),
+                .data(
+                    PartyEndedEventPayload(
+                        partyId = partyId,
+                        endedAt = endedAt,
+                        hostNickname = hostNickname,
+                        serverNow = serverNow,
+                    ),
+                ).build(),
         )
     }
 
@@ -65,29 +77,8 @@ class ChatRealtimePartyEventBroadcaster(
             SseEmitter
                 .event()
                 .name("party-phase-changed")
-                .data(PhaseChangedPayload(partyId, phase, phaseStartedAt, serverNow))
+                .data(PartyPhaseChangedEventPayload(partyId, phase, phaseStartedAt, serverNow))
                 .build(),
         )
     }
-
-    data class PartyEndingPayload(
-        val partyId: Long,
-        val endingStartedAt: LocalDateTime,
-        val endedAt: LocalDateTime,
-        val endingReason: RealtimePartyEndingReason,
-        val hostNickname: String,
-    )
-
-    data class PartyEndedPayload(
-        val partyId: Long,
-        val endedAt: LocalDateTime,
-        val hostNickname: String,
-    )
-
-    data class PhaseChangedPayload(
-        val partyId: Long,
-        val phase: PartyPhase,
-        val phaseStartedAt: LocalDateTime,
-        val serverNow: LocalDateTime,
-    )
 }

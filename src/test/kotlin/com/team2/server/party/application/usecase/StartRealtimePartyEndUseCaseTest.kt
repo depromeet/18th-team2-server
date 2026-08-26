@@ -56,7 +56,8 @@ class StartRealtimePartyEndUseCaseTest {
 
     @Test
     fun `LIVE_CLOSED party cannot start ending again`() {
-        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(12))
+        val startedAt = now.minusMinutes(12)
+        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = startedAt).apply { liveStartedAt = startedAt }
         whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
 
         val ex = assertThrows<BusinessException> { useCase(1L, userId = 1L) }
@@ -79,7 +80,7 @@ class StartRealtimePartyEndUseCaseTest {
         val endingStartedAt = now
         val party =
             realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(1)).apply {
-                hostEnteredAt = now.minusMinutes(1)
+                liveStartedAt = now.minusMinutes(1)
             }
         val endedParty =
             realtimeParty(
@@ -99,6 +100,7 @@ class StartRealtimePartyEndUseCaseTest {
 
         assertEquals(endingStartedAt, result.endingStartedAt)
         assertEquals(RealtimePartyEndingReason.HOST_LEFT, result.endingReason)
+        assertEquals(now, result.serverNow)
         verify(phaseStore).forceSet(1L, PartyPhase.END, endingStartedAt)
         verify(eventPublisher).publish(result)
     }
@@ -108,7 +110,7 @@ class StartRealtimePartyEndUseCaseTest {
         val endingStartedAt = now.minusSeconds(10)
         val party =
             realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(10), endingStartedAt).apply {
-                hostEnteredAt = now.minusMinutes(5)
+                liveStartedAt = now.minusMinutes(5)
             }
         whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
         whenever(
@@ -124,6 +126,7 @@ class StartRealtimePartyEndUseCaseTest {
         val result = useCase(1L, userId = 1L)
 
         assertEquals(endingStartedAt, result.endingStartedAt)
+        assertEquals(now, result.serverNow)
         verify(realtimePartyEndService)
             .startIfNotStarted(1L, endingStartedAt, RealtimePartyEndingReason.HOST_REQUEST)
         verify(phaseStore).forceSet(1L, PartyPhase.END, endingStartedAt)
@@ -132,14 +135,15 @@ class StartRealtimePartyEndUseCaseTest {
 
     @Test
     fun `automatic LIVE_ENDING without persisted ending is persisted and notifies only when affected`() {
-        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(10).minusSeconds(10))
+        val startedAt = now.minusMinutes(10).minusSeconds(10)
+        val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = startedAt).apply { liveStartedAt = startedAt }
         val endedParty =
             realtimeParty(
                 id = 1L,
                 ownerId = 1L,
-                startedAt = now.minusMinutes(10).minusSeconds(10),
+                startedAt = startedAt,
                 liveEndingStartedAt = party.automaticEndingStartedAt(),
-            )
+            ).apply { liveStartedAt = startedAt }
         whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
         whenever(
             realtimePartyEndService.startIfNotStarted(

@@ -1,5 +1,7 @@
 package com.team2.server.chat.infrastructure.sse
 
+import com.team2.server.chat.dto.PartyEndedEventPayload
+import com.team2.server.chat.dto.PartyEndingEventPayload
 import com.team2.server.party.domain.entity.RealtimePartyEndingReason
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.anyOrNull
@@ -25,8 +27,14 @@ class ChatRealtimePartyEventBroadcasterTest {
             endedAt = now.plusSeconds(60),
             endingReason = RealtimePartyEndingReason.TIME_LIMIT_REACHED,
             hostNickname = "주최자",
+            serverNow = now.plusSeconds(1),
         )
-        broadcaster.broadcastPartyEnded(partyId = 1L, endedAt = now.plusSeconds(60), hostNickname = "주최자")
+        broadcaster.broadcastPartyEnded(
+            partyId = 1L,
+            endedAt = now.plusSeconds(60),
+            hostNickname = "주최자",
+            serverNow = now.plusSeconds(60),
+        )
         broadcaster.completeParty(partyId = 1L)
 
         val eventCaptor = argumentCaptor<Set<ResponseBodyEmitter.DataWithMediaType>>()
@@ -34,20 +42,22 @@ class ChatRealtimePartyEventBroadcasterTest {
         verify(sseEmitterRegistry).completeAll(1L)
         assertEquals(listOf("party-ending", "party-ended"), eventCaptor.allValues.map(::eventName))
         assertEquals(
-            ChatRealtimePartyEventBroadcaster.PartyEndingPayload(
+            PartyEndingEventPayload(
                 partyId = 1L,
                 endingStartedAt = now,
                 endedAt = now.plusSeconds(60),
                 endingReason = RealtimePartyEndingReason.TIME_LIMIT_REACHED,
                 hostNickname = "주최자",
+                serverNow = now.plusSeconds(1),
             ),
             payload(eventCaptor.firstValue),
         )
         assertEquals(
-            ChatRealtimePartyEventBroadcaster.PartyEndedPayload(
+            PartyEndedEventPayload(
                 partyId = 1L,
                 endedAt = now.plusSeconds(60),
                 hostNickname = "주최자",
+                serverNow = now.plusSeconds(60),
             ),
             payload(eventCaptor.secondValue),
         )

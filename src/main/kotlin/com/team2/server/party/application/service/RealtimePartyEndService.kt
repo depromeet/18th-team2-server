@@ -61,6 +61,7 @@ class RealtimePartyEndService(
         partyRepository.startAutomaticRealtimeEndings(
             now = now,
             liveDurationMinutes = RealtimeParty.LIVE_DURATION_MINUTES,
+            startGraceMinutes = RealtimeParty.START_GRACE_MINUTES,
             partyEndedAfterDays = Party.ENDED_AFTER_DAYS,
             endingReason = RealtimePartyEndingReason.TIME_LIMIT_REACHED.name,
         )
@@ -69,7 +70,7 @@ class RealtimePartyEndService(
     fun findRecoverySchedules(now: LocalDateTime): RealtimePartyEndRecoverySchedules {
         val waitingParties =
             partyRepository.findRealtimePartiesWaitingAutomaticEnding(
-                now.minusMinutes(RealtimeParty.LIVE_DURATION_MINUTES),
+                now.minusMinutes(RealtimeParty.START_GRACE_MINUTES + RealtimeParty.LIVE_DURATION_MINUTES),
             )
         return RealtimePartyEndRecoverySchedules(
             automaticEndSchedules =

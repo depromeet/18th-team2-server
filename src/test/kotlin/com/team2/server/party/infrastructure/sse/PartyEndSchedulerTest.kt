@@ -5,6 +5,7 @@ import com.team2.server.party.application.dto.RealtimeEndingScheduleTarget
 import com.team2.server.party.application.dto.RealtimePartyEndRecoveryResult
 import com.team2.server.party.application.event.RealtimePartyCreatedEvent
 import com.team2.server.party.application.event.RealtimePartyEndingStartedEvent
+import com.team2.server.party.application.event.RealtimePartyStartedEvent
 import com.team2.server.party.application.port.PartyPhaseStore
 import com.team2.server.party.application.port.RealtimePartyEventBroadcaster
 import com.team2.server.party.application.usecase.RecoverRealtimePartyEndScheduleUseCase
@@ -46,7 +47,7 @@ class PartyEndSchedulerTest {
         scheduler =
             PartyEndScheduler(
                 taskScheduler = taskScheduler,
-                realtimePartyEventBroadcaster = realtimePartyEventBroadcaster,
+                realtimePartyEventBroadcasters = listOf(realtimePartyEventBroadcaster),
                 recoverRealtimePartyEndScheduleUseCase = recoverRealtimePartyEndScheduleUseCase,
                 startAutomaticRealtimePartyEndUseCase = startAutomaticRealtimePartyEndUseCase,
                 clock = clock,
@@ -59,9 +60,45 @@ class PartyEndSchedulerTest {
     }
 
     @Test
+    fun `등록된 모든 브로드캐스터에 종료 이벤트를 전달한다`() {
+        val secondBroadcaster: RealtimePartyEventBroadcaster = mock()
+        val schedulerWithTwoBroadcasters =
+            PartyEndScheduler(
+                taskScheduler = taskScheduler,
+                realtimePartyEventBroadcasters = listOf(realtimePartyEventBroadcaster, secondBroadcaster),
+                recoverRealtimePartyEndScheduleUseCase = recoverRealtimePartyEndScheduleUseCase,
+                startAutomaticRealtimePartyEndUseCase = startAutomaticRealtimePartyEndUseCase,
+                clock = clock,
+                phaseStore = phaseStore,
+            )
+        val startedAt = now.minusMinutes(10)
+        val endingStartedAt = startedAt.plusMinutes(30)
+        val target =
+            RealtimeEndingScheduleTarget(
+                partyId = 1L,
+                endingStartedAt = endingStartedAt,
+                endedAt = endingStartedAt.plusSeconds(60),
+                endingReason = RealtimePartyEndingReason.TIME_LIMIT_REACHED,
+                hostNickname = "주최자",
+                startedNow = true,
+            )
+        whenever(startAutomaticRealtimePartyEndUseCase(1L, endingStartedAt)).thenReturn(target)
+
+        schedulerWithTwoBroadcasters.onRealtimePartyCreated(RealtimePartyCreatedEvent(1L, startedAt))
+        scheduledTasks[0].run()
+        scheduledTasks[1].run()
+        scheduledTasks[2].run()
+
+        verify(realtimePartyEventBroadcaster).broadcastPartyEnded(1L, endingStartedAt.plusSeconds(60), "주최자", now)
+        verify(secondBroadcaster).broadcastPartyEnded(1L, endingStartedAt.plusSeconds(60), "주최자", now)
+        verify(realtimePartyEventBroadcaster).completeParty(1L)
+        verify(secondBroadcaster).completeParty(1L)
+    }
+
+    @Test
     fun `created event schedules automatic ending and sends ending events`() {
         val startedAt = now.minusMinutes(10)
-        val endingStartedAt = startedAt.plusMinutes(10)
+        val endingStartedAt = startedAt.plusMinutes(30)
         val target =
             RealtimeEndingScheduleTarget(
                 partyId = 1L,
@@ -84,22 +121,55 @@ class PartyEndSchedulerTest {
             endedAt = eq(endingStartedAt.plusSeconds(60)),
             endingReason = eq(RealtimePartyEndingReason.TIME_LIMIT_REACHED),
             hostNickname = eq("주최자"),
+            serverNow = eq(now),
         )
-        verify(realtimePartyEventBroadcaster).broadcastPartyEnded(1L, endingStartedAt.plusSeconds(60), "주최자")
+        verify(realtimePartyEventBroadcaster).broadcastPartyEnded(1L, endingStartedAt.plusSeconds(60), "주최자", now)
         verify(realtimePartyEventBroadcaster).completeParty(1L)
     }
 
     @Test
     fun `automatic ending returning null does not schedule ending events`() {
         val startedAt = now.minusMinutes(10)
-        val endingStartedAt = startedAt.plusMinutes(10)
+        val endingStartedAt = startedAt.plusMinutes(30)
         whenever(startAutomaticRealtimePartyEndUseCase(1L, endingStartedAt)).thenReturn(null)
 
         scheduler.onRealtimePartyCreated(RealtimePartyCreatedEvent(1L, startedAt))
         scheduledTasks[0].run()
 
         assertEquals(1, scheduledTasks.size)
-        verify(realtimePartyEventBroadcaster, never()).broadcastPartyEnding(any(), any(), any(), any(), any())
+        verify(realtimePartyEventBroadcaster, never())
+            .broadcastPartyEnding(any(), any(), any(), any(), any(), any())
+    }
+
+    @Test
+    fun `started event reschedules automatic ending to ten minutes after live start`() {
+        val startedAt = now.minusMinutes(10)
+        val liveStartedAt = now.minusMinutes(2)
+        val endingStartedAt = liveStartedAt.plusMinutes(10)
+        val target =
+            RealtimeEndingScheduleTarget(
+                partyId = 1L,
+                endingStartedAt = endingStartedAt,
+                endedAt = endingStartedAt.plusSeconds(60),
+                endingReason = RealtimePartyEndingReason.TIME_LIMIT_REACHED,
+                hostNickname = "주최자",
+                startedNow = true,
+            )
+        whenever(startAutomaticRealtimePartyEndUseCase(1L, endingStartedAt)).thenReturn(target)
+
+        scheduler.onRealtimePartyCreated(RealtimePartyCreatedEvent(1L, startedAt))
+        scheduler.onRealtimePartyStarted(RealtimePartyStartedEvent(1L, liveStartedAt))
+        scheduledTasks[1].run()
+
+        verify(scheduledFutures[0]).cancel(false)
+        verify(realtimePartyEventBroadcaster).broadcastPartyEnding(
+            partyId = eq(1L),
+            endingStartedAt = eq(endingStartedAt),
+            endedAt = eq(endingStartedAt.plusSeconds(60)),
+            endingReason = eq(RealtimePartyEndingReason.TIME_LIMIT_REACHED),
+            hostNickname = eq("주최자"),
+            serverNow = eq(now),
+        )
     }
 
     @Test
@@ -122,7 +192,8 @@ class PartyEndSchedulerTest {
         scheduler.recoverSchedules()
 
         assertEquals(2, scheduledTasks.size)
-        verify(realtimePartyEventBroadcaster, never()).broadcastPartyEnding(eq(2L), any(), any(), any(), any())
+        verify(realtimePartyEventBroadcaster, never())
+            .broadcastPartyEnding(eq(2L), any(), any(), any(), any(), any())
     }
 
     @Test
@@ -147,7 +218,35 @@ class PartyEndSchedulerTest {
             ),
         )
 
-        verify(realtimePartyEventBroadcaster, times(1)).broadcastPartyEnded(eq(1L), any(), eq("주최자"))
+        verify(realtimePartyEventBroadcaster, times(1)).broadcastPartyEnded(eq(1L), any(), eq("주최자"), any())
+    }
+
+    @Test
+    fun `종료 카운트다운 이벤트에 서버 기준 시각을 함께 실어 보낸다`() {
+        val endingStartedAt = now.minusSeconds(5)
+        val target = target(1L, endingStartedAt, endingStartedAt.plusSeconds(60))
+
+        scheduler.onRealtimePartyEndingStarted(
+            RealtimePartyEndingStartedEvent(
+                partyId = target.partyId,
+                endingStartedAt = target.endingStartedAt,
+                endedAt = target.endedAt,
+                endingReason = target.endingReason,
+                hostNickname = target.hostNickname,
+            ),
+        )
+        scheduledTasks[0].run()
+
+        verify(realtimePartyEventBroadcaster).broadcastPartyEnding(
+            partyId = eq(1L),
+            endingStartedAt = eq(endingStartedAt),
+            endedAt = eq(endingStartedAt.plusSeconds(60)),
+            endingReason = eq(RealtimePartyEndingReason.HOST_REQUEST),
+            hostNickname = eq("주최자"),
+            serverNow = eq(now),
+        )
+        verify(realtimePartyEventBroadcaster)
+            .broadcastPartyEnded(1L, endingStartedAt.plusSeconds(60), "주최자", now)
     }
 
     @Test

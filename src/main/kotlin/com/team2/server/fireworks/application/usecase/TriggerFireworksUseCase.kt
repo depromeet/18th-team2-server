@@ -1,6 +1,7 @@
 package com.team2.server.fireworks.application.usecase
 
 import com.team2.server.chat.application.port.PartySseEventPublisher
+import com.team2.server.chat.infrastructure.websocket.ChatSocketGateway
 import com.team2.server.fireworks.application.dto.FireworksPayload
 import com.team2.server.party.application.usecase.ResolveLiveOpenRealtimePartyUseCase
 import com.team2.server.party.application.usecase.ResolveRealtimeParticipantProfileUseCase
@@ -13,13 +14,14 @@ class TriggerFireworksUseCase(
     private val resolveLiveOpenRealtimePartyUseCase: ResolveLiveOpenRealtimePartyUseCase,
     private val resolveRealtimeParticipantProfileUseCase: ResolveRealtimeParticipantProfileUseCase,
     private val partySseEventPublisher: PartySseEventPublisher,
+    private val chatSocketGateway: ChatSocketGateway,
 ) {
     @Transactional(readOnly = true)
     fun invoke(
         partyId: Long,
         userId: Long?,
         participantToken: String?,
-    ) {
+    ): FireworksPayload {
         resolveLiveOpenRealtimePartyUseCase.invoke(partyId)
         val profile = resolveRealtimeParticipantProfileUseCase.invoke(partyId, userId, participantToken)
 
@@ -38,5 +40,7 @@ class TriggerFireworksUseCase(
                 .data(payload)
                 .build(),
         )
+        chatSocketGateway.broadcastAfterCommit(partyId, "fireworks", payload)
+        return payload
     }
 }

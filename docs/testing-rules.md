@@ -78,13 +78,19 @@ Spring TestContext 캐시는 어노테이션 조합 (fingerprint) 이 정확히 
 - `@TestPropertySource`, `@ActiveProfiles` — 프로파일·프로퍼티 분리
 - `@SpringBootTest(properties = [...], classes = [...])` — 옵션 차이 분리
 
-현재 캐싱되는 컨텍스트는 3개다. 새 통합 테스트는 이 fingerprint 중 하나에 정확히 맞춰야 한다.
+현재 캐싱되는 컨텍스트는 4개다. 새 통합 테스트는 이 fingerprint 중 하나에 정확히 맞춰야 한다.
 
 | Fingerprint | 적용 테스트 |
 |---|---|
 | `@SpringBootTest + @Import(TC)` | `IntegrationTestSupport` 상속 |
 | `@SpringBootTest + @AutoConfigureMockMvc + @Import(TC)` | MockMvc 컨트롤러 테스트들 |
 | `@DataJpaTest + @Import(TC)` | `JpaSliceTestSupport` 상속 |
+| `@SpringBootTest(webEnvironment = RANDOM_PORT) + @Import(TC)` | `ChatSocketControllerTest` (WebSocket/STOMP) |
+
+마지막 행은 **불가피한 예외**다. WebSocket 통합 테스트는 실제 WebSocket 핸드셰이크를 수행해야 하는데,
+MockMvc는 서블릿 컨테이너를 띄우지 않으므로 핸드셰이크를 처리할 수 없다. 실제 포트로 뜬 서버가 필요해
+`webEnvironment = RANDOM_PORT`가 강제되고, 이 옵션 차이 때문에 별도 컨텍스트로 분리된다.
+WebSocket 통합 테스트를 추가할 때는 새 fingerprint를 만들지 말고 이 조합에 그대로 맞춘다.
 
 ## 검증 명령어
 

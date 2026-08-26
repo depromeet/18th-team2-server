@@ -27,6 +27,9 @@ spring:
             user-info-uri: https://kapi.kakao.com/v2/user/me
             user-name-attribute: id
   jpa:
+    # SSE 스트림은 요청이 수십 분간 열려 있다. OSIV 가 켜져 있으면 그 시간 내내
+    # DB 커넥션 1개가 참가자 1명에게 묶여 풀(기본 10)이 고갈된다.
+    open-in-view: false
     hibernate:
       ddl-auto: validate
     show-sql: true
@@ -34,6 +37,16 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.MySQLDialect
+
+app:
+  web-base-url: ${APP_WEB_BASE_URL:http://localhost:5173}
+  api-base-url: ${APP_API_BASE_URL:http://localhost:8080}
+
+kakao:
+  talk-calendar:
+    base-url: "https://kapi.kakao.com"
+  auth:
+    base-url: "https://kauth.kakao.com"
 
 # 배포 전 환경별 yml(application-prod.yml 등)에서 실제 운영 URL로 반드시 override
 support:

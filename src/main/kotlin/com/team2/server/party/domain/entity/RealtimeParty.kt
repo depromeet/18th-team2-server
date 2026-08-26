@@ -11,6 +11,7 @@ import java.time.LocalDateTime
 @Entity
 @Table(name = "realtime_party")
 @DiscriminatorValue("REALTIME")
+@Suppress("TooManyFunctions")
 class RealtimeParty(
     ownerId: Long,
     name: String? = null,
@@ -22,8 +23,8 @@ class RealtimeParty(
     @Column(name = "live_ending_reason")
     @Enumerated(EnumType.STRING)
     var liveEndingReason: RealtimePartyEndingReason? = null,
-    @Column(name = "host_entered_at")
-    var hostEnteredAt: LocalDateTime? = null,
+    @Column(name = "live_started_at")
+    var liveStartedAt: LocalDateTime? = null,
     @Column(name = "burst_game_ended_at")
     var burstGameEndedAt: LocalDateTime? = null,
 ) : Party(ownerId, name, celebrantNickname, startedAt, purpose) {
@@ -31,7 +32,10 @@ class RealtimeParty(
 
     override fun hostViewableAt(): LocalDateTime = effectiveEndingStartedAt()
 
-    fun automaticEndingStartedAt(): LocalDateTime = startedAt.plusMinutes(LIVE_DURATION_MINUTES)
+    fun startDeadlineAt(): LocalDateTime = startedAt.plusMinutes(START_GRACE_MINUTES)
+
+    fun automaticEndingStartedAt(): LocalDateTime =
+        liveStartedAt?.plusMinutes(LIVE_DURATION_MINUTES) ?: startDeadlineAt()
 
     fun effectiveEndingStartedAt(): LocalDateTime = liveEndingStartedAt ?: automaticEndingStartedAt()
 
@@ -67,7 +71,7 @@ class RealtimeParty(
         }
 
     val hostFarewellAvailableAt: LocalDateTime?
-        get() = hostEnteredAt?.plusMinutes(HOST_FAREWELL_AVAILABLE_AFTER_MINUTES)
+        get() = liveStartedAt?.plusMinutes(HOST_FAREWELL_AVAILABLE_AFTER_MINUTES)
 
     fun isHostFarewellAvailable(now: LocalDateTime): Boolean =
         isLiveOpen(now) &&
@@ -91,6 +95,7 @@ class RealtimeParty(
     companion object {
         const val LIVE_DURATION_MINUTES: Long = 10
         const val LIVE_END_COUNTDOWN_SECONDS: Long = 60
+        const val START_GRACE_MINUTES: Long = 30
         const val HOST_FAREWELL_AVAILABLE_AFTER_MINUTES: Long = 4
         const val ENTERABLE_BEFORE_MINUTES: Long = 5
         const val MAX_PARTICIPANTS: Int = 14

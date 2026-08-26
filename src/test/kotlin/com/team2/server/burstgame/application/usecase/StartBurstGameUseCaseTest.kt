@@ -28,7 +28,7 @@ import kotlin.test.assertEquals
 
 @ExtendWith(MockitoExtension::class)
 class StartBurstGameUseCaseTest {
-    private val hostEnteredAt = LocalDateTime.of(2026, 5, 21, 20, 9)
+    private val liveStartedAt = LocalDateTime.of(2026, 5, 21, 20, 9)
     private val participantResolver: BurstGameParticipantResolver = mock()
     private val sessionService: BurstGameSessionService = mock()
     private val startSideEffectHandler: BurstGameStartSideEffectHandler = mock()
@@ -85,8 +85,8 @@ class StartBurstGameUseCaseTest {
                     ownerId = 1L,
                     name = "실시간 파티",
                     celebrantNickname = "주인공",
-                    startedAt = hostEnteredAt.minusMinutes(1),
-                    hostEnteredAt = hostEnteredAt,
+                    startedAt = liveStartedAt.minusMinutes(1),
+                    liveStartedAt = liveStartedAt,
                 ),
             participant = participant,
         )

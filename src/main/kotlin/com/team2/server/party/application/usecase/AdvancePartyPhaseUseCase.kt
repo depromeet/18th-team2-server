@@ -3,9 +3,9 @@ package com.team2.server.party.application.usecase
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.dto.PartyPhaseResult
-import com.team2.server.party.application.service.ParticipantService
 import com.team2.server.party.application.service.PartyPhaseTransitionService
 import com.team2.server.party.application.service.PartyService
+import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.domain.vo.PartyPhase
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -15,8 +15,9 @@ import java.time.LocalDateTime
 @Service
 class AdvancePartyPhaseUseCase(
     private val partyService: PartyService,
-    private val participantService: ParticipantService,
     private val phaseTransitionService: PartyPhaseTransitionService,
+    private val markRealtimePartyStartedUseCase: MarkRealtimePartyStartedUseCase,
+    private val actorValidator: AdvancePartyPhaseActorValidator,
     private val clock: Clock,
 ) {
     @Transactional
@@ -32,27 +33,28 @@ class AdvancePartyPhaseUseCase(
             ALLOWED_TRANSITIONS[currentPhase]
                 ?: throw BusinessException(ErrorCode.INVALID_INPUT)
 
-        when (currentPhase) {
-            PartyPhase.ENTRY -> {
-                if (party.ownerId != userId) throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
-            }
-            PartyPhase.MUSIC,
-            PartyPhase.CANDLE,
-            -> participantService.validatePartyMember(party, userId, participantToken)
-            else -> Unit
-        }
+        actorValidator.validate(party, currentPhase, now, userId, participantToken)
 
         val advanced = phaseTransitionService.advance(partyId, currentPhase, nextPhase, now, userId, participantToken)
+        if (!advanced) return unchangedResult(partyId, party, now)
 
-        if (advanced) {
-            return PartyPhaseResult(
-                partyId = partyId,
-                phase = nextPhase,
-                phaseStartedAt = now,
-                serverNow = now,
-            )
+        if (currentPhase == PartyPhase.ENTRY) {
+            markRealtimePartyStartedUseCase(partyId, now)
         }
 
+        return PartyPhaseResult(
+            partyId = partyId,
+            phase = nextPhase,
+            phaseStartedAt = now,
+            serverNow = now,
+        )
+    }
+
+    private fun unchangedResult(
+        partyId: Long,
+        party: RealtimeParty,
+        now: LocalDateTime,
+    ): PartyPhaseResult {
         val entry = phaseTransitionService.getEntry(partyId)
         return PartyPhaseResult(
             partyId = partyId,

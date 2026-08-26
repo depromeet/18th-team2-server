@@ -1,6 +1,7 @@
 package com.team2.server.party.application.usecase
 
 import com.team2.server.common.exception.BusinessException
+import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.port.PartyPhaseStore
 import com.team2.server.party.application.service.ParticipantService
 import com.team2.server.party.application.service.PartyPhaseTransitionService
@@ -27,11 +28,14 @@ class AdvancePartyPhaseUseCaseTest {
     private val phaseTransitionService: PartyPhaseTransitionService = mock()
     private val fixedNow = LocalDateTime.of(2026, 5, 26, 20, 0, 5)
     private val clock: Clock = Clock.fixed(fixedNow.toInstant(ZoneOffset.UTC), ZoneOffset.UTC)
+    private val markRealtimePartyStartedUseCase: MarkRealtimePartyStartedUseCase = mock()
+    private val actorValidator = AdvancePartyPhaseActorValidator(participantService)
     private val useCase =
         AdvancePartyPhaseUseCase(
             partyService,
-            participantService,
             phaseTransitionService,
+            markRealtimePartyStartedUseCase,
+            actorValidator,
             clock,
         )
 
@@ -59,6 +63,55 @@ class AdvancePartyPhaseUseCaseTest {
             useCase(partyId, userId = 99L, participantToken = null, currentPhase = PartyPhase.ENTRY)
         }
         verify(phaseTransitionService, never()).advance(any(), any(), any(), any(), any(), any())
+    }
+
+    @Test
+    fun `startedAt 이전에 ENTRY 진입을 시도하면 400`() {
+        val partyId = 1L
+        val ownerId = 10L
+        val party = RealtimeParty(ownerId = ownerId, startedAt = fixedNow.plusSeconds(1))
+        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+
+        val ex =
+            assertFailsWith<BusinessException> {
+                useCase(partyId, userId = ownerId, participantToken = null, currentPhase = PartyPhase.ENTRY)
+            }
+
+        assertEquals(ErrorCode.REALTIME_PARTY_INVALID_STATE, ex.errorCode)
+        verify(phaseTransitionService, never()).advance(any(), any(), any(), any(), any(), any())
+        verify(markRealtimePartyStartedUseCase, never()).invoke(any(), any())
+    }
+
+    @Test
+    fun `마감선 정각의 ENTRY 진입은 거부된다`() {
+        val partyId = 1L
+        val ownerId = 10L
+        val startedAt = fixedNow.minusMinutes(RealtimeParty.START_GRACE_MINUTES)
+        val party = RealtimeParty(ownerId = ownerId, startedAt = startedAt)
+        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+
+        val ex =
+            assertFailsWith<BusinessException> {
+                useCase(partyId, userId = ownerId, participantToken = null, currentPhase = PartyPhase.ENTRY)
+            }
+
+        assertEquals(ErrorCode.REALTIME_PARTY_INVALID_STATE, ex.errorCode)
+        verify(phaseTransitionService, never()).advance(any(), any(), any(), any(), any(), any())
+        verify(markRealtimePartyStartedUseCase, never()).invoke(any(), any())
+    }
+
+    @Test
+    fun `startedAt 정각의 ENTRY 진입은 허용된다`() {
+        val partyId = 1L
+        val ownerId = 10L
+        val party = RealtimeParty(ownerId = ownerId, startedAt = fixedNow)
+        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+        wheneverTransitionSucceeds(partyId, PartyPhase.ENTRY, PartyPhase.MUSIC)
+
+        val result = useCase(partyId, userId = ownerId, participantToken = null, currentPhase = PartyPhase.ENTRY)
+
+        assertEquals(PartyPhase.MUSIC, result.phase)
+        verify(phaseTransitionService).advance(partyId, PartyPhase.ENTRY, PartyPhase.MUSIC, fixedNow, ownerId, null)
     }
 
     @Test
@@ -114,6 +167,55 @@ class AdvancePartyPhaseUseCaseTest {
         assertFailsWith<BusinessException> {
             useCase(partyId, userId = 10L, participantToken = null, currentPhase = PartyPhase.BURST)
         }
+    }
+
+    @Test
+    fun `ENTRY→MUSIC 전환에 성공하면 파티 시작 시각을 기록한다`() {
+        val partyId = 1L
+        val ownerId = 10L
+        val party = RealtimeParty(ownerId = ownerId, startedAt = LocalDateTime.of(2026, 5, 26, 19, 55))
+        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+        wheneverTransitionSucceeds(partyId, PartyPhase.ENTRY, PartyPhase.MUSIC)
+
+        useCase(partyId, userId = ownerId, participantToken = null, currentPhase = PartyPhase.ENTRY)
+
+        verify(markRealtimePartyStartedUseCase).invoke(partyId, fixedNow)
+    }
+
+    @Test
+    fun `ENTRY→MUSIC 전환에 실패하면 파티 시작 시각을 기록하지 않는다`() {
+        val partyId = 1L
+        val ownerId = 10L
+        val party = RealtimeParty(ownerId = ownerId, startedAt = LocalDateTime.of(2026, 5, 26, 19, 55))
+        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+        whenever(
+            phaseTransitionService.advance(
+                eq(partyId),
+                eq(PartyPhase.ENTRY),
+                eq(PartyPhase.MUSIC),
+                any(),
+                anyOrNull(),
+                anyOrNull(),
+            ),
+        ).thenReturn(false)
+        whenever(phaseTransitionService.getEntry(partyId))
+            .thenReturn(PartyPhaseStore.PhaseEntry(PartyPhase.MUSIC, fixedNow.minusMinutes(1)))
+
+        useCase(partyId, userId = ownerId, participantToken = null, currentPhase = PartyPhase.ENTRY)
+
+        verify(markRealtimePartyStartedUseCase, never()).invoke(any(), any())
+    }
+
+    @Test
+    fun `MUSIC→CANDLE 전환은 파티 시작 시각을 기록하지 않는다`() {
+        val partyId = 1L
+        val party = RealtimeParty(ownerId = 10L, startedAt = LocalDateTime.of(2026, 5, 26, 19, 55))
+        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+        wheneverTransitionSucceeds(partyId, PartyPhase.MUSIC, PartyPhase.CANDLE)
+
+        useCase(partyId, userId = 10L, participantToken = null, currentPhase = PartyPhase.MUSIC)
+
+        verify(markRealtimePartyStartedUseCase, never()).invoke(any(), any())
     }
 
     private fun wheneverTransitionSucceeds(

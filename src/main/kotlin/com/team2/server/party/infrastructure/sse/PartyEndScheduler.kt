@@ -4,6 +4,7 @@ import com.team2.server.party.application.dto.RealtimeEndingScheduleTarget
 import com.team2.server.party.application.event.RealtimePartyBurstGameEndedEvent
 import com.team2.server.party.application.event.RealtimePartyCreatedEvent
 import com.team2.server.party.application.event.RealtimePartyEndingStartedEvent
+import com.team2.server.party.application.event.RealtimePartyStartedEvent
 import com.team2.server.party.application.port.PartyPhaseStore
 import com.team2.server.party.application.port.RealtimePartyEventBroadcaster
 import com.team2.server.party.application.usecase.RecoverRealtimePartyEndScheduleUseCase
@@ -13,6 +14,7 @@ import com.team2.server.party.domain.vo.PartyPhase
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.dao.DataAccessException
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.stereotype.Component
@@ -27,8 +29,8 @@ import java.util.concurrent.ScheduledFuture
 @Component
 @Suppress("TooManyFunctions")
 class PartyEndScheduler(
-    private val taskScheduler: TaskScheduler,
-    private val realtimePartyEventBroadcaster: RealtimePartyEventBroadcaster,
+    @Qualifier("chatTaskScheduler") private val taskScheduler: TaskScheduler,
+    private val realtimePartyEventBroadcasters: List<RealtimePartyEventBroadcaster>,
     private val recoverRealtimePartyEndScheduleUseCase: RecoverRealtimePartyEndScheduleUseCase,
     private val startAutomaticRealtimePartyEndUseCase: StartAutomaticRealtimePartyEndUseCase,
     private val clock: Clock,
@@ -75,7 +77,12 @@ class PartyEndScheduler(
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     fun onRealtimePartyCreated(event: RealtimePartyCreatedEvent) {
-        scheduleAutomaticEnd(event.partyId, event.startedAt.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES))
+        scheduleAutomaticEnd(event.partyId, event.startedAt.plusMinutes(RealtimeParty.START_GRACE_MINUTES))
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    fun onRealtimePartyStarted(event: RealtimePartyStartedEvent) {
+        scheduleAutomaticEnd(event.partyId, event.liveStartedAt.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES))
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -166,13 +173,17 @@ class PartyEndScheduler(
                 }
             }
         if (!shouldSend) return
-        realtimePartyEventBroadcaster.broadcastPartyEnding(
-            partyId = target.partyId,
-            endingStartedAt = target.endingStartedAt,
-            endedAt = target.endedAt,
-            endingReason = target.endingReason,
-            hostNickname = target.hostNickname,
-        )
+        val serverNow = LocalDateTime.now(clock)
+        realtimePartyEventBroadcasters.forEach {
+            it.broadcastPartyEnding(
+                partyId = target.partyId,
+                endingStartedAt = target.endingStartedAt,
+                endedAt = target.endedAt,
+                endingReason = target.endingReason,
+                hostNickname = target.hostNickname,
+                serverNow = serverNow,
+            )
+        }
     }
 
     private fun sendPartyEnded(target: RealtimeEndingScheduleTarget) {
@@ -190,10 +201,18 @@ class PartyEndScheduler(
                 }
             }
         if (!shouldSend) return
-        realtimePartyEventBroadcaster.broadcastPartyEnded(target.partyId, target.endedAt, target.hostNickname)
+        val serverNow = LocalDateTime.now(clock)
+        realtimePartyEventBroadcasters.forEach {
+            it.broadcastPartyEnded(
+                target.partyId,
+                target.endedAt,
+                target.hostNickname,
+                serverNow,
+            )
+        }
         taskScheduler.schedule(
             {
-                realtimePartyEventBroadcaster.completeParty(target.partyId)
+                realtimePartyEventBroadcasters.forEach { it.completeParty(target.partyId) }
                 phaseStore.removeByPartyId(target.partyId)
                 partyStates.remove(target.partyId, state)
             },

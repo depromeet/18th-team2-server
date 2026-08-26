@@ -1,6 +1,5 @@
 package com.team2.server.rollingpaper.repository
 
-import com.team2.server.config.TestcontainersConfiguration
 import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.PartyPurpose
 import com.team2.server.party.domain.entity.RealtimeParty
@@ -8,19 +7,16 @@ import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.PartyRepository
 import com.team2.server.rollingpaper.entity.RollingPaper
 import com.team2.server.rollingpaper.entity.RollingPaperTopping
+import com.team2.server.support.JpaSliceTestSupport
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
 import com.team2.server.user.repository.UserRepository
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
-import org.springframework.context.annotation.Import
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
-@DataJpaTest
-@Import(TestcontainersConfiguration::class)
 class RollingPaperRepositoryTest
     @Autowired
     constructor(
@@ -29,7 +25,7 @@ class RollingPaperRepositoryTest
         private val participantRepository: ParticipantRepository,
         private val partyRepository: PartyRepository,
         private val userRepository: UserRepository,
-    ) {
+    ) : JpaSliceTestSupport() {
         @Test
         fun `findByWriter - 작성자 participant 기준 단건 조회`() {
             val party =

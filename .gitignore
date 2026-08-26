@@ -41,3 +41,8 @@ replay_pid*
 # macOS
 .DS_Store
 ._*
+
+# 부하테스트 산출물 (loadtest)
+loadtest/results/*.json
+loadtest/k6-sse
+loadtest/bin/

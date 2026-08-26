@@ -11,12 +11,14 @@ interface RealtimePartyEventBroadcaster {
         endedAt: LocalDateTime,
         endingReason: RealtimePartyEndingReason,
         hostNickname: String,
+        serverNow: LocalDateTime,
     )
 
     fun broadcastPartyEnded(
         partyId: Long,
         endedAt: LocalDateTime,
         hostNickname: String,
+        serverNow: LocalDateTime,
     )
 
     fun completeParty(partyId: Long)
