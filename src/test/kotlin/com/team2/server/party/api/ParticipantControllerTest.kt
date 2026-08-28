@@ -184,6 +184,46 @@ class ParticipantControllerTest
         }
 
         @Test
+        fun `파티 생성 시 자동 생성된 호스트가 아직 입장하지 않았으면 목록에서 제외된다`() {
+            // 회귀 재현: 파티 생성 시점에 호스트 Participant/Profile 이 미리 만들어지지만(PartyService.createRealtimeParty),
+            // 호스트가 /ws 로 실제 입장하기 전까지는 목록에 보이면 안 된다.
+            val soloOwner = saveUser("participant-not-entered-owner", "not-entered@e.com")
+            val soloParty =
+                partyRepository.save(
+                    RealtimeParty(
+                        ownerId = soloOwner.id,
+                        celebrantNickname = "미입장호스트",
+                        startedAt = LocalDateTime.now().plusHours(6),
+                    ),
+                )
+            val character = characterRepository.save(Character(name = "not-entered-char"))
+            val hostParticipant =
+                participantRepository.save(
+                    Participant(party = soloParty, user = soloOwner, isCelebrant = true, hasEntered = false),
+                )
+            realtimeParticipantProfileRepository.save(
+                RealtimeParticipantProfile(participant = hostParticipant, nickname = "미입장호스트", character = character),
+            )
+            val guest = saveUser("participant-guest-of-not-entered", "guest-of-not-entered@e.com")
+            val guestParticipant =
+                participantRepository.save(Participant(party = soloParty, user = guest, isCelebrant = false))
+            realtimeParticipantProfileRepository.save(
+                RealtimeParticipantProfile(participant = guestParticipant, nickname = "게스트", character = character),
+            )
+            val token = tokenProvider.issue(guest)
+
+            mockMvc
+                .get("/api/v1/parties/${soloParty.id}/participants") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.totalCount") { value(1) }
+                    jsonPath("$.data.participants", hasSize<Any>(1))
+                    jsonPath("$.data.participants[0].nickname") { value("게스트") }
+                }
+        }
+
+        @Test
         fun `X-Participant-Token 헤더로 비로그인 참가자가 조회 시 토큰 owner의 isMe만 true 다`() {
             mockMvc
                 .get("/api/v1/parties/${realtimeParty.id}/participants") {

@@ -52,6 +52,8 @@ class PartyService(
                     party = saved,
                     user = user,
                     isCelebrant = true,
+                    // 파티 생성 시점엔 아직 실제 입장(/ws)이 아니다 — 이후 최초 입장 시 Participant.enter() 로 뒤집는다.
+                    hasEntered = false,
                 ),
             )
         val character =
