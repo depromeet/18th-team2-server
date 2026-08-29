@@ -26,11 +26,13 @@ class GetPartyParticipantsUseCase(
         val party = partyService.requireRealtimeParty(partyId)
 
         // SSE/WebSocket 연결 상태(presence)는 신뢰할 수 없는 신호라 판단 기준으로 쓰지 않는다.
-        // 명시적으로 퇴장(hasLeft)하지 않은 참여자는 실시간 연결 여부와 무관하게 목록에 포함한다.
+        // 대신 영구 상태인 hasEntered(실제 입장 여부)/hasLeft(퇴장 여부)로 판단한다.
+        // hasEntered가 필요한 이유: 파티 생성 시 호스트 row가 미리 만들어지므로(PartyService.createRealtimeParty),
+        // hasLeft만 보면 호스트가 한 번도 접속하지 않았어도 목록에 나타나 버린다.
         val profiles =
             participantService
                 .findOrderedProfiles(partyId)
-                .filter { !it.participant.hasLeft }
+                .filter { it.participant.hasEntered && !it.participant.hasLeft }
         val characterIds = profiles.mapNotNull { it.character?.id }.distinct()
         val defaultImageByCharacterId = findCharacterImageUrls(characterIds, DEFAULT_CHARACTER_IMAGE_SORT_ORDER)
         val thumbnailImageByCharacterId = findCharacterImageUrls(characterIds, THUMBNAIL_CHARACTER_IMAGE_SORT_ORDER)
