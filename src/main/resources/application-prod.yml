@@ -4,9 +4,7 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     hikari:
-      # 기본값 10 은 동시 입장 50건 안팎에서 고갈된다(application-local.yml 주석 참고).
-      # blue-green 배포 중에는 두 슬롯이 동시에 떠 있어 실제 점유는 2배(100)이고,
-      # prod MySQL max_connections=151 안에서 모니터링/관리 커넥션 여유를 남긴다.
+      # blue-green 중 두 슬롯이 동시에 떠 실제 점유는 2배. prod MySQL max_connections=151
       maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE:50}
   jpa:
     hibernate:

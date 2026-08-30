@@ -55,8 +55,7 @@ support:
 management:
   metrics:
     distribution:
-      # main 의 application.yml 은 이 파일에 가려지므로 여기서도 명시한다.
-      # MetricsHistogramTest 가 이 설정으로 버킷 발행 여부를 검증한다.
+      # main 의 application.yml 은 이 파일에 가려지므로 여기서도 명시한다
       percentiles-histogram:
         http.server.requests: true
       minimum-expected-value:

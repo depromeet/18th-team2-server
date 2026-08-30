@@ -64,19 +64,13 @@ management:
     tags:
       application: ${spring.application.name}
     distribution:
-      # p95/p99 는 히스토그램 버킷이 있어야 계산된다. 버킷 없이는 평균과 최대값만
-      # 남는데, 평균은 소수의 느린 요청을 가려버려 사용자 체감 지연을 놓친다.
-      # 지연 데이터는 소급 생성이 불가능하므로 트래픽이 오기 전에 켜 두어야 한다.
       percentiles-histogram:
         http.server.requests: true
-      # 버킷 범위를 좁혀 시계열 증가를 억제한다. 5ms 미만이나 10s 초과 구간은
-      # 알림 판단에 쓰지 않으므로 버킷을 만들 이유가 없다.
+      # 범위를 벗어난 구간은 버킷을 만들지 않아 시계열 증가를 억제한다
       minimum-expected-value:
         http.server.requests: 5ms
       maximum-expected-value:
         http.server.requests: 10s
-      # SLO 경계값. 각 구간 이하 요청 수가 카운터로 발행되어 "300ms 안에 처리된
-      # 비율" 같은 판단을 히스토그램 보간 없이 정확하게 할 수 있다.
       slo:
         http.server.requests: 100ms, 300ms, 1s
 
