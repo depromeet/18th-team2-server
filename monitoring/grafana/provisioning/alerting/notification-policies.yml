@@ -1,0 +1,19 @@
+# 수신처는 Discord 채널 하나. severity 로만 갈라 재알림 주기와 멘션 여부를 다르게 한다.
+# contact point 는 웹훅 URL(시크릿)을 담고 있어 이 파일이 아니라 Grafana API 로 생성한다.
+apiVersion: 1
+
+policies:
+  - orgId: 1
+    receiver: discord-warning
+    group_by: [alertname]
+    group_wait: 30s
+    group_interval: 5m
+    # 장애 하나로 채널이 도배되면 사람들은 알림을 뮤트하고, 그러면 P1 도 같이 죽는다
+    repeat_interval: 12h
+    routes:
+      - receiver: discord-critical
+        object_matchers:
+          - [severity, =, critical]
+        group_wait: 10s
+        group_interval: 5m
+        repeat_interval: 1h
