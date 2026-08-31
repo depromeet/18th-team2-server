@@ -63,6 +63,16 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      # 범위를 벗어난 구간은 버킷을 만들지 않아 시계열 증가를 억제한다
+      minimum-expected-value:
+        http.server.requests: 5ms
+      maximum-expected-value:
+        http.server.requests: 10s
+      slo:
+        http.server.requests: 100ms, 300ms, 1s
 
 candle-blow:
   duration-seconds: 300

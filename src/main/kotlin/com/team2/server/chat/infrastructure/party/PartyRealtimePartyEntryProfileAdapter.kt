@@ -46,6 +46,8 @@ class PartyRealtimePartyEntryProfileAdapter(
     ): RealtimeParticipantProfile {
         val user = participantService.resolveUser(userId)
         val participant = participantService.joinAnonymousOrMember(party, user)
+        // 파티 생성 시 미리 만들어진 호스트 row는 hasEntered=false로 시작한다 — 실제 입장 시점에 뒤집는다.
+        participant.enter()
         return realtimeParticipantProfileService.upsert(
             participant = participant,
             nickname = nickname,

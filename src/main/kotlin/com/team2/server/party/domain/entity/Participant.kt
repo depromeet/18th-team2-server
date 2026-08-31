@@ -32,9 +32,16 @@ class Participant(
     @Column(name = "has_written_paper", nullable = false)
     var hasWrittenPaper: Boolean = false,
     hasLeft: Boolean = false,
+    // 파티 생성 시점에 미리 만들어지는 호스트 참가자 row(PartyService.createRealtimeParty)만
+    // false로 시작한다. 그 외에는 row 생성 자체가 곧 실제 입장이라 기본값이 true다.
+    hasEntered: Boolean = true,
 ) : BaseEntity() {
     @Column(name = "has_left", nullable = false)
     final var hasLeft: Boolean = hasLeft
+        private set
+
+    @Column(name = "has_entered", nullable = false)
+    final var hasEntered: Boolean = hasEntered
         private set
 
     fun leave() {
@@ -43,5 +50,9 @@ class Participant(
 
     fun rejoin() {
         hasLeft = false
+    }
+
+    fun enter() {
+        hasEntered = true
     }
 }
