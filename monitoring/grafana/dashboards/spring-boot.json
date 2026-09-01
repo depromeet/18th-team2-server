@@ -49,7 +49,8 @@
         { "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{job=\"team2-backend-$env\",uri!=\"/actuator/health\"}[5m])))", "legendFormat": "p95", "refId": "B" },
         { "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{job=\"team2-backend-$env\",uri!=\"/actuator/health\"}[5m])))", "legendFormat": "p99", "refId": "C" }
       ],
-      "title": "응답시간 분위수 (p50 / p95 / p99)",
+      "description": "알림 룰 '[P1] prod p95 지연 1초 초과' 와 동일한 식이다. /actuator/health 가 전체 요청의 약 60% 를 차지해, 포함하면 p50 이 실제보다 37% 가량 낮게 보이므로 제외한다. 아래 'HTTP 평균 응답시간' 패널은 uri 별로 나눠 보여주므로 헬스체크를 포함한다.",
+      "title": "응답시간 분위수 (p50 / p95 / p99, 헬스체크 제외)",
       "type": "timeseries"
     },
     {
