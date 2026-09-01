@@ -45,6 +45,9 @@ services:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
       - GF_USERS_ALLOW_SIGN_UP=false
+      # 미설정 시 Grafana 는 localhost 를 쓰고, 알림 메시지의 Source/Silence 링크가
+      # 수신자가 열 수 없는 주소로 나간다
+      - GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL:-http://suker.iptime.org:3000/}
     volumes:
       - grafana_data:/var/lib/grafana
       - ../monitoring/grafana/provisioning:/etc/grafana/provisioning
