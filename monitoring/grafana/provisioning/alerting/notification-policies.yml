@@ -1,19 +1,28 @@
-# 수신처는 Discord 채널 하나. severity 로만 갈라 재알림 주기와 멘션 여부를 다르게 한다.
-# contact point 는 웹훅 URL(시크릿)을 담고 있어 이 파일이 아니라 Grafana API 로 생성한다.
+# 이 파일은 orgId 1 의 정책 트리를 통째로 대체한다. 여기 없는 라우트는 재시작 시 사라지므로
+# UI 로 라우트를 추가하지 말고 이 파일에 넣는다.
+#
+# 루트는 발송처가 없는 sink(`empty`, integration 0개)다. Discord 로 가는 경로에 env=prod 를
+# 명시해, 나중에 non-prod 룰이 추가돼도 채널로 새지 않게 한다. 채널이 노이즈로 덮이면
+# 사람들이 뮤트하고, 그러면 prod 알림도 같이 죽는다.
 apiVersion: 1
 
 policies:
   - orgId: 1
-    receiver: discord-warning
+    receiver: empty
     group_by: [alertname]
-    group_wait: 30s
-    group_interval: 5m
-    # 장애 하나로 채널이 도배되면 사람들은 알림을 뮤트하고, 그러면 P1 도 같이 죽는다
-    repeat_interval: 12h
     routes:
-      - receiver: discord-critical
+      - receiver: discord-warning
         object_matchers:
-          - [severity, =, critical]
-        group_wait: 10s
+          - [env, =, prod]
+        group_by: [alertname]
+        group_wait: 30s
         group_interval: 5m
-        repeat_interval: 1h
+        # 장애 하나로 채널이 도배되는 것을 막는다
+        repeat_interval: 12h
+        routes:
+          - receiver: discord-critical
+            object_matchers:
+              - [severity, =, critical]
+            group_wait: 10s
+            group_interval: 5m
+            repeat_interval: 1h
