@@ -42,13 +42,6 @@ class ChatSocketGateway(
         )
     }
 
-    /**
-     * 개인 ack 를 커밋 이후로 미룬다.
-     *
-     * ack 를 커밋 전에 보내면 클라이언트는 아직 커밋되지 않은 상태를 가리키는 participantToken 을
-     * 손에 쥔 채 후속 요청을 보낼 수 있다. 그 요청은 별도 트랜잭션이라 참가자를 찾지 못하고 실패한다.
-     * 롤백되면 ack 자체가 나가지 않아 fail-closed 이기도 하다.
-     */
     fun sendPersonalAfterCommit(
         partyId: Long,
         clientRequestId: String,

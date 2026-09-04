@@ -16,13 +16,6 @@ import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.LocalDateTime
 
-/**
- * 입장 ack 는 반드시 커밋 이후에 나가야 한다.
- *
- * 커밋 전에 participantToken 을 넘기면 클라이언트가 그 토큰으로 보낸 후속 요청이
- * 아직 커밋되지 않은 참가자를 조회하게 되어 CHARACTER_REQUIRED 등으로 실패한다.
- * 그래서 gateway 는 실제 구현을 쓰고, 그 바깥의 전송 채널만 mock 으로 관찰한다.
- */
 class EnterAndSubscribeChatSocketUseCaseTest {
     private val enterRealtimePartyUseCase: EnterRealtimePartyUseCase = mock()
     private val chatHistorySnapshotResolver: ChatHistorySnapshotResolver = mock()
