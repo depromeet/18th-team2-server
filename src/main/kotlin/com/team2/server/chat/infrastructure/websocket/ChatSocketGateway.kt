@@ -42,13 +42,32 @@ class ChatSocketGateway(
         )
     }
 
+    fun sendPersonalAfterCommit(
+        partyId: Long,
+        clientRequestId: String,
+        eventName: String,
+        payload: Any,
+    ) {
+        val event = SocketPersonalEvent(partyId, clientRequestId, eventName, payload)
+        if (deliversAfterCommit()) {
+            applicationEventPublisher.publishEvent(event)
+        } else {
+            sendPersonal(event.partyId, event.clientRequestId, event.eventName, event.payload)
+        }
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    fun onPersonal(event: SocketPersonalEvent) {
+        sendPersonal(event.partyId, event.clientRequestId, event.eventName, event.payload)
+    }
+
     fun broadcastAfterCommit(
         partyId: Long,
         eventName: String,
         payload: Any,
     ) {
         val event = SocketBroadcastEvent(partyId, eventName, payload)
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+        if (deliversAfterCommit()) {
             applicationEventPublisher.publishEvent(event)
         } else {
             broadcast(event)
@@ -59,6 +78,10 @@ class ChatSocketGateway(
     fun onBroadcast(event: SocketBroadcastEvent) {
         broadcast(event)
     }
+
+    private fun deliversAfterCommit(): Boolean =
+        TransactionSynchronizationManager.isSynchronizationActive() &&
+            TransactionSynchronizationManager.isActualTransactionActive()
 
     private fun broadcast(event: SocketBroadcastEvent) {
         messagingTemplate.convertAndSend(

@@ -15,3 +15,10 @@ data class SocketBroadcastEvent(
     val eventName: String,
     val payload: Any,
 )
+
+data class SocketPersonalEvent(
+    val partyId: Long,
+    val clientRequestId: String,
+    val eventName: String,
+    val payload: Any,
+)
