@@ -19,10 +19,11 @@ class ChatSocketGatewayTest {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.clearSynchronization()
         }
+        TransactionSynchronizationManager.setActualTransactionActive(false)
     }
 
     @Test
-    fun `sendPersonalAfterCommit 는 트랜잭션이 없으면 즉시 보낸다`() {
+    fun `sendPersonalAfterCommit 는 동기화가 없으면 즉시 보낸다`() {
         gateway.sendPersonalAfterCommit(1L, "req-1", "entered", "payload")
 
         verify(messagingTemplate).convertAndSend(
@@ -33,8 +34,22 @@ class ChatSocketGatewayTest {
     }
 
     @Test
-    fun `sendPersonalAfterCommit 는 트랜잭션이 활성이면 이벤트로 미룬다`() {
+    fun `sendPersonalAfterCommit 는 동기화만 있고 실제 트랜잭션이 없으면 즉시 보낸다`() {
         TransactionSynchronizationManager.initSynchronization()
+
+        gateway.sendPersonalAfterCommit(1L, "req-1", "entered", "payload")
+
+        verify(messagingTemplate).convertAndSend(
+            "/topic/parties/1/personal/req-1",
+            SocketEventMessage("entered", "payload"),
+        )
+        verifyNoInteractions(applicationEventPublisher)
+    }
+
+    @Test
+    fun `sendPersonalAfterCommit 는 실제 트랜잭션이 있으면 이벤트로 미룬다`() {
+        TransactionSynchronizationManager.initSynchronization()
+        TransactionSynchronizationManager.setActualTransactionActive(true)
 
         gateway.sendPersonalAfterCommit(1L, "req-1", "entered", "payload")
 

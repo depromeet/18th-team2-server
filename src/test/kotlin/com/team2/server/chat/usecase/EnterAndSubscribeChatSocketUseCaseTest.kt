@@ -37,6 +37,7 @@ class EnterAndSubscribeChatSocketUseCaseTest {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.clearSynchronization()
         }
+        TransactionSynchronizationManager.setActualTransactionActive(false)
     }
 
     @Test
@@ -45,6 +46,7 @@ class EnterAndSubscribeChatSocketUseCaseTest {
         whenever(chatHistorySnapshotResolver.resolve(1L, 1L))
             .thenReturn(ChatHistorySnapshotResolver.Snapshot(messages = emptyList(), enteringCharacterImageUrl = null))
         TransactionSynchronizationManager.initSynchronization()
+        TransactionSynchronizationManager.setActualTransactionActive(true)
 
         useCase.enterAndSubscribe("tok", null, request, clientRequestId = "req-1")
 
