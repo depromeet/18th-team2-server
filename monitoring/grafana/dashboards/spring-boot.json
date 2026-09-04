@@ -30,10 +30,36 @@
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
-        "defaults": { "color": { "mode": "palette-classic" }, "unit": "s" },
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "unit": "s",
+          "custom": { "thresholdsStyle": { "mode": "line" } },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }]
+          }
+        },
         "overrides": []
       },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "id": 6,
+      "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum by (le) (rate(http_server_requests_seconds_bucket{job=\"team2-backend-$env\",uri!=\"/actuator/health\"}[5m])))", "legendFormat": "p50", "refId": "A" },
+        { "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{job=\"team2-backend-$env\",uri!=\"/actuator/health\"}[5m])))", "legendFormat": "p95", "refId": "B" },
+        { "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{job=\"team2-backend-$env\",uri!=\"/actuator/health\"}[5m])))", "legendFormat": "p99", "refId": "C" }
+      ],
+      "description": "알림 룰 '[P1] prod p95 지연 1초 초과' 와 동일한 식이다. /actuator/health 가 전체 요청의 약 60% 를 차지해, 포함하면 p50 이 실제보다 37% 가량 낮게 보이므로 제외한다. 아래 'HTTP 평균 응답시간' 패널은 uri 별로 나눠 보여주므로 헬스체크를 포함한다.",
+      "title": "응답시간 분위수 (p50 / p95 / p99, 헬스체크 제외)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "unit": "s" },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
       "id": 2,
       "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } },
       "targets": [
@@ -52,7 +78,7 @@
         "defaults": { "color": { "mode": "palette-classic" }, "unit": "bytes" },
         "overrides": []
       },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
       "id": 3,
       "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } },
       "targets": [
@@ -71,12 +97,12 @@
         "defaults": { "color": { "mode": "palette-classic" }, "unit": "percentunit", "max": 1, "min": 0 },
         "overrides": []
       },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
       "id": 4,
       "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } },
       "targets": [
         {
-          "expr": "rate(process_cpu_usage{job=\"team2-backend-$env\"}[1m])",
+          "expr": "process_cpu_usage{job=\"team2-backend-$env\"}",
           "legendFormat": "{{slot}} CPU 사용률",
           "refId": "A"
         }
@@ -86,7 +112,7 @@
     },
     {
       "datasource": { "type": "loki", "uid": "loki" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
       "id": 5,
       "options": {
         "dedupStrategy": "none",
@@ -115,15 +141,15 @@
   "templating": {
     "list": [
       {
-        "current": { "text": "dev", "value": "dev" },
+        "current": { "text": "prod", "value": "prod" },
         "hide": 0,
         "includeAll": false,
         "multi": false,
         "name": "env",
         "label": "Environment",
         "options": [
-          { "selected": true, "text": "dev", "value": "dev" },
-          { "selected": false, "text": "prod", "value": "prod" }
+          { "selected": false, "text": "dev", "value": "dev" },
+          { "selected": true, "text": "prod", "value": "prod" }
         ],
         "query": "dev,prod",
         "type": "custom"

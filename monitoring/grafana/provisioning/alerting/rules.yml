@@ -1,0 +1,572 @@
+# Grafana 알림 룰. 모두 prod 전용이며 dev 는 대상이 아니다.
+# 임계값 중 ERROR 로그·힙·CPU·GC·스레드는 무부하 상태에서 잡은 값이므로
+# 홍보 이후 실트래픽으로 재측정해 조정해야 한다.
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: prod-critical
+    folder: Alerts
+    interval: 1m
+    rules:
+      - uid: prod-service-down
+        title: '[P1] prod 전체 다운'
+        condition: C
+        for: 1m
+        labels:
+          severity: critical
+          env: prod
+        annotations:
+          summary: 'prod 애플리케이션이 모든 슬롯에서 응답하지 않습니다'
+        noDataState: Alerting
+        execErrState: Error
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: A
+              datasource:
+                type: prometheus
+                uid: prometheus
+              expr: 'sum(up{job="team2-backend-prod"})'
+              instant: true
+              range: false
+              editorMode: code
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: C
+              type: threshold
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [1]
+              intervalMs: 1000
+              maxDataPoints: 43200
+      - uid: prod-5xx-rate
+        title: '[P1] prod 5xx 비율 5% 초과'
+        condition: C
+        for: 5m
+        labels:
+          severity: critical
+          env: prod
+        annotations:
+          summary: 'prod 5xx 응답 비율이 5%를 넘었습니다'
+        noDataState: OK
+        execErrState: Error
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: A
+              datasource:
+                type: prometheus
+                uid: prometheus
+              expr: 'sum(rate(http_server_requests_seconds_count{status=~"5..",env="prod"}[5m])) / sum(rate(http_server_requests_seconds_count{env="prod"}[5m]))'
+              instant: true
+              range: false
+              editorMode: code
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: C
+              type: threshold
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0.05]
+              intervalMs: 1000
+              maxDataPoints: 43200
+      - uid: prod-latency-p95
+        title: '[P1] prod p95 지연 1초 초과'
+        condition: C
+        for: 5m
+        labels:
+          severity: critical
+          env: prod
+        annotations:
+          summary: 'prod 응답 지연 p95 가 1초를 넘었습니다'
+        noDataState: OK
+        execErrState: Error
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: A
+              datasource:
+                type: prometheus
+                uid: prometheus
+              expr: 'histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{env="prod",uri!="/actuator/health"}[5m])))'
+              instant: true
+              range: false
+              editorMode: code
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: C
+              type: threshold
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [1]
+              intervalMs: 1000
+              maxDataPoints: 43200
+      - uid: prod-db-pool-pending
+        title: '[P1] prod DB 커넥션 대기 발생'
+        condition: C
+        for: 2m
+        labels:
+          severity: critical
+          env: prod
+        annotations:
+          summary: 'DB 커넥션을 얻지 못하고 대기 중인 요청이 있습니다'
+        noDataState: OK
+        execErrState: Error
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: A
+              datasource:
+                type: prometheus
+                uid: prometheus
+              expr: 'max(hikaricp_connections_pending{env="prod"})'
+              instant: true
+              range: false
+              editorMode: code
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: C
+              type: threshold
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+              intervalMs: 1000
+              maxDataPoints: 43200
+      - uid: prod-db-pool-timeout
+        title: '[P1] prod DB 커넥션 타임아웃'
+        condition: C
+        for: 0s
+        labels:
+          severity: critical
+          env: prod
+        annotations:
+          summary: 'DB 커넥션 획득에 실패한 요청이 발생했습니다'
+        noDataState: OK
+        execErrState: Error
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: A
+              datasource:
+                type: prometheus
+                uid: prometheus
+              expr: 'sum(increase(hikaricp_connections_timeout_total{env="prod"}[5m]))'
+              instant: true
+              range: false
+              editorMode: code
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: C
+              type: threshold
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+              intervalMs: 1000
+              maxDataPoints: 43200
+
+  - orgId: 1
+    name: prod-warning
+    folder: Alerts
+    interval: 1m
+    rules:
+      - uid: prod-error-log-rate
+        title: '[P2] prod ERROR 로그 급증'
+        condition: C
+        for: 5m
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: 'prod ERROR 로그가 초당 1건을 넘고 있습니다'
+        noDataState: OK
+        execErrState: Error
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: A
+              datasource:
+                type: prometheus
+                uid: prometheus
+              expr: 'sum(rate(logback_events_total{level="error",env="prod"}[5m]))'
+              instant: true
+              range: false
+              editorMode: code
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: C
+              type: threshold
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [1]
+              intervalMs: 1000
+              maxDataPoints: 43200
+      - uid: prod-uri-error-rate
+        title: '[P2] prod 특정 엔드포인트 에러율 10% 초과'
+        condition: C
+        for: 10m
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: '특정 엔드포인트의 5xx 비율이 10%를 넘었습니다'
+        noDataState: OK
+        execErrState: Error
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: A
+              datasource:
+                type: prometheus
+                uid: prometheus
+              expr: 'sum by (uri) (rate(http_server_requests_seconds_count{status=~"5..",env="prod"}[5m])) / sum by (uri) (rate(http_server_requests_seconds_count{env="prod"}[5m]))'
+              instant: true
+              range: false
+              editorMode: code
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: C
+              type: threshold
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0.1]
+              intervalMs: 1000
+              maxDataPoints: 43200
+      - uid: prod-heap-usage
+        title: '[P2] prod 힙 사용률 90% 초과'
+        condition: C
+        for: 10m
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: 'JVM 힙 사용률이 90%를 넘었습니다'
+        noDataState: OK
+        execErrState: Error
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: A
+              datasource:
+                type: prometheus
+                uid: prometheus
+              expr: 'max(sum by (instance) (jvm_memory_used_bytes{area="heap",env="prod"}) / sum by (instance) (jvm_memory_max_bytes{area="heap",env="prod"}))'
+              instant: true
+              range: false
+              editorMode: code
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: C
+              type: threshold
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0.9]
+              intervalMs: 1000
+              maxDataPoints: 43200
+      - uid: prod-cpu-usage
+        title: '[P2] prod CPU 사용률 80% 초과'
+        condition: C
+        for: 10m
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: '프로세스 CPU 사용률이 80%를 넘었습니다'
+        noDataState: OK
+        execErrState: Error
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: A
+              datasource:
+                type: prometheus
+                uid: prometheus
+              expr: 'max(process_cpu_usage{env="prod"})'
+              instant: true
+              range: false
+              editorMode: code
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: C
+              type: threshold
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0.8]
+              intervalMs: 1000
+              maxDataPoints: 43200
+      - uid: prod-gc-pause
+        title: '[P2] prod GC 시간 10% 초과'
+        condition: C
+        for: 10m
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: '전체 시간의 10% 이상을 GC 에 쓰고 있습니다'
+        noDataState: OK
+        execErrState: Error
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: A
+              datasource:
+                type: prometheus
+                uid: prometheus
+              expr: 'max(rate(jvm_gc_pause_seconds_sum{env="prod"}[5m]))'
+              instant: true
+              range: false
+              editorMode: code
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: C
+              type: threshold
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0.1]
+              intervalMs: 1000
+              maxDataPoints: 43200
+      - uid: prod-auth-failure-rate
+        title: '[P2] prod 인증 실패 비율 20% 초과'
+        condition: C
+        for: 5m
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: '401/403 응답 비율이 20%를 넘었습니다'
+        noDataState: OK
+        execErrState: Error
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: A
+              datasource:
+                type: prometheus
+                uid: prometheus
+              # uri="UNKNOWN" 은 핸들러에 매핑되지 않은 경로다. 공개 IP 라 /.env, /wp/.env 같은
+              # 스캐너 탐색이 상시 들어오고 전부 401 로 집계된다(현재 prod 401 328건이 전량 이것).
+              # 이를 포함하면 스캐너가 몰릴 때마다 발화해 채널을 무의미하게 만든다.
+              expr: '(sum(rate(http_server_requests_seconds_count{status=~"401|403",env="prod",uri!="UNKNOWN"}[5m])) or vector(0)) / sum(rate(http_server_requests_seconds_count{env="prod",uri!="UNKNOWN"}[5m]))'
+              instant: true
+              range: false
+              editorMode: code
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: C
+              type: threshold
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0.2]
+              intervalMs: 1000
+              maxDataPoints: 43200
+      - uid: prod-thread-count
+        title: '[P2] prod 스레드 수 160 초과'
+        condition: C
+        for: 15m
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: '라이브 스레드가 Tomcat 기본 최대치(200)의 80%를 넘었습니다'
+        noDataState: OK
+        execErrState: Error
+        data:
+          - refId: A
+            datasourceUid: prometheus
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: A
+              datasource:
+                type: prometheus
+                uid: prometheus
+              expr: 'max(jvm_threads_live_threads{env="prod"})'
+              instant: true
+              range: false
+              editorMode: code
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            datasourceUid: __expr__
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              refId: C
+              type: threshold
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [160]
+              intervalMs: 1000
+              maxDataPoints: 43200
