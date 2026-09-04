@@ -34,8 +34,13 @@ class EnterAndSubscribeChatSocketUseCase(
 
         val snapshot = chatHistorySnapshotResolver.resolve(enterResult.partyId, enterResult.characterId)
 
-        chatSocketGateway.sendPersonal(enterResult.partyId, clientRequestId, "party-state", enterResult.partyState)
-        chatSocketGateway.sendPersonal(
+        chatSocketGateway.sendPersonalAfterCommit(
+            enterResult.partyId,
+            clientRequestId,
+            "party-state",
+            enterResult.partyState,
+        )
+        chatSocketGateway.sendPersonalAfterCommit(
             enterResult.partyId,
             clientRequestId,
             "entered",
