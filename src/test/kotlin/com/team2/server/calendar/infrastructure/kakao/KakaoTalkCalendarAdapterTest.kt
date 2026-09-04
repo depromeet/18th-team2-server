@@ -80,10 +80,30 @@ class KakaoTalkCalendarAdapterTest {
     fun `수정 대상 일정이 없으면 false 를 반환한다`() {
         server
             .expect(requestTo("https://kapi.kakao.com/v2/api/calendar/update/event/host"))
-            .andRespond(withStatus(HttpStatus.NOT_FOUND))
+            .andRespond(
+                withStatus(HttpStatus.BAD_REQUEST)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body("""{"msg":"Invalid calendar_id or event_id. Event or calendar is not found","code":-520}"""),
+            )
 
         assertFalse(adapter.updateEvent("kakao-token", "event-1", event))
         server.verify()
+    }
+
+    @Test
+    fun `일정 없음이 아닌 400 은 KAKAO_CALENDAR_UNAVAILABLE 로 변환한다`() {
+        server
+            .expect(requestTo("https://kapi.kakao.com/v2/api/calendar/update/event/host"))
+            .andRespond(
+                withStatus(HttpStatus.BAD_REQUEST)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body("""{"msg":"The minimum unit of start_at is 5 minutes.","code":-2}"""),
+            )
+
+        val exception =
+            kotlin.runCatching { adapter.updateEvent("kakao-token", "event-1", event) }.exceptionOrNull()
+
+        assertEquals(ErrorCode.KAKAO_CALENDAR_UNAVAILABLE, (exception as BusinessException).errorCode)
     }
 
     @Test

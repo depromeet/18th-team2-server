@@ -28,6 +28,7 @@ private const val UPDATE_EVENT_PATH = "/v2/api/calendar/update/event/host"
 private const val DEFAULT_CALENDAR_ID = "primary"
 private const val RECUR_UPDATE_TYPE_ALL = "ALL"
 private const val ERROR_BODY_LOG_MAX_LENGTH = 500
+private const val EVENT_NOT_FOUND_CODE = -520
 
 /**
  * 카카오 문서의 일정 생성 예시가 쓰는 형태(`2022-10-27T03:00:00Z`).
@@ -73,7 +74,7 @@ class KakaoTalkCalendarAdapter(
                 add("event", eventJson(event))
             }
         val response = post(UPDATE_EVENT_PATH, accessToken, body)
-        if (response.statusCode == HttpStatus.NOT_FOUND) {
+        if (isEventNotFound(response.statusCode, response.body)) {
             return false
         }
         if (!response.statusCode.is2xxSuccessful) {
@@ -131,6 +132,16 @@ class KakaoTalkCalendarAdapter(
                 }
         return parsed["event_id"] as? String
             ?: throw BusinessException(ErrorCode.KAKAO_CALENDAR_UNAVAILABLE)
+    }
+
+    private fun isEventNotFound(
+        status: HttpStatusCode,
+        body: String?,
+    ): Boolean {
+        if (status.value() != HttpStatus.BAD_REQUEST.value()) return false
+        return runCatching {
+            (objectMapper.readValue(body ?: "", Map::class.java)["code"] as? Number)?.toInt()
+        }.getOrNull() == EVENT_NOT_FOUND_CODE
     }
 
     private fun toBusinessException(
