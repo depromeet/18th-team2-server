@@ -497,7 +497,10 @@ groups:
               datasource:
                 type: prometheus
                 uid: prometheus
-              expr: 'sum(rate(http_server_requests_seconds_count{status=~"401|403",env="prod"}[5m])) / sum(rate(http_server_requests_seconds_count{env="prod"}[5m]))'
+              # uri="UNKNOWN" 은 핸들러에 매핑되지 않은 경로다. 공개 IP 라 /.env, /wp/.env 같은
+              # 스캐너 탐색이 상시 들어오고 전부 401 로 집계된다(현재 prod 401 328건이 전량 이것).
+              # 이를 포함하면 스캐너가 몰릴 때마다 발화해 채널을 무의미하게 만든다.
+              expr: '(sum(rate(http_server_requests_seconds_count{status=~"401|403",env="prod",uri!="UNKNOWN"}[5m])) or vector(0)) / sum(rate(http_server_requests_seconds_count{env="prod",uri!="UNKNOWN"}[5m]))'
               instant: true
               range: false
               editorMode: code
