@@ -5,6 +5,7 @@ import java.time.LocalDateTime
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class PartyDomainTest {
@@ -56,5 +57,20 @@ class PartyDomainTest {
         assertEquals(startedAt.plusDays(Party.ENDED_AFTER_DAYS), party.endedAt())
         assertFalse(party.isEnded(startedAt.plusDays(Party.ENDED_AFTER_DAYS).minusNanos(1)))
         assertTrue(party.isEnded(startedAt.plusDays(Party.ENDED_AFTER_DAYS)))
+    }
+
+    @Test
+    fun `RealtimeParty는 라이브 시작 전에는 10분 타이머 마감 시각이 없다`() {
+        val party = RealtimeParty(ownerId = 1L, startedAt = defaultStartedAt)
+
+        assertNull(party.liveDeadlineAt)
+    }
+
+    @Test
+    fun `RealtimeParty의 10분 타이머 마감 시각은 예약 시각이 아닌 실제 라이브 시작 시각 기준이다`() {
+        val liveStartedAt = defaultStartedAt.plusSeconds(23)
+        val party = RealtimeParty(ownerId = 1L, startedAt = defaultStartedAt, liveStartedAt = liveStartedAt)
+
+        assertEquals(liveStartedAt.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES), party.liveDeadlineAt)
     }
 }

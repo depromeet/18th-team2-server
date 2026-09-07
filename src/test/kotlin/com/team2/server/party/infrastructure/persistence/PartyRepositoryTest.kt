@@ -132,6 +132,17 @@ class PartyRepositoryTest
         }
 
         @Test
+        fun `markLiveStartedIfAbsent 직후에는 같은 영속성 컨텍스트에서도 저장된 liveStartedAt을 읽는다`() {
+            val party = partyRepository.save(realtimeParty(startedAt = BASE_TIME.minusMinutes(1)))
+
+            partyRepository.markLiveStartedIfAbsent(party.id, BASE_TIME)
+
+            val found = partyRepository.findById(party.id).orElseThrow() as RealtimeParty
+            assertEquals(BASE_TIME, found.liveStartedAt)
+            assertEquals(BASE_TIME.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES), found.liveDeadlineAt)
+        }
+
+        @Test
         fun `findRealtimePartiesWaitingAutomaticEnding은 조회 경계 정각의 파티를 포함한다`() {
             val boundary = BASE_TIME.minusMinutes(40)
             val onBoundary = partyRepository.save(realtimeParty(startedAt = boundary))

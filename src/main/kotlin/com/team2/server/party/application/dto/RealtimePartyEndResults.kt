@@ -53,8 +53,22 @@ data class RealtimePartyStateResult(
         allowableValues = ["ROLLING_PAPER_OPEN", "LIVE_OPEN", "LIVE_ENDING", "LIVE_CLOSED", "ROLLING_PAPER_CLOSED"],
     )
     val status: RealtimePartyStatus,
-    @Schema(description = "실시간 라이브 시작 시각", example = "2026-05-19T20:00:00")
+    @Schema(description = "파티 예약 시작 시각", example = "2026-05-19T20:00:00")
     val liveStartAt: LocalDateTime,
+    @Schema(
+        description = "주최자가 파티를 시작한 실제 시각. 상단 10분 타이머의 기준값. 아직 시작 전이면 null",
+        nullable = true,
+        example = "2026-05-19T20:00:23",
+    )
+    val liveTimerStartedAt: LocalDateTime?,
+    @Schema(
+        description =
+            "상단 10분 타이머 종료 시각(liveTimerStartedAt + 10분). 아직 시작 전이면 null. " +
+                "주최자 조기 종료는 반영되지 않으므로 실제 종료는 endingStartedAt/endedAt 을 사용한다",
+        nullable = true,
+        example = "2026-05-19T20:10:23",
+    )
+    val liveDeadlineAt: LocalDateTime?,
     @Schema(description = "종료 카운트다운 시작 시각. 아직 시작되지 않았으면 null", nullable = true, example = "2026-05-19T20:10:00")
     val endingStartedAt: LocalDateTime?,
     @Schema(description = "실시간 라이브 종료 시각", example = "2026-05-19T20:11:00")
@@ -88,6 +102,8 @@ data class RealtimePartyStateResult(
                 partyId = party.id,
                 status = status,
                 liveStartAt = party.startedAt,
+                liveTimerStartedAt = party.liveStartedAt,
+                liveDeadlineAt = party.liveDeadlineAt,
                 endingStartedAt = endingStartedAt,
                 endedAt = party.effectiveLiveEndedAt(),
                 endingReason = endingInfo.endingReason,

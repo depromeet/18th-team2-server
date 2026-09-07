@@ -30,6 +30,8 @@ import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import kotlin.test.assertEquals
 
 @SpringBootTest
@@ -305,6 +307,56 @@ class PartyControllerTest
                     jsonPath("$.data.hostFarewellAvailable") { value(false) }
                     jsonPath("$.data.hostFarewellAvailableAt") { exists() }
                     jsonPath("$.data.serverNow") { exists() }
+                }
+        }
+
+        @Test
+        fun `실시간 파티 상태는 예약 시각이 아닌 실제 라이브 시작 시각 기준 타이머를 제공한다`() {
+            val owner = saveUser("kakao-realtime-state-timer", "state-timer@kakao.local")
+            val startedAt =
+                LocalDateTime
+                    .now()
+                    .truncatedTo(ChronoUnit.SECONDS)
+                    .minusMinutes(5)
+                    .withSecond(11)
+            val liveStartedAt = startedAt.plusSeconds(23)
+            val party =
+                saveRealtimeParty(owner, startedAt).also {
+                    it.liveStartedAt = liveStartedAt
+                    partyRepository.save(it)
+                }
+
+            mockMvc
+                .get("/api/v1/parties/${party.id}/realtime-state") {
+                    header("Authorization", "Bearer ${tokenProvider.issue(owner)}")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.liveStartAt") { value(startedAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)) }
+                    jsonPath("$.data.liveTimerStartedAt") {
+                        value(liveStartedAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+                    }
+                    jsonPath("$.data.liveDeadlineAt") {
+                        value(
+                            liveStartedAt
+                                .plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES)
+                                .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+                        )
+                    }
+                }
+        }
+
+        @Test
+        fun `라이브 시작 전 실시간 파티 상태는 타이머 기준 시각을 내려주지 않는다`() {
+            val owner = saveUser("kakao-realtime-state-not-started", "state-not-started@kakao.local")
+            val party = saveRealtimeParty(owner, LocalDateTime.now().minusMinutes(1))
+
+            mockMvc
+                .get("/api/v1/parties/${party.id}/realtime-state") {
+                    header("Authorization", "Bearer ${tokenProvider.issue(owner)}")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.liveTimerStartedAt") { doesNotExist() }
+                    jsonPath("$.data.liveDeadlineAt") { doesNotExist() }
                 }
         }
 

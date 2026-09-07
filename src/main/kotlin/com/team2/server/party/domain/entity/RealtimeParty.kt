@@ -34,8 +34,11 @@ class RealtimeParty(
 
     fun startDeadlineAt(): LocalDateTime = startedAt.plusMinutes(START_GRACE_MINUTES)
 
-    fun automaticEndingStartedAt(): LocalDateTime =
-        liveStartedAt?.plusMinutes(LIVE_DURATION_MINUTES) ?: startDeadlineAt()
+    /** 상단 10분 타이머 마감 시각. 호스트가 아직 파티를 시작하지 않았으면 null. */
+    val liveDeadlineAt: LocalDateTime?
+        get() = liveStartedAt?.plusMinutes(LIVE_DURATION_MINUTES)
+
+    fun automaticEndingStartedAt(): LocalDateTime = liveDeadlineAt ?: startDeadlineAt()
 
     fun effectiveEndingStartedAt(): LocalDateTime = liveEndingStartedAt ?: automaticEndingStartedAt()
 
