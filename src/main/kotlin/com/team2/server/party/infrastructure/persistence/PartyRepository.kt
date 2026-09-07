@@ -33,7 +33,7 @@ interface PartyRepository : JpaRepository<Party, Long> {
         endingReason: RealtimePartyEndingReason,
     ): Int
 
-    @Modifying(flushAutomatically = true)
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(
         """
         UPDATE RealtimeParty party
