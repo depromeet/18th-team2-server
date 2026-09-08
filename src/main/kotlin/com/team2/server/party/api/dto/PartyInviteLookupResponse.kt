@@ -58,7 +58,12 @@ data class RealtimeSchedule(
     val liveStartAt: LocalDateTime,
     @Schema(description = "파티 입장 가능 시작 시각", example = "2026-05-04T19:55:00")
     val enterableFrom: LocalDateTime,
-    @Schema(description = "실시간 파티 종료 시각", example = "2026-05-04T20:10:00")
+    @Schema(
+        description =
+            "실시간 파티가 닫히는 시각. 조기 종료했으면 실제 종료 시각, " +
+                "시작했으면 실제 시작 + 10분, 아직 시작 전이면 예약 시작 + 30분(시작 유예 마감)",
+        example = "2026-05-04T20:10:00",
+    )
     val liveEndAt: LocalDateTime,
     @Schema(description = "실시간 파티 진행 시간", example = "10")
     val liveDurationMinutes: Long,
