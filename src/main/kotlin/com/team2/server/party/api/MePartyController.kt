@@ -37,12 +37,15 @@ class MePartyController(
             rollingPaperWritten = rollingPaperWritten,
             hostRollingPaperOpenAt = hostRollingPaperOpenAt,
             realtimeSchedule = realtimeSchedule?.toResponse(),
+            realtimeStatus = realtimeStatus,
+            realtimeEnterable = realtimeEnterable,
         )
 
     private fun UpcomingRealtimeScheduleResult.toResponse(): UpcomingRealtimeScheduleResponse =
         UpcomingRealtimeScheduleResponse(
             enterableFrom = enterableFrom,
             liveStartAt = liveStartAt,
+            liveStartedAt = liveStartedAt,
             liveEndAt = liveEndAt,
         )
 }
