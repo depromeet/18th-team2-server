@@ -7,6 +7,7 @@ import com.team2.server.party.domain.entity.PartyOption
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.PartyInviteRepository
+import org.hibernate.Hibernate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -30,6 +31,7 @@ class GetUpcomingPartiesUseCase(
         return participants.map { participant ->
             val party = participant.party
             val isHost = party.ownerId == userId
+            val realtimeParty = realtimePartyOrNull(party)
             UpcomingPartyResult(
                 partyId = party.id,
                 inviteToken = inviteTokenByPartyId[party.id],
@@ -40,15 +42,19 @@ class GetUpcomingPartiesUseCase(
                 isHost = isHost,
                 rollingPaperWritten = participant.hasWrittenPaper,
                 hostRollingPaperOpenAt = if (isHost) party.hostViewableAt() else null,
-                realtimeSchedule =
-                    if (party.partyOption == PartyOption.REALTIME) {
-                        (party as RealtimeParty).toRealtimeSchedule()
-                    } else {
-                        null
-                    },
+                realtimeSchedule = realtimeParty?.toRealtimeSchedule(),
+                realtimeStatus = realtimeParty?.status(now),
+                realtimeEnterable = realtimeParty?.isEnterable(now) ?: false,
             )
         }
     }
+
+    private fun realtimePartyOrNull(party: Party): RealtimeParty? =
+        if (party.partyOption == PartyOption.REALTIME) {
+            Hibernate.unproxy(party) as RealtimeParty
+        } else {
+            null
+        }
 
     private fun findInviteTokenByPartyId(
         parties: List<Party>,
@@ -68,8 +74,9 @@ class GetUpcomingPartiesUseCase(
 
     private fun RealtimeParty.toRealtimeSchedule(): UpcomingRealtimeScheduleResult =
         UpcomingRealtimeScheduleResult(
-            enterableFrom = startedAt.minusMinutes(RealtimeParty.ENTERABLE_BEFORE_MINUTES),
+            enterableFrom = enterableFrom(),
             liveStartAt = startedAt,
-            liveEndAt = startedAt.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES),
+            liveStartedAt = liveStartedAt,
+            liveEndAt = effectiveEndingStartedAt(),
         )
 }

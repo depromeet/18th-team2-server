@@ -354,6 +354,27 @@ class PartyInviteLookupControllerTest
                     value(RealtimeParty.LIVE_DURATION_MINUTES)
                 }
                 jsonPath("$.data.realtimeStatus") { value("ROLLING_PAPER_OPEN") }
+                jsonPath("$.data.realtimeEnterable") { value(true) }
+            }
+        }
+
+        @Test
+        fun `REALTIME 초대장 조회는 입장 가능 시각 전이면 realtimeEnterable false`() {
+            val liveStartAt = LocalDateTime.now().plusMinutes(30).truncatedTo(ChronoUnit.SECONDS)
+            val party =
+                saveParty(
+                    RealtimeParty(
+                        ownerId = 1L,
+                        celebrantNickname = "홍길동",
+                        startedAt = liveStartAt,
+                    ),
+                    LocalDateTime.now().minusDays(1),
+                )
+            saveInvite(party, "beforeenter0001")
+
+            mockMvc.get("/api/v1/party-invites/beforeenter0001").andExpect {
+                status { isOk() }
+                jsonPath("$.data.realtimeStatus") { value("ROLLING_PAPER_OPEN") }
                 jsonPath("$.data.realtimeEnterable") { value(false) }
             }
         }

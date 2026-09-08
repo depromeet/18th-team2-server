@@ -186,6 +186,79 @@ class MePartyControllerTest
                 }
         }
 
+        @Test
+        fun `입장 가능 시각이 되면 realtimeEnterable true 와 LIVE_OPEN 을 내려준다`() {
+            val user = saveUser("kakao-upcoming-open", "upcoming-open@kakao.local")
+            val token = tokenProvider.issue(user)
+            val now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS)
+            val liveStartAt = now.minusMinutes(1)
+            val party =
+                saveParty(
+                    RealtimeParty(
+                        ownerId = user.id,
+                        celebrantNickname = "진행중",
+                        startedAt = liveStartAt,
+                    ).apply { liveStartedAt = liveStartAt },
+                    now.minusDays(1),
+                )
+            saveParticipant(party, user, createdAt = now.minusHours(1))
+
+            mockMvc
+                .get("/api/v1/me/upcoming-parties") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.length()") { value(1) }
+                    jsonPath("$.data[0].realtimeStatus") { value("LIVE_OPEN") }
+                    jsonPath("$.data[0].realtimeEnterable") { value(true) }
+                    jsonPath("$.data[0].realtimeSchedule.liveStartedAt") {
+                        value(liveStartAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+                    }
+                    jsonPath("$.data[0].realtimeSchedule.liveEndAt") {
+                        value(
+                            liveStartAt
+                                .plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES)
+                                .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+                        )
+                    }
+                }
+        }
+
+        @Test
+        fun `조기 종료된 실시간 파티는 예상 종료 시각 전이어도 종료 상태를 내려준다`() {
+            val user = saveUser("kakao-upcoming-early-end", "upcoming-early-end@kakao.local")
+            val token = tokenProvider.issue(user)
+            val now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS)
+            val liveStartAt = now.minusMinutes(3)
+            val liveEndingStartedAt = now.minusMinutes(2)
+            val party =
+                saveParty(
+                    RealtimeParty(
+                        ownerId = user.id,
+                        celebrantNickname = "조기종료",
+                        startedAt = liveStartAt,
+                    ).apply {
+                        liveStartedAt = liveStartAt
+                        this.liveEndingStartedAt = liveEndingStartedAt
+                    },
+                    now.minusDays(1),
+                )
+            saveParticipant(party, user, createdAt = now.minusHours(1))
+
+            mockMvc
+                .get("/api/v1/me/upcoming-parties") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.length()") { value(1) }
+                    jsonPath("$.data[0].realtimeStatus") { value("LIVE_CLOSED") }
+                    jsonPath("$.data[0].realtimeEnterable") { value(false) }
+                    jsonPath("$.data[0].realtimeSchedule.liveEndAt") {
+                        value(liveEndingStartedAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+                    }
+                }
+        }
+
         private fun saveParty(
             party: Party,
             createdAt: LocalDateTime,
@@ -254,13 +327,16 @@ class MePartyControllerTest
             jsonPath("$.data[$index].realtimeSchedule.liveStartAt") {
                 value(liveStartAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
             }
+            jsonPath("$.data[$index].realtimeSchedule.liveStartedAt") { value(nullValue()) }
             jsonPath("$.data[$index].realtimeSchedule.liveEndAt") {
                 value(
                     liveStartAt
-                        .plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES)
+                        .plusMinutes(RealtimeParty.START_GRACE_MINUTES)
                         .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
                 )
             }
+            jsonPath("$.data[$index].realtimeStatus") { value("ROLLING_PAPER_OPEN") }
+            jsonPath("$.data[$index].realtimeEnterable") { value(false) }
         }
 
         private fun MockMvcResultMatchersDsl.expectPaperOnlyParty(
@@ -283,6 +359,8 @@ class MePartyControllerTest
                 value(party.hostViewableAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
             }
             jsonPath("$.data[$index].realtimeSchedule") { value(nullValue()) }
+            jsonPath("$.data[$index].realtimeStatus") { value(nullValue()) }
+            jsonPath("$.data[$index].realtimeEnterable") { value(false) }
         }
 
         private fun saveUser(

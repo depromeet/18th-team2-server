@@ -86,6 +86,13 @@ class RealtimeParty(
     fun isLiveOpen(now: LocalDateTime = LocalDateTime.now()): Boolean =
         !now.isBefore(startedAt) && now.isBefore(effectiveEndingStartedAt())
 
+    /** 입장 가능 시작 시각. 예약 시작 시각보다 5분 먼저 열린다. */
+    fun enterableFrom(): LocalDateTime = startedAt.minusMinutes(ENTERABLE_BEFORE_MINUTES)
+
+    /** 실제 입장 허용 여부. `[enterableFrom, effectiveEndingStartedAt)` 구간에서만 true. */
+    fun isEnterable(now: LocalDateTime = LocalDateTime.now()): Boolean =
+        !now.isBefore(enterableFrom()) && now.isBefore(effectiveEndingStartedAt())
+
     fun status(now: LocalDateTime = LocalDateTime.now()): RealtimePartyStatus =
         when {
             isEnded(now) -> RealtimePartyStatus.ROLLING_PAPER_CLOSED

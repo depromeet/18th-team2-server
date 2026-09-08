@@ -7,7 +7,6 @@ import com.team2.server.party.application.dto.RealtimeScheduleResult
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.PartyOption
 import com.team2.server.party.domain.entity.RealtimeParty
-import com.team2.server.party.domain.entity.RealtimePartyStatus
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.PartyInviteRepository
 import org.hibernate.Hibernate
@@ -46,7 +45,7 @@ class LookupPartyInviteUseCase(
             partyEndDate = partyEndAt.toLocalDate(),
             realtimeSchedule = realtimeParty?.let { createRealtimeSchedule(it) },
             realtimeStatus = realtimeStatus,
-            realtimeEnterable = realtimeStatus == RealtimePartyStatus.LIVE_OPEN,
+            realtimeEnterable = realtimeParty?.isEnterable(now) ?: false,
         )
     }
 
@@ -68,7 +67,7 @@ class LookupPartyInviteUseCase(
     private fun createRealtimeSchedule(party: RealtimeParty): RealtimeScheduleResult =
         RealtimeScheduleResult(
             liveStartAt = party.startedAt,
-            enterableFrom = party.startedAt.minusMinutes(RealtimeParty.ENTERABLE_BEFORE_MINUTES),
+            enterableFrom = party.enterableFrom(),
             liveEndAt = party.startedAt.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES),
             liveDurationMinutes = RealtimeParty.LIVE_DURATION_MINUTES,
         )

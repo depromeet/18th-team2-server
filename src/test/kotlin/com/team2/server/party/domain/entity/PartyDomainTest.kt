@@ -73,4 +73,58 @@ class PartyDomainTest {
 
         assertEquals(liveStartedAt.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES), party.liveDeadlineAt)
     }
+
+    @Test
+    fun `RealtimeParty의 입장 가능 시작 시각은 예약 시각 5분 전이다`() {
+        val party = RealtimeParty(ownerId = 1L, startedAt = defaultStartedAt)
+
+        assertEquals(
+            defaultStartedAt.minusMinutes(RealtimeParty.ENTERABLE_BEFORE_MINUTES),
+            party.enterableFrom(),
+        )
+    }
+
+    @Test
+    fun `RealtimeParty는 예약 시각 5분 전부터 입장 가능하다`() {
+        val party = RealtimeParty(ownerId = 1L, startedAt = defaultStartedAt)
+        val enterableFrom = party.enterableFrom()
+
+        assertFalse(party.isEnterable(enterableFrom.minusNanos(1)))
+        assertTrue(party.isEnterable(enterableFrom))
+        assertTrue(party.isEnterable(defaultStartedAt))
+    }
+
+    @Test
+    fun `RealtimeParty는 라이브 시작 전이면 시작 유예 마감까지 입장 가능하다`() {
+        val party = RealtimeParty(ownerId = 1L, startedAt = defaultStartedAt)
+        val startDeadlineAt = party.startDeadlineAt()
+
+        assertTrue(party.isEnterable(startDeadlineAt.minusNanos(1)))
+        assertFalse(party.isEnterable(startDeadlineAt))
+    }
+
+    @Test
+    fun `RealtimeParty는 라이브 시작 후 10분이 지나면 입장 불가하다`() {
+        val party = RealtimeParty(ownerId = 1L, startedAt = defaultStartedAt, liveStartedAt = defaultStartedAt)
+        val liveDeadlineAt = defaultStartedAt.plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES)
+
+        assertTrue(party.isEnterable(liveDeadlineAt.minusNanos(1)))
+        assertFalse(party.isEnterable(liveDeadlineAt))
+    }
+
+    @Test
+    fun `RealtimeParty가 조기 종료되면 종료 시각부터 입장 불가하다`() {
+        val liveEndingStartedAt = defaultStartedAt.plusMinutes(3)
+        val party =
+            RealtimeParty(
+                ownerId = 1L,
+                startedAt = defaultStartedAt,
+                liveEndingStartedAt = liveEndingStartedAt,
+                liveStartedAt = defaultStartedAt,
+            )
+
+        assertTrue(party.isEnterable(liveEndingStartedAt.minusNanos(1)))
+        assertFalse(party.isEnterable(liveEndingStartedAt))
+        assertEquals(RealtimePartyStatus.LIVE_ENDING, party.status(liveEndingStartedAt))
+    }
 }
