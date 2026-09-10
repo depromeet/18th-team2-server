@@ -131,6 +131,75 @@ class FlywayMigrationTest {
     }
 
     @Test
+    fun `Flyway migration backfills host rolling paper notice only for parties already open`() {
+        val flywayToV16 =
+            Flyway
+                .configure()
+                .dataSource(MYSQL.jdbcUrl, MYSQL.username, MYSQL.password)
+                .locations("classpath:db/migration")
+                .target("16")
+                .cleanDisabled(false)
+                .load()
+        flywayToV16.clean()
+        flywayToV16.migrate()
+
+        DriverManager.getConnection(MYSQL.jdbcUrl, MYSQL.username, MYSQL.password).use { connection ->
+            connection.createStatement().use { statement ->
+                statement.executeUpdate(
+                    """
+                    insert into users (
+                        id, created_at, updated_at, name, birth_day, provider, provider_id, email
+                    ) values (
+                        1, NOW(), NOW(), 'host', '01-01', 'KAKAO', 'provider-id', 'host@example.com'
+                    )
+                    """.trimIndent(),
+                )
+                statement.executeUpdate(
+                    """
+                    insert into party (
+                        id, party_option, created_at, updated_at, owner_id, started_at
+                    ) values
+                        (1, 'PAPER_ONLY', NOW(), NOW(), 1, DATE(DATE_SUB(NOW(), INTERVAL 3 DAY))),
+                        (2, 'PAPER_ONLY', NOW(), NOW(), 1, DATE(DATE_ADD(NOW(), INTERVAL 3 DAY))),
+                        (3, 'REALTIME', NOW(), NOW(), 1, DATE_SUB(NOW(), INTERVAL 1 HOUR)),
+                        (4, 'REALTIME', NOW(), NOW(), 1, DATE_SUB(NOW(), INTERVAL 5 MINUTE)),
+                        (5, 'REALTIME', NOW(), NOW(), 1, DATE_SUB(NOW(), INTERVAL 2 HOUR)),
+                        (6, 'REALTIME', NOW(), NOW(), 1, DATE_SUB(NOW(), INTERVAL 10 MINUTE))
+                    """.trimIndent(),
+                )
+                statement.executeUpdate("insert into paper_only_party (id) values (1), (2)")
+                statement.executeUpdate(
+                    """
+                    insert into realtime_party (id, live_ending_started_at, live_started_at) values
+                        (3, DATE_SUB(NOW(), INTERVAL 50 MINUTE), DATE_SUB(NOW(), INTERVAL 1 HOUR)),
+                        (4, NULL, DATE_SUB(NOW(), INTERVAL 5 MINUTE)),
+                        (5, NULL, NULL),
+                        (6, NULL, NULL)
+                    """.trimIndent(),
+                )
+            }
+
+            Flyway
+                .configure()
+                .dataSource(MYSQL.jdbcUrl, MYSQL.username, MYSQL.password)
+                .locations("classpath:db/migration")
+                .load()
+                .migrate()
+
+            // PAPER_ONLY: 시작일 22시가 지났으면 소진, 아직이면 NULL
+            assertEquals(true, connection.hasNoticeSeenAt(1L))
+            assertEquals(false, connection.hasNoticeSeenAt(2L))
+            // REALTIME: 조기 종료 시각이 지났으면 소진
+            assertEquals(true, connection.hasNoticeSeenAt(3L))
+            // REALTIME: 라이브 시작 + 10분이 아직 안 지났으면 NULL
+            assertEquals(false, connection.hasNoticeSeenAt(4L))
+            // REALTIME: 미시작이면 예약 시작 + 30분 기준
+            assertEquals(true, connection.hasNoticeSeenAt(5L))
+            assertEquals(false, connection.hasNoticeSeenAt(6L))
+        }
+    }
+
+    @Test
     fun `Flyway migration creates schema and seeds default assets`() {
         DriverManager.getConnection(MYSQL.jdbcUrl, MYSQL.username, MYSQL.password).use { connection ->
             Flyway
@@ -216,6 +285,15 @@ class FlywayMigrationTest {
             }
         }
 
+    private fun java.sql.Connection.hasNoticeSeenAt(partyId: Long): Boolean =
+        prepareStatement("select host_rolling_paper_notice_seen_at from party where id = ?").use { statement ->
+            statement.setLong(1, partyId)
+            statement.executeQuery().use { rs ->
+                rs.next()
+                rs.getTimestamp("host_rolling_paper_notice_seen_at") != null
+            }
+        }
+
     private fun java.sql.Connection.hasLiveStartedAt(partyId: Long): Boolean =
         prepareStatement("select live_started_at from realtime_party where id = ?").use { statement ->
             statement.setLong(1, partyId)
@@ -285,7 +363,7 @@ class FlywayMigrationTest {
 
     private companion object {
         private val COUNTABLE_TABLES = setOf("avatar", "rolling_paper_wrapper", "image")
-        private val TABLES_WITH_COLUMNS_TO_ASSERT = setOf("realtime_party")
+        private val TABLES_WITH_COLUMNS_TO_ASSERT = setOf("realtime_party", "party")
         private val EXPECTED_CHARACTER_IMAGE_URLS =
             listOf(
                 "/images/characters/blue.png",

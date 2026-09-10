@@ -33,6 +33,8 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -427,6 +429,57 @@ class PartyControllerTest
                     status { isOk() }
                     jsonPath("$.data.type") { value("HOST_ROLLING_PAPER_LIST") }
                     jsonPath("$.data.partyId") { value(party.id.toInt()) }
+                }
+        }
+
+        @Test
+        fun `주최자가 아니면 오픈 안내 확인 요청은 403`() {
+            val owner = saveUser("kakao-notice-owner", "notice-owner@kakao.local")
+            val other = saveUser("kakao-notice-other", "notice-other@kakao.local")
+            val party = saveRealtimeParty(owner, LocalDateTime.now().minusHours(1))
+
+            mockMvc
+                .post("/api/v1/parties/${party.id}/host-rolling-paper-seen") {
+                    header("Authorization", "Bearer ${tokenProvider.issue(other)}")
+                }.andExpect {
+                    status { isForbidden() }
+                    jsonPath("$.error.code") { value("PARTY_FORBIDDEN") }
+                }
+
+            assertNull(partyRepository.findPartyById(party.id)!!.hostRollingPaperNoticeSeenAt)
+        }
+
+        @Test
+        fun `오픈 안내 확인 요청은 멱등이며 최초 시각을 유지한다`() {
+            val owner = saveUser("kakao-notice-idem", "notice-idem@kakao.local")
+            val party = saveRealtimeParty(owner, LocalDateTime.now().minusHours(1))
+            val token = tokenProvider.issue(owner)
+
+            mockMvc
+                .post("/api/v1/parties/${party.id}/host-rolling-paper-seen") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect { status { isOk() } }
+            val first = partyRepository.findPartyById(party.id)!!.hostRollingPaperNoticeSeenAt
+
+            mockMvc
+                .post("/api/v1/parties/${party.id}/host-rolling-paper-seen") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect { status { isOk() } }
+
+            assertNotNull(first)
+            assertEquals(first, partyRepository.findPartyById(party.id)!!.hostRollingPaperNoticeSeenAt)
+        }
+
+        @Test
+        fun `없는 파티의 오픈 안내 확인 요청은 404`() {
+            val owner = saveUser("kakao-notice-missing", "notice-missing@kakao.local")
+
+            mockMvc
+                .post("/api/v1/parties/999999/host-rolling-paper-seen") {
+                    header("Authorization", "Bearer ${tokenProvider.issue(owner)}")
+                }.andExpect {
+                    status { isNotFound() }
+                    jsonPath("$.error.code") { value("PARTY_NOT_FOUND") }
                 }
         }
 

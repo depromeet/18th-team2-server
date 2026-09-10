@@ -31,6 +31,13 @@ data class UpcomingPartyResponse(
     val rollingPaperWritten: Boolean,
     @Schema(description = "주최자 롤링페이퍼 오픈 시각. 주최자가 아니면 null", nullable = true)
     val hostRollingPaperOpenAt: LocalDateTime?,
+    @Schema(
+        description =
+            "주최자에게 롤링페이퍼 오픈 안내를 노출해야 하는지 여부. " +
+                "오픈 시각이 지났고 아직 안내를 확인하지 않았으면 true. 주최자가 아니면 false",
+        example = "false",
+    )
+    val hostRollingPaperNoticePending: Boolean,
     @Schema(description = "실시간 파티 일정. PAPER_ONLY면 null", nullable = true)
     val realtimeSchedule: UpcomingRealtimeScheduleResponse?,
     @Schema(
