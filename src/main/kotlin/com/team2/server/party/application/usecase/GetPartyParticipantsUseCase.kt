@@ -5,14 +5,14 @@ import com.team2.server.common.image.entity.ImageTargetType
 import com.team2.server.party.application.dto.PartyParticipantResult
 import com.team2.server.party.application.dto.PartyParticipantsResult
 import com.team2.server.party.application.service.ParticipantService
-import com.team2.server.party.application.service.PartyService
+import com.team2.server.party.application.service.PartyQueryService
 import com.team2.server.party.domain.entity.RealtimeParty
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
 class GetPartyParticipantsUseCase(
-    private val partyService: PartyService,
+    private val partyQueryService: PartyQueryService,
     private val participantService: ParticipantService,
     private val imageUrlPort: ImageUrlPort,
 ) {
@@ -23,7 +23,7 @@ class GetPartyParticipantsUseCase(
         participantToken: String?,
     ): PartyParticipantsResult {
         val callerParticipantId = participantService.requireCallerParticipant(partyId, userId, participantToken).id
-        val party = partyService.requireRealtimeParty(partyId)
+        val party = partyQueryService.requireRealtimeParty(partyId)
 
         // SSE/WebSocket 연결 상태(presence)는 신뢰할 수 없는 신호라 판단 기준으로 쓰지 않는다.
         // 대신 영구 상태인 hasEntered(실제 입장 여부)/hasLeft(퇴장 여부)로 판단한다.

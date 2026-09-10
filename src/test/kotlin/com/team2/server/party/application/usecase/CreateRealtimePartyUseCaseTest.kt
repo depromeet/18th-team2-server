@@ -2,8 +2,8 @@ package com.team2.server.party.application.usecase
 
 import com.team2.server.party.application.dto.CreateRealtimePartyCommand
 import com.team2.server.party.application.event.RealtimePartyCreatedEvent
+import com.team2.server.party.application.service.PartyCreationService
 import com.team2.server.party.application.service.PartyInviteService
-import com.team2.server.party.application.service.PartyService
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
 import com.team2.server.user.repository.UserRepository
@@ -23,7 +23,7 @@ import kotlin.test.assertEquals
 @ExtendWith(MockitoExtension::class)
 class CreateRealtimePartyUseCaseTest {
     @Mock
-    lateinit var partyService: PartyService
+    lateinit var partyCreationService: PartyCreationService
 
     @Mock
     lateinit var partyInviteService: PartyInviteService
@@ -40,7 +40,7 @@ class CreateRealtimePartyUseCaseTest {
     fun setUp() {
         useCase =
             CreateRealtimePartyUseCase(
-                partyService = partyService,
+                partyCreationService = partyCreationService,
                 partyInviteService = partyInviteService,
                 userRepository = userRepository,
                 applicationEventPublisher = applicationEventPublisher,
@@ -48,7 +48,7 @@ class CreateRealtimePartyUseCaseTest {
     }
 
     @Test
-    fun `invoke delegates to partyService and returns partyId`() {
+    fun `invoke delegates to partyCreationService and returns partyId`() {
         val command =
             CreateRealtimePartyCommand(
                 celebrantNickname = "홍길동",
@@ -58,13 +58,15 @@ class CreateRealtimePartyUseCaseTest {
             )
         val user = user()
         whenever(userRepository.findById(42L)).thenReturn(Optional.of(user))
-        whenever(partyService.createRealtimeParty(userId = 42L, user = user, command = command)).thenReturn(100L)
+        whenever(
+            partyCreationService.createRealtimeParty(userId = 42L, user = user, command = command),
+        ).thenReturn(100L)
         whenever(partyInviteService.activateInviteLink(partyId = 100L, userId = 42L)).thenReturn("invite-token")
 
         val partyId = useCase.invoke(userId = 42L, command = command)
 
         assertEquals(100L, partyId)
-        verify(partyService).createRealtimeParty(userId = 42L, user = user, command = command)
+        verify(partyCreationService).createRealtimeParty(userId = 42L, user = user, command = command)
         verify(partyInviteService).activateInviteLink(partyId = 100L, userId = 42L)
         verify(applicationEventPublisher).publishEvent(
             RealtimePartyCreatedEvent(

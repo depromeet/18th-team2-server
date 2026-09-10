@@ -66,6 +66,8 @@ class EnterAndSubscribeChatSocketUseCaseTest {
                     partyId = 1L,
                     status = RealtimePartyStatus.LIVE_OPEN,
                     liveStartAt = now.minusMinutes(5),
+                    liveTimerStartedAt = now.minusMinutes(5),
+                    liveDeadlineAt = now.plusMinutes(5),
                     endingStartedAt = null,
                     endedAt = now.plusMinutes(5),
                     endingReason = null,

@@ -7,7 +7,7 @@ import com.team2.server.party.application.dto.RealtimePartyEndingInfo
 import com.team2.server.party.application.event.RealtimePartyEndingEventPublisher
 import com.team2.server.party.application.port.PartyPhaseStore
 import com.team2.server.party.application.port.RealtimePartyEndingInfoPort
-import com.team2.server.party.application.service.PartyService
+import com.team2.server.party.application.service.PartyQueryService
 import com.team2.server.party.application.service.RealtimePartyEndResultService
 import com.team2.server.party.application.service.RealtimePartyEndService
 import com.team2.server.party.domain.entity.Party
@@ -27,7 +27,7 @@ import java.time.ZoneId
 import kotlin.test.assertEquals
 
 class StartRealtimePartyEndUseCaseTest {
-    private val partyService: PartyService = mock()
+    private val partyQueryService: PartyQueryService = mock()
     private val realtimePartyEndService: RealtimePartyEndService = mock()
     private val endingInfoPort: RealtimePartyEndingInfoPort = mock()
     private val eventPublisher: RealtimePartyEndingEventPublisher = mock()
@@ -38,7 +38,7 @@ class StartRealtimePartyEndUseCaseTest {
     private val clock = Clock.fixed(now.atZone(zone).toInstant(), zone)
     private val useCase =
         StartRealtimePartyEndUseCase(
-            partyService,
+            partyQueryService,
             realtimePartyEndService,
             endResultService,
             clock,
@@ -47,7 +47,7 @@ class StartRealtimePartyEndUseCaseTest {
     @Test
     fun `non host cannot start realtime party ending`() {
         val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(5))
-        whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
+        whenever(partyQueryService.requireRealtimeParty(1L)).thenReturn(party)
 
         val ex = assertThrows<BusinessException> { useCase(1L, userId = 2L) }
 
@@ -58,7 +58,7 @@ class StartRealtimePartyEndUseCaseTest {
     fun `LIVE_CLOSED party cannot start ending again`() {
         val startedAt = now.minusMinutes(12)
         val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = startedAt).apply { liveStartedAt = startedAt }
-        whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
+        whenever(partyQueryService.requireRealtimeParty(1L)).thenReturn(party)
 
         val ex = assertThrows<BusinessException> { useCase(1L, userId = 1L) }
 
@@ -68,7 +68,7 @@ class StartRealtimePartyEndUseCaseTest {
     @Test
     fun `ROLLING_PAPER_OPEN party cannot start ending`() {
         val party = realtimeParty(id = 1L, ownerId = 1L, startedAt = now.plusMinutes(1))
-        whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
+        whenever(partyQueryService.requireRealtimeParty(1L)).thenReturn(party)
 
         val ex = assertThrows<BusinessException> { useCase(1L, userId = 1L) }
 
@@ -90,7 +90,7 @@ class StartRealtimePartyEndUseCaseTest {
                 liveEndingStartedAt = endingStartedAt,
                 liveEndingReason = RealtimePartyEndingReason.HOST_LEFT,
             )
-        whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
+        whenever(partyQueryService.requireRealtimeParty(1L)).thenReturn(party)
         whenever(realtimePartyEndService.startIfNotStarted(1L, endingStartedAt, RealtimePartyEndingReason.HOST_LEFT))
             .thenReturn(RealtimePartyEndStartResult(affected = 1, party = endedParty))
         whenever(endingInfoPort.get(endedParty))
@@ -112,7 +112,7 @@ class StartRealtimePartyEndUseCaseTest {
             realtimeParty(id = 1L, ownerId = 1L, startedAt = now.minusMinutes(10), endingStartedAt).apply {
                 liveStartedAt = now.minusMinutes(5)
             }
-        whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
+        whenever(partyQueryService.requireRealtimeParty(1L)).thenReturn(party)
         whenever(
             realtimePartyEndService.startIfNotStarted(
                 1L,
@@ -144,7 +144,7 @@ class StartRealtimePartyEndUseCaseTest {
                 startedAt = startedAt,
                 liveEndingStartedAt = party.automaticEndingStartedAt(),
             ).apply { liveStartedAt = startedAt }
-        whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
+        whenever(partyQueryService.requireRealtimeParty(1L)).thenReturn(party)
         whenever(
             realtimePartyEndService.startIfNotStarted(
                 1L,

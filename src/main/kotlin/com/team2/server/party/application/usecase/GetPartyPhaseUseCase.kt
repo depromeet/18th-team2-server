@@ -3,7 +3,7 @@ package com.team2.server.party.application.usecase
 import com.team2.server.party.application.dto.PartyPhaseResult
 import com.team2.server.party.application.port.PartyPhaseStore
 import com.team2.server.party.application.service.ParticipantService
-import com.team2.server.party.application.service.PartyService
+import com.team2.server.party.application.service.PartyQueryService
 import com.team2.server.party.application.service.RealtimeParticipantProfileService
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
@@ -15,7 +15,7 @@ import java.time.LocalDateTime
 
 @Service
 class GetPartyPhaseUseCase(
-    private val partyService: PartyService,
+    private val partyQueryService: PartyQueryService,
     private val participantService: ParticipantService,
     private val phaseStore: PartyPhaseStore,
     private val profileService: RealtimeParticipantProfileService,
@@ -28,7 +28,7 @@ class GetPartyPhaseUseCase(
         participantToken: String?,
     ): PartyPhaseResult {
         val now = LocalDateTime.now(clock)
-        val party = partyService.requireRealtimeParty(partyId)
+        val party = partyQueryService.requireRealtimeParty(partyId)
         phaseForLeftParticipant(party, participantToken, now)?.let { return it }
 
         participantService.validatePartyMember(party, userId, participantToken)

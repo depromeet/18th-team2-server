@@ -83,4 +83,19 @@ interface PartyApi {
         @Parameter(hidden = true) participantToken: String?,
         @Parameter(description = "파티 ID", example = "1") partyId: Long,
     ): ApiResponse<RealtimePartyNextActionResult>
+
+    @Operation(
+        summary = "주최자 롤링페이퍼 오픈 안내 확인 처리",
+        description =
+            "홈 목록의 hostRollingPaperNoticePending 을 소진시킨다. 멱등이며, " +
+                "안내를 노출한 직후와 주최자 롤링페이퍼 화면 진입 시 호출한다.",
+        security = [SecurityRequirement(name = "Bearer Authentication")],
+    )
+    @SwaggerApiResponse(responseCode = "200", description = "확인 처리 성공")
+    @AuthErrorResponses
+    @InternalServerErrorResponse
+    fun markRollingPaperNoticeSeen(
+        @Parameter(hidden = true) principal: UserPrincipal,
+        @Parameter(description = "파티 ID", example = "1") partyId: Long,
+    ): ApiResponse<Unit>
 }

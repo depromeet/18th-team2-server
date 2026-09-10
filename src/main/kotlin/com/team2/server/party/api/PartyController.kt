@@ -17,6 +17,7 @@ import com.team2.server.party.application.usecase.CreateRealtimePartyUseCase
 import com.team2.server.party.application.usecase.DeletePartyUseCase
 import com.team2.server.party.application.usecase.GetRealtimePartyNextActionUseCase
 import com.team2.server.party.application.usecase.GetRealtimePartyStateUseCase
+import com.team2.server.party.application.usecase.MarkHostRollingPaperNoticeSeenUseCase
 import com.team2.server.party.application.usecase.StartRealtimePartyEndUseCase
 import org.springframework.http.HttpStatus
 import org.springframework.security.core.annotation.AuthenticationPrincipal
@@ -37,6 +38,7 @@ class PartyController(
     private val createPaperOnlyPartyUseCase: CreatePaperOnlyPartyUseCase,
     private val deletePartyUseCase: DeletePartyUseCase,
     private val startRealtimePartyEndUseCase: StartRealtimePartyEndUseCase,
+    private val markHostRollingPaperNoticeSeenUseCase: MarkHostRollingPaperNoticeSeenUseCase,
     private val getRealtimePartyStateUseCase: GetRealtimePartyStateUseCase,
     private val getRealtimePartyNextActionUseCase: GetRealtimePartyNextActionUseCase,
 ) : PartyApi {
@@ -118,4 +120,13 @@ class PartyController(
             HttpStatus.OK,
             getRealtimePartyNextActionUseCase(partyId, principal?.userId, participantToken),
         )
+
+    @PostMapping("/{partyId}/host-rolling-paper-seen")
+    override fun markRollingPaperNoticeSeen(
+        @AuthenticationPrincipal principal: UserPrincipal,
+        @PathVariable partyId: Long,
+    ): ApiResponse<Unit> {
+        markHostRollingPaperNoticeSeenUseCase.invoke(partyId = partyId, userId = principal.userId)
+        return ApiResponse.success(HttpStatus.OK, Unit)
+    }
 }

@@ -34,8 +34,11 @@ class RealtimeParty(
 
     fun startDeadlineAt(): LocalDateTime = startedAt.plusMinutes(START_GRACE_MINUTES)
 
-    fun automaticEndingStartedAt(): LocalDateTime =
-        liveStartedAt?.plusMinutes(LIVE_DURATION_MINUTES) ?: startDeadlineAt()
+    /** 상단 10분 타이머 마감 시각. 호스트가 아직 파티를 시작하지 않았으면 null. */
+    val liveDeadlineAt: LocalDateTime?
+        get() = liveStartedAt?.plusMinutes(LIVE_DURATION_MINUTES)
+
+    fun automaticEndingStartedAt(): LocalDateTime = liveDeadlineAt ?: startDeadlineAt()
 
     fun effectiveEndingStartedAt(): LocalDateTime = liveEndingStartedAt ?: automaticEndingStartedAt()
 
@@ -82,6 +85,13 @@ class RealtimeParty(
 
     fun isLiveOpen(now: LocalDateTime = LocalDateTime.now()): Boolean =
         !now.isBefore(startedAt) && now.isBefore(effectiveEndingStartedAt())
+
+    /** 입장 가능 시작 시각. 예약 시작 시각보다 5분 먼저 열린다. */
+    fun enterableFrom(): LocalDateTime = startedAt.minusMinutes(ENTERABLE_BEFORE_MINUTES)
+
+    /** 실제 입장 허용 여부. `[enterableFrom, effectiveEndingStartedAt)` 구간에서만 true. */
+    fun isEnterable(now: LocalDateTime = LocalDateTime.now()): Boolean =
+        !now.isBefore(enterableFrom()) && now.isBefore(effectiveEndingStartedAt())
 
     fun status(now: LocalDateTime = LocalDateTime.now()): RealtimePartyStatus =
         when {

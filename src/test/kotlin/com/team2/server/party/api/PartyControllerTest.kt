@@ -30,7 +30,11 @@ import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -309,6 +313,56 @@ class PartyControllerTest
         }
 
         @Test
+        fun `실시간 파티 상태는 예약 시각이 아닌 실제 라이브 시작 시각 기준 타이머를 제공한다`() {
+            val owner = saveUser("kakao-realtime-state-timer", "state-timer@kakao.local")
+            val startedAt =
+                LocalDateTime
+                    .now()
+                    .truncatedTo(ChronoUnit.SECONDS)
+                    .minusMinutes(5)
+                    .withSecond(11)
+            val liveStartedAt = startedAt.plusSeconds(23)
+            val party =
+                saveRealtimeParty(owner, startedAt).also {
+                    it.liveStartedAt = liveStartedAt
+                    partyRepository.save(it)
+                }
+
+            mockMvc
+                .get("/api/v1/parties/${party.id}/realtime-state") {
+                    header("Authorization", "Bearer ${tokenProvider.issue(owner)}")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.liveStartAt") { value(startedAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)) }
+                    jsonPath("$.data.liveTimerStartedAt") {
+                        value(liveStartedAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+                    }
+                    jsonPath("$.data.liveDeadlineAt") {
+                        value(
+                            liveStartedAt
+                                .plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES)
+                                .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+                        )
+                    }
+                }
+        }
+
+        @Test
+        fun `라이브 시작 전 실시간 파티 상태는 타이머 기준 시각을 내려주지 않는다`() {
+            val owner = saveUser("kakao-realtime-state-not-started", "state-not-started@kakao.local")
+            val party = saveRealtimeParty(owner, LocalDateTime.now().minusMinutes(1))
+
+            mockMvc
+                .get("/api/v1/parties/${party.id}/realtime-state") {
+                    header("Authorization", "Bearer ${tokenProvider.issue(owner)}")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.liveTimerStartedAt") { doesNotExist() }
+                    jsonPath("$.data.liveDeadlineAt") { doesNotExist() }
+                }
+        }
+
+        @Test
         fun `박터뜨리기가 종료된 파티 상태는 주최자 종료 인사 가능 상태를 복구한다`() {
             val owner = saveUser("kakao-realtime-state-burst-ended", "state-burst-ended@kakao.local")
             val party =
@@ -375,6 +429,57 @@ class PartyControllerTest
                     status { isOk() }
                     jsonPath("$.data.type") { value("HOST_ROLLING_PAPER_LIST") }
                     jsonPath("$.data.partyId") { value(party.id.toInt()) }
+                }
+        }
+
+        @Test
+        fun `주최자가 아니면 오픈 안내 확인 요청은 403`() {
+            val owner = saveUser("kakao-notice-owner", "notice-owner@kakao.local")
+            val other = saveUser("kakao-notice-other", "notice-other@kakao.local")
+            val party = saveRealtimeParty(owner, LocalDateTime.now().minusHours(1))
+
+            mockMvc
+                .post("/api/v1/parties/${party.id}/host-rolling-paper-seen") {
+                    header("Authorization", "Bearer ${tokenProvider.issue(other)}")
+                }.andExpect {
+                    status { isForbidden() }
+                    jsonPath("$.error.code") { value("PARTY_FORBIDDEN") }
+                }
+
+            assertNull(partyRepository.findPartyById(party.id)!!.hostRollingPaperNoticeSeenAt)
+        }
+
+        @Test
+        fun `오픈 안내 확인 요청은 멱등이며 최초 시각을 유지한다`() {
+            val owner = saveUser("kakao-notice-idem", "notice-idem@kakao.local")
+            val party = saveRealtimeParty(owner, LocalDateTime.now().minusHours(1))
+            val token = tokenProvider.issue(owner)
+
+            mockMvc
+                .post("/api/v1/parties/${party.id}/host-rolling-paper-seen") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect { status { isOk() } }
+            val first = partyRepository.findPartyById(party.id)!!.hostRollingPaperNoticeSeenAt
+
+            mockMvc
+                .post("/api/v1/parties/${party.id}/host-rolling-paper-seen") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect { status { isOk() } }
+
+            assertNotNull(first)
+            assertEquals(first, partyRepository.findPartyById(party.id)!!.hostRollingPaperNoticeSeenAt)
+        }
+
+        @Test
+        fun `없는 파티의 오픈 안내 확인 요청은 404`() {
+            val owner = saveUser("kakao-notice-missing", "notice-missing@kakao.local")
+
+            mockMvc
+                .post("/api/v1/parties/999999/host-rolling-paper-seen") {
+                    header("Authorization", "Bearer ${tokenProvider.issue(owner)}")
+                }.andExpect {
+                    status { isNotFound() }
+                    jsonPath("$.error.code") { value("PARTY_NOT_FOUND") }
                 }
         }
 

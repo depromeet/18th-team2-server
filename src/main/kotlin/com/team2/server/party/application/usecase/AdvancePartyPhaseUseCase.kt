@@ -4,7 +4,7 @@ import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.dto.PartyPhaseResult
 import com.team2.server.party.application.service.PartyPhaseTransitionService
-import com.team2.server.party.application.service.PartyService
+import com.team2.server.party.application.service.PartyQueryService
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.domain.vo.PartyPhase
 import org.springframework.stereotype.Service
@@ -14,7 +14,7 @@ import java.time.LocalDateTime
 
 @Service
 class AdvancePartyPhaseUseCase(
-    private val partyService: PartyService,
+    private val partyQueryService: PartyQueryService,
     private val phaseTransitionService: PartyPhaseTransitionService,
     private val markRealtimePartyStartedUseCase: MarkRealtimePartyStartedUseCase,
     private val actorValidator: AdvancePartyPhaseActorValidator,
@@ -28,7 +28,7 @@ class AdvancePartyPhaseUseCase(
         currentPhase: PartyPhase,
     ): PartyPhaseResult {
         val now = LocalDateTime.now(clock)
-        val party = partyService.requireRealtimeParty(partyId)
+        val party = partyQueryService.requireRealtimeParty(partyId)
         val nextPhase =
             ALLOWED_TRANSITIONS[currentPhase]
                 ?: throw BusinessException(ErrorCode.INVALID_INPUT)

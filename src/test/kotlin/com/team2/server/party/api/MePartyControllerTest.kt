@@ -24,6 +24,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.MockMvcResultMatchersDsl
 import org.springframework.test.web.servlet.get
+import org.springframework.test.web.servlet.post
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
@@ -186,6 +187,192 @@ class MePartyControllerTest
                 }
         }
 
+        @Test
+        fun `입장 가능 시각이 되면 realtimeEnterable true 와 LIVE_OPEN 을 내려준다`() {
+            val user = saveUser("kakao-upcoming-open", "upcoming-open@kakao.local")
+            val token = tokenProvider.issue(user)
+            val now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS)
+            val liveStartAt = now.minusMinutes(1)
+            val party =
+                saveParty(
+                    RealtimeParty(
+                        ownerId = user.id,
+                        celebrantNickname = "진행중",
+                        startedAt = liveStartAt,
+                    ).apply { liveStartedAt = liveStartAt },
+                    now.minusDays(1),
+                )
+            saveParticipant(party, user, createdAt = now.minusHours(1))
+
+            mockMvc
+                .get("/api/v1/me/upcoming-parties") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.length()") { value(1) }
+                    jsonPath("$.data[0].realtimeStatus") { value("LIVE_OPEN") }
+                    jsonPath("$.data[0].realtimeEnterable") { value(true) }
+                    jsonPath("$.data[0].realtimeSchedule.liveStartedAt") {
+                        value(liveStartAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+                    }
+                    jsonPath("$.data[0].realtimeSchedule.liveEndAt") {
+                        value(
+                            liveStartAt
+                                .plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES)
+                                .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+                        )
+                    }
+                }
+        }
+
+        @Test
+        fun `조기 종료된 실시간 파티는 예상 종료 시각 전이어도 종료 상태를 내려준다`() {
+            val user = saveUser("kakao-upcoming-early-end", "upcoming-early-end@kakao.local")
+            val token = tokenProvider.issue(user)
+            val now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS)
+            val liveStartAt = now.minusMinutes(3)
+            val liveEndingStartedAt = now.minusMinutes(2)
+            val party =
+                saveParty(
+                    RealtimeParty(
+                        ownerId = user.id,
+                        celebrantNickname = "조기종료",
+                        startedAt = liveStartAt,
+                    ).apply {
+                        liveStartedAt = liveStartAt
+                        this.liveEndingStartedAt = liveEndingStartedAt
+                    },
+                    now.minusDays(1),
+                )
+            saveParticipant(party, user, createdAt = now.minusHours(1))
+
+            mockMvc
+                .get("/api/v1/me/upcoming-parties") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.length()") { value(1) }
+                    jsonPath("$.data[0].realtimeStatus") { value("LIVE_CLOSED") }
+                    jsonPath("$.data[0].realtimeEnterable") { value(false) }
+                    jsonPath("$.data[0].realtimeSchedule.liveEndAt") {
+                        value(liveEndingStartedAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+                    }
+                }
+        }
+
+        @Test
+        fun `PAPER_ONLY 파티는 주최자 오픈 시각이 지나면 안내가 필요하다고 내려준다`() {
+            val user = saveUser("kakao-notice-paper", "notice-paper@kakao.local")
+            val token = tokenProvider.issue(user)
+            val now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS)
+            val party =
+                saveParty(
+                    PaperOnlyParty(
+                        ownerId = user.id,
+                        celebrantNickname = "오픈됨",
+                        startedAt = now.minusDays(1).toLocalDate().atStartOfDay(),
+                    ),
+                    now.minusDays(2),
+                )
+            saveParticipant(party, user, createdAt = now.minusDays(1))
+
+            mockMvc
+                .get("/api/v1/me/upcoming-parties") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.length()") { value(1) }
+                    jsonPath("$.data[0].isHost") { value(true) }
+                    jsonPath("$.data[0].hostRollingPaperNoticePending") { value(true) }
+                }
+        }
+
+        @Test
+        fun `주최자가 아니면 오픈 시각이 지나도 안내가 필요하지 않다`() {
+            val user = saveUser("kakao-notice-guest", "notice-guest@kakao.local")
+            val owner = saveUser("kakao-notice-owner", "notice-owner@kakao.local")
+            val token = tokenProvider.issue(user)
+            val now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS)
+            val party =
+                saveParty(
+                    PaperOnlyParty(
+                        ownerId = owner.id,
+                        celebrantNickname = "오픈됨",
+                        startedAt = now.minusDays(1).toLocalDate().atStartOfDay(),
+                    ),
+                    now.minusDays(2),
+                )
+            saveParticipant(party, user, createdAt = now.minusDays(1))
+
+            mockMvc
+                .get("/api/v1/me/upcoming-parties") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data[0].isHost") { value(false) }
+                    jsonPath("$.data[0].hostRollingPaperNoticePending") { value(false) }
+                }
+        }
+
+        @Test
+        fun `조기 종료된 실시간 파티의 주최자에게도 안내가 필요하다`() {
+            val user = saveUser("kakao-notice-live", "notice-live@kakao.local")
+            val token = tokenProvider.issue(user)
+            val now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS)
+            val liveStartAt = now.minusMinutes(5)
+            val party =
+                saveParty(
+                    RealtimeParty(
+                        ownerId = user.id,
+                        celebrantNickname = "조기종료",
+                        startedAt = liveStartAt,
+                    ).apply {
+                        liveStartedAt = liveStartAt
+                        liveEndingStartedAt = now.minusMinutes(3)
+                    },
+                    now.minusDays(1),
+                )
+            saveParticipant(party, user, createdAt = now.minusHours(1))
+
+            mockMvc
+                .get("/api/v1/me/upcoming-parties") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data[0].hostRollingPaperNoticePending") { value(true) }
+                }
+        }
+
+        @Test
+        fun `확인 API 호출 후에는 안내가 필요하지 않다`() {
+            val user = saveUser("kakao-notice-seen", "notice-seen@kakao.local")
+            val token = tokenProvider.issue(user)
+            val now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS)
+            val party =
+                saveParty(
+                    PaperOnlyParty(
+                        ownerId = user.id,
+                        celebrantNickname = "확인함",
+                        startedAt = now.minusDays(1).toLocalDate().atStartOfDay(),
+                    ),
+                    now.minusDays(2),
+                )
+            saveParticipant(party, user, createdAt = now.minusDays(1))
+
+            mockMvc
+                .post("/api/v1/parties/${party.id}/host-rolling-paper-seen") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect { status { isOk() } }
+
+            mockMvc
+                .get("/api/v1/me/upcoming-parties") {
+                    header("Authorization", "Bearer $token")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data[0].hostRollingPaperNoticePending") { value(false) }
+                }
+        }
+
         private fun saveParty(
             party: Party,
             createdAt: LocalDateTime,
@@ -244,6 +431,7 @@ class MePartyControllerTest
             jsonPath("$.data[$index].isHost") { value(false) }
             jsonPath("$.data[$index].rollingPaperWritten") { value(true) }
             jsonPath("$.data[$index].hostRollingPaperOpenAt") { value(nullValue()) }
+            jsonPath("$.data[$index].hostRollingPaperNoticePending") { value(false) }
             jsonPath("$.data[$index].realtimeSchedule.enterableFrom") {
                 value(
                     liveStartAt
@@ -254,13 +442,16 @@ class MePartyControllerTest
             jsonPath("$.data[$index].realtimeSchedule.liveStartAt") {
                 value(liveStartAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
             }
+            jsonPath("$.data[$index].realtimeSchedule.liveStartedAt") { value(nullValue()) }
             jsonPath("$.data[$index].realtimeSchedule.liveEndAt") {
                 value(
                     liveStartAt
-                        .plusMinutes(RealtimeParty.LIVE_DURATION_MINUTES)
+                        .plusMinutes(RealtimeParty.START_GRACE_MINUTES)
                         .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
                 )
             }
+            jsonPath("$.data[$index].realtimeStatus") { value("ROLLING_PAPER_OPEN") }
+            jsonPath("$.data[$index].realtimeEnterable") { value(false) }
         }
 
         private fun MockMvcResultMatchersDsl.expectPaperOnlyParty(
@@ -282,7 +473,10 @@ class MePartyControllerTest
             jsonPath("$.data[$index].hostRollingPaperOpenAt") {
                 value(party.hostViewableAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
             }
+            jsonPath("$.data[$index].hostRollingPaperNoticePending") { value(false) }
             jsonPath("$.data[$index].realtimeSchedule") { value(nullValue()) }
+            jsonPath("$.data[$index].realtimeStatus") { value(nullValue()) }
+            jsonPath("$.data[$index].realtimeEnterable") { value(false) }
         }
 
         private fun saveUser(
