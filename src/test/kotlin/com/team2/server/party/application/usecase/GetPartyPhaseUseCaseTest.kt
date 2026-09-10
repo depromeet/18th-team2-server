@@ -2,7 +2,7 @@ package com.team2.server.party.application.usecase
 
 import com.team2.server.party.application.port.PartyPhaseStore
 import com.team2.server.party.application.service.ParticipantService
-import com.team2.server.party.application.service.PartyService
+import com.team2.server.party.application.service.PartyQueryService
 import com.team2.server.party.application.service.RealtimeParticipantProfileService
 import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.Party
@@ -19,20 +19,20 @@ import java.time.ZoneOffset
 import kotlin.test.assertEquals
 
 class GetPartyPhaseUseCaseTest {
-    private val partyService: PartyService = mock()
+    private val partyQueryService: PartyQueryService = mock()
     private val participantService: ParticipantService = mock()
     private val phaseStore: PartyPhaseStore = mock()
     private val profileService: RealtimeParticipantProfileService = mock()
     private val fixedNow = LocalDateTime.of(2026, 5, 26, 20, 0, 0)
     private val clock: Clock = Clock.fixed(fixedNow.toInstant(ZoneOffset.UTC), ZoneOffset.UTC)
-    private val useCase = GetPartyPhaseUseCase(partyService, participantService, phaseStore, profileService, clock)
+    private val useCase = GetPartyPhaseUseCase(partyQueryService, participantService, phaseStore, profileService, clock)
 
     @Test
     fun `phase 등록 전이면 ENTRY와 파티 startedAt 반환`() {
         val partyId = 1L
         val partyStartedAt = LocalDateTime.of(2026, 5, 26, 19, 55)
         val party = RealtimeParty(ownerId = 10L, startedAt = partyStartedAt)
-        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+        whenever(partyQueryService.requireRealtimeParty(partyId)).thenReturn(party)
         whenever(phaseStore.getEntry(partyId)).thenReturn(null)
 
         val result = useCase(partyId, userId = 10L, participantToken = null)
@@ -47,7 +47,7 @@ class GetPartyPhaseUseCaseTest {
         val partyId = 1L
         val phaseStartedAt = LocalDateTime.of(2026, 5, 26, 20, 0, 5)
         val party = RealtimeParty(ownerId = 10L, startedAt = LocalDateTime.of(2026, 5, 26, 19, 55))
-        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+        whenever(partyQueryService.requireRealtimeParty(partyId)).thenReturn(party)
         whenever(phaseStore.getEntry(partyId)).thenReturn(
             PartyPhaseStore.PhaseEntry(PartyPhase.MUSIC, phaseStartedAt),
         )
@@ -75,7 +75,7 @@ class GetPartyPhaseUseCaseTest {
                 nickname = "퇴장자",
                 participantToken = "left-token",
             )
-        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+        whenever(partyQueryService.requireRealtimeParty(partyId)).thenReturn(party)
         whenever(profileService.findByParticipantToken("left-token")).thenReturn(profile)
 
         val result = useCase(partyId, userId = null, participantToken = "left-token")

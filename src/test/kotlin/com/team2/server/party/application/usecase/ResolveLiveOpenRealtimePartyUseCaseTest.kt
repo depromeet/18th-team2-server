@@ -2,7 +2,7 @@ package com.team2.server.party.application.usecase
 
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
-import com.team2.server.party.application.service.PartyService
+import com.team2.server.party.application.service.PartyQueryService
 import com.team2.server.party.domain.entity.RealtimeParty
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -20,20 +20,20 @@ import kotlin.test.assertSame
 
 @ExtendWith(MockitoExtension::class)
 class ResolveLiveOpenRealtimePartyUseCaseTest {
-    @Mock lateinit var partyService: PartyService
+    @Mock lateinit var partyQueryService: PartyQueryService
 
     private val clock = Clock.fixed(Instant.parse("2026-06-08T11:00:30Z"), ZoneId.of("Asia/Seoul"))
     private lateinit var useCase: ResolveLiveOpenRealtimePartyUseCase
 
     @BeforeEach
     fun setUp() {
-        useCase = ResolveLiveOpenRealtimePartyUseCase(partyService, clock)
+        useCase = ResolveLiveOpenRealtimePartyUseCase(partyQueryService, clock)
     }
 
     @Test
     fun `LIVE_OPEN이면 실시간 기능 사용 가능 파티를 반환한다`() {
         val party = RealtimeParty(ownerId = 1L, startedAt = now().minusMinutes(1))
-        whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
+        whenever(partyQueryService.requireRealtimeParty(1L)).thenReturn(party)
 
         val result = useCase.invoke(1L)
 
@@ -48,7 +48,7 @@ class ResolveLiveOpenRealtimePartyUseCaseTest {
                 startedAt = now().minusMinutes(1),
                 liveEndingStartedAt = now().minusSeconds(10),
             )
-        whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
+        whenever(partyQueryService.requireRealtimeParty(1L)).thenReturn(party)
 
         val result = useCase.invoke(1L)
 
@@ -63,7 +63,7 @@ class ResolveLiveOpenRealtimePartyUseCaseTest {
                 startedAt = now().minusMinutes(1),
                 liveEndingStartedAt = now().minusSeconds(61),
             )
-        whenever(partyService.requireRealtimeParty(1L)).thenReturn(party)
+        whenever(partyQueryService.requireRealtimeParty(1L)).thenReturn(party)
 
         val ex = assertThrows<BusinessException> { useCase.invoke(1L) }
 

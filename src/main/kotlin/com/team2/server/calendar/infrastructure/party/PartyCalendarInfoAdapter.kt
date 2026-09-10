@@ -7,7 +7,7 @@ import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.service.ParticipantService
 import com.team2.server.party.application.service.PartyInviteService
-import com.team2.server.party.application.service.PartyService
+import com.team2.server.party.application.service.PartyQueryService
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.PartyPurpose
 import org.springframework.beans.factory.annotation.Value
@@ -16,7 +16,7 @@ import java.time.LocalDateTime
 
 @Component
 class PartyCalendarInfoAdapter(
-    private val partyService: PartyService,
+    private val partyQueryService: PartyQueryService,
     private val participantService: ParticipantService,
     private val partyInviteService: PartyInviteService,
     @Value("\${app.web-base-url}") private val webBaseUrl: String,
@@ -26,7 +26,7 @@ class PartyCalendarInfoAdapter(
         userId: Long,
         now: LocalDateTime,
     ): PartyCalendarInfo {
-        val party = partyService.requireParty(partyId)
+        val party = partyQueryService.requireParty(partyId)
         requireMember(party, partyId, userId)
 
         return PartyCalendarInfo(

@@ -5,7 +5,7 @@ import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.port.PartyPhaseStore
 import com.team2.server.party.application.service.ParticipantService
 import com.team2.server.party.application.service.PartyPhaseTransitionService
-import com.team2.server.party.application.service.PartyService
+import com.team2.server.party.application.service.PartyQueryService
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.domain.vo.PartyPhase
 import org.junit.jupiter.api.Test
@@ -23,7 +23,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 class AdvancePartyPhaseUseCaseTest {
-    private val partyService: PartyService = mock()
+    private val partyQueryService: PartyQueryService = mock()
     private val participantService: ParticipantService = mock()
     private val phaseTransitionService: PartyPhaseTransitionService = mock()
     private val fixedNow = LocalDateTime.of(2026, 5, 26, 20, 0, 5)
@@ -32,7 +32,7 @@ class AdvancePartyPhaseUseCaseTest {
     private val actorValidator = AdvancePartyPhaseActorValidator(participantService)
     private val useCase =
         AdvancePartyPhaseUseCase(
-            partyService,
+            partyQueryService,
             phaseTransitionService,
             markRealtimePartyStartedUseCase,
             actorValidator,
@@ -44,7 +44,7 @@ class AdvancePartyPhaseUseCaseTest {
         val partyId = 1L
         val ownerId = 10L
         val party = RealtimeParty(ownerId = ownerId, startedAt = LocalDateTime.of(2026, 5, 26, 19, 55))
-        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+        whenever(partyQueryService.requireRealtimeParty(partyId)).thenReturn(party)
         wheneverTransitionSucceeds(partyId, PartyPhase.ENTRY, PartyPhase.MUSIC)
 
         val result = useCase(partyId, userId = ownerId, participantToken = null, currentPhase = PartyPhase.ENTRY)
@@ -57,7 +57,7 @@ class AdvancePartyPhaseUseCaseTest {
     fun `비호스트가 ENTRY→MUSIC 시도 시 403`() {
         val partyId = 1L
         val party = RealtimeParty(ownerId = 10L, startedAt = LocalDateTime.of(2026, 5, 26, 19, 55))
-        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+        whenever(partyQueryService.requireRealtimeParty(partyId)).thenReturn(party)
 
         assertFailsWith<BusinessException> {
             useCase(partyId, userId = 99L, participantToken = null, currentPhase = PartyPhase.ENTRY)
@@ -70,7 +70,7 @@ class AdvancePartyPhaseUseCaseTest {
         val partyId = 1L
         val ownerId = 10L
         val party = RealtimeParty(ownerId = ownerId, startedAt = fixedNow.plusSeconds(1))
-        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+        whenever(partyQueryService.requireRealtimeParty(partyId)).thenReturn(party)
 
         val ex =
             assertFailsWith<BusinessException> {
@@ -88,7 +88,7 @@ class AdvancePartyPhaseUseCaseTest {
         val ownerId = 10L
         val startedAt = fixedNow.minusMinutes(RealtimeParty.START_GRACE_MINUTES)
         val party = RealtimeParty(ownerId = ownerId, startedAt = startedAt)
-        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+        whenever(partyQueryService.requireRealtimeParty(partyId)).thenReturn(party)
 
         val ex =
             assertFailsWith<BusinessException> {
@@ -105,7 +105,7 @@ class AdvancePartyPhaseUseCaseTest {
         val partyId = 1L
         val ownerId = 10L
         val party = RealtimeParty(ownerId = ownerId, startedAt = fixedNow)
-        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+        whenever(partyQueryService.requireRealtimeParty(partyId)).thenReturn(party)
         wheneverTransitionSucceeds(partyId, PartyPhase.ENTRY, PartyPhase.MUSIC)
 
         val result = useCase(partyId, userId = ownerId, participantToken = null, currentPhase = PartyPhase.ENTRY)
@@ -119,7 +119,7 @@ class AdvancePartyPhaseUseCaseTest {
         val partyId = 1L
         val ownerId = 10L
         val party = RealtimeParty(ownerId = ownerId, startedAt = LocalDateTime.of(2026, 5, 26, 19, 55))
-        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+        whenever(partyQueryService.requireRealtimeParty(partyId)).thenReturn(party)
         whenever(phaseTransitionService.advance(any(), any(), any(), any(), any(), any())).thenReturn(false)
         whenever(phaseTransitionService.getEntry(partyId)).thenReturn(
             PartyPhaseStore.PhaseEntry(PartyPhase.MUSIC, fixedNow.minusSeconds(3)),
@@ -134,7 +134,7 @@ class AdvancePartyPhaseUseCaseTest {
     fun `파티 멤버가 MUSIC→CANDLE 전환 성공 시 촛불끄기 세션을 시작한다`() {
         val partyId = 1L
         val party = RealtimeParty(ownerId = 10L, startedAt = LocalDateTime.of(2026, 5, 26, 19, 55))
-        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+        whenever(partyQueryService.requireRealtimeParty(partyId)).thenReturn(party)
         wheneverTransitionSucceeds(partyId, PartyPhase.MUSIC, PartyPhase.CANDLE)
 
         val result = useCase(partyId, userId = 99L, participantToken = null, currentPhase = PartyPhase.MUSIC)
@@ -148,7 +148,7 @@ class AdvancePartyPhaseUseCaseTest {
     fun `파티 멤버가 CANDLE→BURST 전환 성공 시 SSE 브로드캐스트`() {
         val partyId = 1L
         val party = RealtimeParty(ownerId = 10L, startedAt = LocalDateTime.of(2026, 5, 26, 19, 55))
-        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+        whenever(partyQueryService.requireRealtimeParty(partyId)).thenReturn(party)
         wheneverTransitionSucceeds(partyId, PartyPhase.CANDLE, PartyPhase.BURST)
 
         val result = useCase(partyId, userId = 99L, participantToken = null, currentPhase = PartyPhase.CANDLE)
@@ -162,7 +162,7 @@ class AdvancePartyPhaseUseCaseTest {
     fun `허용되지 않는 currentPhase 시 400`() {
         val partyId = 1L
         val party = RealtimeParty(ownerId = 10L, startedAt = LocalDateTime.of(2026, 5, 26, 19, 55))
-        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+        whenever(partyQueryService.requireRealtimeParty(partyId)).thenReturn(party)
 
         assertFailsWith<BusinessException> {
             useCase(partyId, userId = 10L, participantToken = null, currentPhase = PartyPhase.BURST)
@@ -174,7 +174,7 @@ class AdvancePartyPhaseUseCaseTest {
         val partyId = 1L
         val ownerId = 10L
         val party = RealtimeParty(ownerId = ownerId, startedAt = LocalDateTime.of(2026, 5, 26, 19, 55))
-        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+        whenever(partyQueryService.requireRealtimeParty(partyId)).thenReturn(party)
         wheneverTransitionSucceeds(partyId, PartyPhase.ENTRY, PartyPhase.MUSIC)
 
         useCase(partyId, userId = ownerId, participantToken = null, currentPhase = PartyPhase.ENTRY)
@@ -187,7 +187,7 @@ class AdvancePartyPhaseUseCaseTest {
         val partyId = 1L
         val ownerId = 10L
         val party = RealtimeParty(ownerId = ownerId, startedAt = LocalDateTime.of(2026, 5, 26, 19, 55))
-        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+        whenever(partyQueryService.requireRealtimeParty(partyId)).thenReturn(party)
         whenever(
             phaseTransitionService.advance(
                 eq(partyId),
@@ -210,7 +210,7 @@ class AdvancePartyPhaseUseCaseTest {
     fun `MUSIC→CANDLE 전환은 파티 시작 시각을 기록하지 않는다`() {
         val partyId = 1L
         val party = RealtimeParty(ownerId = 10L, startedAt = LocalDateTime.of(2026, 5, 26, 19, 55))
-        whenever(partyService.requireRealtimeParty(partyId)).thenReturn(party)
+        whenever(partyQueryService.requireRealtimeParty(partyId)).thenReturn(party)
         wheneverTransitionSucceeds(partyId, PartyPhase.MUSIC, PartyPhase.CANDLE)
 
         useCase(partyId, userId = 10L, participantToken = null, currentPhase = PartyPhase.MUSIC)

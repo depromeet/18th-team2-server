@@ -2,7 +2,7 @@ package com.team2.server.party.application.usecase
 
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
-import com.team2.server.party.application.service.PartyService
+import com.team2.server.party.application.service.PartyQueryService
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.domain.entity.RealtimePartyStatus
 import org.slf4j.LoggerFactory
@@ -13,14 +13,14 @@ import java.time.LocalDateTime
 
 @Service
 class ResolveLiveOpenRealtimePartyUseCase(
-    private val partyService: PartyService,
+    private val partyQueryService: PartyQueryService,
     private val clock: Clock,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional(readOnly = true)
     fun invoke(partyId: Long): RealtimeParty {
-        val party = partyService.requireRealtimeParty(partyId)
+        val party = partyQueryService.requireRealtimeParty(partyId)
         val now = LocalDateTime.now(clock)
         val status = party.status(now)
         if (status !in ACTIVE_STATUSES) {

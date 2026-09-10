@@ -1,18 +1,18 @@
 package com.team2.server.party.application.usecase
 
 import com.team2.server.party.application.dto.RealtimePartyScheduleData
-import com.team2.server.party.application.service.PartyService
+import com.team2.server.party.application.service.PartyQueryService
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
 
 @Service
 class FindRealtimePartiesWaitingAutomaticEndingUseCase(
-    private val partyService: PartyService,
+    private val partyQueryService: PartyQueryService,
 ) {
     @Transactional(readOnly = true)
     operator fun invoke(startedAfter: LocalDateTime): List<RealtimePartyScheduleData> =
-        partyService
+        partyQueryService
             .findRealtimePartiesWaitingAutomaticEnding(startedAfter)
             .map { RealtimePartyScheduleData.from(it) }
 }
