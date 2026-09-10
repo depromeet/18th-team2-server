@@ -36,6 +36,7 @@ class MePartyController(
             isHost = isHost,
             rollingPaperWritten = rollingPaperWritten,
             hostRollingPaperOpenAt = hostRollingPaperOpenAt,
+            hostRollingPaperNoticePending = hostRollingPaperNoticePending,
             realtimeSchedule = realtimeSchedule?.toResponse(),
             realtimeStatus = realtimeStatus,
             realtimeEnterable = realtimeEnterable,

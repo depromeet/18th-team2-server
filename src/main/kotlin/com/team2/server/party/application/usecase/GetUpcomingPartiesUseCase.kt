@@ -42,6 +42,7 @@ class GetUpcomingPartiesUseCase(
                 isHost = isHost,
                 rollingPaperWritten = participant.hasWrittenPaper,
                 hostRollingPaperOpenAt = if (isHost) party.hostViewableAt() else null,
+                hostRollingPaperNoticePending = isHost && party.needsHostRollingPaperNotice(now),
                 realtimeSchedule = realtimeParty?.toRealtimeSchedule(),
                 realtimeStatus = realtimeParty?.status(now),
                 realtimeEnterable = realtimeParty?.isEnterable(now) ?: false,

@@ -14,6 +14,7 @@ data class UpcomingPartyResult(
     val isHost: Boolean,
     val rollingPaperWritten: Boolean,
     val hostRollingPaperOpenAt: LocalDateTime?,
+    val hostRollingPaperNoticePending: Boolean,
     val realtimeSchedule: UpcomingRealtimeScheduleResult?,
     val realtimeStatus: RealtimePartyStatus?,
     val realtimeEnterable: Boolean,
