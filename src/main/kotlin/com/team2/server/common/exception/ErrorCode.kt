@@ -47,6 +47,7 @@ enum class ErrorCode(
 
     KAKAO_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "카카오 재로그인이 필요합니다"),
     KAKAO_CALENDAR_CONSENT_REQUIRED(HttpStatus.FORBIDDEN, "톡캘린더 사용 동의가 필요합니다"),
+    KAKAO_CALENDAR_NOT_PERMITTED(HttpStatus.SERVICE_UNAVAILABLE, "톡캘린더 기능을 아직 사용할 수 없습니다"),
     KAKAO_CALENDAR_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "카카오 톡캘린더 연동에 실패했습니다"),
     TALK_CALENDAR_PARTY_ALREADY_STARTED(HttpStatus.CONFLICT, "이미 시작된 파티는 캘린더에 등록할 수 없습니다"),
     CALENDAR_REGISTRATION_IN_PROGRESS(HttpStatus.CONFLICT, "캘린더 등록이 이미 진행 중입니다"),
