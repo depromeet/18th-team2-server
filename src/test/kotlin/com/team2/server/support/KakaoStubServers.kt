@@ -31,6 +31,9 @@ object KakaoStubServers {
     @Volatile
     var rejectNextCreateEventWithUnauthorized: Boolean = false
 
+    @Volatile
+    var rejectNextCreateEventWithAppNotPermitted: Boolean = false
+
     private var refCount = 0
     private var calendar: HttpServer? = null
     private var auth: HttpServer? = null
@@ -44,11 +47,18 @@ object KakaoStubServers {
         calendar =
             HttpServer.create(InetSocketAddress("127.0.0.1", CALENDAR_PORT), 0).apply {
                 createContext(CREATE_EVENT_PATH) {
-                    if (rejectNextCreateEventWithUnauthorized) {
-                        rejectNextCreateEventWithUnauthorized = false
-                        respond(it, UNAUTHORIZED_BODY, status = 401)
-                    } else {
-                        respond(it, EVENT_BODY)
+                    when {
+                        rejectNextCreateEventWithUnauthorized -> {
+                            rejectNextCreateEventWithUnauthorized = false
+                            respond(it, UNAUTHORIZED_BODY, status = 401)
+                        }
+
+                        rejectNextCreateEventWithAppNotPermitted -> {
+                            rejectNextCreateEventWithAppNotPermitted = false
+                            respond(it, APP_NOT_PERMITTED_BODY, status = 403)
+                        }
+
+                        else -> respond(it, EVENT_BODY)
                     }
                 }
                 createContext(UPDATE_EVENT_PATH) { respond(it, EVENT_BODY) }
@@ -76,6 +86,7 @@ object KakaoStubServers {
         requests.clear()
         kakaoUserId = 1L
         rejectNextCreateEventWithUnauthorized = false
+        rejectNextCreateEventWithAppNotPermitted = false
     }
 
     private fun respond(
@@ -97,4 +108,8 @@ object KakaoStubServers {
 
     /** 카카오 문서의 `-401`(토큰 오류) 응답 형태를 흉내낸다. */
     private const val UNAUTHORIZED_BODY = "{\"code\":-401,\"msg\":\"this access token does not exist\"}"
+
+    private const val APP_NOT_PERMITTED_BODY =
+        "{\"code\":-5,\"msg\":\"This user is not registered as a team member for App(id=1440914). " +
+            "To use test app, ask the owner to invite the user, first.\"}"
 }

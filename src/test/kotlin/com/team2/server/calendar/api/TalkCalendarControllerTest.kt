@@ -186,6 +186,23 @@ class TalkCalendarControllerTest
         }
 
         @Test
+        fun `검수 전 앱이라 카카오가 403 code -5 를 주면 재동의 코드를 주지 않는다`() {
+            val fixture = saveHostAndParty(LocalDateTime.now().plusDays(2))
+            saveValidConnection(fixture.hostId)
+            KakaoStubServers.rejectNextCreateEventWithAppNotPermitted = true
+
+            mockMvc
+                .post("/api/v1/parties/${fixture.partyId}/talk-calendar") {
+                    header("Authorization", "Bearer ${fixture.hostToken}")
+                }.andExpect {
+                    status { isServiceUnavailable() }
+                    jsonPath("$.error.code") { value("KAKAO_CALENDAR_NOT_PERMITTED") }
+                }
+
+            assertTrue(kakaoCalendarConnectionRepository.findAll().isNotEmpty())
+        }
+
+        @Test
         fun `카카오로 나가는 일정 시각은 카카오 문서 형식을 따른다`() {
             val startedAt = LocalDateTime.of(2026, 12, 24, 19, 0)
             val fixture = saveHostAndParty(startedAt)
