@@ -59,7 +59,7 @@ const client = new StompJs.Client({
 { "content": "안녕하세요!", "participantToken": "aB3xZ9qR", "clientRequestId": "c1b2..." }
 ```
 
-파티가 `LIVE_OPEN` 상태일 때만 전송됩니다.
+입장 가능 시각(시작 5분 전)부터 종료 카운트다운이 끝날 때까지 전송됩니다.
 
 ### 3. 퇴장 — `/app/parties/{partyId}/leave`
 
@@ -280,7 +280,7 @@ const client = new StompJs.Client({
 | code | 상황 |
 |---|---|
 | `INVITE_LINK_EXPIRED` | 만료된 초대 링크로 입장 |
-| `CHAT_NOT_ACTIVE` | 파티가 `LIVE_OPEN`이 아닐 때 입장/전송 |
+| `CHAT_NOT_ACTIVE` | 입장 가능 구간(시작 5분 전 ~ 종료 카운트다운 시작 전) 밖에서 입장, 또는 채팅 가능 구간(시작 5분 전 ~ 종료 카운트다운 종료) 밖에서 전송 |
 | `CHAT_NOT_SUPPORTED` | 실시간(채팅) 파티가 아님 |
 | `PARTY_HOST_NICKNAME_NOT_EDITABLE` | 주최자가 재입장 시 닉네임을 바꾸려 함 |
 | `PARTY_NICKNAME_DUPLICATED` | 닉네임 중복 |

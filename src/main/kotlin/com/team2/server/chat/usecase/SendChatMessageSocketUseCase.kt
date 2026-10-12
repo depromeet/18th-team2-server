@@ -3,14 +3,14 @@ package com.team2.server.chat.usecase
 import com.team2.server.chat.application.support.ChatMessagePersister
 import com.team2.server.chat.dto.ChatMessageResponse
 import com.team2.server.chat.infrastructure.websocket.ChatSocketGateway
-import com.team2.server.party.application.usecase.ResolveLiveOpenRealtimePartyUseCase
+import com.team2.server.party.application.usecase.ResolveChatOpenRealtimePartyUseCase
 import com.team2.server.party.application.usecase.ResolveRealtimeParticipantProfileUseCase
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
 class SendChatMessageSocketUseCase(
-    private val resolveLiveOpenRealtimePartyUseCase: ResolveLiveOpenRealtimePartyUseCase,
+    private val resolveChatOpenRealtimePartyUseCase: ResolveChatOpenRealtimePartyUseCase,
     private val resolveRealtimeParticipantProfileUseCase: ResolveRealtimeParticipantProfileUseCase,
     private val chatMessagePersister: ChatMessagePersister,
     private val chatSocketGateway: ChatSocketGateway,
@@ -27,7 +27,7 @@ class SendChatMessageSocketUseCase(
         participantToken: String,
         content: String,
     ): ChatMessageResponse {
-        val party = resolveLiveOpenRealtimePartyUseCase.invoke(partyId)
+        val party = resolveChatOpenRealtimePartyUseCase.invoke(partyId)
         val profile = resolveRealtimeParticipantProfileUseCase.invoke(partyId, null, participantToken)
 
         val response = chatMessagePersister.persist(party, profile, content)
