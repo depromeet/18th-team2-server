@@ -214,7 +214,7 @@ const client = new StompJs.Client({
 | `message` | 누군가 메시지 전송 | `ChatMessageResponse` |
 | `user-left` | 누군가 퇴장 | `{ nickname, role }` |
 | `party-phase-changed` | 파티 진행 단계 전환(음악 → 촛불끄기 → 박터뜨리기 등) | `{ partyId, phase, phaseStartedAt, serverNow }` |
-| `party-ending` | 60초 종료 카운트다운 시작 | `{ partyId, endingStartedAt, endedAt, endingReason, hostNickname, serverNow }` |
+| `party-ending` | 30초 종료 카운트다운 시작 | `{ partyId, endingStartedAt, endedAt, endingReason, hostNickname, serverNow }` |
 | `party-ended` | 실시간 파티 종료 | `{ partyId, endedAt, hostNickname, serverNow }` |
 | `candle-blow-started` / `candle-blow-progress` / `candle-blow-ended` | 촛불끄기 세션 시작/진행/종료 | `CandleBlowResponse` (위 참고) |
 | `burst-game-started` | 박터뜨리기 라운드 시작 | `{ partyId, status, startedAt, endsAt, totalTapCount, stateVersion, serverTime }` |
