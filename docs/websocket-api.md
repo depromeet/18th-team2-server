@@ -146,7 +146,7 @@ const client = new StompJs.Client({
   "status": "LIVE_OPEN",
   "liveStartAt": "2026-05-19T20:00:00",
   "endingStartedAt": null,
-  "endedAt": "2026-05-19T20:11:00",
+  "endedAt": "2026-05-19T20:10:30",
   "endingReason": null,
   "hostNickname": "홍길동",
   "hostFarewellAvailable": false,
@@ -244,7 +244,7 @@ const client = new StompJs.Client({
 {
   "partyId": 1,
   "endingStartedAt": "2026-05-19T20:10:00",
-  "endedAt": "2026-05-19T20:11:00",
+  "endedAt": "2026-05-19T20:10:30",
   "endingReason": "TIME_LIMIT_REACHED",
   "hostNickname": "홍길동",
   "serverNow": "2026-05-19T20:10:00"
