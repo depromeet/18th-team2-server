@@ -108,7 +108,7 @@ class RealtimeParty(
 
     companion object {
         const val LIVE_DURATION_MINUTES: Long = 10
-        const val LIVE_END_COUNTDOWN_SECONDS: Long = 60
+        const val LIVE_END_COUNTDOWN_SECONDS: Long = 30
         const val START_GRACE_MINUTES: Long = 30
         const val HOST_FAREWELL_AVAILABLE_AFTER_MINUTES: Long = 4
         const val ENTERABLE_BEFORE_MINUTES: Long = 5

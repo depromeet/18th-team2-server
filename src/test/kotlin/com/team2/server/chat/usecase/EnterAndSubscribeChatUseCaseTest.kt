@@ -54,7 +54,7 @@ class EnterAndSubscribeChatUseCaseTest {
                     liveTimerStartedAt = now.minusMinutes(5),
                     liveDeadlineAt = now.plusMinutes(5),
                     endingStartedAt = null,
-                    endedAt = now.plusMinutes(5).plusSeconds(60),
+                    endedAt = now.plusMinutes(5).plusSeconds(30),
                     endingReason = null,
                     hostNickname = "주최자",
                     hostFarewellAvailable = true,

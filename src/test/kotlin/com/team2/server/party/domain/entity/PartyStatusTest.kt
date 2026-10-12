@@ -117,9 +117,9 @@ class PartyStatusTest {
     }
 
     @Test
-    fun `RealtimeParty - 종료 카운트다운 60초 이후는 LIVE_CLOSED`() {
+    fun `RealtimeParty - 종료 카운트다운 30초 이후는 LIVE_CLOSED`() {
         val party = realtimeParty().apply { liveStartedAt = liveStart }
-        val now = liveStart.plusMinutes(10).plusSeconds(60)
+        val now = liveStart.plusMinutes(10).plusSeconds(30)
         assertEquals(RealtimePartyStatus.LIVE_CLOSED, party.status(now))
     }
 
@@ -146,7 +146,7 @@ class PartyStatusTest {
         assertEquals(endingStartedAt, party.hostViewableAt())
         assertEquals(RealtimePartyEndingReason.HOST_REQUEST, party.endingReason())
         assertEquals(RealtimePartyStatus.LIVE_ENDING, party.status(endingStartedAt))
-        assertEquals(RealtimePartyStatus.LIVE_CLOSED, party.status(endingStartedAt.plusSeconds(60)))
+        assertEquals(RealtimePartyStatus.LIVE_CLOSED, party.status(endingStartedAt.plusSeconds(30)))
     }
 
     @Test

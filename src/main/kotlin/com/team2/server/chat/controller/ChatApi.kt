@@ -53,7 +53,7 @@ interface ChatApi {
 | `message` | 새로 전송된 메시지 1건 |
 | `user-entered` | 참여자 입장 알림 |
 | `user-left` | 참여자 퇴장 알림 |
-| `party-ending` | 60초 종료 카운트다운 시작 알림 |
+| `party-ending` | 30초 종료 카운트다운 시작 알림 |
 | `party-ended` | 실시간 파티 종료 알림 |
 
 ---

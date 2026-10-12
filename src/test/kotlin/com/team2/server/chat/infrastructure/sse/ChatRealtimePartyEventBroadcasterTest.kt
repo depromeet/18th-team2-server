@@ -24,16 +24,16 @@ class ChatRealtimePartyEventBroadcasterTest {
         broadcaster.broadcastPartyEnding(
             partyId = 1L,
             endingStartedAt = now,
-            endedAt = now.plusSeconds(60),
+            endedAt = now.plusSeconds(30),
             endingReason = RealtimePartyEndingReason.TIME_LIMIT_REACHED,
             hostNickname = "주최자",
             serverNow = now.plusSeconds(1),
         )
         broadcaster.broadcastPartyEnded(
             partyId = 1L,
-            endedAt = now.plusSeconds(60),
+            endedAt = now.plusSeconds(30),
             hostNickname = "주최자",
-            serverNow = now.plusSeconds(60),
+            serverNow = now.plusSeconds(30),
         )
         broadcaster.completeParty(partyId = 1L)
 
@@ -45,7 +45,7 @@ class ChatRealtimePartyEventBroadcasterTest {
             PartyEndingEventPayload(
                 partyId = 1L,
                 endingStartedAt = now,
-                endedAt = now.plusSeconds(60),
+                endedAt = now.plusSeconds(30),
                 endingReason = RealtimePartyEndingReason.TIME_LIMIT_REACHED,
                 hostNickname = "주최자",
                 serverNow = now.plusSeconds(1),
@@ -55,9 +55,9 @@ class ChatRealtimePartyEventBroadcasterTest {
         assertEquals(
             PartyEndedEventPayload(
                 partyId = 1L,
-                endedAt = now.plusSeconds(60),
+                endedAt = now.plusSeconds(30),
                 hostNickname = "주최자",
-                serverNow = now.plusSeconds(60),
+                serverNow = now.plusSeconds(30),
             ),
             payload(eventCaptor.secondValue),
         )
