@@ -93,6 +93,10 @@ class RealtimeParty(
     fun isEnterable(now: LocalDateTime = LocalDateTime.now()): Boolean =
         !now.isBefore(enterableFrom()) && now.isBefore(effectiveEndingStartedAt())
 
+    /** 채팅 가능 여부. 입장 대기(시작 5분 전)부터 종료 카운트다운이 끝날 때까지 true. */
+    fun isChatOpen(now: LocalDateTime = LocalDateTime.now()): Boolean =
+        !now.isBefore(enterableFrom()) && now.isBefore(effectiveLiveEndedAt())
+
     fun status(now: LocalDateTime = LocalDateTime.now()): RealtimePartyStatus =
         when {
             isEnded(now) -> RealtimePartyStatus.ROLLING_PAPER_CLOSED

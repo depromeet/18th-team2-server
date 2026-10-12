@@ -31,10 +31,11 @@ interface ChatApi {
 
 **입장 가능 조건**
 - 초대 링크가 만료되지 않아야 합니다
-- 실시간 파티가 LIVE_OPEN 상태일 때만 입장할 수 있습니다
+- 파티 시작 5분 전(`enterableFrom`)부터 종료 카운트다운 시작 전까지 입장할 수 있습니다
+- 시작 시각 전에 입장하면 `party-state` 의 status 는 `ROLLING_PAPER_OPEN` 입니다. 채팅은 바로 가능하고, 파티 시작은 시작 시각부터 가능합니다
 
 **재입장**
-기존 participantToken으로 다시 호출해도 LIVE_ENDING 상태에서는 입장할 수 없습니다.
+기존 participantToken 재입장도 같은 입장 가능 구간을 따릅니다. LIVE_ENDING 상태에서는 입장할 수 없습니다.
 
 ---
 
@@ -196,7 +197,7 @@ curl -N -X POST http://localhost:8080/api/v1/party-invites/{inviteToken}/realtim
 실시간 파티 채팅에 메시지를 전송합니다.
 
 **전송 가능 조건**
-파티가 시작된 상태(`LIVE_OPEN`)에서만 전송할 수 있습니다. 파티 시작 전이나 종료 후에는 전송이 거부됩니다.
+입장 가능 시각(시작 5분 전, `enterableFrom`)부터 종료 카운트다운이 끝날 때까지 전송할 수 있습니다. 그 전이나 종료 후에는 전송이 거부됩니다.
 
 **인증**
 로그인 사용자는 `Authorization: Bearer {token}` 헤더를, 비로그인 참여자는 `X-Participant-Token: {participantToken}` 헤더를 사용합니다. 둘 중 하나는 반드시 포함해야 합니다.
@@ -215,7 +216,7 @@ curl -N -X POST http://localhost:8080/api/v1/party-invites/{inviteToken}/realtim
                 schema = Schema(implementation = ErrorResponse::class),
                 examples = [
                     ExampleObject(
-                        name = "파티가 LIVE_OPEN 상태가 아님",
+                        name = "채팅 가능 구간이 아님",
                         value =
                             """{"status":400,"error":{"code":"CHAT_NOT_ACTIVE","message":"현재 채팅이 활성화된 시간이 아닙니다"}}""",
                     ),

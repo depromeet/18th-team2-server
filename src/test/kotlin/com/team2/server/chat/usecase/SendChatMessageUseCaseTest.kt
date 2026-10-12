@@ -7,7 +7,7 @@ import com.team2.server.chat.dto.SendChatMessageRequest
 import com.team2.server.chat.infrastructure.sse.ChatSseGateway
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
-import com.team2.server.party.application.usecase.ResolveLiveOpenRealtimePartyUseCase
+import com.team2.server.party.application.usecase.ResolveChatOpenRealtimePartyUseCase
 import com.team2.server.party.application.usecase.ResolveRealtimeParticipantProfileUseCase
 import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
@@ -27,7 +27,7 @@ import kotlin.test.assertEquals
 
 @ExtendWith(MockitoExtension::class)
 class SendChatMessageUseCaseTest {
-    @Mock lateinit var resolveLiveOpenRealtimePartyUseCase: ResolveLiveOpenRealtimePartyUseCase
+    @Mock lateinit var resolveChatOpenRealtimePartyUseCase: ResolveChatOpenRealtimePartyUseCase
 
     @Mock lateinit var resolveRealtimeParticipantProfileUseCase: ResolveRealtimeParticipantProfileUseCase
 
@@ -42,7 +42,7 @@ class SendChatMessageUseCaseTest {
 
     @Test
     fun `파티 없으면 PARTY_NOT_FOUND`() {
-        whenever(resolveLiveOpenRealtimePartyUseCase.invoke(1L))
+        whenever(resolveChatOpenRealtimePartyUseCase.invoke(1L))
             .thenThrow(BusinessException(ErrorCode.PARTY_NOT_FOUND))
 
         val ex =
@@ -54,7 +54,7 @@ class SendChatMessageUseCaseTest {
 
     @Test
     fun `PAPER_ONLY 파티면 CHAT_NOT_SUPPORTED`() {
-        whenever(resolveLiveOpenRealtimePartyUseCase.invoke(1L))
+        whenever(resolveChatOpenRealtimePartyUseCase.invoke(1L))
             .thenThrow(BusinessException(ErrorCode.CHAT_NOT_SUPPORTED))
 
         val ex =
@@ -66,7 +66,7 @@ class SendChatMessageUseCaseTest {
 
     @Test
     fun `활성 상태가 아니면 CHAT_NOT_ACTIVE`() {
-        whenever(resolveLiveOpenRealtimePartyUseCase.invoke(1L))
+        whenever(resolveChatOpenRealtimePartyUseCase.invoke(1L))
             .thenThrow(BusinessException(ErrorCode.CHAT_NOT_ACTIVE))
 
         val ex =
@@ -79,7 +79,7 @@ class SendChatMessageUseCaseTest {
     @Test
     fun `profileService가 PARTY_FORBIDDEN 던지면 전파됨`() {
         val party = RealtimeParty(ownerId = 1L, startedAt = LocalDateTime.now().minusMinutes(5))
-        whenever(resolveLiveOpenRealtimePartyUseCase.invoke(1L)).thenReturn(party)
+        whenever(resolveChatOpenRealtimePartyUseCase.invoke(1L)).thenReturn(party)
         whenever(resolveRealtimeParticipantProfileUseCase.invoke(1L, 99L, null))
             .thenThrow(BusinessException(ErrorCode.PARTY_FORBIDDEN))
 
@@ -93,7 +93,7 @@ class SendChatMessageUseCaseTest {
     @Test
     fun `profileService가 CHARACTER_REQUIRED 던지면 전파됨`() {
         val party = RealtimeParty(ownerId = 1L, startedAt = LocalDateTime.now().minusMinutes(5))
-        whenever(resolveLiveOpenRealtimePartyUseCase.invoke(1L)).thenReturn(party)
+        whenever(resolveChatOpenRealtimePartyUseCase.invoke(1L)).thenReturn(party)
         whenever(resolveRealtimeParticipantProfileUseCase.invoke(1L, 10L, null))
             .thenThrow(BusinessException(ErrorCode.CHARACTER_REQUIRED))
 
@@ -109,7 +109,7 @@ class SendChatMessageUseCaseTest {
         val party = RealtimeParty(ownerId = 1L, startedAt = LocalDateTime.now().minusMinutes(5))
         val participant = Participant(party = party, isCelebrant = true)
         val profile = RealtimeParticipantProfile(participant = participant, nickname = "토끼왕")
-        whenever(resolveLiveOpenRealtimePartyUseCase.invoke(1L)).thenReturn(party)
+        whenever(resolveChatOpenRealtimePartyUseCase.invoke(1L)).thenReturn(party)
         whenever(resolveRealtimeParticipantProfileUseCase.invoke(1L, 10L, null)).thenReturn(profile)
         whenever(chatMessagePersister.persist(party, profile, "안녕하세요!"))
             .thenReturn(
@@ -134,7 +134,7 @@ class SendChatMessageUseCaseTest {
         val party = RealtimeParty(ownerId = 1L, startedAt = LocalDateTime.now().minusMinutes(5))
         val participant = Participant(party = party, isCelebrant = false)
         val profile = RealtimeParticipantProfile(participant = participant, nickname = "손님", participantToken = "tok")
-        whenever(resolveLiveOpenRealtimePartyUseCase.invoke(party.id)).thenReturn(party)
+        whenever(resolveChatOpenRealtimePartyUseCase.invoke(party.id)).thenReturn(party)
         whenever(resolveRealtimeParticipantProfileUseCase.invoke(party.id, null, "tok")).thenReturn(profile)
         whenever(chatMessagePersister.persist(party, profile, "안녕하세요!"))
             .thenReturn(chatMessageResponse(nickname = "손님", role = ParticipantRole.PARTICIPANT, imageUrl = null))
@@ -150,7 +150,7 @@ class SendChatMessageUseCaseTest {
     @Test
     fun `userId도 없고 participantToken도 없으면 UNAUTHORIZED`() {
         val party = RealtimeParty(ownerId = 1L, startedAt = LocalDateTime.now().minusMinutes(5))
-        whenever(resolveLiveOpenRealtimePartyUseCase.invoke(1L)).thenReturn(party)
+        whenever(resolveChatOpenRealtimePartyUseCase.invoke(1L)).thenReturn(party)
         whenever(resolveRealtimeParticipantProfileUseCase.invoke(1L, null, null))
             .thenThrow(BusinessException(ErrorCode.UNAUTHORIZED))
 
