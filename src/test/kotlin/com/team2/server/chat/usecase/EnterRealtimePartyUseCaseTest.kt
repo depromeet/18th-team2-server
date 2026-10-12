@@ -12,6 +12,7 @@ import com.team2.server.party.application.usecase.ResolveRealtimePartyEndingInfo
 import com.team2.server.party.domain.entity.PaperOnlyParty
 import com.team2.server.party.domain.entity.PartyInvite
 import com.team2.server.party.domain.entity.RealtimeParty
+import com.team2.server.party.domain.entity.RealtimePartyStatus
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -79,7 +80,30 @@ class EnterRealtimePartyUseCaseTest {
 
     @Test
     fun `입장 가능 시간 이전이면 CHAT_NOT_ACTIVE`() {
-        val party = RealtimeParty(ownerId = 1L, startedAt = now.plusHours(1))
+        val party = RealtimeParty(ownerId = 1L, startedAt = now.plusMinutes(5).plusSeconds(1))
+        val invite = PartyInvite(party = party, token = "tok", expiresAt = now.plusDays(7))
+        whenever(partyInviteService.findUsableInvite(any(), any())).thenReturn(invite)
+
+        val ex = assertThrows<BusinessException> { useCase.enter("tok", userId = null, request) }
+        assertEquals(ErrorCode.CHAT_NOT_ACTIVE, ex.errorCode)
+    }
+
+    @Test
+    fun `시작 5분 전부터 첫 입장할 수 있고 상태는 ROLLING_PAPER_OPEN`() {
+        val party = RealtimeParty(ownerId = 1L, startedAt = now.plusMinutes(5))
+        val invite = PartyInvite(party = party, token = "tok", expiresAt = now.plusDays(7))
+        whenever(partyInviteService.findUsableInvite(any(), any())).thenReturn(invite)
+        whenever(resolveEntry(party, userId = null, request)).thenReturn(entryResult())
+
+        val result = useCase.enter("tok", userId = null, request)
+
+        assertEquals("participant-token", result.participantToken)
+        assertEquals(RealtimePartyStatus.ROLLING_PAPER_OPEN, result.partyState.status)
+    }
+
+    @Test
+    fun `첫 입장도 LIVE_ENDING이면 CHAT_NOT_ACTIVE`() {
+        val party = RealtimeParty(ownerId = 1L, startedAt = now.minusMinutes(30))
         val invite = PartyInvite(party = party, token = "tok", expiresAt = now.plusDays(7))
         whenever(partyInviteService.findUsableInvite(any(), any())).thenReturn(invite)
 

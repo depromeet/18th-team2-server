@@ -12,7 +12,6 @@ import com.team2.server.party.domain.entity.Character
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
-import com.team2.server.party.domain.entity.RealtimePartyStatus
 import org.springframework.stereotype.Component
 import java.time.LocalDateTime
 
@@ -64,7 +63,7 @@ class PartyRealtimePartyEntryProfileAdapter(
         now: LocalDateTime,
     ): RealtimeParticipantProfile {
         val profile = realtimeParticipantProfileService.requireForReentryByParticipantToken(participantToken, party.id)
-        if (party.status(now) !in RECONNECTABLE_STATUSES) {
+        if (!party.isEnterable(now)) {
             throw BusinessException(ErrorCode.CHAT_NOT_ACTIVE)
         }
         if (profile.participant.isCelebrant && profile.nickname != nickname) {
@@ -82,11 +81,4 @@ class PartyRealtimePartyEntryProfileAdapter(
             nickname = nickname,
             characterId = character?.id,
         )
-
-    private companion object {
-        val RECONNECTABLE_STATUSES: Set<RealtimePartyStatus> =
-            setOf(
-                RealtimePartyStatus.LIVE_OPEN,
-            )
-    }
 }

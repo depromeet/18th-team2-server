@@ -8,7 +8,6 @@ import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.PartyOption
 import com.team2.server.party.domain.entity.RealtimeParty
-import com.team2.server.party.domain.entity.RealtimePartyStatus
 import org.hibernate.Hibernate
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -29,13 +28,12 @@ class RealtimePartyEntryProfileResolver(
         party: RealtimeParty,
         now: LocalDateTime,
     ) {
-        val status = party.status(now)
-        if (status != RealtimePartyStatus.LIVE_OPEN) {
+        if (!party.isEnterable(now)) {
             log.warn(
-                "Realtime party entry is not live-open. partyId={} status={} " +
+                "Realtime party entry is out of enterable window. partyId={} status={} " +
                     "startedAt={} liveEndingStartedAt={} now={}",
                 party.id,
-                status,
+                party.status(now),
                 party.startedAt,
                 party.liveEndingStartedAt,
                 now,
