@@ -1345,6 +1345,7 @@ git commit -m "feat: 동의 콜백에서 비회원 등록 처리"
 ## Task 8: 비회원 동의 진입 URL 엔드포인트
 
 **Files:**
+- Create: `src/main/kotlin/com/team2/server/calendar/application/usecase/IssueGuestKakaoCalendarConsentUrlUseCase.kt`
 - Create: `src/main/kotlin/com/team2/server/calendar/api/GuestTalkCalendarConsentController.kt`
 - Create: `src/main/kotlin/com/team2/server/calendar/api/GuestTalkCalendarConsentApi.kt`
 - Modify: `src/main/kotlin/com/team2/server/auth/config/SecurityConfig.kt`
@@ -1352,9 +1353,13 @@ git commit -m "feat: 동의 콜백에서 비회원 등록 처리"
 
 **Interfaces:**
 - Consumes: `ConsentTicketSigner.issue(ConsentSubject.Guest)` (Task 1), `KakaoConsentUrlFactory.consentEntryUrl(ticket, returnPath)` / `isValidReturnPath(returnPath)`
-- Produces: `GET /api/v1/party-invites/{inviteToken}/talk-calendar/consent-url?returnPath=...` → `ApiResponse<KakaoCalendarConsentUrlResult>`
+- Produces:
+  - `IssueGuestKakaoCalendarConsentUrlUseCase.invoke(inviteToken: String, returnPath: String): KakaoCalendarConsentUrlResult`
+  - `GET /api/v1/party-invites/{inviteToken}/talk-calendar/consent-url?returnPath=...` → `ApiResponse<KakaoCalendarConsentUrlResult>`
 
-응답 모델은 회원용과 같은 타입을 재사용한다. Run: `grep -rn "KakaoCalendarConsentUrlResult" src/main --include='*.kt' | head -3` 로 정확한 타입과 필드명을 확인한다 (프론트가 `res.data?.consentUrl` 로 읽는다).
+**컨트롤러는 UseCase 만 호출한다** (Pre-flight Ruling 5). 레이어드 규칙이 Controller → UseCase 만 허용하고, 회원용 쌍인 `KakaoCalendarConnectionController` 도 `IssueKakaoCalendarConsentUrlUseCase` 를 거친다. 신규 UseCase 는 그 회원용 클래스의 거울 구조로 만든다 — 같은 의존성 2개(`ConsentTicketSigner`, `KakaoConsentUrlFactory`), 같은 `isValidReturnPath` 검증, 같은 `ErrorCode.INVALID_INPUT`, 차이는 `ConsentSubject.Member(userId)` 대신 `ConsentSubject.Guest(inviteToken)` 뿐이다.
+
+응답 모델은 회원용과 같은 `KakaoCalendarConsentUrlResult` 를 재사용한다 — `com.team2.server.calendar.application.dto` 패키지, 단일 필드 `consentUrl: String` (프론트가 `res.data?.consentUrl` 로 읽는다).
 
 초대 토큰의 유효성은 여기서 검증하지 않는다 — 콜백이 `INVITE_INVALID` 로 처리한다. 여기서 검증하면 같은 조회를 두 번 한다.
 
@@ -1434,7 +1439,53 @@ Expected: FAIL — 401 (엔드포인트 없음 + 인증 요구)
                     ).permitAll()
 ```
 
-- [ ] **Step 4: Api 인터페이스와 컨트롤러를 만든다**
+- [ ] **Step 4: 비회원 동의 URL UseCase 를 만든다**
+
+먼저 회원용 UseCase 를 읽어 거울 구조로 만든다.
+
+Run: `cat src/main/kotlin/com/team2/server/calendar/application/usecase/IssueKakaoCalendarConsentUrlUseCase.kt`
+
+`src/main/kotlin/com/team2/server/calendar/application/usecase/IssueGuestKakaoCalendarConsentUrlUseCase.kt`:
+
+```kotlin
+package com.team2.server.calendar.application.usecase
+
+import com.team2.server.calendar.application.dto.KakaoCalendarConsentUrlResult
+import com.team2.server.calendar.application.service.ConsentSubject
+import com.team2.server.calendar.application.service.ConsentTicketSigner
+import com.team2.server.calendar.application.service.KakaoConsentUrlFactory
+import com.team2.server.common.exception.BusinessException
+import com.team2.server.common.exception.ErrorCode
+import org.springframework.stereotype.Service
+
+@Service
+class IssueGuestKakaoCalendarConsentUrlUseCase(
+    private val consentTicketSigner: ConsentTicketSigner,
+    private val kakaoConsentUrlFactory: KakaoConsentUrlFactory,
+) {
+    /**
+     * 초대 토큰의 유효성은 보지 않는다. 콜백이 등록 시점에 확인하고 사유를 돌려주므로
+     * 여기서 또 조회하면 같은 일을 두 번 한다.
+     */
+    operator fun invoke(
+        inviteToken: String,
+        returnPath: String,
+    ): KakaoCalendarConsentUrlResult {
+        if (!kakaoConsentUrlFactory.isValidReturnPath(returnPath)) {
+            throw BusinessException(ErrorCode.INVALID_INPUT)
+        }
+        return KakaoCalendarConsentUrlResult(
+            consentUrl =
+                kakaoConsentUrlFactory.consentEntryUrl(
+                    consentTicketSigner.issue(ConsentSubject.Guest(inviteToken)),
+                    returnPath,
+                ),
+        )
+    }
+}
+```
+
+- [ ] **Step 5: Api 인터페이스와 컨트롤러를 만든다**
 
 `GuestTalkCalendarConsentApi.kt` 는 회원용 `KakaoCalendarConnectionApi` 의 Swagger 작성 방식을 따른다. Run: `cat src/main/kotlin/com/team2/server/calendar/api/KakaoCalendarConnectionApi.kt` 로 어노테이션 구성을 읽고 같은 형태로 쓴다. 설명에는 "이 경로는 비회원용이며, 동의를 마치면 콜백에서 등록까지 끝난다. 클라이언트는 복귀 후 등록 API 를 재호출하지 않는다" 를 명시한다.
 
@@ -1444,11 +1495,7 @@ Expected: FAIL — 401 (엔드포인트 없음 + 인증 요구)
 package com.team2.server.calendar.api
 
 import com.team2.server.calendar.application.dto.KakaoCalendarConsentUrlResult
-import com.team2.server.calendar.application.service.ConsentSubject
-import com.team2.server.calendar.application.service.ConsentTicketSigner
-import com.team2.server.calendar.application.service.KakaoConsentUrlFactory
-import com.team2.server.common.exception.BusinessException
-import com.team2.server.common.exception.ErrorCode
+import com.team2.server.calendar.application.usecase.IssueGuestKakaoCalendarConsentUrlUseCase
 import com.team2.server.common.web.ApiResponse
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
@@ -1457,46 +1504,34 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
-/**
- * 비회원이 톡캘린더 동의를 시작하는 경로.
- *
- * 초대 토큰의 유효성은 여기서 보지 않는다. 콜백이 등록 시점에 확인하고 사유를 돌려주므로
- * 여기서 또 조회하면 같은 일을 두 번 한다.
- */
+/** 비회원이 톡캘린더 동의를 시작하는 경로. 인증을 요구하지 않는다. */
 @RestController
 @RequestMapping("/api/v1/party-invites")
 class GuestTalkCalendarConsentController(
-    private val consentTicketSigner: ConsentTicketSigner,
-    private val kakaoConsentUrlFactory: KakaoConsentUrlFactory,
+    private val issueGuestKakaoCalendarConsentUrlUseCase: IssueGuestKakaoCalendarConsentUrlUseCase,
 ) : GuestTalkCalendarConsentApi {
     @GetMapping("/{inviteToken}/talk-calendar/consent-url")
     override fun issueConsentUrl(
         @PathVariable inviteToken: String,
         @RequestParam returnPath: String,
-    ): ApiResponse<KakaoCalendarConsentUrlResult> {
-        if (!kakaoConsentUrlFactory.isValidReturnPath(returnPath)) {
-            throw BusinessException(ErrorCode.INVALID_INPUT)
-        }
-        val ticket = consentTicketSigner.issue(ConsentSubject.Guest(inviteToken))
-        return ApiResponse.success(
+    ): ApiResponse<KakaoCalendarConsentUrlResult> =
+        ApiResponse.success(
             HttpStatus.OK,
-            KakaoCalendarConsentUrlResult(kakaoConsentUrlFactory.consentEntryUrl(ticket, returnPath)),
+            issueGuestKakaoCalendarConsentUrlUseCase(inviteToken, returnPath),
         )
-    }
 }
 ```
 
-`KakaoCalendarConsentUrlResult` 의 실제 패키지와 생성자 파라미터명을 Step 1에서 확인한 값으로 맞춘다.
-
-- [ ] **Step 5: 통과를 확인한다**
+- [ ] **Step 6: 통과를 확인한다**
 
 Run: `./gradlew test --tests "com.team2.server.calendar.api.GuestTalkCalendarConsentControllerTest"`
 Expected: PASS
 
-- [ ] **Step 6: 커밋**
+- [ ] **Step 7: 커밋**
 
 ```bash
-git add src/main/kotlin/com/team2/server/calendar/api/GuestTalkCalendarConsentApi.kt \
+git add src/main/kotlin/com/team2/server/calendar/application/usecase/IssueGuestKakaoCalendarConsentUrlUseCase.kt \
+        src/main/kotlin/com/team2/server/calendar/api/GuestTalkCalendarConsentApi.kt \
         src/main/kotlin/com/team2/server/calendar/api/GuestTalkCalendarConsentController.kt \
         src/main/kotlin/com/team2/server/auth/config/SecurityConfig.kt \
         src/test/kotlin/com/team2/server/calendar/api/GuestTalkCalendarConsentControllerTest.kt
