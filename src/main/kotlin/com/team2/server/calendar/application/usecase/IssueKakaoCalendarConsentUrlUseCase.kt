@@ -1,6 +1,7 @@
 package com.team2.server.calendar.application.usecase
 
 import com.team2.server.calendar.application.dto.KakaoCalendarConsentUrlResult
+import com.team2.server.calendar.application.service.ConsentSubject
 import com.team2.server.calendar.application.service.ConsentTicketSigner
 import com.team2.server.calendar.application.service.KakaoConsentUrlFactory
 import com.team2.server.common.exception.BusinessException
@@ -25,7 +26,11 @@ class IssueKakaoCalendarConsentUrlUseCase(
             throw BusinessException(ErrorCode.INVALID_INPUT)
         }
         return KakaoCalendarConsentUrlResult(
-            consentUrl = kakaoConsentUrlFactory.consentEntryUrl(consentTicketSigner.issue(userId), returnPath),
+            consentUrl =
+                kakaoConsentUrlFactory.consentEntryUrl(
+                    consentTicketSigner.issue(ConsentSubject.Member(userId)),
+                    returnPath,
+                ),
         )
     }
 }

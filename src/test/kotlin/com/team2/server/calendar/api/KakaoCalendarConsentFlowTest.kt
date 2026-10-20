@@ -2,6 +2,7 @@ package com.team2.server.calendar.api
 
 import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
+import com.team2.server.calendar.application.service.ConsentSubject
 import com.team2.server.calendar.application.service.ConsentTicketSigner
 import com.team2.server.calendar.infrastructure.persistence.KakaoCalendarConnectionRepository
 import com.team2.server.common.DatabaseCleanup
@@ -100,7 +101,7 @@ class KakaoCalendarConsentFlowTest
         @Test
         fun `진입 요청은 카카오 인가 주소로 리다이렉트하고 쿠키를 심는다`() {
             val user = saveUser()
-            val ticket = consentTicketSigner.issue(user.id)
+            val ticket = consentTicketSigner.issue(ConsentSubject.Member(user.id))
 
             mockMvc
                 .get("/api/v1/kakao-calendar/consent") {
@@ -132,7 +133,7 @@ class KakaoCalendarConsentFlowTest
         @Test
         fun `경로가 아닌 return_path 로 진입하면 failed 로 돌려보낸다`() {
             val user = saveUser()
-            val ticket = consentTicketSigner.issue(user.id)
+            val ticket = consentTicketSigner.issue(ConsentSubject.Member(user.id))
 
             mockMvc
                 .get("/api/v1/kakao-calendar/consent") {
@@ -148,7 +149,7 @@ class KakaoCalendarConsentFlowTest
         @Test
         fun `콜백은 토큰을 저장하고 granted 로 돌려보낸다`() {
             val user = saveUser()
-            val ticket = consentTicketSigner.issue(user.id)
+            val ticket = consentTicketSigner.issue(ConsentSubject.Member(user.id))
 
             mockMvc
                 .get("/api/v1/kakao-calendar/consent/callback") {
@@ -175,7 +176,7 @@ class KakaoCalendarConsentFlowTest
         @Test
         fun `카카오 계정이 티켓의 사용자와 다르면 저장하지 않는다`() {
             val user = saveUser(providerId = "1")
-            val ticket = consentTicketSigner.issue(user.id)
+            val ticket = consentTicketSigner.issue(ConsentSubject.Member(user.id))
             KakaoStubServers.kakaoUserId = 999L
 
             mockMvc
@@ -200,7 +201,7 @@ class KakaoCalendarConsentFlowTest
         @Test
         fun `state 와 쿠키 티켓이 다르면 저장하지 않는다`() {
             val user = saveUser()
-            val ticket = consentTicketSigner.issue(user.id)
+            val ticket = consentTicketSigner.issue(ConsentSubject.Member(user.id))
 
             mockMvc
                 .get("/api/v1/kakao-calendar/consent/callback") {
@@ -224,7 +225,7 @@ class KakaoCalendarConsentFlowTest
         @Test
         fun `복귀 경로 쿠키가 경로 형식이 아니면 그리로 보내지 않는다`() {
             val user = saveUser()
-            val ticket = consentTicketSigner.issue(user.id)
+            val ticket = consentTicketSigner.issue(ConsentSubject.Member(user.id))
 
             mockMvc
                 .get("/api/v1/kakao-calendar/consent/callback") {
@@ -246,7 +247,7 @@ class KakaoCalendarConsentFlowTest
         @Test
         fun `이미 인코딩된 복귀 경로를 다시 인코딩하지 않는다`() {
             val user = saveUser()
-            val ticket = consentTicketSigner.issue(user.id)
+            val ticket = consentTicketSigner.issue(ConsentSubject.Member(user.id))
 
             mockMvc
                 .get("/api/v1/kakao-calendar/consent/callback") {
@@ -285,7 +286,7 @@ class KakaoCalendarConsentFlowTest
         @Test
         fun `연동 해제는 저장된 토큰을 지운다`() {
             val user = saveUser()
-            val ticket = consentTicketSigner.issue(user.id)
+            val ticket = consentTicketSigner.issue(ConsentSubject.Member(user.id))
             mockMvc.get("/api/v1/kakao-calendar/consent/callback") {
                 param("code", "auth-code")
                 param("state", ticket)

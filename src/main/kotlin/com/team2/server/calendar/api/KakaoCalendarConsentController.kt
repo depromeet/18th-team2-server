@@ -1,6 +1,7 @@
 package com.team2.server.calendar.api
 
 import com.team2.server.auth.config.OAuth2Properties
+import com.team2.server.calendar.application.service.ConsentSubject
 import com.team2.server.calendar.application.service.ConsentTicketSigner
 import com.team2.server.calendar.application.service.KakaoConsentUrlFactory
 import com.team2.server.calendar.application.usecase.ConsentOutcome
@@ -70,9 +71,13 @@ class KakaoCalendarConsentController(
         if (cookieTicket == null || state == null || cookieTicket != state) {
             return RedirectView(resultUrl(returnPath, ConsentOutcome.EXPIRED))
         }
-        val userId =
+        val subject =
             consentTicketSigner.verify(cookieTicket)
                 ?: return RedirectView(resultUrl(returnPath, ConsentOutcome.EXPIRED))
+        if (subject !is ConsentSubject.Member) {
+            return RedirectView(resultUrl(returnPath, ConsentOutcome.EXPIRED))
+        }
+        val userId = subject.userId
 
         val outcome =
             runCatching { saveKakaoCalendarConsentUseCase(code, userId, kakaoConsentUrlFactory.callbackUri()) }

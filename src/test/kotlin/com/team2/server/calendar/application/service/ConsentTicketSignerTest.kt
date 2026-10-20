@@ -3,78 +3,83 @@ package com.team2.server.calendar.application.service
 import com.team2.server.auth.config.JwtProperties
 import org.junit.jupiter.api.Test
 import java.time.Clock
-import java.time.LocalDateTime
+import java.time.Instant
 import java.time.ZoneOffset
-import java.util.Base64
 import kotlin.test.assertEquals
-import kotlin.test.assertNotEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 
 class ConsentTicketSignerTest {
-    private val secret = Base64.getEncoder().encodeToString(ByteArray(64) { it.toByte() })
-    private val properties = JwtProperties(secret = secret, expirationHours = 24)
-    private val issuedAt = LocalDateTime.of(2026, 8, 19, 12, 0)
-
-    private fun signerAt(now: LocalDateTime) =
-        ConsentTicketSigner(properties, Clock.fixed(now.toInstant(ZoneOffset.UTC), ZoneOffset.UTC))
+    private val fixedInstant: Instant = Instant.parse("2026-10-20T10:00:00Z")
+    private val clock: Clock = Clock.fixed(fixedInstant, ZoneOffset.UTC)
+    private val properties =
+        JwtProperties(
+            secret = "test-secret-key-for-consent-ticket-signer-0123456789",
+            expirationHours = 24,
+        )
+    private val signer = ConsentTicketSigner(properties, clock)
 
     @Test
-    fun `발급한 티켓을 검증하면 userId 가 나온다`() {
-        val signer = signerAt(issuedAt)
+    fun `회원 티켓은 사용자 번호로 복원된다`() {
+        val ticket = signer.issue(ConsentSubject.Member(53L))
 
-        assertEquals(42L, signer.verify(signer.issue(42L)))
+        assertEquals(ConsentSubject.Member(53L), signer.verify(ticket))
     }
 
     @Test
-    fun `5분이 지나기 전이면 유효하다`() {
-        val ticket = signerAt(issuedAt).issue(42L)
+    fun `비회원 티켓은 초대 토큰으로 복원된다`() {
+        val ticket = signer.issue(ConsentSubject.Guest("a796ba5f"))
 
-        assertEquals(42L, signerAt(issuedAt.plusSeconds(299)).verify(ticket))
+        assertEquals(ConsentSubject.Guest("a796ba5f"), signer.verify(ticket))
     }
 
     @Test
-    fun `5분이 지나면 만료된다`() {
-        val ticket = signerAt(issuedAt).issue(42L)
+    fun `회원 티켓은 비회원 주체로 읽히지 않는다`() {
+        val ticket = signer.issue(ConsentSubject.Member(53L))
 
-        assertNull(signerAt(issuedAt.plusSeconds(301)).verify(ticket))
+        assertIs<ConsentSubject.Member>(signer.verify(ticket))
     }
 
     @Test
-    fun `서명이 위조되면 거부한다`() {
-        val ticket = signerAt(issuedAt).issue(42L)
-        val forged = ticket.dropLast(4) + "AAAA"
+    fun `비회원 티켓은 회원 주체로 읽히지 않는다`() {
+        val ticket = signer.issue(ConsentSubject.Guest("a796ba5f"))
 
-        assertNull(signerAt(issuedAt).verify(forged))
+        assertIs<ConsentSubject.Guest>(signer.verify(ticket))
     }
 
     @Test
-    fun `userId 를 바꿔치기하면 거부한다`() {
-        val signer = signerAt(issuedAt)
-        val ticket = signer.issue(42L)
-        val payload = String(Base64.getUrlDecoder().decode(ticket.substringBefore('.')))
-        val tamperedPayload =
-            Base64
-                .getUrlEncoder()
-                .withoutPadding()
-                .encodeToString(payload.replace("42", "43").toByteArray())
+    fun `서명이 변조된 티켓은 거부한다`() {
+        val ticket = signer.issue(ConsentSubject.Guest("a796ba5f"))
+        val tampered = ticket.substringBefore('.') + ".AAAA"
 
-        assertNull(signer.verify(tamperedPayload + "." + ticket.substringAfter('.')))
+        assertNull(signer.verify(tampered))
     }
 
     @Test
-    fun `형식이 다르면 거부한다`() {
-        val signer = signerAt(issuedAt)
+    fun `payload 가 변조된 티켓은 거부한다`() {
+        val ticket = signer.issue(ConsentSubject.Member(53L))
+        val forged = signer.issue(ConsentSubject.Member(99L))
+        val mixed = forged.substringBefore('.') + "." + ticket.substringAfter('.')
 
-        assertNull(signer.verify("not-a-ticket"))
+        assertNull(signer.verify(mixed))
+    }
+
+    @Test
+    fun `수명이 지난 티켓은 거부한다`() {
+        val ticket = signer.issue(ConsentSubject.Guest("a796ba5f"))
+        val later =
+            ConsentTicketSigner(
+                properties,
+                Clock.fixed(fixedInstant.plusSeconds(ConsentTicketSigner.TTL_SECONDS + 1), ZoneOffset.UTC),
+            )
+
+        assertNull(later.verify(ticket))
+    }
+
+    @Test
+    fun `형식이 깨진 티켓은 거부한다`() {
         assertNull(signer.verify(""))
-    }
-
-    @Test
-    fun `같은 사용자라도 발급할 때마다 다른 티켓이 나온다`() {
-        val first = signerAt(issuedAt).issue(42L)
-        val second = signerAt(issuedAt.plusSeconds(1)).issue(42L)
-
-        assertEquals(42L, signerAt(issuedAt.plusSeconds(1)).verify(first))
-        assertNotEquals(first, second)
+        assertNull(signer.verify("no-dot"))
+        assertNull(signer.verify(".onlysig"))
     }
 }
