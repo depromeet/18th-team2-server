@@ -1,9 +1,11 @@
 package com.team2.server.chat.infrastructure.websocket
 
+import com.team2.server.chat.dto.PartyDeletedEventPayload
 import com.team2.server.chat.dto.PartyEndedEventPayload
 import com.team2.server.chat.dto.PartyEndingEventPayload
 import com.team2.server.chat.dto.PartyPhaseChangedEventPayload
 import com.team2.server.party.domain.entity.RealtimePartyEndingReason
+import com.team2.server.party.domain.vo.PartyDeletedReason
 import com.team2.server.party.domain.vo.PartyPhase
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
@@ -59,6 +61,25 @@ class ChatSocketRealtimePartyEventBroadcasterTest {
                 endedAt = now.plusSeconds(30),
                 hostNickname = "주최자",
                 serverNow = now.plusSeconds(30),
+            ),
+        )
+    }
+
+    @Test
+    fun `party-deleted를 WebSocket 브로드캐스트 토픽으로 전송한다`() {
+        broadcaster.broadcastPartyDeleted(
+            partyId = 1L,
+            reason = PartyDeletedReason.HOST_DELETED,
+            serverNow = now,
+        )
+
+        verify(chatSocketGateway).broadcastAfterCommit(
+            1L,
+            "party-deleted",
+            PartyDeletedEventPayload(
+                partyId = 1L,
+                reason = PartyDeletedReason.HOST_DELETED,
+                serverNow = now,
             ),
         )
     }
