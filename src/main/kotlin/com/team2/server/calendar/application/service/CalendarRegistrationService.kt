@@ -53,4 +53,34 @@ class CalendarRegistrationService(
         registration.linkEvent(eventId)
         calendarRegistrationRepository.save(registration)
     }
+
+    fun existsForGuest(
+        kakaoProviderId: String,
+        partyId: Long,
+    ): Boolean =
+        calendarRegistrationRepository.existsByKakaoProviderIdAndPartyIdAndProvider(
+            kakaoProviderId = kakaoProviderId,
+            partyId = partyId,
+            provider = CalendarProvider.KAKAO_TALK,
+        )
+
+    /** 비회원은 갱신 경로가 없어 예약이 곧 중복 차단이다. 동시 요청은 UNIQUE 제약에서 막힌다. */
+    fun reserveForGuest(
+        kakaoProviderId: String,
+        partyId: Long,
+    ): CalendarRegistration =
+        try {
+            calendarRegistrationRepository.saveAndFlush(
+                CalendarRegistration(
+                    partyId = partyId,
+                    provider = CalendarProvider.KAKAO_TALK,
+                    kakaoProviderId = kakaoProviderId,
+                ),
+            )
+        } catch (e: DataIntegrityViolationException) {
+            if (e.isConstraintViolation(CalendarRegistration.UK_KAKAO_PARTY_PROVIDER)) {
+                throw BusinessException(ErrorCode.CALENDAR_REGISTRATION_IN_PROGRESS)
+            }
+            throw e
+        }
 }

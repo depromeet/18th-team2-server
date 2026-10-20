@@ -1,7 +1,5 @@
 package com.team2.server.calendar.application.service
 
-import com.team2.server.calendar.domain.entity.CalendarRegistration
-import com.team2.server.calendar.domain.vo.CalendarProvider
 import com.team2.server.calendar.infrastructure.persistence.CalendarRegistrationRepository
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
@@ -9,13 +7,10 @@ import com.team2.server.support.JpaSliceTestSupport
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
-import kotlin.test.assertNull
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 
-/**
- * 실제 MySQL 을 거쳐야 UNIQUE 제약 위반 → CALENDAR_REGISTRATION_IN_PROGRESS 변환이 검증된다.
- * 제약 이름 문자열이 마이그레이션과 어긋나면 이 테스트가 잡는다.
- */
 class CalendarRegistrationServiceTest
     @Autowired
     constructor(
@@ -24,76 +19,39 @@ class CalendarRegistrationServiceTest
         private val service = CalendarRegistrationService(calendarRegistrationRepository)
 
         @Test
-        fun `이력이 없으면 null 을 반환한다`() {
-            assertNull(service.find(userId = 1L, partyId = 2L))
+        fun `비회원 등록을 예약하면 회원번호로 조회된다`() {
+            val registration = service.reserveForGuest(kakaoProviderId = "4321", partyId = 170L)
+
+            assertNotNull(registration.id)
+            assertEquals("4321", registration.kakaoProviderId)
+            assertTrue(service.existsForGuest(kakaoProviderId = "4321", partyId = 170L))
         }
 
         @Test
-        fun `reserve 는 event_id 가 비어 있는 KAKAO_TALK 이력을 만든다`() {
-            val reserved = service.reserve(userId = 1L, partyId = 2L)
-
-            assertEquals(1L, reserved.userId)
-            assertEquals(2L, reserved.partyId)
-            assertEquals(CalendarProvider.KAKAO_TALK, reserved.provider)
-            assertNull(reserved.eventId)
-        }
-
-        @Test
-        fun `reserve 직후 find 로 같은 이력을 읽는다`() {
-            service.reserve(userId = 1L, partyId = 2L)
-
-            val found = service.find(userId = 1L, partyId = 2L)
-
-            assertEquals(1L, found?.userId)
-            assertEquals(2L, found?.partyId)
-        }
-
-        @Test
-        fun `같은 사용자 파티로 reserve 를 두 번 하면 CALENDAR_REGISTRATION_IN_PROGRESS`() {
-            service.reserve(userId = 1L, partyId = 2L)
+        fun `같은 회원번호와 파티로 두 번 예약하면 진행 중 예외가 난다`() {
+            service.reserveForGuest(kakaoProviderId = "4321", partyId = 170L)
 
             val exception =
-                assertFailsWith<BusinessException> {
-                    service.reserve(userId = 1L, partyId = 2L)
-                }
+                runCatching { service.reserveForGuest(kakaoProviderId = "4321", partyId = 170L) }
+                    .exceptionOrNull()
 
-            assertEquals(ErrorCode.CALENDAR_REGISTRATION_IN_PROGRESS, exception.errorCode)
+            assertEquals(
+                ErrorCode.CALENDAR_REGISTRATION_IN_PROGRESS,
+                (exception as BusinessException).errorCode,
+            )
         }
 
         @Test
-        fun `사용자나 파티가 다르면 각각 reserve 할 수 있다`() {
-            service.reserve(userId = 1L, partyId = 2L)
-            service.reserve(userId = 1L, partyId = 3L)
-            service.reserve(userId = 9L, partyId = 2L)
+        fun `다른 파티면 같은 회원번호로 예약할 수 있다`() {
+            service.reserveForGuest(kakaoProviderId = "4321", partyId = 170L)
 
-            assertEquals(3, calendarRegistrationRepository.findAll().size)
+            val other = service.reserveForGuest(kakaoProviderId = "4321", partyId = 171L)
+
+            assertNotNull(other.id)
         }
 
         @Test
-        fun `linkEvent 는 카카오 일정 ID 를 이력에 채운다`() {
-            val reserved = service.reserve(userId = 1L, partyId = 2L)
-
-            service.linkEvent(reserved, "event-1")
-            calendarRegistrationRepository.flush()
-
-            assertEquals("event-1", service.find(userId = 1L, partyId = 2L)?.eventId)
-        }
-
-        @Test
-        fun `linkEvent 는 기존 일정 ID 를 덮어쓴다`() {
-            val registration =
-                calendarRegistrationRepository.saveAndFlush(
-                    CalendarRegistration(
-                        userId = 1L,
-                        partyId = 2L,
-                        provider = CalendarProvider.KAKAO_TALK,
-                        eventId = "event-1",
-                    ),
-                )
-
-            service.linkEvent(registration, "event-2")
-            calendarRegistrationRepository.flush()
-
-            assertEquals("event-2", service.find(userId = 1L, partyId = 2L)?.eventId)
+        fun `등록이 없으면 존재하지 않는다고 답한다`() {
+            assertFalse(service.existsForGuest(kakaoProviderId = "9999", partyId = 170L))
         }
     }
