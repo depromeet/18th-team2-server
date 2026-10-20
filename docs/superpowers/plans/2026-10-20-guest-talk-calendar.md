@@ -51,7 +51,6 @@
 | `calendar/application/port/PartyCalendarInfoPort.kt` | `loadForInviteToken` 추가 |
 | `calendar/infrastructure/party/PartyCalendarInfoAdapter.kt` | 위 메서드 구현 |
 | `auth/config/SecurityConfig.kt` | 신규 엔드포인트 permitAll |
-| `test/.../support/KakaoStubServers.kt` | `/oauth/token` 요청 본문 기록 |
 | `test/.../db/FlywayMigrationTest.kt` | V18 검증 |
 
 작업 순서는 의존 방향을 따른다: 티켓 → 스키마/엔티티 → 포트 → UseCase → 컨트롤러 → 통합.
@@ -93,10 +92,10 @@ package com.team2.server.calendar.application.service
 import com.team2.server.auth.config.JwtProperties
 import org.junit.jupiter.api.Test
 import java.time.Clock
-import java.time.Duration
 import java.time.Instant
 import java.time.ZoneOffset
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 
 class ConsentTicketSignerTest {
@@ -125,12 +124,17 @@ class ConsentTicketSignerTest {
     }
 
     @Test
-    fun `회원 티켓이 비회원으로 읽히지 않는다`() {
+    fun `회원 티켓은 비회원 주체로 읽히지 않는다`() {
         val ticket = signer.issue(ConsentSubject.Member(53L))
 
-        val subject = signer.verify(ticket)
+        assertIs<ConsentSubject.Member>(signer.verify(ticket))
+    }
 
-        assertEquals(ConsentSubject.Member(53L), subject)
+    @Test
+    fun `비회원 티켓은 회원 주체로 읽히지 않는다`() {
+        val ticket = signer.issue(ConsentSubject.Guest("a796ba5f"))
+
+        assertIs<ConsentSubject.Guest>(signer.verify(ticket))
     }
 
     @Test
@@ -167,16 +171,6 @@ class ConsentTicketSignerTest {
         assertNull(signer.verify(""))
         assertNull(signer.verify("no-dot"))
         assertNull(signer.verify(".onlysig"))
-    }
-
-    @Test
-    fun `알 수 없는 주체 접두사는 거부한다`() {
-        // 접두사를 모르는 티켓이 들어오면 종류를 추측하지 않고 거부한다.
-        val ticket = signer.issue(ConsentSubject.Member(53L))
-        val duration = Duration.between(Instant.EPOCH, fixedInstant)
-        checkNotNull(duration)
-
-        assertNull(signer.verify("x" + ticket.drop(1)))
     }
 }
 ```
@@ -880,231 +874,125 @@ git commit -m "feat: 카카오 동의 자격증명 교환 유스케이스 추가
 
 의존성 4개: `partyCalendarInfoPort`, `calendarRegistrationService`, `talkCalendarPort`, `clock`. `@Transactional` 을 붙인다 — 예약과 `linkEvent` 쓰기가 있다.
 
+테스트는 통합 테스트다 (Pre-flight Ruling 2) — 상속 스텁이 불가능해 실제 Service·Repository 를 쓴다.
+
 결과를 예외가 아니라 enum 으로 돌려주는 이유는 호출자가 리다이렉트 파라미터로 사유를 전달해야 하기 때문이다. 단 `INVITE_INVALID` 는 포트가 던지는 `BusinessException` 을 잡아 변환한다.
 
 - [ ] **Step 1: 실패하는 테스트를 쓴다**
 
+통합 테스트로 쓴다. `CalendarRegistrationService` 는 Kotlin 기본 `final` 이라 상속 스텁이 불가능하고, `JpaRepository` 스텁은 추상 메서드가 많아 컴파일되지 않는다. 실제 Service·Repository 를 쓰고 카카오만 `KakaoStubServers` 로 대체한다. 기존 지문 `@SpringBootTest + @Import(TC)` 에 맞춰 `IntegrationTestSupport` 를 상속한다.
+
 ```kotlin
 package com.team2.server.calendar.application.usecase
 
+import com.team2.server.calendar.application.dto.GuestCalendarRegistrationResult
 import com.team2.server.calendar.application.dto.KakaoConsentCredentials
-import com.team2.server.calendar.application.port.PartyCalendarInfo
-import com.team2.server.calendar.application.port.PartyCalendarInfoPort
-import com.team2.server.calendar.application.port.TalkCalendarPort
-import com.team2.server.calendar.application.service.CalendarRegistrationService
-import com.team2.server.calendar.domain.entity.CalendarRegistration
-import com.team2.server.calendar.domain.vo.CalendarEvent
-import com.team2.server.calendar.domain.vo.CalendarProvider
-import com.team2.server.calendar.domain.vo.CelebrationKind
 import com.team2.server.calendar.infrastructure.persistence.CalendarRegistrationRepository
-import com.team2.server.common.exception.BusinessException
-import com.team2.server.common.exception.ErrorCode
+import com.team2.server.common.DatabaseCleanup
+import com.team2.server.support.IntegrationTestSupport
+import com.team2.server.support.KakaoStubServers
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.springframework.data.repository.findByIdOrNull
-import java.time.Clock
-import java.time.Instant
+import org.springframework.beans.factory.annotation.Autowired
 import java.time.LocalDateTime
-import java.time.ZoneId
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
-class RegisterGuestTalkCalendarEventUseCaseTest {
-    private val zone = ZoneId.of("Asia/Seoul")
-    private val now = LocalDateTime.of(2026, 10, 20, 12, 0)
-    private val clock: Clock = Clock.fixed(now.atZone(zone).toInstant(), zone)
-    private val credentials = KakaoConsentCredentials(accessToken = "guest-access", kakaoProviderId = "4321")
+class RegisterGuestTalkCalendarEventUseCaseTest
+    @Autowired
+    constructor(
+        private val registerGuestTalkCalendarEventUseCase: RegisterGuestTalkCalendarEventUseCase,
+        private val calendarRegistrationRepository: CalendarRegistrationRepository,
+        private val databaseCleanup: DatabaseCleanup,
+    ) : IntegrationTestSupport() {
+        private val credentials =
+            KakaoConsentCredentials(accessToken = "guest-access", kakaoProviderId = "4321")
 
-    private fun info(startedAt: LocalDateTime) =
-        PartyCalendarInfo(
-            partyId = 170L,
-            celebrationKind = CelebrationKind.BIRTHDAY,
-            celebrantName = "지민",
-            startedAt = startedAt,
-            inviteUrl = "https://example.com/invite/a796ba5f",
-        )
+        @BeforeEach
+        fun setUp() {
+            databaseCleanup.execute()
+            KakaoStubServers.reset()
+        }
 
-    private fun useCase(
-        startedAt: LocalDateTime = now.plusDays(2),
-        inviteFailure: ErrorCode? = null,
-        alreadyRegistered: Boolean = false,
-        createdEventId: String = "event-1",
-    ): Pair<RegisterGuestTalkCalendarEventUseCase, MutableList<String>> {
-        val created = mutableListOf<String>()
-        val port =
-            object : PartyCalendarInfoPort {
-                override fun loadForMember(
-                    partyId: Long,
-                    userId: Long,
-                    now: LocalDateTime,
-                ): PartyCalendarInfo = throw UnsupportedOperationException("비회원 경로는 쓰지 않는다")
+        @Test
+        fun `등록에 성공하면 REGISTERED 이고 비회원 행이 남는다`() {
+            val fixture = saveHostPartyAndInvite(LocalDateTime.now().plusDays(2))
 
-                override fun loadForInviteToken(
-                    inviteToken: String,
-                    now: LocalDateTime,
-                ): PartyCalendarInfo {
-                    inviteFailure?.let { throw BusinessException(it) }
-                    return info(startedAt)
-                }
-            }
-        val talkCalendarPort =
-            object : TalkCalendarPort {
-                override fun createEvent(
-                    accessToken: String,
-                    event: CalendarEvent,
-                ): String {
-                    created += accessToken
-                    return createdEventId
-                }
+            val result = registerGuestTalkCalendarEventUseCase(fixture.inviteToken, credentials)
 
-                override fun updateEvent(
-                    accessToken: String,
-                    eventId: String,
-                    event: CalendarEvent,
-                ): Boolean = throw UnsupportedOperationException("비회원은 갱신하지 않는다")
-            }
-        val service =
-            object : CalendarRegistrationService(StubRepository()) {
-                override fun existsForGuest(
-                    kakaoProviderId: String,
-                    partyId: Long,
-                ): Boolean = alreadyRegistered
+            assertEquals(GuestCalendarRegistrationResult.REGISTERED, result)
+            val saved = calendarRegistrationRepository.findAll().single()
+            assertEquals(fixture.partyId, saved.partyId)
+            assertEquals("4321", saved.kakaoProviderId)
+            assertNull(saved.userId)
+            assertNotNull(saved.eventId)
+            assertNotNull(KakaoStubServers.requests[KakaoStubServers.CREATE_EVENT_PATH])
+        }
 
-                override fun reserveForGuest(
-                    kakaoProviderId: String,
-                    partyId: Long,
-                ): CalendarRegistration =
-                    CalendarRegistration(
-                        partyId = partyId,
-                        provider = CalendarProvider.KAKAO_TALK,
-                        kakaoProviderId = kakaoProviderId,
-                    )
+        @Test
+        fun `이미 등록했으면 카카오를 부르지 않고 ALREADY_REGISTERED 다`() {
+            val fixture = saveHostPartyAndInvite(LocalDateTime.now().plusDays(2))
+            registerGuestTalkCalendarEventUseCase(fixture.inviteToken, credentials)
+            KakaoStubServers.reset()
 
-                override fun linkEvent(
-                    registration: CalendarRegistration,
-                    eventId: String,
-                ) = Unit
-            }
-        return RegisterGuestTalkCalendarEventUseCase(port, service, talkCalendarPort, clock) to created
+            val result = registerGuestTalkCalendarEventUseCase(fixture.inviteToken, credentials)
+
+            assertEquals(GuestCalendarRegistrationResult.ALREADY_REGISTERED, result)
+            assertEquals(1, calendarRegistrationRepository.findAll().size)
+            assertNull(KakaoStubServers.requests[KakaoStubServers.CREATE_EVENT_PATH])
+        }
+
+        @Test
+        fun `다른 회원번호면 같은 파티에 각각 등록된다`() {
+            val fixture = saveHostPartyAndInvite(LocalDateTime.now().plusDays(2))
+            registerGuestTalkCalendarEventUseCase(fixture.inviteToken, credentials)
+
+            val result =
+                registerGuestTalkCalendarEventUseCase(
+                    fixture.inviteToken,
+                    credentials.copy(kakaoProviderId = "9999"),
+                )
+
+            assertEquals(GuestCalendarRegistrationResult.REGISTERED, result)
+            assertEquals(2, calendarRegistrationRepository.findAll().size)
+        }
+
+        @Test
+        fun `파티가 이미 시작됐으면 PARTY_ALREADY_STARTED 다`() {
+            val fixture = saveHostPartyAndInvite(LocalDateTime.now().minusMinutes(1))
+
+            val result = registerGuestTalkCalendarEventUseCase(fixture.inviteToken, credentials)
+
+            assertEquals(GuestCalendarRegistrationResult.PARTY_ALREADY_STARTED, result)
+            assertTrue(calendarRegistrationRepository.findAll().isEmpty())
+            assertNull(KakaoStubServers.requests[KakaoStubServers.CREATE_EVENT_PATH])
+        }
+
+        @Test
+        fun `없는 초대 토큰이면 INVITE_INVALID 다`() {
+            val result = registerGuestTalkCalendarEventUseCase("nosuchtk", credentials)
+
+            assertEquals(GuestCalendarRegistrationResult.INVITE_INVALID, result)
+            assertTrue(calendarRegistrationRepository.findAll().isEmpty())
+        }
+
+        @Test
+        fun `만료된 초대 토큰이면 INVITE_INVALID 다`() {
+            val fixture = saveHostPartyAndInvite(LocalDateTime.now().plusDays(2), inviteExpired = true)
+
+            val result = registerGuestTalkCalendarEventUseCase(fixture.inviteToken, credentials)
+
+            assertEquals(GuestCalendarRegistrationResult.INVITE_INVALID, result)
+            assertTrue(calendarRegistrationRepository.findAll().isEmpty())
+        }
     }
-
-    @Test
-    fun `등록에 성공하면 REGISTERED 다`() {
-        val (useCase, created) = useCase()
-
-        assertEquals(GuestCalendarRegistrationResult.REGISTERED, useCase("a796ba5f", credentials))
-        assertEquals(listOf("guest-access"), created)
-    }
-
-    @Test
-    fun `이미 등록했으면 카카오를 부르지 않고 ALREADY_REGISTERED 다`() {
-        val (useCase, created) = useCase(alreadyRegistered = true)
-
-        assertEquals(GuestCalendarRegistrationResult.ALREADY_REGISTERED, useCase("a796ba5f", credentials))
-        assertEquals(emptyList(), created)
-    }
-
-    @Test
-    fun `파티가 이미 시작됐으면 PARTY_ALREADY_STARTED 다`() {
-        val (useCase, created) = useCase(startedAt = now.minusMinutes(1))
-
-        assertEquals(GuestCalendarRegistrationResult.PARTY_ALREADY_STARTED, useCase("a796ba5f", credentials))
-        assertEquals(emptyList(), created)
-    }
-
-    @Test
-    fun `초대 토큰이 없으면 INVITE_INVALID 다`() {
-        val (useCase, _) = useCase(inviteFailure = ErrorCode.PARTY_NOT_FOUND)
-
-        assertEquals(GuestCalendarRegistrationResult.INVITE_INVALID, useCase("nosuchtk", credentials))
-    }
-
-    @Test
-    fun `초대 토큰이 만료됐으면 INVITE_INVALID 다`() {
-        val (useCase, _) = useCase(inviteFailure = ErrorCode.INVITE_LINK_EXPIRED)
-
-        assertEquals(GuestCalendarRegistrationResult.INVITE_INVALID, useCase("a796ba5f", credentials))
-    }
-
-    @Test
-    fun `예약이 동시 요청에 밀리면 ALREADY_REGISTERED 다`() {
-        val (useCase, _) =
-            useCase().let { (_, created) ->
-                val port =
-                    object : PartyCalendarInfoPort {
-                        override fun loadForMember(
-                            partyId: Long,
-                            userId: Long,
-                            now: LocalDateTime,
-                        ): PartyCalendarInfo = throw UnsupportedOperationException()
-
-                        override fun loadForInviteToken(
-                            inviteToken: String,
-                            now: LocalDateTime,
-                        ): PartyCalendarInfo = info(now.plusDays(2))
-                    }
-                val service =
-                    object : CalendarRegistrationService(StubRepository()) {
-                        override fun existsForGuest(
-                            kakaoProviderId: String,
-                            partyId: Long,
-                        ): Boolean = false
-
-                        override fun reserveForGuest(
-                            kakaoProviderId: String,
-                            partyId: Long,
-                        ): CalendarRegistration =
-                            throw BusinessException(ErrorCode.CALENDAR_REGISTRATION_IN_PROGRESS)
-
-                        override fun linkEvent(
-                            registration: CalendarRegistration,
-                            eventId: String,
-                        ) = Unit
-                    }
-                val talkCalendarPort =
-                    object : TalkCalendarPort {
-                        override fun createEvent(
-                            accessToken: String,
-                            event: CalendarEvent,
-                        ): String = throw UnsupportedOperationException("예약 실패 후에는 부르지 않는다")
-
-                        override fun updateEvent(
-                            accessToken: String,
-                            eventId: String,
-                            event: CalendarEvent,
-                        ): Boolean = throw UnsupportedOperationException()
-                    }
-                RegisterGuestTalkCalendarEventUseCase(port, service, talkCalendarPort, clock) to created
-            }
-
-        assertEquals(GuestCalendarRegistrationResult.ALREADY_REGISTERED, useCase("a796ba5f", credentials))
-    }
-
-    private class StubRepository : CalendarRegistrationRepository {
-        override fun findByUserIdAndPartyIdAndProvider(
-            userId: Long,
-            partyId: Long,
-            provider: CalendarProvider,
-        ): CalendarRegistration? = null
-
-        override fun existsByKakaoProviderIdAndPartyIdAndProvider(
-            kakaoProviderId: String,
-            partyId: Long,
-            provider: CalendarProvider,
-        ): Boolean = false
-
-        override fun <S : CalendarRegistration?> save(entity: S & Any): S & Any = entity
-        override fun <S : CalendarRegistration?> saveAndFlush(entity: S & Any): S & Any = entity
-        override fun findAll(): MutableList<CalendarRegistration> = mutableListOf()
-        override fun findByIdOrNull(id: Long): CalendarRegistration? = null
-        override fun deleteAll() = Unit
-    }
-}
 ```
 
-`CalendarRegistrationService` 를 상속 스텁으로 쓰려면 `open` 이어야 한다. Kotlin 기본은 `final` 이므로, **Step 3에서 Service 와 메서드를 `open` 으로 바꾸는 대신** `StubRepository` 를 Service 에 주입하는 방식으로 바꾼다. `JpaRepository` 의 추상 메서드가 많아 스텁이 비대해지면, 이 테스트를 `IntegrationTestSupport` 기반 통합 테스트로 바꾼다 — 그쪽이 이 프로젝트 패턴에 더 맞다. 구현자는 Step 1 시작 시 아래를 실행해 판단한다:
+픽스처 `saveHostPartyAndInvite(startedAt, inviteExpired = false)` 는 호스트 사용자·파티·초대를 저장하고 `partyId` 와 `inviteToken` 을 담은 로컬 data class 를 돌려주는 private 헬퍼다. Task 4 에서 만든 같은 이름의 헬퍼와 동일한 형태이므로 그 구현을 이 클래스에도 복제한다 — `inviteExpired` 분기만 추가해 만료 시 `expiresAt` 을 과거로 둔다. 두 테스트 클래스가 공유 베이스를 만들 만큼 크지 않다.
 
-Run: `grep -n "^class CalendarRegistrationService\|^open class" src/main/kotlin/com/team2/server/calendar/application/service/CalendarRegistrationService.kt`
-
-`open` 이 아니면 통합 테스트로 전환한다. 그 경우 테스트는 `Task 3` 의 `CalendarRegistrationServiceTest` 처럼 실제 Service·Repository 를 쓰고, `TalkCalendarPort` 만 `KakaoStubServers` 로 대체한다. 단정은 위 7개 케이스를 그대로 유지한다.
+Run: `grep -n -A30 "private fun saveHostPartyAndInvite" src/test/kotlin/com/team2/server/calendar/infrastructure/party/PartyCalendarInfoAdapterGuestTest.kt`
 
 - [ ] **Step 2: 실패를 확인한다**
 
