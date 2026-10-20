@@ -164,48 +164,66 @@ class PartyStatusTest {
     }
 
     @Test
-    fun `RealtimeParty - 주최자 입장 4분 전 수동 종료는 HOST_LEFT`() {
-        val liveStartedAt = liveStart.plusSeconds(10)
-        val party = realtimeParty().apply { this.liveStartedAt = liveStartedAt }
-
-        assertEquals(
-            RealtimePartyEndingReason.HOST_LEFT,
-            party.endingReasonForManualRequest(liveStartedAt.plusMinutes(4).minusNanos(1)),
-        )
-    }
-
-    @Test
-    fun `RealtimeParty - 주최자 입장 정확히 4분 뒤 수동 종료는 HOST_REQUEST`() {
-        val liveStartedAt = liveStart.plusSeconds(10)
-        val party = realtimeParty().apply { this.liveStartedAt = liveStartedAt }
-
-        assertEquals(
-            RealtimePartyEndingReason.HOST_REQUEST,
-            party.endingReasonForManualRequest(liveStartedAt.plusMinutes(4)),
-        )
-    }
-
-    @Test
-    fun `RealtimeParty - 정확히 10분 시점 수동 종료는 TIME_LIMIT_REACHED`() {
+    fun `RealtimeParty - 명시 종료는 시작 직후여도 HOST_REQUEST`() {
         val party = realtimeParty().apply { liveStartedAt = liveStart }
 
         assertEquals(
-            RealtimePartyEndingReason.TIME_LIMIT_REACHED,
-            party.endingReasonForManualRequest(party.automaticEndingStartedAt()),
+            RealtimePartyEndingReason.HOST_REQUEST,
+            party.endingReasonForHost(RealtimePartyEndTrigger.HOST_REQUEST, liveStart.plusSeconds(10)),
         )
     }
 
     @Test
-    fun `RealtimeParty - 주최자 입장 4분 전이어도 박터뜨리기가 끝났으면 HOST_REQUEST`() {
-        val liveStartedAt = liveStart
-        val requestAt = liveStartedAt.plusMinutes(2)
-        val party =
-            realtimeParty().apply {
-                this.liveStartedAt = liveStartedAt
-                burstGameEndedAt = requestAt.minusNanos(1)
-            }
+    fun `RealtimeParty - 예약 시각 이후 미시작 파티의 명시 종료는 HOST_REQUEST`() {
+        val party = realtimeParty()
 
-        assertEquals(RealtimePartyEndingReason.HOST_REQUEST, party.endingReasonForManualRequest(requestAt))
+        assertEquals(
+            RealtimePartyEndingReason.HOST_REQUEST,
+            party.endingReasonForHost(RealtimePartyEndTrigger.HOST_REQUEST, liveStart.plusMinutes(3)),
+        )
+    }
+
+    @Test
+    fun `RealtimeParty - 주최자 퇴장은 경과 시간과 무관하게 HOST_LEFT`() {
+        val party = realtimeParty().apply { liveStartedAt = liveStart }
+
+        assertEquals(
+            RealtimePartyEndingReason.HOST_LEFT,
+            party.endingReasonForHost(RealtimePartyEndTrigger.HOST_LEFT, liveStart.plusMinutes(5)),
+        )
+    }
+
+    @Test
+    fun `RealtimeParty - 정확히 10분 시점 종료는 경로와 무관하게 TIME_LIMIT_REACHED`() {
+        val party = realtimeParty().apply { liveStartedAt = liveStart }
+
+        RealtimePartyEndTrigger.entries.forEach { trigger ->
+            assertEquals(
+                RealtimePartyEndingReason.TIME_LIMIT_REACHED,
+                party.endingReasonForHost(trigger, party.automaticEndingStartedAt()),
+            )
+        }
+    }
+
+    @Test
+    fun `RealtimeParty - 예약 시각 전이면 주최자 나가기는 DELETE`() {
+        val party = realtimeParty()
+
+        assertEquals(RealtimePartyHostExitAction.DELETE, party.hostExitAction(liveStart.minusNanos(1)))
+    }
+
+    @Test
+    fun `RealtimeParty - 예약 시각 이후 미시작이면 주최자 나가기는 END`() {
+        val party = realtimeParty()
+
+        assertEquals(RealtimePartyHostExitAction.END, party.hostExitAction(liveStart))
+    }
+
+    @Test
+    fun `RealtimeParty - 종료 카운트다운 중이면 주최자 나가기 액션이 없다`() {
+        val party = realtimeParty().apply { liveEndingStartedAt = liveStart.plusMinutes(1) }
+
+        assertEquals(null, party.hostExitAction(liveStart.plusMinutes(1)))
     }
 
     @Test

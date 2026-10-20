@@ -235,7 +235,7 @@ class PartyControllerTest
         }
 
         @Test
-        fun `주최자는 LIVE_OPEN이면 4분 전에도 HOST_LEFT로 실시간 파티 종료를 시작할 수 있다`() {
+        fun `주최자는 예약 시각 이후 파티를 시작하지 않았어도 HOST_REQUEST로 실시간 파티를 종료할 수 있다`() {
             val owner = saveUser("kakao-realtime-end-start", "end-start@kakao.local")
             val party = saveRealtimeParty(owner, LocalDateTime.now().minusMinutes(1))
 
@@ -247,7 +247,7 @@ class PartyControllerTest
                     jsonPath("$.data.partyId") { value(party.id.toInt()) }
                     jsonPath("$.data.endingStartedAt") { exists() }
                     jsonPath("$.data.endedAt") { exists() }
-                    jsonPath("$.data.endingReason") { value("HOST_LEFT") }
+                    jsonPath("$.data.endingReason") { value("HOST_REQUEST") }
                     jsonPath("$.data.hostNickname") { value("주최자") }
                 }
         }
@@ -359,6 +359,22 @@ class PartyControllerTest
                     status { isOk() }
                     jsonPath("$.data.liveTimerStartedAt") { doesNotExist() }
                     jsonPath("$.data.liveDeadlineAt") { doesNotExist() }
+                    jsonPath("$.data.hostExitAction") { value("END") }
+                }
+        }
+
+        @Test
+        fun `예약 시각 전 실시간 파티 상태는 주최자 나가기 액션으로 DELETE 를 내려준다`() {
+            val owner = saveUser("kakao-realtime-state-exit-delete", "state-exit-delete@kakao.local")
+            val party = saveRealtimeParty(owner, LocalDateTime.now().plusMinutes(3))
+
+            mockMvc
+                .get("/api/v1/parties/${party.id}/realtime-state") {
+                    header("Authorization", "Bearer ${tokenProvider.issue(owner)}")
+                }.andExpect {
+                    status { isOk() }
+                    jsonPath("$.data.status") { value("ROLLING_PAPER_OPEN") }
+                    jsonPath("$.data.hostExitAction") { value("DELETE") }
                 }
         }
 

@@ -6,6 +6,7 @@ import com.team2.server.party.application.dto.RealtimePartyEndStartResult
 import com.team2.server.party.application.service.PartyQueryService
 import com.team2.server.party.application.service.RealtimePartyEndResultService
 import com.team2.server.party.application.service.RealtimePartyEndService
+import com.team2.server.party.domain.entity.RealtimePartyEndTrigger
 import com.team2.server.party.domain.entity.RealtimePartyStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -23,6 +24,7 @@ class StartRealtimePartyEndUseCase(
     operator fun invoke(
         partyId: Long,
         userId: Long,
+        trigger: RealtimePartyEndTrigger = RealtimePartyEndTrigger.HOST_REQUEST,
     ): RealtimePartyEndResult {
         val now = LocalDateTime.now(clock)
         val party = partyQueryService.requireRealtimeParty(partyId)
@@ -34,7 +36,7 @@ class StartRealtimePartyEndUseCase(
                     realtimePartyEndService.startIfNotStarted(
                         party.id,
                         party.liveEndingStartedAt ?: party.automaticEndingStartedAt(),
-                        party.endingReason(now) ?: party.endingReasonForManualRequest(now),
+                        party.endingReason(now) ?: party.endingReasonForHost(trigger, now),
                     ),
                     now,
                 )
@@ -43,7 +45,7 @@ class StartRealtimePartyEndUseCase(
                     realtimePartyEndService.startIfNotStarted(
                         party.id,
                         now,
-                        party.endingReasonForManualRequest(now),
+                        party.endingReasonForHost(trigger, now),
                     ),
                     now,
                 )

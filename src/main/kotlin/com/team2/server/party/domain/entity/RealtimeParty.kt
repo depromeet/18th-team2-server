@@ -64,13 +64,14 @@ class RealtimeParty(
                 null
             }
 
-    fun endingReasonForManualRequest(now: LocalDateTime): RealtimePartyEndingReason =
+    fun endingReasonForHost(
+        trigger: RealtimePartyEndTrigger,
+        now: LocalDateTime,
+    ): RealtimePartyEndingReason =
         when {
             !now.isBefore(automaticEndingStartedAt()) -> RealtimePartyEndingReason.TIME_LIMIT_REACHED
-            hostFarewellAvailableAt?.let { !now.isBefore(it) } == true ->
-                RealtimePartyEndingReason.HOST_REQUEST
-            burstGameEndedAt?.let { !it.isAfter(now) } == true -> RealtimePartyEndingReason.HOST_REQUEST
-            else -> RealtimePartyEndingReason.HOST_LEFT
+            trigger == RealtimePartyEndTrigger.HOST_LEFT -> RealtimePartyEndingReason.HOST_LEFT
+            else -> RealtimePartyEndingReason.HOST_REQUEST
         }
 
     val hostFarewellAvailableAt: LocalDateTime?
@@ -99,6 +100,13 @@ class RealtimeParty(
     /** 채팅 가능 여부. 입장 대기(시작 5분 전)부터 종료 카운트다운이 끝날 때까지 true. */
     fun isChatOpen(now: LocalDateTime = LocalDateTime.now()): Boolean =
         !now.isBefore(enterableFrom()) && now.isBefore(effectiveLiveEndedAt())
+
+    fun hostExitAction(now: LocalDateTime = LocalDateTime.now()): RealtimePartyHostExitAction? =
+        when {
+            now.isBefore(startedAt) -> RealtimePartyHostExitAction.DELETE
+            isLiveOpen(now) -> RealtimePartyHostExitAction.END
+            else -> null
+        }
 
     fun status(now: LocalDateTime = LocalDateTime.now()): RealtimePartyStatus =
         when {
@@ -131,4 +139,14 @@ enum class RealtimePartyEndingReason {
     HOST_REQUEST,
     HOST_LEFT,
     TIME_LIMIT_REACHED,
+}
+
+enum class RealtimePartyEndTrigger {
+    HOST_REQUEST,
+    HOST_LEFT,
+}
+
+enum class RealtimePartyHostExitAction {
+    DELETE,
+    END,
 }
