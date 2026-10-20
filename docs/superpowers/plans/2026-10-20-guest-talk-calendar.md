@@ -1119,7 +1119,7 @@ git commit -m "feat: 비회원 톡캘린더 등록 유스케이스 추가"
 **Files:**
 - Modify: `src/main/kotlin/com/team2/server/calendar/application/usecase/SaveKakaoCalendarConsentUseCase.kt` (`ConsentOutcome` 만)
 - Modify: `src/main/kotlin/com/team2/server/calendar/api/KakaoCalendarConsentController.kt`
-- Test: `src/test/kotlin/com/team2/server/calendar/api/KakaoCalendarConsentControllerGuestTest.kt`
+- Test: `src/test/kotlin/com/team2/server/calendar/api/KakaoCalendarConsentFlowTest.kt` (기존 파일에 추가 — Pre-flight Ruling 4)
 
 **Interfaces:**
 - Consumes: `ConsentTicketSigner.verify(ticket): ConsentSubject?` (Task 1), `ExchangeKakaoConsentUseCase.invoke` (Task 5), `RegisterGuestTalkCalendarEventUseCase.invoke` (Task 6), `GuestCalendarRegistrationResult` (Task 6), `KakaoConsentUrlFactory.callbackUri()`
@@ -1129,129 +1129,117 @@ git commit -m "feat: 비회원 톡캘린더 등록 유스케이스 추가"
 
 - [ ] **Step 1: 실패하는 테스트를 쓴다**
 
+기존 `src/test/kotlin/com/team2/server/calendar/api/KakaoCalendarConsentFlowTest.kt` 에 테스트를 **추가**한다 (새 파일을 만들지 않는다 — Pre-flight Ruling 4). 그 파일은 이미 회원 콜백 플로우 12개를 덮고 있고, 쿠키 조립 방식·`redirectedUrlPattern` 검증·`KakaoStubServers` companion 생명주기가 거기 있다. 그것들을 그대로 재사용한다.
+
+먼저 기존 파일의 회원 콜백 테스트를 읽어 호출 형태를 확인한다:
+
+Run: `sed -n '150,178p' src/test/kotlin/com/team2/server/calendar/api/KakaoCalendarConsentFlowTest.kt`
+
+쿠키 이름은 `kakao_calendar_consent_ticket` 과 `kakao_calendar_consent_return_path` 다. 티켓은 주입된 `consentTicketSigner` 로 발급한다.
+
+클래스에 `calendarRegistrationRepository: CalendarRegistrationRepository` 를 생성자 주입으로 추가하고, 아래 5개 테스트를 기존 테스트들 뒤에 둔다. 파티·초대 픽스처는 이 파일에 아직 없으므로 private 헬퍼로 만든다 (Task 4 에서 만든 `saveHostPartyAndInvite` 와 같은 형태).
+
 ```kotlin
-package com.team2.server.calendar.api
-
-import com.team2.server.calendar.application.service.ConsentSubject
-import com.team2.server.calendar.application.service.ConsentTicketSigner
-import com.team2.server.calendar.infrastructure.persistence.CalendarRegistrationRepository
-import com.team2.server.common.DatabaseCleanup
-import com.team2.server.config.TestcontainersConfiguration
-import com.team2.server.support.KakaoStubServers
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.BeforeAll
-import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.Test
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
-import org.springframework.context.annotation.Import
-import org.springframework.http.HttpHeaders
-import org.springframework.test.web.servlet.MockMvc
-import org.springframework.test.web.servlet.get
-import java.time.LocalDateTime
-import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
-
-@SpringBootTest
-@AutoConfigureMockMvc
-@Import(TestcontainersConfiguration::class)
-class KakaoCalendarConsentControllerGuestTest
-    @Autowired
-    constructor(
-        private val mockMvc: MockMvc,
-        private val consentTicketSigner: ConsentTicketSigner,
-        private val calendarRegistrationRepository: CalendarRegistrationRepository,
-        private val databaseCleanup: DatabaseCleanup,
-    ) {
-        @BeforeEach
-        fun setUp() {
-            databaseCleanup.execute()
-            KakaoStubServers.reset()
-        }
-
         @Test
-        fun `비회원 동의 콜백은 일정을 만들고 등록 완료로 복귀한다`() {
+        fun `비회원 콜백은 일정을 만들고 registered 로 돌려보낸다`() {
             val fixture = saveHostPartyAndInvite(LocalDateTime.now().plusDays(2))
             val ticket = consentTicketSigner.issue(ConsentSubject.Guest(fixture.inviteToken))
 
-            val location = callback(ticket, code = "kakao-code")
+            mockMvc
+                .get("/api/v1/kakao-calendar/consent/callback") {
+                    param("code", "auth-code")
+                    param("state", ticket)
+                    cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_ticket", ticket))
+                    cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_return_path", RETURN_PATH))
+                }.andExpect {
+                    status { is3xxRedirection() }
+                    redirectedUrlPattern("**/*calendarConsent=registered*")
+                }
 
-            assertTrue(location.contains("calendarConsent=registered"), location)
             val saved = calendarRegistrationRepository.findAll().single()
             assertEquals(fixture.partyId, saved.partyId)
+            assertNull(saved.userId)
             assertNotNull(saved.kakaoProviderId)
-            assertEquals(null, saved.userId)
             assertNotNull(saved.eventId)
             assertNotNull(KakaoStubServers.requests[KakaoStubServers.CREATE_EVENT_PATH])
         }
 
         @Test
-        fun `같은 비회원이 다시 동의하면 이미 등록으로 복귀한다`() {
+        fun `같은 비회원이 다시 동의하면 already_registered 로 돌려보낸다`() {
             val fixture = saveHostPartyAndInvite(LocalDateTime.now().plusDays(2))
-            val ticket = consentTicketSigner.issue(ConsentSubject.Guest(fixture.inviteToken))
-            callback(ticket, code = "kakao-code")
+            guestCallback(fixture.inviteToken)
             KakaoStubServers.reset()
 
-            val location = callback(
-                consentTicketSigner.issue(ConsentSubject.Guest(fixture.inviteToken)),
-                code = "kakao-code",
-            )
+            mockMvc
+                .get("/api/v1/kakao-calendar/consent/callback") {
+                    val ticket = consentTicketSigner.issue(ConsentSubject.Guest(fixture.inviteToken))
+                    param("code", "auth-code")
+                    param("state", ticket)
+                    cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_ticket", ticket))
+                    cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_return_path", RETURN_PATH))
+                }.andExpect {
+                    redirectedUrlPattern("**/*calendarConsent=already_registered*")
+                }
 
-            assertTrue(location.contains("calendarConsent=already_registered"), location)
             assertEquals(1, calendarRegistrationRepository.findAll().size)
-            assertEquals(null, KakaoStubServers.requests[KakaoStubServers.CREATE_EVENT_PATH])
+            assertNull(KakaoStubServers.requests[KakaoStubServers.CREATE_EVENT_PATH])
         }
 
         @Test
-        fun `없는 초대 토큰이면 초대 무효로 복귀한다`() {
+        fun `없는 초대 토큰이면 invite_invalid 로 돌려보낸다`() {
             val ticket = consentTicketSigner.issue(ConsentSubject.Guest("nosuchtk"))
 
-            val location = callback(ticket, code = "kakao-code")
+            mockMvc
+                .get("/api/v1/kakao-calendar/consent/callback") {
+                    param("code", "auth-code")
+                    param("state", ticket)
+                    cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_ticket", ticket))
+                    cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_return_path", RETURN_PATH))
+                }.andExpect {
+                    redirectedUrlPattern("**/*calendarConsent=invite_invalid*")
+                }
 
-            assertTrue(location.contains("calendarConsent=invite_invalid"), location)
             assertTrue(calendarRegistrationRepository.findAll().isEmpty())
         }
 
         @Test
-        fun `동의를 거부하면 거부로 복귀하고 등록이 없다`() {
+        fun `비회원이 동의를 거부하면 denied 로 돌려보내고 등록이 없다`() {
             val fixture = saveHostPartyAndInvite(LocalDateTime.now().plusDays(2))
             val ticket = consentTicketSigner.issue(ConsentSubject.Guest(fixture.inviteToken))
 
-            val location = callback(ticket, code = null)
+            mockMvc
+                .get("/api/v1/kakao-calendar/consent/callback") {
+                    param("state", ticket)
+                    cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_ticket", ticket))
+                    cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_return_path", RETURN_PATH))
+                }.andExpect {
+                    redirectedUrlPattern("**/*calendarConsent=denied*")
+                }
 
-            assertTrue(location.contains("calendarConsent=denied"), location)
             assertTrue(calendarRegistrationRepository.findAll().isEmpty())
         }
 
         @Test
-        fun `state 와 쿠키 티켓이 다르면 만료로 복귀한다`() {
+        fun `비회원 티켓과 state 가 다르면 expired 로 돌려보낸다`() {
             val fixture = saveHostPartyAndInvite(LocalDateTime.now().plusDays(2))
             val ticket = consentTicketSigner.issue(ConsentSubject.Guest(fixture.inviteToken))
             val other = consentTicketSigner.issue(ConsentSubject.Guest(fixture.inviteToken))
 
-            val result =
-                mockMvc
-                    .get("/api/v1/kakao-calendar/consent/callback") {
-                        param("code", "kakao-code")
-                        param("state", other)
-                        cookie(ticketCookie(ticket), returnPathCookie())
-                    }.andReturn()
+            mockMvc
+                .get("/api/v1/kakao-calendar/consent/callback") {
+                    param("code", "auth-code")
+                    param("state", other)
+                    cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_ticket", ticket))
+                    cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_return_path", RETURN_PATH))
+                }.andExpect {
+                    redirectedUrlPattern("**/*calendarConsent=expired*")
+                }
 
-            val location = result.response.getHeader(HttpHeaders.LOCATION) ?: ""
-            assertTrue(location.contains("calendarConsent=expired"), location)
             assertTrue(calendarRegistrationRepository.findAll().isEmpty())
         }
-    }
 ```
 
-픽스처(`saveHostPartyAndInvite`), 쿠키 헬퍼(`ticketCookie` / `returnPathCookie`), `callback` 헬퍼는 구현자가 아래를 읽어 만든다:
-
-Run: `cat src/main/kotlin/com/team2/server/calendar/api/KakaoCalendarConsentCookies.kt`
-Run: `grep -rn "KakaoCalendarConsentCookies\|consent/callback" src/test --include='*.kt' | head`
-
-기존 콜백 테스트가 있으면 그 쿠키 조립 방식을 그대로 재사용한다. 없으면 `KakaoCalendarConsentCookies` 의 쿠키 이름 상수로 `Cookie(name, value)` 를 만든다. `callback(ticket, code)` 는 `code` 가 null 이면 파라미터를 붙이지 않고, `state` 에는 `ticket` 을 넣고 쿠키에도 같은 `ticket` 을 넣는다.
+`guestCallback(inviteToken)` 은 위 첫 테스트의 호출을 그대로 수행하는 private 헬퍼다 (중복을 줄이려면 다섯 테스트의 공통 호출을 이 헬퍼로 뽑아도 된다 — 단정만 각 테스트에 남긴다).
 
 - [ ] **Step 2: 실패를 확인한다**
 
