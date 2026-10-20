@@ -200,6 +200,36 @@ class FlywayMigrationTest {
     }
 
     @Test
+    fun `V18 은 비회원 등록 컬럼과 유니크 인덱스를 추가한다`() {
+        DriverManager.getConnection(MYSQL.jdbcUrl, MYSQL.username, MYSQL.password).use { connection ->
+            Flyway
+                .configure()
+                .dataSource(MYSQL.jdbcUrl, MYSQL.username, MYSQL.password)
+                .locations("classpath:db/migration")
+                .cleanDisabled(false)
+                .load()
+                .also { it.clean() }
+                .migrate()
+
+            assertEquals(
+                ColumnDefinition(dataType = "varchar", datetimePrecision = 0, nullable = true),
+                connection.findColumn("calendar_registration", "kakao_provider_id"),
+            )
+            assertEquals(
+                ColumnDefinition(dataType = "bigint", datetimePrecision = 0, nullable = true),
+                connection.findColumn("calendar_registration", "user_id"),
+            )
+            assertEquals(
+                true,
+                connection.hasUniqueIndex(
+                    "calendar_registration",
+                    "uk_calendar_registration_kakao_party_provider",
+                ),
+            )
+        }
+    }
+
+    @Test
     fun `Flyway migration creates schema and seeds default assets`() {
         DriverManager.getConnection(MYSQL.jdbcUrl, MYSQL.username, MYSQL.password).use { connection ->
             Flyway
@@ -363,7 +393,7 @@ class FlywayMigrationTest {
 
     private companion object {
         private val COUNTABLE_TABLES = setOf("avatar", "rolling_paper_wrapper", "image")
-        private val TABLES_WITH_COLUMNS_TO_ASSERT = setOf("realtime_party", "party")
+        private val TABLES_WITH_COLUMNS_TO_ASSERT = setOf("realtime_party", "party", "calendar_registration")
         private val EXPECTED_CHARACTER_IMAGE_URLS =
             listOf(
                 "/images/characters/blue.png",
@@ -415,6 +445,29 @@ class FlywayMigrationTest {
                     datetimePrecision = resultSet.getInt("datetime_precision"),
                     nullable = resultSet.getString("is_nullable") == "YES",
                 )
+            }
+        }
+    }
+
+    private fun java.sql.Connection.hasUniqueIndex(
+        table: String,
+        indexName: String,
+    ): Boolean {
+        require(table in TABLES_WITH_COLUMNS_TO_ASSERT) { "Unsupported table name: $table" }
+        return prepareStatement(
+            """
+            select count(*)
+            from information_schema.statistics
+            where table_schema = database()
+              and table_name = ?
+              and index_name = ?
+            """.trimIndent(),
+        ).use { statement ->
+            statement.setString(1, table)
+            statement.setString(2, indexName)
+            statement.executeQuery().use { resultSet ->
+                resultSet.next()
+                resultSet.getInt(1) > 0
             }
         }
     }
