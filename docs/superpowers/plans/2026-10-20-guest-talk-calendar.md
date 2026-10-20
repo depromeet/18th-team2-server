@@ -435,9 +435,15 @@ git commit -m "feat: 비회원 캘린더 등록 스키마 추가"
 
 `reserveForGuest` 는 유니크 충돌 시 `BusinessException(ErrorCode.CALENDAR_REGISTRATION_IN_PROGRESS)` 를 던진다 — 기존 `reserve` 와 같은 계약이다. Service 의존성은 1개로 유지되고 public 메서드는 5개가 된다 (제한과 같음).
 
-- [ ] **Step 1: 실패하는 테스트를 쓴다**
+- [ ] **Step 1: 기존 테스트 파일을 먼저 확인한다**
 
-`src/test/kotlin/com/team2/server/calendar/application/service/CalendarRegistrationServiceTest.kt` 를 만든다. `JpaSliceTestSupport` 를 상속해 기존 지문에 맞춘다.
+Run: `ls src/test/kotlin/com/team2/server/calendar/application/service/`
+
+**이 파일은 이미 존재하고 회원 경로 테스트 7개를 담고 있다** (이력 없음, `reserve` 행 형태, reserve→find 왕복, 중복 `reserve` 예외, 다른 사용자·파티, `linkEvent` 채움, `linkEvent` 덮어쓰기). 그 중 중복 `reserve` 테스트는 제약 이름 문자열이 마이그레이션과 어긋나는 것을 잡는 가드다. **기존 테스트를 지우지 말고 새 테스트를 그 뒤에 추가한다.** 클래스 doc 주석도 보존한다.
+
+- [ ] **Step 2: 실패하는 테스트를 쓴다**
+
+기존 `src/test/kotlin/com/team2/server/calendar/application/service/CalendarRegistrationServiceTest.kt` 에 아래 4개를 추가한다. `JpaSliceTestSupport` 를 상속해 기존 지문에 맞춘다.
 
 ```kotlin
 package com.team2.server.calendar.application.service
@@ -501,12 +507,12 @@ class CalendarRegistrationServiceTest
 
 `JpaSliceTestSupport` 의 실제 패키지가 다르면 맞춘다. Run: `find src/test -name "JpaSliceTestSupport.kt"`
 
-- [ ] **Step 2: 실패를 확인한다**
+- [ ] **Step 3: 실패를 확인한다**
 
 Run: `./gradlew test --tests "com.team2.server.calendar.application.service.CalendarRegistrationServiceTest"`
 Expected: 컴파일 실패 — `reserveForGuest` / `existsForGuest` 없음
 
-- [ ] **Step 3: Repository 메서드를 더한다**
+- [ ] **Step 4: Repository 메서드를 더한다**
 
 `CalendarRegistrationRepository` 에 추가한다 (기존 `findByUserIdAndPartyIdAndProvider` 는 그대로):
 
@@ -518,7 +524,7 @@ Expected: 컴파일 실패 — `reserveForGuest` / `existsForGuest` 없음
     ): Boolean
 ```
 
-- [ ] **Step 4: Service 메서드를 더한다**
+- [ ] **Step 5: Service 메서드를 더한다**
 
 `CalendarRegistrationService` 에 추가한다:
 
@@ -554,12 +560,12 @@ Expected: 컴파일 실패 — `reserveForGuest` / `existsForGuest` 없음
         }
 ```
 
-- [ ] **Step 5: 통과를 확인한다**
+- [ ] **Step 6: 통과를 확인한다**
 
 Run: `./gradlew test --tests "com.team2.server.calendar.application.service.CalendarRegistrationServiceTest"`
 Expected: PASS
 
-- [ ] **Step 6: 커밋**
+- [ ] **Step 7: 커밋**
 
 ```bash
 git add src/main/kotlin/com/team2/server/calendar/infrastructure/persistence/CalendarRegistrationRepository.kt \
@@ -575,7 +581,7 @@ git commit -m "feat: 비회원 캘린더 등록 예약 추가"
 **Files:**
 - Modify: `src/main/kotlin/com/team2/server/calendar/application/port/PartyCalendarInfoPort.kt`
 - Modify: `src/main/kotlin/com/team2/server/calendar/infrastructure/party/PartyCalendarInfoAdapter.kt`
-- Test: `src/test/kotlin/com/team2/server/calendar/infrastructure/party/PartyCalendarInfoAdapterGuestTest.kt`
+- Test: `src/test/kotlin/com/team2/server/calendar/infrastructure/party/PartyCalendarInfoAdapterTest.kt` (기존 파일에 추가 — Pre-flight Ruling 7)
 
 **Interfaces:**
 - Consumes: `PartyInviteService.findUsableInvite(inviteToken: String, now: LocalDateTime): PartyInvite` (만료 시 `ErrorCode.INVITE_LINK_EXPIRED`, 없으면 `ErrorCode.PARTY_NOT_FOUND`), `PartyQueryService.requireParty(partyId: Long): Party`
@@ -585,78 +591,65 @@ git commit -m "feat: 비회원 캘린더 등록 예약 추가"
 
 - [ ] **Step 1: 실패하는 테스트를 쓴다**
 
-통합 테스트로 쓴다. 어댑터가 세 Service 를 쓰므로 단위 테스트는 스텁이 과해진다. 기존 지문 `@SpringBootTest + @Import(TC)` 에 맞춰 `IntegrationTestSupport` 를 상속한다.
+기존 `src/test/kotlin/com/team2/server/calendar/infrastructure/party/PartyCalendarInfoAdapterTest.kt` 에 테스트를 **추가**한다 (새 파일을 만들지 않는다 — Pre-flight Ruling 7). 그 파일은 `mockito-kotlin` 의 `mock()` 으로 세 Service 를 주입하는 단위 테스트이고, 이미 `loadForMember` 6 케이스를 덮는다. **기존 테스트를 지우지 말고** 그 뒤에 추가한다.
+
+기존 셋업을 그대로 쓴다 — 클래스 상단의 `partyQueryService` / `participantService` / `partyInviteService` mock 과 `now` / `startedAt` 상수, `adapter` 인스턴스를 재사용한다. Testcontainers 를 쓰지 않으므로 픽스처 저장이 없다.
+
+`PartyInvite(party: Party, token: String, expiresAt: LocalDateTime)` 를 직접 생성해 mock 의 반환값으로 쓴다. `party.id` 는 저장하지 않은 엔티티라 기본값이므로, `requireParty` mock 은 `any()` 로 받고 단정은 `info.partyId` 가 그 파티의 id 와 같은지로 한다.
+
+아래 3개를 기존 테스트들 뒤에 둔다:
 
 ```kotlin
-package com.team2.server.calendar.infrastructure.party
+    @Test
+    fun `초대 토큰으로 파티 정보를 읽는다`() {
+        val party =
+            PaperOnlyParty(
+                ownerId = 10L,
+                startedAt = startedAt,
+                celebrantNickname = "지민",
+                purpose = PartyPurpose.BIRTHDAY,
+            )
+        val invite = PartyInvite(party = party, token = "a796ba5f", expiresAt = now.plusDays(1))
+        whenever(partyInviteService.findUsableInvite("a796ba5f", now)).thenReturn(invite)
+        whenever(partyQueryService.requireParty(any())).thenReturn(party)
 
-import com.team2.server.calendar.application.port.PartyCalendarInfoPort
-import com.team2.server.common.DatabaseCleanup
-import com.team2.server.common.exception.BusinessException
-import com.team2.server.common.exception.ErrorCode
-import com.team2.server.support.IntegrationTestSupport
-import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.Test
-import org.springframework.beans.factory.annotation.Autowired
-import java.time.LocalDateTime
-import kotlin.test.assertEquals
+        val info = adapter.loadForInviteToken("a796ba5f", now)
 
-class PartyCalendarInfoAdapterGuestTest
-    @Autowired
-    constructor(
-        private val partyCalendarInfoPort: PartyCalendarInfoPort,
-        private val databaseCleanup: DatabaseCleanup,
-    ) : IntegrationTestSupport() {
-        @BeforeEach
-        fun setUp() {
-            databaseCleanup.execute()
-        }
+        assertEquals(CelebrationKind.BIRTHDAY, info.celebrationKind)
+        assertEquals("지민", info.celebrantName)
+        assertEquals(startedAt, info.startedAt)
+        assertEquals("https://example.com/invite/a796ba5f", info.inviteUrl)
+    }
 
-        @Test
-        fun `초대 토큰으로 파티 정보를 읽는다`() {
-            val startedAt = LocalDateTime.now().plusDays(2)
-            val fixture = saveHostPartyAndInvite(startedAt)
+    @Test
+    fun `초대 토큰으로 읽을 때는 참여자 검증을 하지 않는다`() {
+        val party = PaperOnlyParty(ownerId = 10L, startedAt = startedAt, celebrantNickname = "지민")
+        val invite = PartyInvite(party = party, token = "a796ba5f", expiresAt = now.plusDays(1))
+        whenever(partyInviteService.findUsableInvite("a796ba5f", now)).thenReturn(invite)
+        whenever(partyQueryService.requireParty(any())).thenReturn(party)
 
-            val info = partyCalendarInfoPort.loadForInviteToken(fixture.inviteToken, LocalDateTime.now())
+        adapter.loadForInviteToken("a796ba5f", now)
 
-            assertEquals(fixture.partyId, info.partyId)
-            assertEquals(startedAt.withNano(0), info.startedAt.withNano(0))
-        }
+        verifyNoInteractions(participantService)
+    }
 
-        @Test
-        fun `없는 초대 토큰이면 파티를 찾을 수 없다`() {
-            val exception =
-                runCatching {
-                    partyCalendarInfoPort.loadForInviteToken("nosuchtk", LocalDateTime.now())
-                }.exceptionOrNull()
+    @Test
+    fun `초대 조회 실패는 그대로 전파한다`() {
+        whenever(partyInviteService.findUsableInvite("nosuchtk", now))
+            .thenThrow(BusinessException(ErrorCode.PARTY_NOT_FOUND))
 
-            assertEquals(ErrorCode.PARTY_NOT_FOUND, (exception as BusinessException).errorCode)
-        }
+        val exception =
+            kotlin.runCatching { adapter.loadForInviteToken("nosuchtk", now) }.exceptionOrNull()
 
-        @Test
-        fun `만료된 초대 토큰이면 만료 예외가 난다`() {
-            val fixture = saveHostPartyAndInvite(LocalDateTime.now().plusDays(2))
-
-            val exception =
-                runCatching {
-                    partyCalendarInfoPort.loadForInviteToken(
-                        fixture.inviteToken,
-                        LocalDateTime.now().plusYears(5),
-                    )
-                }.exceptionOrNull()
-
-            assertEquals(ErrorCode.INVITE_LINK_EXPIRED, (exception as BusinessException).errorCode)
-        }
+        assertEquals(ErrorCode.PARTY_NOT_FOUND, (exception as BusinessException).errorCode)
     }
 ```
 
-픽스처 헬퍼(`saveHostPartyAndInvite`)는 `TalkCalendarControllerTest` 의 `saveHostAndParty` 를 참고해 같은 방식으로 이 클래스 안에 private 으로 만든다. 초대 토큰까지 함께 저장해야 한다.
-
-Run: `grep -n -A30 "private fun saveHostAndParty" src/test/kotlin/com/team2/server/calendar/api/TalkCalendarControllerTest.kt` 로 기존 픽스처를 읽고, 초대 생성 방식은 `grep -rn "PartyInvite(" src/test | head` 로 확인한다.
+`verifyNoInteractions` 와 `PartyInvite` import 를 추가한다 (`org.mockito.kotlin.verifyNoInteractions`, `com.team2.server.party.domain.entity.PartyInvite`). 만료 토큰 케이스는 `findUsableInvite` 가 `INVITE_LINK_EXPIRED` 를 던지는 것을 그 Service 의 테스트가 이미 덮으므로, 여기서는 "예외를 전파한다"만 한 번 검증하면 충분하다.
 
 - [ ] **Step 2: 실패를 확인한다**
 
-Run: `./gradlew test --tests "com.team2.server.calendar.infrastructure.party.PartyCalendarInfoAdapterGuestTest"`
+Run: `./gradlew test --tests "com.team2.server.calendar.infrastructure.party.PartyCalendarInfoAdapterTest"`
 Expected: 컴파일 실패 — `loadForInviteToken` 없음
 
 - [ ] **Step 3: 포트에 메서드를 더한다**
@@ -699,7 +692,7 @@ Expected: 컴파일 실패 — `loadForInviteToken` 없음
 
 - [ ] **Step 5: 통과를 확인한다**
 
-Run: `./gradlew test --tests "com.team2.server.calendar.infrastructure.party.PartyCalendarInfoAdapterGuestTest"`
+Run: `./gradlew test --tests "com.team2.server.calendar.infrastructure.party.PartyCalendarInfoAdapterTest"`
 Expected: PASS
 
 - [ ] **Step 6: 커밋**
@@ -707,7 +700,7 @@ Expected: PASS
 ```bash
 git add src/main/kotlin/com/team2/server/calendar/application/port/PartyCalendarInfoPort.kt \
         src/main/kotlin/com/team2/server/calendar/infrastructure/party/PartyCalendarInfoAdapter.kt \
-        src/test/kotlin/com/team2/server/calendar/infrastructure/party/PartyCalendarInfoAdapterGuestTest.kt
+        src/test/kotlin/com/team2/server/calendar/infrastructure/party/PartyCalendarInfoAdapterTest.kt
 git commit -m "feat: 초대 토큰으로 파티 캘린더 정보 조회"
 ```
 
@@ -990,7 +983,11 @@ class RegisterGuestTalkCalendarEventUseCaseTest
     }
 ```
 
-픽스처 `saveHostPartyAndInvite(startedAt, inviteExpired = false)` 는 호스트 사용자·파티·초대를 저장하고 `partyId` 와 `inviteToken` 을 담은 로컬 data class 를 돌려주는 private 헬퍼다. Task 4 에서 만든 같은 이름의 헬퍼와 동일한 형태이므로 그 구현을 이 클래스에도 복제한다 — `inviteExpired` 분기만 추가해 만료 시 `expiresAt` 을 과거로 둔다. 두 테스트 클래스가 공유 베이스를 만들 만큼 크지 않다.
+픽스처 `saveHostPartyAndInvite(startedAt, inviteExpired = false)` 는 호스트 사용자·파티·초대를 저장하고 `partyId` 와 `inviteToken` 을 담은 로컬 data class 를 돌려주는 private 헬퍼다. **이 작업이 그 픽스처를 처음 만드는 곳이다** (Task 4 는 Ruling 7 로 mock 단위 테스트가 되어 픽스처가 없다). 기존 `TalkCalendarControllerTest.saveHostAndParty` 를 참고해 같은 형태로 만들고 초대 저장을 더한다:
+
+Run: `grep -n -A22 "private fun saveHostAndParty" src/test/kotlin/com/team2/server/calendar/api/TalkCalendarControllerTest.kt`
+
+저장 순서는 `User` → `PaperOnlyParty(ownerId = host.id, startedAt, celebrantNickname)` → `PartyInvite(party, token, expiresAt)` 다. `PartyInvite.token` 은 **길이 16 제한이고 unique** 이므로 테스트마다 다른 짧은 토큰을 쓴다 (예: `"guest000000001"`). `inviteExpired = true` 면 `expiresAt` 을 과거로 둔다. 생성자 주입에 `userRepository`, `partyRepository`, `partyInviteRepository` 가 필요하다.
 
 Run: `grep -n -A30 "private fun saveHostPartyAndInvite" src/test/kotlin/com/team2/server/calendar/infrastructure/party/PartyCalendarInfoAdapterGuestTest.kt`
 
@@ -1137,7 +1134,7 @@ Run: `sed -n '150,178p' src/test/kotlin/com/team2/server/calendar/api/KakaoCalen
 
 쿠키 이름은 `kakao_calendar_consent_ticket` 과 `kakao_calendar_consent_return_path` 다. 티켓은 주입된 `consentTicketSigner` 로 발급한다.
 
-클래스에 `calendarRegistrationRepository: CalendarRegistrationRepository` 를 생성자 주입으로 추가하고, 아래 5개 테스트를 기존 테스트들 뒤에 둔다. 파티·초대 픽스처는 이 파일에 아직 없으므로 private 헬퍼로 만든다 (Task 4 에서 만든 `saveHostPartyAndInvite` 와 같은 형태).
+클래스에 `calendarRegistrationRepository: CalendarRegistrationRepository` 를 생성자 주입으로 추가하고, 아래 5개 테스트를 기존 테스트들 뒤에 둔다. 파티·초대 픽스처는 이 파일에 아직 없으므로 private 헬퍼로 만든다 — **Task 6 의 `saveHostPartyAndInvite` 와 같은 형태**이므로 그 구현을 참고한다 (`grep -n -A25 "private fun saveHostPartyAndInvite" src/test/kotlin/com/team2/server/calendar/application/usecase/RegisterGuestTalkCalendarEventUseCaseTest.kt`). 토큰은 길이 16 제한에 unique 이므로 Task 6 과 다른 값을 쓴다.
 
 ```kotlin
         @Test
