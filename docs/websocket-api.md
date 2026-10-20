@@ -59,7 +59,7 @@ const client = new StompJs.Client({
 { "content": "안녕하세요!", "participantToken": "aB3xZ9qR", "clientRequestId": "c1b2..." }
 ```
 
-파티가 `LIVE_OPEN` 상태일 때만 전송됩니다.
+입장 가능 시각(시작 5분 전)부터 종료 카운트다운이 끝날 때까지 전송됩니다.
 
 ### 3. 퇴장 — `/app/parties/{partyId}/leave`
 
@@ -146,7 +146,7 @@ const client = new StompJs.Client({
   "status": "LIVE_OPEN",
   "liveStartAt": "2026-05-19T20:00:00",
   "endingStartedAt": null,
-  "endedAt": "2026-05-19T20:11:00",
+  "endedAt": "2026-05-19T20:10:30",
   "endingReason": null,
   "hostNickname": "홍길동",
   "hostFarewellAvailable": false,
@@ -214,15 +214,24 @@ const client = new StompJs.Client({
 | `message` | 누군가 메시지 전송 | `ChatMessageResponse` |
 | `user-left` | 누군가 퇴장 | `{ nickname, role }` |
 | `party-phase-changed` | 파티 진행 단계 전환(음악 → 촛불끄기 → 박터뜨리기 등) | `{ partyId, phase, phaseStartedAt, serverNow }` |
-| `party-ending` | 60초 종료 카운트다운 시작 | `{ partyId, endingStartedAt, endedAt, endingReason, hostNickname, serverNow }` |
+| `party-ending` | 30초 종료 카운트다운 시작 | `{ partyId, endingStartedAt, endedAt, endingReason, hostNickname, serverNow }` |
 | `party-ended` | 실시간 파티 종료 | `{ partyId, endedAt, hostNickname, serverNow }` |
+| `party-deleted` | 주최자가 시작 전 파티를 삭제(`DELETE /api/v1/parties/{partyId}` 성공) | `{ partyId, reason, serverNow }` |
 | `candle-blow-started` / `candle-blow-progress` / `candle-blow-ended` | 촛불끄기 세션 시작/진행/종료 | `CandleBlowResponse` (위 참고) |
 | `burst-game-started` | 박터뜨리기 라운드 시작 | `{ partyId, status, startedAt, endsAt, totalTapCount, stateVersion, serverTime }` |
 | `burst-game-progress` | 박터뜨리기 탭 집계 갱신(250ms 단위로 묶어서 전송) | `{ partyId, totalTapCount, endsAt, stateVersion, serverTime, rankings }` |
 | `burst-game-ended` | 박터뜨리기 라운드 종료 | `{ partyId, status, endsAt, totalTapCount, stateVersion, serverTime, rankings }` |
 | `fireworks` | 누군가 폭죽 트리거 | `{ partyId, participantId, nickname }` |
 
-`role`은 `CELEBRANT`(주최자) 또는 `PARTICIPANT`(참가자)입니다. `party-ending`의 `endingReason`은 `HOST_REQUEST | HOST_LEFT | TIME_LIMIT_REACHED` 중 하나입니다.
+`role`은 `CELEBRANT`(주최자) 또는 `PARTICIPANT`(참가자)입니다. `party-ending`의 `endingReason`은 아래 중 하나입니다.
+
+| `endingReason` | 원인 |
+|---|---|
+| `HOST_REQUEST` | 주최자가 `POST /api/v1/parties/{partyId}/realtime-end`를 명시적으로 호출 (파티 시작 여부·경과 시간 무관) |
+| `HOST_LEFT` | 주최자 퇴장(`/app/parties/{partyId}/leave`)으로 종료 시작 |
+| `TIME_LIMIT_REACHED` | 제한 시간 도달 (종료 요청 시점이 이미 자동 마감 이후인 경우 포함) |
+
+종료 원인은 처음 종료를 시작시킨 요청 기준으로 한 번만 기록됩니다. `realtime-end` 직후 주최자 퇴장이 들어와도 `HOST_LEFT`로 바뀌거나 `party-ending`이 다시 나가지 않습니다. 반대로 퇴장이 먼저 처리되면 `HOST_LEFT`로 남으므로, 주최자 화면은 `realtime-end` 응답을 받은 뒤 퇴장/연결 종료하세요.
 
 `burst-game-*`의 `rankings`는 `SubmitBurstGameTapResponse`(위 참고)와 같은 `{ rank, participantId, nickname, characterId, characterThumbnailImageUrl, role, tapCount }` 구조의 배열이며, 진행 중에는 상위 3명만 옵니다. `burst-game-progress`는 짧은 시간에 몰린 탭들을 250ms 단위로 묶어 최신 상태 하나만 보내는 throttle이 걸려 있습니다 — 탭마다 매번 오지 않습니다.
 
@@ -244,7 +253,7 @@ const client = new StompJs.Client({
 {
   "partyId": 1,
   "endingStartedAt": "2026-05-19T20:10:00",
-  "endedAt": "2026-05-19T20:11:00",
+  "endedAt": "2026-05-19T20:10:30",
   "endingReason": "TIME_LIMIT_REACHED",
   "hostNickname": "홍길동",
   "serverNow": "2026-05-19T20:10:00"
@@ -269,6 +278,18 @@ const client = new StompJs.Client({
 
 `party-ended`를 받으면 서버는 별도로 접속을 끊지 않습니다 — 클라이언트가 이 이벤트를 신호로 직접 연결을 종료하세요.
 
+**party-deleted**
+```json
+{
+  "partyId": 1,
+  "reason": "HOST_DELETED",
+  "serverNow": "2026-05-19T19:58:00"
+}
+```
+
+삭제가 커밋된 직후 전송됩니다. 파티 데이터는 이미 지워진 상태이므로 이후 해당 파티 API는 404를 반환합니다.
+`reason`은 현재 `HOST_DELETED`만 있습니다. 서버는 접속을 끊지 않으니 수신 즉시 안내 화면으로 전환하고 연결을 종료하세요.
+
 ### 에러 (`/topic/errors/{clientRequestId}`)
 
 ```json
@@ -280,7 +301,7 @@ const client = new StompJs.Client({
 | code | 상황 |
 |---|---|
 | `INVITE_LINK_EXPIRED` | 만료된 초대 링크로 입장 |
-| `CHAT_NOT_ACTIVE` | 파티가 `LIVE_OPEN`이 아닐 때 입장/전송 |
+| `CHAT_NOT_ACTIVE` | 입장 가능 구간(시작 5분 전 ~ 종료 카운트다운 시작 전) 밖에서 입장, 또는 채팅 가능 구간(시작 5분 전 ~ 종료 카운트다운 종료) 밖에서 전송 |
 | `CHAT_NOT_SUPPORTED` | 실시간(채팅) 파티가 아님 |
 | `PARTY_HOST_NICKNAME_NOT_EDITABLE` | 주최자가 재입장 시 닉네임을 바꾸려 함 |
 | `PARTY_NICKNAME_DUPLICATED` | 닉네임 중복 |

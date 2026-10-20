@@ -1,9 +1,11 @@
 package com.team2.server.chat.infrastructure.websocket
 
+import com.team2.server.chat.dto.PartyDeletedEventPayload
 import com.team2.server.chat.dto.PartyEndedEventPayload
 import com.team2.server.chat.dto.PartyEndingEventPayload
 import com.team2.server.chat.dto.PartyPhaseChangedEventPayload
 import com.team2.server.party.domain.entity.RealtimePartyEndingReason
+import com.team2.server.party.domain.vo.PartyDeletedReason
 import com.team2.server.party.domain.vo.PartyPhase
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
@@ -22,7 +24,7 @@ class ChatSocketRealtimePartyEventBroadcasterTest {
         broadcaster.broadcastPartyEnding(
             partyId = 1L,
             endingStartedAt = now,
-            endedAt = now.plusSeconds(60),
+            endedAt = now.plusSeconds(30),
             endingReason = RealtimePartyEndingReason.TIME_LIMIT_REACHED,
             hostNickname = "주최자",
             serverNow = now.plusSeconds(1),
@@ -34,7 +36,7 @@ class ChatSocketRealtimePartyEventBroadcasterTest {
             PartyEndingEventPayload(
                 partyId = 1L,
                 endingStartedAt = now,
-                endedAt = now.plusSeconds(60),
+                endedAt = now.plusSeconds(30),
                 endingReason = RealtimePartyEndingReason.TIME_LIMIT_REACHED,
                 hostNickname = "주최자",
                 serverNow = now.plusSeconds(1),
@@ -46,9 +48,9 @@ class ChatSocketRealtimePartyEventBroadcasterTest {
     fun `party-ended를 WebSocket 브로드캐스트 토픽으로 전송한다`() {
         broadcaster.broadcastPartyEnded(
             partyId = 1L,
-            endedAt = now.plusSeconds(60),
+            endedAt = now.plusSeconds(30),
             hostNickname = "주최자",
-            serverNow = now.plusSeconds(60),
+            serverNow = now.plusSeconds(30),
         )
 
         verify(chatSocketGateway).broadcastAfterCommit(
@@ -56,9 +58,28 @@ class ChatSocketRealtimePartyEventBroadcasterTest {
             "party-ended",
             PartyEndedEventPayload(
                 partyId = 1L,
-                endedAt = now.plusSeconds(60),
+                endedAt = now.plusSeconds(30),
                 hostNickname = "주최자",
-                serverNow = now.plusSeconds(60),
+                serverNow = now.plusSeconds(30),
+            ),
+        )
+    }
+
+    @Test
+    fun `party-deleted를 WebSocket 브로드캐스트 토픽으로 전송한다`() {
+        broadcaster.broadcastPartyDeleted(
+            partyId = 1L,
+            reason = PartyDeletedReason.HOST_DELETED,
+            serverNow = now,
+        )
+
+        verify(chatSocketGateway).broadcastAfterCommit(
+            1L,
+            "party-deleted",
+            PartyDeletedEventPayload(
+                partyId = 1L,
+                reason = PartyDeletedReason.HOST_DELETED,
+                serverNow = now,
             ),
         )
     }

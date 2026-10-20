@@ -1,13 +1,18 @@
 package com.team2.server.chat.infrastructure.sse
 
+import com.team2.server.chat.application.port.PartySseEventPublisher
+import com.team2.server.chat.dto.PartyDeletedEventPayload
 import com.team2.server.chat.dto.PartyEndedEventPayload
 import com.team2.server.chat.dto.PartyEndingEventPayload
 import com.team2.server.party.domain.entity.RealtimePartyEndingReason
+import com.team2.server.party.domain.vo.PartyDeletedReason
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter
@@ -16,7 +21,8 @@ import kotlin.test.assertEquals
 
 class ChatRealtimePartyEventBroadcasterTest {
     private val sseEmitterRegistry: SseEmitterRegistry = mock()
-    private val broadcaster = ChatRealtimePartyEventBroadcaster(sseEmitterRegistry)
+    private val partySseEventPublisher: PartySseEventPublisher = mock()
+    private val broadcaster = ChatRealtimePartyEventBroadcaster(sseEmitterRegistry, partySseEventPublisher)
     private val now = LocalDateTime.of(2026, 5, 23, 14, 30)
 
     @Test
@@ -24,16 +30,16 @@ class ChatRealtimePartyEventBroadcasterTest {
         broadcaster.broadcastPartyEnding(
             partyId = 1L,
             endingStartedAt = now,
-            endedAt = now.plusSeconds(60),
+            endedAt = now.plusSeconds(30),
             endingReason = RealtimePartyEndingReason.TIME_LIMIT_REACHED,
             hostNickname = "주최자",
             serverNow = now.plusSeconds(1),
         )
         broadcaster.broadcastPartyEnded(
             partyId = 1L,
-            endedAt = now.plusSeconds(60),
+            endedAt = now.plusSeconds(30),
             hostNickname = "주최자",
-            serverNow = now.plusSeconds(60),
+            serverNow = now.plusSeconds(30),
         )
         broadcaster.completeParty(partyId = 1L)
 
@@ -45,7 +51,7 @@ class ChatRealtimePartyEventBroadcasterTest {
             PartyEndingEventPayload(
                 partyId = 1L,
                 endingStartedAt = now,
-                endedAt = now.plusSeconds(60),
+                endedAt = now.plusSeconds(30),
                 endingReason = RealtimePartyEndingReason.TIME_LIMIT_REACHED,
                 hostNickname = "주최자",
                 serverNow = now.plusSeconds(1),
@@ -55,11 +61,24 @@ class ChatRealtimePartyEventBroadcasterTest {
         assertEquals(
             PartyEndedEventPayload(
                 partyId = 1L,
-                endedAt = now.plusSeconds(60),
+                endedAt = now.plusSeconds(30),
                 hostNickname = "주최자",
-                serverNow = now.plusSeconds(60),
+                serverNow = now.plusSeconds(30),
             ),
             payload(eventCaptor.secondValue),
+        )
+    }
+
+    @Test
+    fun `party-deleted는 커밋 이후 전송 경로로 발행한다`() {
+        broadcaster.broadcastPartyDeleted(1L, PartyDeletedReason.HOST_DELETED, now)
+
+        val eventCaptor = argumentCaptor<Set<ResponseBodyEmitter.DataWithMediaType>>()
+        verify(partySseEventPublisher).broadcastAfterCommit(eq(1L), eventCaptor.capture(), anyOrNull())
+        verify(sseEmitterRegistry, never()).broadcast(any(), any(), anyOrNull())
+        assertEquals(
+            PartyDeletedEventPayload(1L, PartyDeletedReason.HOST_DELETED, now),
+            payload(eventCaptor.firstValue),
         )
     }
 

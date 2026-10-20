@@ -153,8 +153,9 @@ class PartyServiceTest {
         whenever(participantRepository.findAllByPartyId(10L))
             .thenReturn(listOf(participant1, participant2))
 
-        partyService.deleteParty(partyId = 10L, userId = 1L)
+        val deleted = partyService.deleteParty(partyId = 10L, userId = 1L)
 
+        assertEquals(party, deleted)
         val order =
             inOrder(
                 chatMessageRepository,

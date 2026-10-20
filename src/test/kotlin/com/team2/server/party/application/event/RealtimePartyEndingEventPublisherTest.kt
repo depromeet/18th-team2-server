@@ -15,7 +15,7 @@ class RealtimePartyEndingEventPublisherTest {
     private val applicationEventPublisher: ApplicationEventPublisher = mock()
     private val publisher = RealtimePartyEndingEventPublisher(applicationEventPublisher)
     private val endingStartedAt = LocalDateTime.of(2026, 6, 7, 10, 0)
-    private val endedAt = endingStartedAt.plusSeconds(60)
+    private val endedAt = endingStartedAt.plusSeconds(30)
 
     @Test
     fun `publishes ending result display info`() {

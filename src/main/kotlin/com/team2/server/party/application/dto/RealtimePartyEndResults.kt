@@ -2,6 +2,7 @@ package com.team2.server.party.application.dto
 
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.domain.entity.RealtimePartyEndingReason
+import com.team2.server.party.domain.entity.RealtimePartyHostExitAction
 import com.team2.server.party.domain.entity.RealtimePartyStatus
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
@@ -81,6 +82,16 @@ data class RealtimePartyStateResult(
     val hostFarewellAvailable: Boolean,
     @Schema(description = "파티 시작 기준 종료 인사하기 버튼 활성화 시각", nullable = true)
     val hostFarewellAvailableAt: LocalDateTime?,
+    @Schema(
+        description =
+            "주최자가 파티를 나갈 때 호출할 API. DELETE = `DELETE /parties/{partyId}`(예약 시각 전), " +
+                "END = `POST /parties/{partyId}/realtime-end`(예약 시각 이후, 파티 시작 여부 무관). " +
+                "이미 종료 중이거나 종료됐으면 null",
+        nullable = true,
+        allowableValues = ["DELETE", "END"],
+        example = "END",
+    )
+    val hostExitAction: RealtimePartyHostExitAction?,
     @Schema(description = "응답 생성 서버 시각")
     val serverNow: LocalDateTime,
 ) {
@@ -110,6 +121,7 @@ data class RealtimePartyStateResult(
                 hostNickname = endingInfo.hostNickname,
                 hostFarewellAvailable = party.isHostFarewellAvailable(now),
                 hostFarewellAvailableAt = party.hostFarewellAvailableAt,
+                hostExitAction = party.hostExitAction(now),
                 serverNow = now,
             )
         }

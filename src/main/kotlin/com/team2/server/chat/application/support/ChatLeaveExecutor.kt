@@ -6,6 +6,7 @@ import com.team2.server.party.application.service.ParticipantService
 import com.team2.server.party.application.usecase.StartRealtimePartyEndUseCase
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
+import com.team2.server.party.domain.entity.RealtimePartyEndTrigger
 import org.springframework.stereotype.Component
 
 /**
@@ -40,7 +41,7 @@ class ChatLeaveExecutor(
         userId: Long?,
     ) {
         if (userId == party.ownerId || profile.participant.user?.id == party.ownerId) {
-            startRealtimePartyEndUseCase(party.id, party.ownerId)
+            startRealtimePartyEndUseCase(party.id, party.ownerId, RealtimePartyEndTrigger.HOST_LEFT)
         }
     }
 }

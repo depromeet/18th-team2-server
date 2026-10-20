@@ -64,13 +64,14 @@ class RealtimeParty(
                 null
             }
 
-    fun endingReasonForManualRequest(now: LocalDateTime): RealtimePartyEndingReason =
+    fun endingReasonForHost(
+        trigger: RealtimePartyEndTrigger,
+        now: LocalDateTime,
+    ): RealtimePartyEndingReason =
         when {
             !now.isBefore(automaticEndingStartedAt()) -> RealtimePartyEndingReason.TIME_LIMIT_REACHED
-            hostFarewellAvailableAt?.let { !now.isBefore(it) } == true ->
-                RealtimePartyEndingReason.HOST_REQUEST
-            burstGameEndedAt?.let { !it.isAfter(now) } == true -> RealtimePartyEndingReason.HOST_REQUEST
-            else -> RealtimePartyEndingReason.HOST_LEFT
+            trigger == RealtimePartyEndTrigger.HOST_LEFT -> RealtimePartyEndingReason.HOST_LEFT
+            else -> RealtimePartyEndingReason.HOST_REQUEST
         }
 
     val hostFarewellAvailableAt: LocalDateTime?
@@ -93,6 +94,20 @@ class RealtimeParty(
     fun isEnterable(now: LocalDateTime = LocalDateTime.now()): Boolean =
         !now.isBefore(enterableFrom()) && now.isBefore(effectiveEndingStartedAt())
 
+    fun isReenterable(now: LocalDateTime = LocalDateTime.now()): Boolean =
+        !now.isBefore(enterableFrom()) && now.isBefore(effectiveLiveEndedAt())
+
+    /** 채팅 가능 여부. 입장 대기(시작 5분 전)부터 종료 카운트다운이 끝날 때까지 true. */
+    fun isChatOpen(now: LocalDateTime = LocalDateTime.now()): Boolean =
+        !now.isBefore(enterableFrom()) && now.isBefore(effectiveLiveEndedAt())
+
+    fun hostExitAction(now: LocalDateTime = LocalDateTime.now()): RealtimePartyHostExitAction? =
+        when {
+            now.isBefore(startedAt) -> RealtimePartyHostExitAction.DELETE
+            isLiveOpen(now) -> RealtimePartyHostExitAction.END
+            else -> null
+        }
+
     fun status(now: LocalDateTime = LocalDateTime.now()): RealtimePartyStatus =
         when {
             isEnded(now) -> RealtimePartyStatus.ROLLING_PAPER_CLOSED
@@ -104,7 +119,7 @@ class RealtimeParty(
 
     companion object {
         const val LIVE_DURATION_MINUTES: Long = 10
-        const val LIVE_END_COUNTDOWN_SECONDS: Long = 60
+        const val LIVE_END_COUNTDOWN_SECONDS: Long = 30
         const val START_GRACE_MINUTES: Long = 30
         const val HOST_FAREWELL_AVAILABLE_AFTER_MINUTES: Long = 4
         const val ENTERABLE_BEFORE_MINUTES: Long = 5
@@ -124,4 +139,14 @@ enum class RealtimePartyEndingReason {
     HOST_REQUEST,
     HOST_LEFT,
     TIME_LIMIT_REACHED,
+}
+
+enum class RealtimePartyEndTrigger {
+    HOST_REQUEST,
+    HOST_LEFT,
+}
+
+enum class RealtimePartyHostExitAction {
+    DELETE,
+    END,
 }

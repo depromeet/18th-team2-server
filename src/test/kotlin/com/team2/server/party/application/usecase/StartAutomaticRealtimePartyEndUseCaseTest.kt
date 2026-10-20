@@ -55,7 +55,7 @@ class StartAutomaticRealtimePartyEndUseCaseTest {
         RealtimeEndingScheduleTarget(
             partyId = 1L,
             endingStartedAt = endingStartedAt,
-            endedAt = endingStartedAt.plusSeconds(60),
+            endedAt = endingStartedAt.plusSeconds(30),
             endingReason = RealtimePartyEndingReason.TIME_LIMIT_REACHED,
             hostNickname = "주최자",
             startedNow = startedNow,

@@ -129,6 +129,25 @@ class PartyDomainTest {
         assertEquals(RealtimePartyStatus.LIVE_ENDING, party.status(liveEndingStartedAt))
     }
 
+    @Test
+    fun `RealtimeParty 재입장은 종료 카운트다운이 끝날 때까지 가능하다`() {
+        val liveEndingStartedAt = defaultStartedAt.plusMinutes(3)
+        val party =
+            RealtimeParty(
+                ownerId = 1L,
+                startedAt = defaultStartedAt,
+                liveEndingStartedAt = liveEndingStartedAt,
+                liveStartedAt = defaultStartedAt,
+            )
+        val liveEndedAt = liveEndingStartedAt.plusSeconds(RealtimeParty.LIVE_END_COUNTDOWN_SECONDS)
+
+        assertFalse(party.isReenterable(party.enterableFrom().minusNanos(1)))
+        assertTrue(party.isReenterable(party.enterableFrom()))
+        assertTrue(party.isReenterable(liveEndingStartedAt))
+        assertTrue(party.isReenterable(liveEndedAt.minusNanos(1)))
+        assertFalse(party.isReenterable(liveEndedAt))
+    }
+
     // --- 주최자 롤링페이퍼 오픈 안내 ---
 
     @Test

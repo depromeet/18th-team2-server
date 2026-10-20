@@ -155,6 +155,40 @@ class KakaoTalkCalendarAdapterTest {
     }
 
     @Test
+    fun `테스트 앱 미등록 403 은 KAKAO_CALENDAR_NOT_PERMITTED 로 변환한다`() {
+        server
+            .expect(requestTo("https://kapi.kakao.com/v2/api/calendar/create/event"))
+            .andRespond(
+                withStatus(HttpStatus.FORBIDDEN)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(
+                        """{"msg":"This user is not registered as a team member for App(id=1440914). """ +
+                            """To use test app, ask the owner to invite the user, first.","code":-5}""",
+                    ),
+            )
+
+        val exception = kotlin.runCatching { adapter.createEvent("kakao-token", event) }.exceptionOrNull()
+
+        assertEquals(ErrorCode.KAKAO_CALENDAR_NOT_PERMITTED, (exception as BusinessException).errorCode)
+    }
+
+    @Test
+    fun `일정 수정에서도 테스트 앱 미등록 403 은 KAKAO_CALENDAR_NOT_PERMITTED 로 변환한다`() {
+        server
+            .expect(requestTo("https://kapi.kakao.com/v2/api/calendar/update/event/host"))
+            .andRespond(
+                withStatus(HttpStatus.FORBIDDEN)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body("""{"msg":"This user is not registered as a team member for App(id=1440914).","code":-5}"""),
+            )
+
+        val exception =
+            kotlin.runCatching { adapter.updateEvent("kakao-token", "event-1", event) }.exceptionOrNull()
+
+        assertEquals(ErrorCode.KAKAO_CALENDAR_NOT_PERMITTED, (exception as BusinessException).errorCode)
+    }
+
+    @Test
     fun `5xx 면 KAKAO_CALENDAR_UNAVAILABLE 로 변환한다`() {
         server
             .expect(requestTo("https://kapi.kakao.com/v2/api/calendar/create/event"))

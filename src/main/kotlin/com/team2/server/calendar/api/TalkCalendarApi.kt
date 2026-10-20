@@ -28,6 +28,12 @@ interface TalkCalendarApi {
 403 `KAKAO_CALENDAR_CONSENT_REQUIRED` 를 반환한다. 이때 클라이언트는
 `GET /api/v1/me/talk-calendar-connection/consent-url` 로 동의 URL 을 받아 브라우저를 그리로 보내고,
 동의를 마치고 돌아오면 이 API 를 다시 호출한다.
+
+**IMPORTANT: 503 `KAKAO_CALENDAR_NOT_PERMITTED` 는 재동의로 풀리지 않는다**
+카카오 앱이 아직 검수 전(테스트 앱)이라 팀원으로 등록되지 않은 사용자는 동의를 마쳐도 카카오가 일정 생성을
+거부한다(카카오 `code: -5`). 이 응답을 받으면 **동의 URL 을 다시 받지 말고 재시도도 하지 말고** 사용자에게
+"아직 사용할 수 없는 기능" 으로 안내하고 끝내야 한다. 재동의를 반복하면 카카오 토큰 발급 레이트리밋
+(`KOE237`) 에 걸린다.
 """,
         security = [SecurityRequirement(name = "Bearer Authentication")],
     )
@@ -131,6 +137,30 @@ interface TalkCalendarApi {
                               "error": {
                                 "code": "PARTY_NOT_FOUND",
                                 "message": "파티를 찾을 수 없습니다"
+                              }
+                            }
+                        """,
+                    ),
+                ],
+            ),
+        ],
+    )
+    @SwaggerApiResponse(
+        responseCode = "503",
+        description = "톡캘린더 기능 사용 불가 (재동의·재시도로 풀리지 않음)",
+        content = [
+            Content(
+                mediaType = "application/json",
+                schema = Schema(implementation = ErrorResponse::class),
+                examples = [
+                    ExampleObject(
+                        name = "카카오 앱 검수 전",
+                        value = """
+                            {
+                              "status": 503,
+                              "error": {
+                                "code": "KAKAO_CALENDAR_NOT_PERMITTED",
+                                "message": "톡캘린더 기능을 아직 사용할 수 없습니다"
                               }
                             }
                         """,

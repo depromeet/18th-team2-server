@@ -30,6 +30,8 @@ private const val RECUR_UPDATE_TYPE_ALL = "ALL"
 private const val ERROR_BODY_LOG_MAX_LENGTH = 500
 private const val EVENT_NOT_FOUND_CODE = -520
 
+private const val APP_NOT_PERMITTED_CODE = -5
+
 /**
  * 카카오 문서의 일정 생성 예시가 쓰는 형태(`2022-10-27T03:00:00Z`).
  * 문서 본문은 RFC5545 DATE-TIME 이라고 적혀 있으나 예시는 extended ISO 8601 이므로 예시를 따른다.
@@ -139,10 +141,13 @@ class KakaoTalkCalendarAdapter(
         body: String?,
     ): Boolean {
         if (status.value() != HttpStatus.BAD_REQUEST.value()) return false
-        return runCatching {
-            (objectMapper.readValue(body ?: "", Map::class.java)["code"] as? Number)?.toInt()
-        }.getOrNull() == EVENT_NOT_FOUND_CODE
+        return errorCodeOf(body) == EVENT_NOT_FOUND_CODE
     }
+
+    private fun errorCodeOf(body: String?): Int? =
+        runCatching {
+            (objectMapper.readValue(body ?: "", Map::class.java)["code"] as? Number)?.toInt()
+        }.getOrNull()
 
     private fun toBusinessException(
         path: String,
@@ -157,7 +162,12 @@ class KakaoTalkCalendarAdapter(
         )
         return when (status.value()) {
             HttpStatus.UNAUTHORIZED.value() -> BusinessException(ErrorCode.KAKAO_TOKEN_INVALID)
-            HttpStatus.FORBIDDEN.value() -> BusinessException(ErrorCode.KAKAO_CALENDAR_CONSENT_REQUIRED)
+            HttpStatus.FORBIDDEN.value() ->
+                if (errorCodeOf(body) == APP_NOT_PERMITTED_CODE) {
+                    BusinessException(ErrorCode.KAKAO_CALENDAR_NOT_PERMITTED)
+                } else {
+                    BusinessException(ErrorCode.KAKAO_CALENDAR_CONSENT_REQUIRED)
+                }
             else -> BusinessException(ErrorCode.KAKAO_CALENDAR_UNAVAILABLE)
         }
     }

@@ -1,0 +1,94 @@
+package com.team2.server.party.application.usecase
+
+import com.team2.server.common.exception.BusinessException
+import com.team2.server.common.exception.ErrorCode
+import com.team2.server.party.application.service.PartyQueryService
+import com.team2.server.party.domain.entity.RealtimeParty
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.extension.ExtendWith
+import org.mockito.Mock
+import org.mockito.junit.jupiter.MockitoExtension
+import org.mockito.kotlin.whenever
+import java.time.Clock
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
+import kotlin.test.assertEquals
+import kotlin.test.assertSame
+
+@ExtendWith(MockitoExtension::class)
+class ResolveChatOpenRealtimePartyUseCaseTest {
+    @Mock lateinit var partyQueryService: PartyQueryService
+
+    private val clock = Clock.fixed(Instant.parse("2026-06-08T11:00:30Z"), ZoneId.of("Asia/Seoul"))
+    private lateinit var useCase: ResolveChatOpenRealtimePartyUseCase
+
+    @BeforeEach
+    fun setUp() {
+        useCase = ResolveChatOpenRealtimePartyUseCase(partyQueryService, clock)
+    }
+
+    @Test
+    fun `시작 5분 전 입장 대기 구간이면 채팅 가능 파티를 반환한다`() {
+        val party = RealtimeParty(ownerId = 1L, startedAt = now().plusMinutes(5))
+        whenever(partyQueryService.requireRealtimeParty(1L)).thenReturn(party)
+
+        val result = useCase.invoke(1L)
+
+        assertSame(party, result)
+    }
+
+    @Test
+    fun `입장 가능 시간 이전이면 CHAT_NOT_ACTIVE`() {
+        val party = RealtimeParty(ownerId = 1L, startedAt = now().plusMinutes(5).plusSeconds(1))
+        whenever(partyQueryService.requireRealtimeParty(1L)).thenReturn(party)
+
+        val ex = assertThrows<BusinessException> { useCase.invoke(1L) }
+
+        assertEquals(ErrorCode.CHAT_NOT_ACTIVE, ex.errorCode)
+    }
+
+    @Test
+    fun `LIVE_OPEN이면 채팅 가능 파티를 반환한다`() {
+        val party = RealtimeParty(ownerId = 1L, startedAt = now().minusMinutes(1))
+        whenever(partyQueryService.requireRealtimeParty(1L)).thenReturn(party)
+
+        val result = useCase.invoke(1L)
+
+        assertSame(party, result)
+    }
+
+    @Test
+    fun `LIVE_ENDING이면 채팅 가능 파티를 반환한다`() {
+        val party =
+            RealtimeParty(
+                ownerId = 1L,
+                startedAt = now().minusMinutes(1),
+                liveEndingStartedAt = now().minusSeconds(10),
+            )
+        whenever(partyQueryService.requireRealtimeParty(1L)).thenReturn(party)
+
+        val result = useCase.invoke(1L)
+
+        assertSame(party, result)
+    }
+
+    @Test
+    fun `LIVE_CLOSED이면 CHAT_NOT_ACTIVE`() {
+        val party =
+            RealtimeParty(
+                ownerId = 1L,
+                startedAt = now().minusMinutes(1),
+                liveEndingStartedAt = now().minusSeconds(RealtimeParty.LIVE_END_COUNTDOWN_SECONDS),
+            )
+        whenever(partyQueryService.requireRealtimeParty(1L)).thenReturn(party)
+
+        val ex = assertThrows<BusinessException> { useCase.invoke(1L) }
+
+        assertEquals(ErrorCode.CHAT_NOT_ACTIVE, ex.errorCode)
+    }
+
+    private fun now(): LocalDateTime = LocalDateTime.now(clock)
+}

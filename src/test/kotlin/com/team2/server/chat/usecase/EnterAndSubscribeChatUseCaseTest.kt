@@ -6,6 +6,7 @@ import com.team2.server.chat.dto.ChatMessageResponse
 import com.team2.server.chat.dto.EnterRealtimePartyRequest
 import com.team2.server.chat.infrastructure.sse.ChatSseGateway
 import com.team2.server.party.application.dto.RealtimePartyStateResult
+import com.team2.server.party.domain.entity.RealtimePartyHostExitAction
 import com.team2.server.party.domain.entity.RealtimePartyStatus
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -54,11 +55,12 @@ class EnterAndSubscribeChatUseCaseTest {
                     liveTimerStartedAt = now.minusMinutes(5),
                     liveDeadlineAt = now.plusMinutes(5),
                     endingStartedAt = null,
-                    endedAt = now.plusMinutes(5).plusSeconds(60),
+                    endedAt = now.plusMinutes(5).plusSeconds(30),
                     endingReason = null,
                     hostNickname = "주최자",
                     hostFarewellAvailable = true,
                     hostFarewellAvailableAt = now.minusMinutes(1),
+                    hostExitAction = RealtimePartyHostExitAction.END,
                     serverNow = now,
                 ),
         )
