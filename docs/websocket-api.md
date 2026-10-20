@@ -216,6 +216,7 @@ const client = new StompJs.Client({
 | `party-phase-changed` | 파티 진행 단계 전환(음악 → 촛불끄기 → 박터뜨리기 등) | `{ partyId, phase, phaseStartedAt, serverNow }` |
 | `party-ending` | 30초 종료 카운트다운 시작 | `{ partyId, endingStartedAt, endedAt, endingReason, hostNickname, serverNow }` |
 | `party-ended` | 실시간 파티 종료 | `{ partyId, endedAt, hostNickname, serverNow }` |
+| `party-deleted` | 주최자가 시작 전 파티를 삭제(`DELETE /api/v1/parties/{partyId}` 성공) | `{ partyId, reason, serverNow }` |
 | `candle-blow-started` / `candle-blow-progress` / `candle-blow-ended` | 촛불끄기 세션 시작/진행/종료 | `CandleBlowResponse` (위 참고) |
 | `burst-game-started` | 박터뜨리기 라운드 시작 | `{ partyId, status, startedAt, endsAt, totalTapCount, stateVersion, serverTime }` |
 | `burst-game-progress` | 박터뜨리기 탭 집계 갱신(250ms 단위로 묶어서 전송) | `{ partyId, totalTapCount, endsAt, stateVersion, serverTime, rankings }` |
@@ -268,6 +269,18 @@ const client = new StompJs.Client({
 한쪽만 오프셋을 붙여 해석하면 그 차이가 그대로 오차로 남습니다.
 
 `party-ended`를 받으면 서버는 별도로 접속을 끊지 않습니다 — 클라이언트가 이 이벤트를 신호로 직접 연결을 종료하세요.
+
+**party-deleted**
+```json
+{
+  "partyId": 1,
+  "reason": "HOST_DELETED",
+  "serverNow": "2026-05-19T19:58:00"
+}
+```
+
+삭제가 커밋된 직후 전송됩니다. 파티 데이터는 이미 지워진 상태이므로 이후 해당 파티 API는 404를 반환합니다.
+`reason`은 현재 `HOST_DELETED`만 있습니다. 서버는 접속을 끊지 않으니 수신 즉시 안내 화면으로 전환하고 연결을 종료하세요.
 
 ### 에러 (`/topic/errors/{clientRequestId}`)
 

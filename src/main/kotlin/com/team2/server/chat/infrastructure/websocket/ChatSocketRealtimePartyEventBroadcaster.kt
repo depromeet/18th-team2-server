@@ -1,16 +1,18 @@
 package com.team2.server.chat.infrastructure.websocket
 
+import com.team2.server.chat.dto.PartyDeletedEventPayload
 import com.team2.server.chat.dto.PartyEndedEventPayload
 import com.team2.server.chat.dto.PartyEndingEventPayload
 import com.team2.server.chat.dto.PartyPhaseChangedEventPayload
 import com.team2.server.party.application.port.RealtimePartyEventBroadcaster
 import com.team2.server.party.domain.entity.RealtimePartyEndingReason
+import com.team2.server.party.domain.vo.PartyDeletedReason
 import com.team2.server.party.domain.vo.PartyPhase
 import org.springframework.stereotype.Component
 import java.time.LocalDateTime
 
 /**
- * WebSocket 채널로 파티 진행 이벤트(종료 카운트다운/종료/단계 전환)를 브로드캐스트한다.
+ * WebSocket 채널로 파티 진행 이벤트(종료 카운트다운/종료/삭제/단계 전환)를 브로드캐스트한다.
  *
  * [com.team2.server.chat.infrastructure.sse.ChatRealtimePartyEventBroadcaster]와 함께
  * 같은 포트의 서로 다른 구현체로 등록된다. 호출부([com.team2.server.party.application.service.PartyPhaseTransitionService],
@@ -67,6 +69,18 @@ class ChatSocketRealtimePartyEventBroadcaster(
      * 정리할 자원이 없으므로 아무 것도 하지 않는다.
      */
     override fun completeParty(partyId: Long) = Unit
+
+    override fun broadcastPartyDeleted(
+        partyId: Long,
+        reason: PartyDeletedReason,
+        serverNow: LocalDateTime,
+    ) {
+        chatSocketGateway.broadcastAfterCommit(
+            partyId,
+            "party-deleted",
+            PartyDeletedEventPayload(partyId = partyId, reason = reason, serverNow = serverNow),
+        )
+    }
 
     override fun broadcastPhaseChanged(
         partyId: Long,

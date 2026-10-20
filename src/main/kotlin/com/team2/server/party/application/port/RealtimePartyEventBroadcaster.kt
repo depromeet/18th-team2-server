@@ -1,6 +1,7 @@
 package com.team2.server.party.application.port
 
 import com.team2.server.party.domain.entity.RealtimePartyEndingReason
+import com.team2.server.party.domain.vo.PartyDeletedReason
 import com.team2.server.party.domain.vo.PartyPhase
 import java.time.LocalDateTime
 
@@ -22,6 +23,12 @@ interface RealtimePartyEventBroadcaster {
     )
 
     fun completeParty(partyId: Long)
+
+    fun broadcastPartyDeleted(
+        partyId: Long,
+        reason: PartyDeletedReason,
+        serverNow: LocalDateTime,
+    )
 
     fun broadcastPhaseChanged(
         partyId: Long,

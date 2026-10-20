@@ -3,6 +3,7 @@ package com.team2.server.party.application.service
 import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
+import com.team2.server.party.domain.entity.Party
 import com.team2.server.party.domain.entity.RealtimeParty
 import com.team2.server.party.infrastructure.persistence.ParticipantRepository
 import com.team2.server.party.infrastructure.persistence.PartyInviteRepository
@@ -24,7 +25,7 @@ class PartyService(
     fun deleteParty(
         partyId: Long,
         userId: Long,
-    ) {
+    ): Party {
         val party = findParty(partyId)
 
         if (party.ownerId != userId) throw BusinessException(ErrorCode.PARTY_FORBIDDEN)
@@ -44,6 +45,7 @@ class PartyService(
         participantRepository.deleteAll(participants)
         partyInviteRepository.deleteAllByPartyId(partyId)
         partyRepository.delete(party)
+        return party
     }
 
     fun markLiveStartedIfAbsent(

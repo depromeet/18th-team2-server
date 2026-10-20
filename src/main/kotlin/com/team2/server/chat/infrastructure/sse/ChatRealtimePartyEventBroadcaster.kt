@@ -1,10 +1,12 @@
 package com.team2.server.chat.infrastructure.sse
 
+import com.team2.server.chat.dto.PartyDeletedEventPayload
 import com.team2.server.chat.dto.PartyEndedEventPayload
 import com.team2.server.chat.dto.PartyEndingEventPayload
 import com.team2.server.chat.dto.PartyPhaseChangedEventPayload
 import com.team2.server.party.application.port.RealtimePartyEventBroadcaster
 import com.team2.server.party.domain.entity.RealtimePartyEndingReason
+import com.team2.server.party.domain.vo.PartyDeletedReason
 import com.team2.server.party.domain.vo.PartyPhase
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
@@ -64,6 +66,21 @@ class ChatRealtimePartyEventBroadcaster(
 
     override fun completeParty(partyId: Long) {
         sseEmitterRegistry.completeAll(partyId)
+    }
+
+    override fun broadcastPartyDeleted(
+        partyId: Long,
+        reason: PartyDeletedReason,
+        serverNow: LocalDateTime,
+    ) {
+        sseEmitterRegistry.broadcast(
+            partyId,
+            SseEmitter
+                .event()
+                .name("party-deleted")
+                .data(PartyDeletedEventPayload(partyId, reason, serverNow))
+                .build(),
+        )
     }
 
     override fun broadcastPhaseChanged(
