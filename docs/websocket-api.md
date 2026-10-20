@@ -222,7 +222,15 @@ const client = new StompJs.Client({
 | `burst-game-ended` | 박터뜨리기 라운드 종료 | `{ partyId, status, endsAt, totalTapCount, stateVersion, serverTime, rankings }` |
 | `fireworks` | 누군가 폭죽 트리거 | `{ partyId, participantId, nickname }` |
 
-`role`은 `CELEBRANT`(주최자) 또는 `PARTICIPANT`(참가자)입니다. `party-ending`의 `endingReason`은 `HOST_REQUEST | HOST_LEFT | TIME_LIMIT_REACHED` 중 하나입니다.
+`role`은 `CELEBRANT`(주최자) 또는 `PARTICIPANT`(참가자)입니다. `party-ending`의 `endingReason`은 아래 중 하나입니다.
+
+| `endingReason` | 원인 |
+|---|---|
+| `HOST_REQUEST` | 주최자가 `POST /api/v1/parties/{partyId}/realtime-end`를 명시적으로 호출 (파티 시작 여부·경과 시간 무관) |
+| `HOST_LEFT` | 주최자 퇴장(`/app/parties/{partyId}/leave`)으로 종료 시작 |
+| `TIME_LIMIT_REACHED` | 제한 시간 도달 (종료 요청 시점이 이미 자동 마감 이후인 경우 포함) |
+
+종료 원인은 처음 종료를 시작시킨 요청 기준으로 한 번만 기록됩니다. `realtime-end` 직후 주최자 퇴장이 들어와도 `HOST_LEFT`로 바뀌거나 `party-ending`이 다시 나가지 않습니다. 반대로 퇴장이 먼저 처리되면 `HOST_LEFT`로 남으므로, 주최자 화면은 `realtime-end` 응답을 받은 뒤 퇴장/연결 종료하세요.
 
 `burst-game-*`의 `rankings`는 `SubmitBurstGameTapResponse`(위 참고)와 같은 `{ rank, participantId, nickname, characterId, characterThumbnailImageUrl, role, tapCount }` 구조의 배열이며, 진행 중에는 상위 3명만 옵니다. `burst-game-progress`는 짧은 시간에 몰린 탭들을 250ms 단위로 묶어 최신 상태 하나만 보내는 throttle이 걸려 있습니다 — 탭마다 매번 오지 않습니다.
 

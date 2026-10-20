@@ -64,13 +64,18 @@ class RealtimeParty(
                 null
             }
 
-    fun endingReasonForManualRequest(now: LocalDateTime): RealtimePartyEndingReason =
+    /**
+     * 주최자가 종료를 시작시킨 경로로 종료 원인을 정한다. 자동 마감 시각이 지났으면 경로와 무관하게 시간 종료다.
+     * 명시적 종료는 파티 시작 여부·경과 시간과 무관하게 [RealtimePartyEndingReason.HOST_REQUEST] 이다.
+     */
+    fun endingReasonForHost(
+        trigger: RealtimePartyEndTrigger,
+        now: LocalDateTime,
+    ): RealtimePartyEndingReason =
         when {
             !now.isBefore(automaticEndingStartedAt()) -> RealtimePartyEndingReason.TIME_LIMIT_REACHED
-            hostFarewellAvailableAt?.let { !now.isBefore(it) } == true ->
-                RealtimePartyEndingReason.HOST_REQUEST
-            burstGameEndedAt?.let { !it.isAfter(now) } == true -> RealtimePartyEndingReason.HOST_REQUEST
-            else -> RealtimePartyEndingReason.HOST_LEFT
+            trigger == RealtimePartyEndTrigger.HOST_LEFT -> RealtimePartyEndingReason.HOST_LEFT
+            else -> RealtimePartyEndingReason.HOST_REQUEST
         }
 
     val hostFarewellAvailableAt: LocalDateTime?
@@ -96,6 +101,17 @@ class RealtimeParty(
     /** 채팅 가능 여부. 입장 대기(시작 5분 전)부터 종료 카운트다운이 끝날 때까지 true. */
     fun isChatOpen(now: LocalDateTime = LocalDateTime.now()): Boolean =
         !now.isBefore(enterableFrom()) && now.isBefore(effectiveLiveEndedAt())
+
+    /**
+     * 주최자가 파티를 나가려 할 때 써야 할 API. 예약 시각 전이면 삭제, 이후 라이브가 열려 있으면 종료(시작 여부 무관),
+     * 이미 종료 카운트다운에 들어갔거나 끝났으면 null.
+     */
+    fun hostExitAction(now: LocalDateTime = LocalDateTime.now()): RealtimePartyHostExitAction? =
+        when {
+            now.isBefore(startedAt) -> RealtimePartyHostExitAction.DELETE
+            isLiveOpen(now) -> RealtimePartyHostExitAction.END
+            else -> null
+        }
 
     fun status(now: LocalDateTime = LocalDateTime.now()): RealtimePartyStatus =
         when {
@@ -128,4 +144,18 @@ enum class RealtimePartyEndingReason {
     HOST_REQUEST,
     HOST_LEFT,
     TIME_LIMIT_REACHED,
+}
+
+/** 주최자가 종료를 시작시킨 경로. */
+enum class RealtimePartyEndTrigger {
+    /** `POST /realtime-end` 명시 호출 */
+    HOST_REQUEST,
+
+    /** 주최자 퇴장(leave) */
+    HOST_LEFT,
+}
+
+enum class RealtimePartyHostExitAction {
+    DELETE,
+    END,
 }

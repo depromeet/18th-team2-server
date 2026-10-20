@@ -6,6 +6,7 @@ import com.team2.server.party.application.usecase.StartRealtimePartyEndUseCase
 import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.RealtimeParticipantProfile
 import com.team2.server.party.domain.entity.RealtimeParty
+import com.team2.server.party.domain.entity.RealtimePartyEndTrigger
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.InjectMocks
@@ -35,7 +36,7 @@ class ChatLeaveExecutorTest {
         val payload = executor.execute(party, profile, null)
 
         verify(participantService).leave(participant)
-        verify(startRealtimePartyEndUseCase, never()).invoke(any(), any())
+        verify(startRealtimePartyEndUseCase, never()).invoke(any(), any(), any())
         assertEquals("주인공", payload.nickname)
         assertEquals(ParticipantRole.CELEBRANT, payload.role)
     }
@@ -52,7 +53,7 @@ class ChatLeaveExecutorTest {
     }
 
     @Test
-    fun `주최자가 퇴장하면 파티 종료를 시작한다`() {
+    fun `주최자가 퇴장하면 HOST_LEFT 경로로 파티 종료를 시작한다`() {
         val party = RealtimeParty(ownerId = 10L, startedAt = LocalDateTime.now().minusMinutes(5))
         val participant = Participant(party = party, isCelebrant = false)
         val profile = RealtimeParticipantProfile(participant = participant, nickname = "주최자", participantToken = "tok")
@@ -60,6 +61,6 @@ class ChatLeaveExecutorTest {
         executor.execute(party, profile, 10L)
 
         verify(participantService).leave(participant)
-        verify(startRealtimePartyEndUseCase).invoke(party.id, party.ownerId)
+        verify(startRealtimePartyEndUseCase).invoke(party.id, party.ownerId, RealtimePartyEndTrigger.HOST_LEFT)
     }
 }
