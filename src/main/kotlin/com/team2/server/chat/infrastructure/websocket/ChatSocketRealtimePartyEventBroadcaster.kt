@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component
 import java.time.LocalDateTime
 
 /**
- * WebSocket 채널로 파티 진행 이벤트(종료 카운트다운/종료/삭제/단계 전환)를 브로드캐스트한다.
+ * WebSocket 채널로 파티 진행 이벤트(종료 카운트다운/종료/단계 전환)를 브로드캐스트한다.
  *
  * [com.team2.server.chat.infrastructure.sse.ChatRealtimePartyEventBroadcaster]와 함께
  * 같은 포트의 서로 다른 구현체로 등록된다. 호출부([com.team2.server.party.application.service.PartyPhaseTransitionService],

@@ -15,10 +15,6 @@ class DeletePartyUseCase(
     private val eventBroadcasters: List<RealtimePartyEventBroadcaster>,
     private val clock: Clock,
 ) {
-    /**
-     * 실시간 파티는 입장 대기 중인 참가자가 있을 수 있으므로 삭제 사실을 브로드캐스트한다.
-     * WebSocket 구현은 커밋 이후에 전송하므로, 삭제가 롤백되면 이벤트도 나가지 않는다.
-     */
     @Transactional
     fun delete(
         partyId: Long,

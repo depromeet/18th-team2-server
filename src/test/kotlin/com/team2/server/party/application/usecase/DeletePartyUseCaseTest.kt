@@ -43,5 +43,6 @@ class DeletePartyUseCaseTest {
         useCase.delete(partyId = 2L, userId = 42L)
 
         verify(socketBroadcaster, never()).broadcastPartyDeleted(any(), any(), any())
+        verify(sseBroadcaster, never()).broadcastPartyDeleted(any(), any(), any())
     }
 }

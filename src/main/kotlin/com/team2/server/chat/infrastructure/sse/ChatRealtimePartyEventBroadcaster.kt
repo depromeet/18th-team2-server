@@ -1,5 +1,6 @@
 package com.team2.server.chat.infrastructure.sse
 
+import com.team2.server.chat.application.port.PartySseEventPublisher
 import com.team2.server.chat.dto.PartyDeletedEventPayload
 import com.team2.server.chat.dto.PartyEndedEventPayload
 import com.team2.server.chat.dto.PartyEndingEventPayload
@@ -15,6 +16,7 @@ import java.time.LocalDateTime
 @Component
 class ChatRealtimePartyEventBroadcaster(
     private val sseEmitterRegistry: SseEmitterRegistry,
+    private val partySseEventPublisher: PartySseEventPublisher,
 ) : RealtimePartyEventBroadcaster {
     override fun broadcastPartyEnding(
         partyId: Long,
@@ -73,7 +75,7 @@ class ChatRealtimePartyEventBroadcaster(
         reason: PartyDeletedReason,
         serverNow: LocalDateTime,
     ) {
-        sseEmitterRegistry.broadcast(
+        partySseEventPublisher.broadcastAfterCommit(
             partyId,
             SseEmitter
                 .event()
