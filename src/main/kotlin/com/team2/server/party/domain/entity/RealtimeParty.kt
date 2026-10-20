@@ -64,10 +64,6 @@ class RealtimeParty(
                 null
             }
 
-    /**
-     * 주최자가 종료를 시작시킨 경로로 종료 원인을 정한다. 자동 마감 시각이 지났으면 경로와 무관하게 시간 종료다.
-     * 명시적 종료는 파티 시작 여부·경과 시간과 무관하게 [RealtimePartyEndingReason.HOST_REQUEST] 이다.
-     */
     fun endingReasonForHost(
         trigger: RealtimePartyEndTrigger,
         now: LocalDateTime,
@@ -102,10 +98,6 @@ class RealtimeParty(
     fun isChatOpen(now: LocalDateTime = LocalDateTime.now()): Boolean =
         !now.isBefore(enterableFrom()) && now.isBefore(effectiveLiveEndedAt())
 
-    /**
-     * 주최자가 파티를 나가려 할 때 써야 할 API. 예약 시각 전이면 삭제, 이후 라이브가 열려 있으면 종료(시작 여부 무관),
-     * 이미 종료 카운트다운에 들어갔거나 끝났으면 null.
-     */
     fun hostExitAction(now: LocalDateTime = LocalDateTime.now()): RealtimePartyHostExitAction? =
         when {
             now.isBefore(startedAt) -> RealtimePartyHostExitAction.DELETE
@@ -146,12 +138,8 @@ enum class RealtimePartyEndingReason {
     TIME_LIMIT_REACHED,
 }
 
-/** 주최자가 종료를 시작시킨 경로. */
 enum class RealtimePartyEndTrigger {
-    /** `POST /realtime-end` 명시 호출 */
     HOST_REQUEST,
-
-    /** 주최자 퇴장(leave) */
     HOST_LEFT,
 }
 
