@@ -63,7 +63,7 @@ class PartyRealtimePartyEntryProfileAdapter(
         now: LocalDateTime,
     ): RealtimeParticipantProfile {
         val profile = realtimeParticipantProfileService.requireForReentryByParticipantToken(participantToken, party.id)
-        if (!party.isEnterable(now)) {
+        if (!party.isReenterable(now)) {
             throw BusinessException(ErrorCode.CHAT_NOT_ACTIVE)
         }
         if (profile.participant.isCelebrant && profile.nickname != nickname) {

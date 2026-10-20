@@ -3,6 +3,7 @@ package com.team2.server.chat.controller
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.team2.server.auth.jwt.JwtTokenProvider
 import com.team2.server.config.TestcontainersConfiguration
+import com.team2.server.party.application.usecase.StartRealtimePartyEndUseCase
 import com.team2.server.party.domain.entity.Character
 import com.team2.server.party.domain.entity.Participant
 import com.team2.server.party.domain.entity.PartyInvite
@@ -77,6 +78,9 @@ class ChatSocketControllerTest {
 
     @Autowired
     private lateinit var mockMvc: MockMvc
+
+    @Autowired
+    private lateinit var startRealtimePartyEndUseCase: StartRealtimePartyEndUseCase
 
     private lateinit var stompClient: WebSocketStompClient
 
@@ -441,6 +445,37 @@ class ChatSocketControllerTest {
         hostSession.disconnect()
     }
 
+    @Test
+    fun `종료 카운트다운 중 재연결한 참가자는 participantToken으로 재입장해 브로드캐스트를 다시 구독한다`() {
+        val owner =
+            userRepository.save(
+                User(
+                    name = "주최자",
+                    birthDay = "01-01",
+                    provider = AuthProvider.KAKAO,
+                    providerId = "host-${UUID.randomUUID()}",
+                    email = "host-${UUID.randomUUID()}@test.local",
+                ),
+            )
+        val fixture = seedPartyWithHost(owner)
+
+        val firstSession = connect()
+        val participantToken =
+            participantTokenOf(enter(firstSession, fixture, nickname = "참가자").get(TIMEOUT_SECONDS, TimeUnit.SECONDS))
+        startRealtimePartyEndUseCase(fixture.partyId, owner.id)
+
+        firstSession.disconnect()
+        val reconnected = connect()
+        val reentered =
+            enter(reconnected, fixture, nickname = "참가자", participantToken = participantToken)
+                .get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+
+        assertEquals(participantToken, participantTokenOf(reentered))
+        subscribeBroadcast(reconnected, fixture.partyId, participantToken)
+
+        reconnected.disconnect()
+    }
+
     private fun seedPartyWithHost(owner: User): PartyFixture {
         val now = LocalDateTime.now()
         val character = characterRepository.save(Character(name = "테스트캐릭터-${UUID.randomUUID()}"))
@@ -536,6 +571,7 @@ class ChatSocketControllerTest {
         fixture: PartyFixture,
         nickname: String,
         clientRequestId: String = UUID.randomUUID().toString(),
+        participantToken: String? = null,
     ): CompletableFuture<Map<String, Any>> {
         val enteredFuture = CompletableFuture<Map<String, Any>>()
         session.subscribe(
@@ -548,6 +584,7 @@ class ChatSocketControllerTest {
                 "nickname" to nickname,
                 "characterId" to fixture.characterId,
                 "clientRequestId" to clientRequestId,
+                "participantToken" to participantToken,
             ),
         )
         return enteredFuture

@@ -75,24 +75,32 @@ class PartyRealtimePartyEntryProfileAdapterTest {
     }
 
     @Test
-    fun `participantToken 재입장은 LIVE_ENDING 상태에서 CHAT_NOT_ACTIVE`() {
+    fun `participantToken 재입장은 LIVE_ENDING 상태에서도 허용된다`() {
         val startedAt = now.minusMinutes(10).minusSeconds(1)
         val party = RealtimeParty(ownerId = 1L, startedAt = startedAt).apply { liveStartedAt = startedAt }
         val character = Character(name = "토끼")
-        val participant = Participant(party = party)
-        val profile =
-            RealtimeParticipantProfile(
-                participant = participant,
-                nickname = "기존닉네임",
-                character = null,
+        val profile = reentryProfile(party)
+
+        whenever(characterService.requireCharacter(1L)).thenReturn(character)
+        whenever(
+            realtimeParticipantProfileService.requireForReentryByParticipantToken(
                 participantToken = "existing-token",
-            )
-        val reenterRequest =
-            EnterRealtimePartyRequest(
-                nickname = "새닉네임",
-                characterId = 1L,
-                participantToken = "existing-token",
-            )
+                partyId = party.id,
+            ),
+        ).thenReturn(profile)
+
+        val result = adapter.resolve(party = party, userId = 99L, request = reenterRequest(), now = now)
+
+        assertEquals("existing-token", result.participantToken)
+        assertEquals("새닉네임", profile.nickname)
+    }
+
+    @Test
+    fun `participantToken 재입장은 종료 카운트다운이 끝나면 CHAT_NOT_ACTIVE`() {
+        val startedAt = now.minusMinutes(10).minusSeconds(RealtimeParty.LIVE_END_COUNTDOWN_SECONDS)
+        val party = RealtimeParty(ownerId = 1L, startedAt = startedAt).apply { liveStartedAt = startedAt }
+        val character = Character(name = "토끼")
+        val profile = reentryProfile(party)
 
         whenever(characterService.requireCharacter(1L)).thenReturn(character)
         whenever(
@@ -104,7 +112,7 @@ class PartyRealtimePartyEntryProfileAdapterTest {
 
         val ex =
             assertThrows<BusinessException> {
-                adapter.resolve(party = party, userId = 99L, request = reenterRequest, now = now)
+                adapter.resolve(party = party, userId = 99L, request = reenterRequest(), now = now)
             }
 
         assertEquals(ErrorCode.CHAT_NOT_ACTIVE, ex.errorCode)
