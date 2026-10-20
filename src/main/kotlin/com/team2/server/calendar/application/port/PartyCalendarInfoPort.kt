@@ -13,6 +13,14 @@ interface PartyCalendarInfoPort {
         userId: Long,
         now: LocalDateTime,
     ): PartyCalendarInfo
+
+    /**
+     * 초대 토큰으로 파티 정보를 읽는다. 참여자 여부는 보지 않는다 — 초대 링크 보유가 권한 근거다.
+     */
+    fun loadForInviteToken(
+        inviteToken: String,
+        now: LocalDateTime,
+    ): PartyCalendarInfo
 }
 
 data class PartyCalendarInfo(

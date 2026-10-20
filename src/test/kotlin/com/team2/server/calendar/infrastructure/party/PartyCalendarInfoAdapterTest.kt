@@ -8,10 +8,12 @@ import com.team2.server.party.application.service.PartyInviteService
 import com.team2.server.party.application.service.PartyQueryService
 import com.team2.server.party.domain.entity.PaperOnlyParty
 import com.team2.server.party.domain.entity.Participant
+import com.team2.server.party.domain.entity.PartyInvite
 import com.team2.server.party.domain.entity.PartyPurpose
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.verifyNoInteractions
 import org.mockito.kotlin.whenever
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
@@ -113,5 +115,49 @@ class PartyCalendarInfoAdapterTest {
         val info = adapter.loadForMember(partyId = 1L, userId = 10L, now = now)
 
         assertEquals(CelebrationKind.WEDDING, info.celebrationKind)
+    }
+
+    @Test
+    fun `초대 토큰으로 파티 정보를 읽는다`() {
+        val party =
+            PaperOnlyParty(
+                ownerId = 10L,
+                startedAt = startedAt,
+                celebrantNickname = "지민",
+                purpose = PartyPurpose.BIRTHDAY,
+            )
+        val invite = PartyInvite(party = party, token = "a796ba5f", expiresAt = now.plusDays(1))
+        whenever(partyInviteService.findUsableInvite("a796ba5f", now)).thenReturn(invite)
+        whenever(partyQueryService.requireParty(any())).thenReturn(party)
+
+        val info = adapter.loadForInviteToken("a796ba5f", now)
+
+        assertEquals(CelebrationKind.BIRTHDAY, info.celebrationKind)
+        assertEquals("지민", info.celebrantName)
+        assertEquals(startedAt, info.startedAt)
+        assertEquals("https://example.com/invite/a796ba5f", info.inviteUrl)
+    }
+
+    @Test
+    fun `초대 토큰으로 읽을 때는 참여자 검증을 하지 않는다`() {
+        val party = PaperOnlyParty(ownerId = 10L, startedAt = startedAt, celebrantNickname = "지민")
+        val invite = PartyInvite(party = party, token = "a796ba5f", expiresAt = now.plusDays(1))
+        whenever(partyInviteService.findUsableInvite("a796ba5f", now)).thenReturn(invite)
+        whenever(partyQueryService.requireParty(any())).thenReturn(party)
+
+        adapter.loadForInviteToken("a796ba5f", now)
+
+        verifyNoInteractions(participantService)
+    }
+
+    @Test
+    fun `초대 조회 실패는 그대로 전파한다`() {
+        whenever(partyInviteService.findUsableInvite("nosuchtk", now))
+            .thenThrow(BusinessException(ErrorCode.PARTY_NOT_FOUND))
+
+        val exception =
+            kotlin.runCatching { adapter.loadForInviteToken("nosuchtk", now) }.exceptionOrNull()
+
+        assertEquals(ErrorCode.PARTY_NOT_FOUND, (exception as BusinessException).errorCode)
     }
 }
