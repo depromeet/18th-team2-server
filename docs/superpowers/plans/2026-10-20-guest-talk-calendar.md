@@ -989,7 +989,7 @@ Run: `grep -n -A22 "private fun saveHostAndParty" src/test/kotlin/com/team2/serv
 
 저장 순서는 `User` → `PaperOnlyParty(ownerId = host.id, startedAt, celebrantNickname)` → `PartyInvite(party, token, expiresAt)` 다. `PartyInvite.token` 은 **길이 16 제한이고 unique** 이므로 테스트마다 다른 짧은 토큰을 쓴다 (예: `"guest000000001"`). `inviteExpired = true` 면 `expiresAt` 을 과거로 둔다. 생성자 주입에 `userRepository`, `partyRepository`, `partyInviteRepository` 가 필요하다.
 
-Run: `grep -n -A30 "private fun saveHostPartyAndInvite" src/test/kotlin/com/team2/server/calendar/infrastructure/party/PartyCalendarInfoAdapterGuestTest.kt`
+Run: `grep -n -A22 "private fun saveHostAndParty" src/test/kotlin/com/team2/server/calendar/api/TalkCalendarControllerTest.kt`
 
 - [ ] **Step 2: 실패를 확인한다**
 
@@ -1115,6 +1115,7 @@ git commit -m "feat: 비회원 톡캘린더 등록 유스케이스 추가"
 
 **Files:**
 - Modify: `src/main/kotlin/com/team2/server/calendar/application/usecase/SaveKakaoCalendarConsentUseCase.kt` (`ConsentOutcome` 만)
+- Modify: `src/main/kotlin/com/team2/server/calendar/application/dto/GuestCalendarRegistrationResult.kt` (`FAILED` 제거 — Pre-flight Ruling 9)
 - Modify: `src/main/kotlin/com/team2/server/calendar/api/KakaoCalendarConsentController.kt`
 - Test: `src/test/kotlin/com/team2/server/calendar/api/KakaoCalendarConsentFlowTest.kt` (기존 파일에 추가 — Pre-flight Ruling 4)
 
@@ -1240,10 +1241,25 @@ Run: `sed -n '150,178p' src/test/kotlin/com/team2/server/calendar/api/KakaoCalen
 
 - [ ] **Step 2: 실패를 확인한다**
 
-Run: `./gradlew test --tests "com.team2.server.calendar.api.KakaoCalendarConsentControllerGuestTest"`
+Run: `./gradlew test --tests "com.team2.server.calendar.api.KakaoCalendarConsentFlowTest"`
 Expected: FAIL — 비회원 티켓이 분기되지 않아 `expired` 또는 `failed` 로 복귀
 
-- [ ] **Step 3: `ConsentOutcome` 을 넓힌다**
+- [ ] **Step 3: `GuestCalendarRegistrationResult` 에서 `FAILED` 를 제거한다**
+
+Task 6 이 만든 enum 에 `FAILED` 가 선언돼 있으나 그 UseCase 가 반환하는 경로가 없고 코드베이스 어디서도 쓰이지 않는다 (Pre-flight Ruling 9). 교환 실패는 이 Task 의 콜백이 `exchangeKakaoConsentUseCase(...) ?: return ConsentOutcome.FAILED` 로 직접 처리하므로 UseCase enum 에 그 값이 필요 없다. 네 값만 남긴다:
+
+```kotlin
+enum class GuestCalendarRegistrationResult {
+    REGISTERED,
+    ALREADY_REGISTERED,
+    PARTY_ALREADY_STARTED,
+    INVITE_INVALID,
+}
+```
+
+`./gradlew compileKotlin compileTestKotlin` 으로 이 제거가 깨뜨리는 곳이 없는지 확인한다 (Task 6 의 UseCase 와 그 테스트가 `FAILED` 를 참조하지 않아야 한다).
+
+- [ ] **Step 4: `ConsentOutcome` 을 넓힌다**
 
 `SaveKakaoCalendarConsentUseCase.kt` 상단의 enum 을 바꾼다. 기존 5값은 그대로 두고 아래를 더한다.
 
@@ -1263,7 +1279,7 @@ enum class ConsentOutcome {
 }
 ```
 
-- [ ] **Step 4: 콜백에 분기를 넣는다**
+- [ ] **Step 5: 콜백에 분기를 넣는다**
 
 `KakaoCalendarConsentController` 를 고친다. 생성자에 두 UseCase 를 더한다:
 
@@ -1313,27 +1329,27 @@ private 헬퍼를 더한다:
             GuestCalendarRegistrationResult.ALREADY_REGISTERED -> ConsentOutcome.ALREADY_REGISTERED
             GuestCalendarRegistrationResult.PARTY_ALREADY_STARTED -> ConsentOutcome.PARTY_ALREADY_STARTED
             GuestCalendarRegistrationResult.INVITE_INVALID -> ConsentOutcome.INVITE_INVALID
-            GuestCalendarRegistrationResult.FAILED -> ConsentOutcome.FAILED
         }
     }
 ```
 
 `enter` 의 `verify(ticket) == null` 검사는 그대로 동작한다 — 두 주체 모두 non-null 을 돌려주므로 변경이 없다.
 
-- [ ] **Step 5: 통과를 확인한다**
+- [ ] **Step 6: 통과를 확인한다**
 
-Run: `./gradlew test --tests "com.team2.server.calendar.api.KakaoCalendarConsentControllerGuestTest"`
+Run: `./gradlew test --tests "com.team2.server.calendar.api.KakaoCalendarConsentFlowTest"`
 Expected: PASS
 
 Run: `./gradlew test --tests "com.team2.server.calendar.*"`
 Expected: PASS — 회원 콜백 회귀 없음
 
-- [ ] **Step 6: 커밋**
+- [ ] **Step 7: 커밋**
 
 ```bash
-git add src/main/kotlin/com/team2/server/calendar/application/usecase/SaveKakaoCalendarConsentUseCase.kt \
+git add src/main/kotlin/com/team2/server/calendar/application/dto/GuestCalendarRegistrationResult.kt \
+        src/main/kotlin/com/team2/server/calendar/application/usecase/SaveKakaoCalendarConsentUseCase.kt \
         src/main/kotlin/com/team2/server/calendar/api/KakaoCalendarConsentController.kt \
-        src/test/kotlin/com/team2/server/calendar/api/KakaoCalendarConsentControllerGuestTest.kt
+        src/test/kotlin/com/team2/server/calendar/api/KakaoCalendarConsentFlowTest.kt
 git commit -m "feat: 동의 콜백에서 비회원 등록 처리"
 ```
 
