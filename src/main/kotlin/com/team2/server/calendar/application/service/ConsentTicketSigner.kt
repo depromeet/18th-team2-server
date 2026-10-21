@@ -46,7 +46,8 @@ class ConsentTicketSigner(
         val payload =
             runCatching { String(Base64.getUrlDecoder().decode(encodedPayload), StandardCharsets.UTF_8) }
                 .getOrNull() ?: return null
-        val parts = payload.split(':')
+        // 분할 한도를 둬 식별자에 `:` 가 섞여도 조각 수가 흔들리지 않게 한다.
+        val parts = payload.split(':', limit = PAYLOAD_PART_COUNT)
         if (parts.size != PAYLOAD_PART_COUNT) return null
 
         val issuedAtEpochSecond = parts[2].toLongOrNull() ?: return null
