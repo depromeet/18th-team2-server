@@ -2,8 +2,6 @@ package com.team2.server.party.api
 
 import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
-import com.team2.server.chat.entity.ChatMessage
-import com.team2.server.chat.repository.ChatMessageRepository
 import com.team2.server.common.DatabaseCleanup
 import com.team2.server.config.TestcontainersConfiguration
 import com.team2.server.party.domain.entity.PaperOnlyParty
@@ -43,7 +41,6 @@ class ArchivePartyDetailControllerTest
         private val profileRepository: RealtimeParticipantProfileRepository,
         private val rollingPaperRepository: RollingPaperRepository,
         private val toppingRepository: RollingPaperToppingRepository,
-        private val chatMessageRepository: ChatMessageRepository,
         private val userRepository: UserRepository,
         private val jwtProperties: JwtProperties,
         private val databaseCleanup: DatabaseCleanup,
@@ -96,8 +93,6 @@ class ArchivePartyDetailControllerTest
                     jsonPath("$.data.paperCount") { value(1) }
                     jsonPath("$.data.participants[0].nickname") { value("주최자") }
                     jsonPath("$.data.participants[1].nickname") { value("해파리") }
-                    jsonPath("$.data.chatMessages.length()") { value(0) }
-                    jsonPath("$.data.chatHasMore") { value(false) }
                     jsonPath("$.data.myPaperWritten") { value(true) }
                     jsonPath("$.data.myPaperContent") { value("축하해") }
                     jsonPath("$.data.myPaperWriterNickname") { value("해파리") }
@@ -132,7 +127,7 @@ class ArchivePartyDetailControllerTest
         }
 
         @Test
-        fun `PAPER_ONLY 파티는 participants와 chatMessages가 빈 배열이다`() {
+        fun `PAPER_ONLY 파티는 participants가 빈 배열이다`() {
             val me = saveUser("kakao-paper-me", "paper-me@x")
             val party =
                 partyRepository.save(
@@ -153,39 +148,6 @@ class ArchivePartyDetailControllerTest
                     jsonPath("$.data.partyOption") { value("PAPER_ONLY") }
                     jsonPath("$.data.participants.length()") { value(0) }
                     jsonPath("$.data.participantCount") { value(0) }
-                    jsonPath("$.data.chatMessages.length()") { value(0) }
-                    jsonPath("$.data.chatHasMore") { value(false) }
-                }
-        }
-
-        @Test
-        fun `채팅 60개면 최근 50개와 chatHasMore true를 반환한다`() {
-            val me = saveUser("kakao-chat-me", "chat-me@x")
-            val party =
-                partyRepository.save(
-                    RealtimeParty(
-                        ownerId = 99L,
-                        name = "p",
-                        celebrantNickname = "홍",
-                        startedAt = LocalDateTime.now().minusDays(1),
-                    ),
-                )
-            val myParticipant = participantRepository.save(Participant(party = party, user = me))
-            val profile =
-                profileRepository.save(RealtimeParticipantProfile(participant = myParticipant, nickname = "해파리"))
-            repeat(60) { idx ->
-                chatMessageRepository.save(ChatMessage(content = "m$idx", party = party, profile = profile))
-            }
-
-            mockMvc
-                .get("/api/v1/archive/party/${party.id}") {
-                    header("Authorization", "Bearer ${tokenProvider.issue(me)}")
-                }.andExpect {
-                    status { isOk() }
-                    jsonPath("$.data.chatMessages.length()") { value(50) }
-                    jsonPath("$.data.chatHasMore") { value(true) }
-                    jsonPath("$.data.chatMessages[0].content") { value("m59") }
-                    jsonPath("$.data.chatMessages[0].authorName") { value("해파리") }
                 }
         }
 

@@ -19,7 +19,7 @@ interface ArchivePartyDetailApi {
         description =
             """
             보관함에서 한 파티 상세를 조회한다. 본인이 작성한 롤페가 있으면 모달용 4개 필드가 함께 채워진다.
-            PAPER_ONLY 파티는 participants/chatMessages 가 빈 배열, participantCount=0, chatHasMore=false 로 응답한다.
+            PAPER_ONLY 파티는 participants 가 빈 배열, participantCount=0 으로 응답한다.
             """,
         security = [SecurityRequirement(name = "Bearer Authentication")],
     )

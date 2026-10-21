@@ -10,6 +10,8 @@
 
 **Related spec:** [`docs/superpowers/specs/2026-05-14-archive-party-detail-design.md`](../specs/2026-05-14-archive-party-detail-design.md)
 
+> **변경 (2026-10-21):** 보관함에서 채팅 내역을 보여주지 않기로 결정해 `chatMessages`/`chatHasMore` 응답 필드와 관련 Repository 메서드(`ChatMessageRepository.countByPartyId`, `findRecentByPartyId`)를 제거했다. 아래 채팅 관련 Task는 당시 구현 기록이며 현재 코드와 다르다. 최신 스펙은 Related spec을 따른다.
+
 ---
 
 ## 사전 컨텍스트

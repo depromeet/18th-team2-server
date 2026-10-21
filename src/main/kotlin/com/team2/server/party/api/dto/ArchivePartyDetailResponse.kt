@@ -25,10 +25,6 @@ data class ArchivePartyDetailResponse(
     val paperCount: Long,
     @Schema(description = "참가자 닉네임 목록. PAPER_ONLY는 빈 배열")
     val participants: List<ArchiveParticipantResponse>,
-    @Schema(description = "최근 50개 채팅 메시지 (createdAt DESC). PAPER_ONLY는 빈 배열")
-    val chatMessages: List<ArchiveChatMessageResponse>,
-    @Schema(description = "응답에 담지 못한 추가 메시지 존재 여부")
-    val chatHasMore: Boolean,
     @Schema(description = "본인이 롤페를 작성했는지")
     val myPaperWritten: Boolean,
     @Schema(description = "본인 롤페 본문. 미작성이면 null")
