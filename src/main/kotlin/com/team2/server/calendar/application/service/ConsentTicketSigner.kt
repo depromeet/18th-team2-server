@@ -46,15 +46,18 @@ class ConsentTicketSigner(
         val payload =
             runCatching { String(Base64.getUrlDecoder().decode(encodedPayload), StandardCharsets.UTF_8) }
                 .getOrNull() ?: return null
-        // 분할 한도를 둬 식별자에 `:` 가 섞여도 조각 수가 흔들리지 않게 한다.
-        val parts = payload.split(':', limit = PAYLOAD_PART_COUNT)
-        if (parts.size != PAYLOAD_PART_COUNT) return null
 
-        val issuedAtEpochSecond = parts[2].toLongOrNull() ?: return null
+        val firstColon = payload.indexOf(':')
+        val lastColon = payload.lastIndexOf(':')
+        if (firstColon < 0 || lastColon <= firstColon) return null
+
+        val issuedAtEpochSecond = payload.substring(lastColon + 1).toLongOrNull() ?: return null
         val elapsed = Instant.now(clock).epochSecond - issuedAtEpochSecond
         if (elapsed < 0 || elapsed > TTL_SECONDS) return null
 
-        return subjectOf(parts[0], parts[1])
+        val tag = payload.substring(0, firstColon)
+        val identifier = payload.substring(firstColon + 1, lastColon)
+        return subjectOf(tag, identifier)
     }
 
     private fun tag(subject: ConsentSubject): String =
@@ -89,6 +92,5 @@ class ConsentTicketSigner(
         const val TTL_SECONDS = 300L
         private const val MEMBER_TAG = "u"
         private const val GUEST_TAG = "g"
-        private const val PAYLOAD_PART_COUNT = 3
     }
 }

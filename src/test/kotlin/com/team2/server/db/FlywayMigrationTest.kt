@@ -461,6 +461,7 @@ class FlywayMigrationTest {
             where table_schema = database()
               and table_name = ?
               and index_name = ?
+              and non_unique = 0
             """.trimIndent(),
         ).use { statement ->
             statement.setString(1, table)

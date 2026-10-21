@@ -82,4 +82,11 @@ class ConsentTicketSignerTest {
         assertNull(signer.verify("no-dot"))
         assertNull(signer.verify(".onlysig"))
     }
+
+    @Test
+    fun `식별자에 콜론이 섞여도 그대로 보존된다`() {
+        val ticket = signer.issue(ConsentSubject.Guest("ab:cd:ef"))
+
+        assertEquals(ConsentSubject.Guest("ab:cd:ef"), signer.verify(ticket))
+    }
 }
