@@ -16,6 +16,7 @@ class ExchangeKakaoConsentUseCase(
     private val kakaoOAuthPort: KakaoOAuthPort,
     private val kakaoAccountPort: KakaoAccountPort,
 ) {
+    @Suppress("ReturnCount")
     operator fun invoke(
         code: String,
         redirectUri: String,
