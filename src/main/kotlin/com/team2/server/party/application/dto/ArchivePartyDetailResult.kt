@@ -1,6 +1,5 @@
 package com.team2.server.party.application.dto
 
-import com.team2.server.chat.dto.ArchiveChatMessageItem
 import com.team2.server.party.domain.entity.PartyOption
 import java.time.LocalDateTime
 
@@ -14,8 +13,6 @@ data class ArchivePartyDetailResult(
     val participantCount: Long,
     val paperCount: Long,
     val participants: List<ArchiveParticipantItem>,
-    val chatMessages: List<ArchiveChatMessageItem>,
-    val chatHasMore: Boolean,
     val myPaperWritten: Boolean,
     val myPaperContent: String?,
     val myPaperWriterNickname: String?,

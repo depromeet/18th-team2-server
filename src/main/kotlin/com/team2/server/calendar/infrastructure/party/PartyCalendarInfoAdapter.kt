@@ -38,6 +38,22 @@ class PartyCalendarInfoAdapter(
         )
     }
 
+    override fun loadForInviteToken(
+        inviteToken: String,
+        now: LocalDateTime,
+    ): PartyCalendarInfo {
+        val invite = partyInviteService.findUsableInvite(inviteToken, now)
+        val party = partyQueryService.requireParty(invite.party.id)
+
+        return PartyCalendarInfo(
+            partyId = party.id,
+            celebrationKind = party.purpose.toCelebrationKind(),
+            celebrantName = party.celebrantNickname ?: party.name,
+            startedAt = party.startedAt,
+            inviteUrl = "$webBaseUrl/invite/$inviteToken",
+        )
+    }
+
     private fun requireMember(
         party: Party,
         partyId: Long,

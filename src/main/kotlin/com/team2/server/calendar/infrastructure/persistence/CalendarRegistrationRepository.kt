@@ -20,4 +20,10 @@ interface CalendarRegistrationRepository : JpaRepository<CalendarRegistration, L
         partyId: Long,
         provider: CalendarProvider,
     ): CalendarRegistration?
+
+    fun existsByKakaoProviderIdAndPartyIdAndProvider(
+        kakaoProviderId: String,
+        partyId: Long,
+        provider: CalendarProvider,
+    ): Boolean
 }

@@ -21,7 +21,7 @@
 | 파티 종료 시각 | `partyEndedAt` 추가 (PAPER_ONLY 기간 표시용) |
 | 참여자 명단 | `participants: { nickname }[]` 전체 (`RealtimeParticipantProfile` 기준) |
 | 참여자 수 | `participantCount` = `RealtimeParticipantProfile` count |
-| 채팅 메시지 | 최근 50개 `createdAt DESC` + `chatHasMore` boolean |
+| 채팅 메시지 | 응답에 포함 안 함 (보관함에서 채팅 내역 미노출로 결정) |
 | 헤더 이미지 | 응답에 포함 안 함 (프론트 정적 자원) |
 | 패키지 | `party/` feature 내 4-레이어 (`api/`, `application/usecase/`). archive-list spec과 동일 위치 |
 | 신규 ErrorCode | 없음. 기존 재사용 |
@@ -55,15 +55,6 @@ Authorization: Bearer <jwt>          # 필수
     { "nickname": "해파리" },
     { "nickname": "해파리" }
   ],
-  "chatMessages": [
-    {
-      "id": 1001,
-      "authorName": "해파리",
-      "content": "생추카!",
-      "sentAt": "2026-11-25T14:01:00"
-    }
-  ],
-  "chatHasMore": true,
   "myPaperWritten": true,
   "myPaperContent": "생일 축하해!!! 이 글자의 최대 길이는 여기까지...",
   "myPaperWriterNickname": "해파리",
@@ -86,15 +77,6 @@ Authorization: Bearer <jwt>          # 필수
   "participants": [
     { "nickname": "해파리" }
   ],
-  "chatMessages": [
-    {
-      "id": 1001,
-      "authorName": "해파리",
-      "content": "생추카!",
-      "sentAt": "2026-11-25T14:01:00"
-    }
-  ],
-  "chatHasMore": true,
   "myPaperWritten": false,
   "myPaperContent": null,
   "myPaperWriterNickname": null,
@@ -115,8 +97,6 @@ Authorization: Bearer <jwt>          # 필수
   "participantCount": 0,
   "paperCount": 5,
   "participants": [],
-  "chatMessages": [],
-  "chatHasMore": false,
   "myPaperWritten": true,
   "myPaperContent": "생축!",
   "myPaperWriterNickname": "해파리",
@@ -137,12 +117,6 @@ Authorization: Bearer <jwt>          # 필수
 | `participantCount` | `Long` | `RealtimeParticipantProfile` count by `party_id`. PAPER_ONLY는 항상 `0` |
 | `paperCount` | `Long` | `RollingPaper` count by `party_id` |
 | `participants` | `List<{ nickname: String }>` | `RealtimeParticipantProfile.nickname` 전체, `id ASC`. PAPER_ONLY는 `[]` |
-| `chatMessages` | `List<ChatMessageItem>` | `createdAt DESC, id DESC` 최근 `CHAT_RECENT_LIMIT(50)`개. PAPER_ONLY는 `[]` |
-| `chatMessages[].id` | `Long` | `ChatMessage.id` |
-| `chatMessages[].authorName` | `String` | `ChatMessage.participant`의 `RealtimeParticipantProfile.nickname`. 비정상적으로 profile이 없으면 `""` |
-| `chatMessages[].content` | `String` | `ChatMessage.content` |
-| `chatMessages[].sentAt` | `LocalDateTime` (KST) | `ChatMessage.createdAt` |
-| `chatHasMore` | `Boolean` | `chatMessageRepository.countByPartyId(partyId) > chatMessages.size`. PAPER_ONLY는 `false` |
 | `myPaperWritten` | `Boolean` | 내 `Participant.id`로 `RollingPaper` exists 여부 |
 | `myPaperContent` | `String?` | `myPaperWritten=true`이면 `RollingPaper.content`, 아니면 `null` |
 | `myPaperWriterNickname` | `String?` | `myPaperWritten=true`이면 `RollingPaper.writerNickname` (스냅샷), 아니면 `null` |
@@ -151,7 +125,6 @@ Authorization: Bearer <jwt>          # 필수
 PAPER_ONLY 정책:
 
 - PAPER_ONLY 파티는 실시간 입장이 없으므로 `RealtimeParticipantProfile`이 생성되지 않는다 → `participants = []`, `participantCount = 0`.
-- PAPER_ONLY 파티는 `ChatMessage`가 생성되지 않는다 → `chatMessages = []`, `chatHasMore = false`.
 - PAPER_ONLY와 REALTIME 응답의 JSON shape은 동일하며(필드 누락 없음), 값으로만 분기한다.
 
 #### 권한 / 인증
@@ -187,8 +160,7 @@ party/
 │   ├── ArchivePartyDetailController.kt
 │   └── dto/
 │       ├── ArchivePartyDetailResponse.kt
-│       ├── ArchiveParticipantResponse.kt
-│       └── ArchiveChatMessageResponse.kt
+│       └── ArchiveParticipantResponse.kt
 └── application/
     └── usecase/
         └── GetArchivedPartyDetailUseCase.kt
@@ -205,7 +177,7 @@ api → application/usecase → 기존 repository / entity
 
 - Controller는 Repository를 직접 호출하지 않는다.
 - UseCase가 Repository와 `ImageQueryService`를 주입받는다.
-- UseCase는 다른 feature의 Service에 의존하지 않는다 (chat 도메인의 Repository만 의존).
+- UseCase는 다른 feature의 Service에 의존하지 않는다.
 - UseCase는 `HttpServletRequest`, `AuthenticationPrincipal`, `ResponseEntity`를 모른다.
 
 ---
@@ -221,7 +193,6 @@ class GetArchivedPartyDetailUseCase(
     private val participantRepository: ParticipantRepository,
     private val realtimeParticipantProfileRepository: RealtimeParticipantProfileRepository,
     private val rollingPaperRepository: RollingPaperRepository,
-    private val chatMessageRepository: ChatMessageRepository,
     private val imageQueryService: ImageQueryService,
 ) {
     @Transactional(readOnly = true)
@@ -240,33 +211,10 @@ class GetArchivedPartyDetailUseCase(
 7. when (`party.partyOption`):
    - `REALTIME`:
      - `profiles = realtimeParticipantProfileRepository.findAllByPartyIdOrderByIdAsc(partyId)`
-     - `chatTotal = chatMessageRepository.countByPartyId(partyId)`
-     - `recentChat = chatMessageRepository.findRecentByPartyId(partyId, PageRequest.of(0, CHAT_RECENT_LIMIT))`
-     - `chatProfileMap = realtimeParticipantProfileRepository.findAllByParticipantIdIn(recentChat.map { it.participant.id }).associateBy { it.participant.id }`
    - `PAPER_ONLY`:
      - `profiles = emptyList()`
-     - `chatTotal = 0L`
-     - `recentChat = emptyList()`
-     - `chatProfileMap = emptyMap()`
 8. `participants = profiles.map { ArchiveParticipantResponse(nickname = it.nickname) }`
-9. `chatMessages = recentChat.map { msg ->
-       ArchiveChatMessageResponse(
-           id = msg.id,
-           authorName = chatProfileMap[msg.participant.id]?.nickname ?: "",
-           content = msg.content,
-           sentAt = msg.createdAt,
-       )
-   }`
-10. `chatHasMore = chatTotal > chatMessages.size`
-11. `ArchivePartyDetailResponse(...)` 빌드 후 반환
-
-상수:
-
-```kotlin
-companion object {
-    const val CHAT_RECENT_LIMIT: Int = 50
-}
-```
+9. `ArchivePartyDetailResponse(...)` 빌드 후 반환
 
 ---
 
@@ -292,11 +240,7 @@ fun findByPartyIdAndUserId(partyId: Long, userId: Long): Participant?
     order by p.id asc
 """)
 fun findAllByPartyIdOrderByIdAsc(partyId: Long): List<RealtimeParticipantProfile>
-
-fun findAllByParticipantIdIn(participantIds: Collection<Long>): List<RealtimeParticipantProfile>
 ```
-
-`findAllByParticipantIdIn`은 채팅 메시지의 `authorName` 매핑용 batch 조회다.
 
 ### 5-3. `RollingPaperRepository`
 
@@ -307,24 +251,7 @@ fun findByWriterId(writerId: Long): RollingPaper?
 
 `writer`는 `Participant`이므로 Spring Data 메서드명 규약상 `findByWriterId(participantId)`는 `RollingPaper.writer.id`를 의미한다.
 
-### 5-4. `ChatMessageRepository`
-
-```kotlin
-fun countByPartyId(partyId: Long): Long
-
-@Query("""
-    select cm
-    from ChatMessage cm
-    join fetch cm.participant
-    where cm.party.id = :partyId
-    order by cm.createdAt desc, cm.id desc
-""")
-fun findRecentByPartyId(partyId: Long, pageable: Pageable): List<ChatMessage>
-```
-
-UseCase에서 `PageRequest.of(0, CHAT_RECENT_LIMIT)`로 호출한다.
-
-### 5-5. `ImageQueryService`
+### 5-4. `ImageQueryService`
 
 이미 존재. `findFirstImageUrl(ImageTargetType.ROLLING_PAPER_WRAPPER, toppingId)` 그대로 활용한다.
 
@@ -389,8 +316,6 @@ data class ArchivePartyDetailResponse(
     val participantCount: Long,
     val paperCount: Long,
     val participants: List<ArchiveParticipantResponse>,
-    val chatMessages: List<ArchiveChatMessageResponse>,
-    val chatHasMore: Boolean,
     val myPaperWritten: Boolean,
     val myPaperContent: String?,
     val myPaperWriterNickname: String?,
@@ -405,17 +330,6 @@ enum class ArchiveRole { HOST, PARTICIPANT }
 ```kotlin
 data class ArchiveParticipantResponse(
     val nickname: String,
-)
-```
-
-### 7-3. `ArchiveChatMessageResponse`
-
-```kotlin
-data class ArchiveChatMessageResponse(
-    val id: Long,
-    val authorName: String,
-    val content: String,
-    val sentAt: LocalDateTime,
 )
 ```
 
@@ -446,23 +360,18 @@ data class ArchiveChatMessageResponse(
 - REALTIME 주최자:
   - `role="HOST"`. 주최자도 `Participant`가 자동 생성되어 권한 통과
 - PAPER_ONLY:
-  - `partyOption="PAPER_ONLY"`, `participants=[]`, `participantCount=0`, `chatMessages=[]`, `chatHasMore=false`
+  - `partyOption="PAPER_ONLY"`, `participants=[]`, `participantCount=0`
 - PAPER_ONLY 본인 작성:
   - `myPaperWritten=true` + 3개 필드 채움
 - 비로그인: 401
 - 다른 파티에만 속한 회원: 403 `PARTY_FORBIDDEN`
 - 없는 `partyId`: 404 `PARTY_NOT_FOUND`
-- 채팅 0개: `chatMessages=[]`, `chatHasMore=false`
-- 채팅 60개:
-  - `chatMessages.length=50`, `chatHasMore=true`, `createdAt DESC` + `id DESC` 정렬
 - `paperCount`는 `RollingPaper` count by party와 일치
 - `participants[].nickname`은 `RealtimeParticipantProfile.nickname` 전체와 일치, `id ASC` 정렬
-- `chatMessages[].authorName`은 `RealtimeParticipantProfile.nickname` 기준
 
 ### 9-2. UseCase 단위 테스트 (선택)
 
 - `myPaperWritten=false` 분기에서 토핑 이미지 조회 호출이 없음(불필요 쿼리 방지)
-- `chatHasMore` 경계: `chatTotal == 50`이면 `false`, `chatTotal == 51`이면 `true`
 
 ### 9-3. Security 테스트
 
@@ -489,12 +398,11 @@ docker ps -a --filter "label=org.testcontainers"
 
 승인 후 진행 순서:
 
-1. `ArchiveRole`, `ArchiveParticipantResponse`, `ArchiveChatMessageResponse`, `ArchivePartyDetailResponse` DTO 추가
+1. `ArchiveRole`, `ArchiveParticipantResponse`, `ArchivePartyDetailResponse` DTO 추가
 2. Repository 메서드 추가
    - `ParticipantRepository.findByPartyIdAndUserId(...)` (archive-list와 중복 시 그대로 재사용)
-   - `RealtimeParticipantProfileRepository.findAllByPartyIdOrderByIdAsc(...)`, `findAllByParticipantIdIn(...)`
+   - `RealtimeParticipantProfileRepository.findAllByPartyIdOrderByIdAsc(...)`
    - `RollingPaperRepository.countByPartyId(...)`, `findByWriterId(...)`
-   - `ChatMessageRepository.countByPartyId(...)`, `findRecentByPartyId(...)`
 3. `GetArchivedPartyDetailUseCase` 추가
 4. `ArchivePartyDetailApi`, `ArchivePartyDetailController` 추가
 5. `ArchivePartyDetailControllerTest` 추가
@@ -510,7 +418,5 @@ docker ps -a --filter "label=org.testcontainers"
 1. archive-list spec의 `ParticipantRepository.findByPartyIdAndUserId` 추가가 같은 PR에 들어오지 않으면 이번 PR에서 직접 추가한다. 시그니처 충돌은 없다.
 2. 헤더 이미지는 프론트가 정적 자원으로 처리한다. 추후 동적 헤더가 필요해지면 `headerImageUrl` 필드를 별도 과제로 추가한다.
 3. `Party.endedAt() = startedAt + 7일`은 현재 모델 그대로 사용한다. 화면 표시상 "M.dd - M.dd" 기간 렌더링은 프론트 책임이다.
-4. `RealtimeParticipantProfile`의 닉네임은 변경 가능성이 낮다고 보고 join 방식으로 처리한다. 향후 nickname 변경 정책이 도입되면 `ChatMessage`에 `authorNameSnapshot` 컬럼 도입을 별도 과제로 다룬다.
-5. 채팅을 보낸 `Participant`는 입장한 회원이므로 정상적으로 `RealtimeParticipantProfile`이 있다. 데이터 정합 문제로 profile이 없으면 `authorName`을 `""`로 직렬화하며, 별도 에러로 처리하지 않는다.
-6. 보관함 list에 등장하지만 본인 `Participant`가 끊긴 비정상 케이스는 없다는 전제 (list가 `Participant` 기반이므로 일관). 만약 발생 시 detail은 `PARTY_FORBIDDEN`을 반환한다.
-7. 채팅 메시지 cap은 `CHAT_RECENT_LIMIT = 50`이다. 향후 더 많은 채팅 노출이 필요하면 별도 `GET /api/v1/archive/party/{partyId}/chat` 페이지네이션 API를 분리한다.
+4. 보관함 list에 등장하지만 본인 `Participant`가 끊긴 비정상 케이스는 없다는 전제 (list가 `Participant` 기반이므로 일관). 만약 발생 시 detail은 `PARTY_FORBIDDEN`을 반환한다.
+5. 보관함에서는 채팅 내역을 보여주지 않기로 결정해 `chatMessages`/`chatHasMore` 필드를 응답에서 제거했다. 다시 필요해지면 별도 API로 분리한다.

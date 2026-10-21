@@ -1,6 +1,5 @@
 package com.team2.server.party.application.usecase
 
-import com.team2.server.chat.usecase.GetArchiveChatSectionUseCase
 import com.team2.server.common.exception.BusinessException
 import com.team2.server.common.exception.ErrorCode
 import com.team2.server.party.application.dto.ArchiveParticipantItem
@@ -20,7 +19,6 @@ class GetArchivedPartyDetailUseCase(
     private val partyRepository: PartyRepository,
     private val participantRepository: ParticipantRepository,
     private val realtimeParticipantProfileRepository: RealtimeParticipantProfileRepository,
-    private val getArchiveChatSectionUseCase: GetArchiveChatSectionUseCase,
     private val getArchiveMyPaperSectionUseCase: GetArchiveMyPaperSectionUseCase,
 ) {
     @Transactional(readOnly = true)
@@ -35,7 +33,6 @@ class GetArchivedPartyDetailUseCase(
         val myPaper = getArchiveMyPaperSectionUseCase.invoke(party, myParticipant)
         val isRealtime = party.partyOption == PartyOption.REALTIME
         val participants = if (isRealtime) loadParticipants(party.id) else emptyList()
-        val chat = if (isRealtime) getArchiveChatSectionUseCase.invoke(party.id) else null
         return ArchivePartyDetailResult(
             partyId = party.id,
             celebrantNickname = party.celebrantNickname,
@@ -46,8 +43,6 @@ class GetArchivedPartyDetailUseCase(
             participantCount = participants.size.toLong(),
             paperCount = myPaper.paperCount,
             participants = participants,
-            chatMessages = chat?.messages ?: emptyList(),
-            chatHasMore = chat?.hasMore ?: false,
             myPaperWritten = myPaper.myPaperWritten,
             myPaperContent = myPaper.myPaperContent,
             myPaperWriterNickname = myPaper.myPaperWriterNickname,

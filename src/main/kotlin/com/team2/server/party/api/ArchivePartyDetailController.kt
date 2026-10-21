@@ -1,9 +1,7 @@
 package com.team2.server.party.api
 
 import com.team2.server.auth.principal.UserPrincipal
-import com.team2.server.chat.dto.ArchiveChatMessageItem
 import com.team2.server.common.web.ApiResponse
-import com.team2.server.party.api.dto.ArchiveChatMessageResponse
 import com.team2.server.party.api.dto.ArchiveParticipantResponse
 import com.team2.server.party.api.dto.ArchivePartyDetailResponse
 import com.team2.server.party.application.dto.ArchiveParticipantItem
@@ -38,8 +36,6 @@ class ArchivePartyDetailController(
             participantCount = participantCount,
             paperCount = paperCount,
             participants = participants.map { it.toResponse() },
-            chatMessages = chatMessages.map { it.toResponse() },
-            chatHasMore = chatHasMore,
             myPaperWritten = myPaperWritten,
             myPaperContent = myPaperContent,
             myPaperWriterNickname = myPaperWriterNickname,
@@ -48,12 +44,4 @@ class ArchivePartyDetailController(
 
     private fun ArchiveParticipantItem.toResponse(): ArchiveParticipantResponse =
         ArchiveParticipantResponse(nickname = nickname)
-
-    private fun ArchiveChatMessageItem.toResponse(): ArchiveChatMessageResponse =
-        ArchiveChatMessageResponse(
-            id = id,
-            authorName = authorName,
-            content = content,
-            sentAt = sentAt,
-        )
 }
