@@ -16,6 +16,12 @@ enum class ConsentOutcome {
     ACCOUNT_MISMATCH,
     EXPIRED,
     FAILED,
+
+    /** 비회원 경로 전용. 콜백에서 일정 생성까지 끝났으므로 클라이언트가 등록을 재호출하면 안 된다. */
+    REGISTERED,
+    ALREADY_REGISTERED,
+    PARTY_ALREADY_STARTED,
+    INVITE_INVALID,
 }
 
 /**

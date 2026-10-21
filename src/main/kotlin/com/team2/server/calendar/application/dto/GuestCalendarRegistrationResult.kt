@@ -8,5 +8,4 @@ enum class GuestCalendarRegistrationResult {
     ALREADY_REGISTERED,
     PARTY_ALREADY_STARTED,
     INVITE_INVALID,
-    FAILED,
 }

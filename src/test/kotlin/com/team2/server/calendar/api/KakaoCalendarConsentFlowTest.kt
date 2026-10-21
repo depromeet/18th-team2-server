@@ -4,9 +4,14 @@ import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
 import com.team2.server.calendar.application.service.ConsentSubject
 import com.team2.server.calendar.application.service.ConsentTicketSigner
+import com.team2.server.calendar.infrastructure.persistence.CalendarRegistrationRepository
 import com.team2.server.calendar.infrastructure.persistence.KakaoCalendarConnectionRepository
 import com.team2.server.common.DatabaseCleanup
 import com.team2.server.config.TestcontainersConfiguration
+import com.team2.server.party.domain.entity.PaperOnlyParty
+import com.team2.server.party.domain.entity.PartyInvite
+import com.team2.server.party.infrastructure.persistence.PartyInviteRepository
+import com.team2.server.party.infrastructure.persistence.PartyRepository
 import com.team2.server.support.KakaoStubServers
 import com.team2.server.user.entity.AuthProvider
 import com.team2.server.user.entity.User
@@ -23,8 +28,10 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers
+import java.time.LocalDateTime
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 private const val RETURN_PATH = "/party/366"
@@ -46,6 +53,9 @@ class KakaoCalendarConsentFlowTest
         private val mockMvc: MockMvc,
         private val userRepository: UserRepository,
         private val connectionRepository: KakaoCalendarConnectionRepository,
+        private val calendarRegistrationRepository: CalendarRegistrationRepository,
+        private val partyRepository: PartyRepository,
+        private val partyInviteRepository: PartyInviteRepository,
         private val databaseCleanup: DatabaseCleanup,
         private val jwtProperties: JwtProperties,
         private val consentTicketSigner: ConsentTicketSigner,
@@ -308,6 +318,154 @@ class KakaoCalendarConsentFlowTest
                 ).andExpect(MockMvcResultMatchers.status().isNoContent)
 
             assertTrue(connectionRepository.findAll().isEmpty())
+        }
+
+        @Test
+        fun `비회원 콜백은 일정을 만들고 registered 로 돌려보낸다`() {
+            val fixture = saveHostPartyAndInvite(LocalDateTime.now().plusDays(2))
+            val ticket = consentTicketSigner.issue(ConsentSubject.Guest(fixture.inviteToken))
+
+            mockMvc
+                .get("/api/v1/kakao-calendar/consent/callback") {
+                    param("code", "auth-code")
+                    param("state", ticket)
+                    cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_ticket", ticket))
+                    cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_return_path", RETURN_PATH))
+                }.andExpect {
+                    status { is3xxRedirection() }
+                    redirectedUrlPattern("**/*calendarConsent=registered*")
+                }
+
+            val saved = calendarRegistrationRepository.findAll().single()
+            assertEquals(fixture.partyId, saved.partyId)
+            assertNull(saved.userId)
+            assertNotNull(saved.kakaoProviderId)
+            assertNotNull(saved.eventId)
+            assertNotNull(KakaoStubServers.requests[KakaoStubServers.CREATE_EVENT_PATH])
+        }
+
+        @Test
+        fun `같은 비회원이 다시 동의하면 already_registered 로 돌려보낸다`() {
+            val fixture = saveHostPartyAndInvite(LocalDateTime.now().plusDays(2))
+            guestCallback(fixture.inviteToken)
+            KakaoStubServers.reset()
+
+            mockMvc
+                .get("/api/v1/kakao-calendar/consent/callback") {
+                    val ticket = consentTicketSigner.issue(ConsentSubject.Guest(fixture.inviteToken))
+                    param("code", "auth-code")
+                    param("state", ticket)
+                    cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_ticket", ticket))
+                    cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_return_path", RETURN_PATH))
+                }.andExpect {
+                    redirectedUrlPattern("**/*calendarConsent=already_registered*")
+                }
+
+            assertEquals(1, calendarRegistrationRepository.findAll().size)
+            assertNull(KakaoStubServers.requests[KakaoStubServers.CREATE_EVENT_PATH])
+        }
+
+        @Test
+        fun `없는 초대 토큰이면 invite_invalid 로 돌려보낸다`() {
+            val ticket = consentTicketSigner.issue(ConsentSubject.Guest("nosuchtk"))
+
+            mockMvc
+                .get("/api/v1/kakao-calendar/consent/callback") {
+                    param("code", "auth-code")
+                    param("state", ticket)
+                    cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_ticket", ticket))
+                    cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_return_path", RETURN_PATH))
+                }.andExpect {
+                    redirectedUrlPattern("**/*calendarConsent=invite_invalid*")
+                }
+
+            assertTrue(calendarRegistrationRepository.findAll().isEmpty())
+        }
+
+        @Test
+        fun `비회원이 동의를 거부하면 denied 로 돌려보내고 등록이 없다`() {
+            val fixture = saveHostPartyAndInvite(LocalDateTime.now().plusDays(2))
+            val ticket = consentTicketSigner.issue(ConsentSubject.Guest(fixture.inviteToken))
+
+            mockMvc
+                .get("/api/v1/kakao-calendar/consent/callback") {
+                    param("state", ticket)
+                    cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_ticket", ticket))
+                    cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_return_path", RETURN_PATH))
+                }.andExpect {
+                    redirectedUrlPattern("**/*calendarConsent=denied*")
+                }
+
+            assertTrue(calendarRegistrationRepository.findAll().isEmpty())
+        }
+
+        @Test
+        fun `비회원 티켓과 state 가 다르면 expired 로 돌려보낸다`() {
+            val fixture = saveHostPartyAndInvite(LocalDateTime.now().plusDays(2))
+            val ticket = consentTicketSigner.issue(ConsentSubject.Guest(fixture.inviteToken))
+            // 식별자를 다르게 둬 같은 초 안에 발급돼도 서명이 달라지게 한다 (티켓은 초 단위 타임스탬프를 쓴다).
+            val other = consentTicketSigner.issue(ConsentSubject.Guest("${fixture.inviteToken}-other"))
+
+            mockMvc
+                .get("/api/v1/kakao-calendar/consent/callback") {
+                    param("code", "auth-code")
+                    param("state", other)
+                    cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_ticket", ticket))
+                    cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_return_path", RETURN_PATH))
+                }.andExpect {
+                    redirectedUrlPattern("**/*calendarConsent=expired*")
+                }
+
+            assertTrue(calendarRegistrationRepository.findAll().isEmpty())
+        }
+
+        /** 첫 테스트의 콜백 호출을 그대로 수행하는 헬퍼다. 등록이 이미 끝났다는 전제로 재사용한다. */
+        private fun guestCallback(inviteToken: String) {
+            val ticket = consentTicketSigner.issue(ConsentSubject.Guest(inviteToken))
+
+            mockMvc
+                .get("/api/v1/kakao-calendar/consent/callback") {
+                    param("code", "auth-code")
+                    param("state", ticket)
+                    cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_ticket", ticket))
+                    cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_return_path", RETURN_PATH))
+                }.andExpect {
+                    redirectedUrlPattern("**/*calendarConsent=registered*")
+                }
+        }
+
+        private data class GuestFixture(
+            val partyId: Long,
+            val inviteToken: String,
+        )
+
+        private var inviteSequence = 0
+
+        private fun saveHostPartyAndInvite(startedAt: LocalDateTime): GuestFixture {
+            val host =
+                userRepository.save(
+                    User(
+                        name = "호스트",
+                        birthDay = "01-01",
+                        provider = AuthProvider.KAKAO,
+                        providerId = "consent-host",
+                        email = "consent-host@test.local",
+                    ),
+                )
+            val party =
+                partyRepository.save(
+                    PaperOnlyParty(
+                        ownerId = host.id,
+                        startedAt = startedAt,
+                        celebrantNickname = "지민",
+                    ),
+                )
+            val token = "cnst%010d".format(inviteSequence++)
+            val invite =
+                partyInviteRepository.save(
+                    PartyInvite(party = party, token = token, expiresAt = LocalDateTime.now().plusDays(7)),
+                )
+            return GuestFixture(partyId = party.id, inviteToken = invite.token)
         }
 
         companion object {

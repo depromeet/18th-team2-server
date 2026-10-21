@@ -1,10 +1,13 @@
 package com.team2.server.calendar.api
 
 import com.team2.server.auth.config.OAuth2Properties
+import com.team2.server.calendar.application.dto.GuestCalendarRegistrationResult
 import com.team2.server.calendar.application.service.ConsentSubject
 import com.team2.server.calendar.application.service.ConsentTicketSigner
 import com.team2.server.calendar.application.service.KakaoConsentUrlFactory
 import com.team2.server.calendar.application.usecase.ConsentOutcome
+import com.team2.server.calendar.application.usecase.ExchangeKakaoConsentUseCase
+import com.team2.server.calendar.application.usecase.RegisterGuestTalkCalendarEventUseCase
 import com.team2.server.calendar.application.usecase.SaveKakaoCalendarConsentUseCase
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -30,6 +33,8 @@ class KakaoCalendarConsentController(
     private val consentTicketSigner: ConsentTicketSigner,
     private val kakaoConsentUrlFactory: KakaoConsentUrlFactory,
     private val saveKakaoCalendarConsentUseCase: SaveKakaoCalendarConsentUseCase,
+    private val exchangeKakaoConsentUseCase: ExchangeKakaoConsentUseCase,
+    private val registerGuestTalkCalendarEventUseCase: RegisterGuestTalkCalendarEventUseCase,
     private val oAuth2Properties: OAuth2Properties,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -74,16 +79,33 @@ class KakaoCalendarConsentController(
         val subject =
             consentTicketSigner.verify(cookieTicket)
                 ?: return RedirectView(resultUrl(returnPath, ConsentOutcome.EXPIRED))
-        if (subject !is ConsentSubject.Member) {
-            return RedirectView(resultUrl(returnPath, ConsentOutcome.EXPIRED))
-        }
-        val userId = subject.userId
 
         val outcome =
-            runCatching { saveKakaoCalendarConsentUseCase(code, userId, kakaoConsentUrlFactory.callbackUri()) }
-                .onFailure { log.error("카카오 캘린더 동의 저장 실패", it) }
+            runCatching {
+                when (subject) {
+                    is ConsentSubject.Member ->
+                        saveKakaoCalendarConsentUseCase(code, subject.userId, kakaoConsentUrlFactory.callbackUri())
+                    is ConsentSubject.Guest -> registerGuest(code, subject.inviteToken)
+                }
+            }.onFailure { log.error("카카오 캘린더 동의 처리 실패", it) }
                 .getOrDefault(ConsentOutcome.FAILED)
         return RedirectView(resultUrl(returnPath, outcome))
+    }
+
+    /** 비회원은 토큰을 저장하지 않으므로 여기서 등록까지 끝낸다. 토큰은 반환하지 않고 버린다. */
+    private fun registerGuest(
+        code: String,
+        inviteToken: String,
+    ): ConsentOutcome {
+        val credentials =
+            exchangeKakaoConsentUseCase(code, kakaoConsentUrlFactory.callbackUri())
+                ?: return ConsentOutcome.FAILED
+        return when (registerGuestTalkCalendarEventUseCase(inviteToken, credentials)) {
+            GuestCalendarRegistrationResult.REGISTERED -> ConsentOutcome.REGISTERED
+            GuestCalendarRegistrationResult.ALREADY_REGISTERED -> ConsentOutcome.ALREADY_REGISTERED
+            GuestCalendarRegistrationResult.PARTY_ALREADY_STARTED -> ConsentOutcome.PARTY_ALREADY_STARTED
+            GuestCalendarRegistrationResult.INVITE_INVALID -> ConsentOutcome.INVITE_INVALID
+        }
     }
 
     /** 쿠키 값은 무결성이 보장되지 않으므로 진입 때와 같은 검증을 다시 통과시킨다. */
