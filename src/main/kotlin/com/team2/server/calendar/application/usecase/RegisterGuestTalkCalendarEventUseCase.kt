@@ -42,15 +42,11 @@ class RegisterGuestTalkCalendarEventUseCase(
             return GuestCalendarRegistrationResult.ALREADY_REGISTERED
         }
 
-        val registration =
-            try {
-                calendarRegistrationService.reserveForGuest(credentials.kakaoProviderId, info.partyId)
-            } catch (e: BusinessException) {
-                if (e.errorCode == ErrorCode.CALENDAR_REGISTRATION_IN_PROGRESS) {
-                    return GuestCalendarRegistrationResult.ALREADY_REGISTERED
-                }
-                throw e
-            }
+        // 경쟁에서 진 요청은 UNIQUE 제약에 걸려 CALENDAR_REGISTRATION_IN_PROGRESS 로 끝난다. 여기서 잡아
+        // 결과값으로 흡수하면 안 된다 — 제약 위반 시점에 Hibernate 가 세션을 rollback-only 로 표시하므로
+        // 정상 반환하면 커밋이 UnexpectedRollbackException 으로 깨진다. 전파시켜 트랜잭션을 깔끔히
+        // 되감고, 결과 매핑은 트랜잭션 밖(KakaoCalendarConsentController)에서 한다. 회원 경로도 같은 모양이다.
+        val registration = calendarRegistrationService.reserveForGuest(credentials.kakaoProviderId, info.partyId)
 
         val event =
             PartyCalendarEventPolicy.compose(
