@@ -4,6 +4,8 @@ import com.team2.server.auth.config.JwtProperties
 import com.team2.server.auth.jwt.JwtTokenProvider
 import com.team2.server.calendar.application.service.ConsentSubject
 import com.team2.server.calendar.application.service.ConsentTicketSigner
+import com.team2.server.calendar.domain.entity.CalendarRegistration
+import com.team2.server.calendar.domain.vo.CalendarProvider
 import com.team2.server.calendar.infrastructure.persistence.CalendarRegistrationRepository
 import com.team2.server.calendar.infrastructure.persistence.KakaoCalendarConnectionRepository
 import com.team2.server.common.DatabaseCleanup
@@ -28,6 +30,9 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.TransactionDefinition
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -59,6 +64,7 @@ class KakaoCalendarConsentFlowTest
         private val databaseCleanup: DatabaseCleanup,
         private val jwtProperties: JwtProperties,
         private val consentTicketSigner: ConsentTicketSigner,
+        private val transactionManager: PlatformTransactionManager,
     ) {
         private val tokenProvider = JwtTokenProvider(jwtProperties)
 
@@ -342,6 +348,62 @@ class KakaoCalendarConsentFlowTest
             assertNotNull(saved.kakaoProviderId)
             assertNotNull(saved.eventId)
             assertNotNull(KakaoStubServers.requests[KakaoStubServers.CREATE_EVENT_PATH])
+            // 비회원 토큰은 저장하지 않는다. 콜백이 회원 분기를 잘못 타면 여기서 연동 행이 남는다.
+            assertTrue(connectionRepository.findAll().isEmpty())
+        }
+
+        /**
+         * 콜백이 동시 요청 경쟁에서 진 쪽도 already_registered 로 돌려보내는지 본다.
+         *
+         * 선검사를 통과한 뒤 UNIQUE 제약에 걸린 요청은 UseCase 가 `BusinessException` 으로 전파하고
+         * 컨트롤러가 그 `errorCode` 를 보고 같은 결과로 매핑한다. UseCase 안에서 잡아 결과값으로
+         * 흡수하면 커밋이 `UnexpectedRollbackException` 으로 깨져 failed 가 나간다.
+         *
+         * 스레드 없이 경쟁 상태를 만든다. MockMvc 는 테스트 스레드에서 그대로 실행되므로 UseCase 의
+         * 트랜잭션이 여기서 연 트랜잭션에 참여한다. MySQL REPEATABLE READ 는 첫 읽기에서 스냅샷을
+         * 고정하므로, 스냅샷을 잡은 뒤 별도 트랜잭션으로 같은 키의 행을 커밋하면 선검사는 그 행을
+         * 보지 못하고 INSERT 만 UNIQUE 인덱스에 걸린다.
+         */
+        @Test
+        fun `비회원 콜백은 유니크 충돌이 나도 already_registered 로 돌려보낸다`() {
+            val fixture = saveHostPartyAndInvite(LocalDateTime.now().plusDays(2))
+            val ticket = consentTicketSigner.issue(ConsentSubject.Guest(fixture.inviteToken))
+
+            TransactionTemplate(transactionManager).executeWithoutResult { status ->
+                calendarRegistrationRepository.count()
+                commitGuestRegistrationInNewTransaction(fixture.partyId)
+
+                mockMvc
+                    .get("/api/v1/kakao-calendar/consent/callback") {
+                        param("code", "auth-code")
+                        param("state", ticket)
+                        cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_ticket", ticket))
+                        cookie(jakarta.servlet.http.Cookie("kakao_calendar_consent_return_path", RETURN_PATH))
+                    }.andExpect {
+                        redirectedUrlPattern("**/*calendarConsent=already_registered*")
+                    }
+
+                // 참여한 UseCase 트랜잭션이 제약 위반으로 rollback-only 가 됐으므로 커밋을 시도하지 않는다.
+                status.setRollbackOnly()
+            }
+
+            assertEquals(1, calendarRegistrationRepository.findAll().size)
+            assertNull(KakaoStubServers.requests[KakaoStubServers.CREATE_EVENT_PATH])
+        }
+
+        /** 선검사가 끝난 뒤 다른 요청이 같은 자리를 차지한 상태를 만든다. */
+        private fun commitGuestRegistrationInNewTransaction(partyId: Long) {
+            TransactionTemplate(transactionManager)
+                .apply { propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW }
+                .executeWithoutResult {
+                    calendarRegistrationRepository.saveAndFlush(
+                        CalendarRegistration(
+                            partyId = partyId,
+                            provider = CalendarProvider.KAKAO_TALK,
+                            kakaoProviderId = KakaoStubServers.kakaoUserId.toString(),
+                        ),
+                    )
+                }
         }
 
         @Test
