@@ -17,16 +17,22 @@ import jakarta.persistence.UniqueConstraint
             name = CalendarRegistration.UK_USER_PARTY_PROVIDER,
             columnNames = ["user_id", "party_id", "provider"],
         ),
+        UniqueConstraint(
+            name = CalendarRegistration.UK_KAKAO_PARTY_PROVIDER,
+            columnNames = ["kakao_provider_id", "party_id", "provider"],
+        ),
     ],
 )
 class CalendarRegistration(
-    @Column(name = "user_id", nullable = false)
-    val userId: Long,
+    @Column(name = "user_id")
+    val userId: Long? = null,
     @Column(name = "party_id", nullable = false)
     val partyId: Long,
     @Enumerated(EnumType.STRING)
     @Column(name = "provider", nullable = false, length = 20)
     val provider: CalendarProvider,
+    @Column(name = "kakao_provider_id", length = 100)
+    val kakaoProviderId: String? = null,
     eventId: String? = null,
 ) : BaseEntity() {
     @Column(name = "event_id", length = 100)
@@ -39,5 +45,6 @@ class CalendarRegistration(
 
     companion object {
         const val UK_USER_PARTY_PROVIDER = "uk_calendar_registration_user_party_provider"
+        const val UK_KAKAO_PARTY_PROVIDER = "uk_calendar_registration_kakao_party_provider"
     }
 }
