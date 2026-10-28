@@ -14,6 +14,8 @@ data class ParticipantRollingPaperListResult(
 data class OwnerRollingPaperListResult(
     val celebrantNickname: String?,
     val partyEndAt: LocalDateTime,
+    val viewable: Boolean,
+    val viewableAt: LocalDateTime,
     val items: List<OwnerRollingPaperListItemResult>,
     val pageInfo: RollingPaperPageInfoResult,
 )
@@ -51,8 +53,12 @@ data class OwnerRollingPaperListItemResult(
     val position: Long,
     @Schema(description = "롤링페이퍼 작성자 닉네임", example = "축하요정")
     val writerNickname: String,
-    @Schema(description = "롤링페이퍼 내용. 최대 100자입니다.", example = "생일 축하해요!")
-    val content: String,
+    @Schema(
+        description = "롤링페이퍼 내용. 최대 100자입니다. 열람 가능 시각 전에는 null입니다.",
+        nullable = true,
+        example = "생일 축하해요!",
+    )
+    val content: String?,
     @Schema(
         description = "롤링페이퍼 토핑 이미지 URL.",
         example = "/images/rolling-paper-wrappers/Topping_Candle.svg",
