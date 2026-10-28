@@ -43,6 +43,10 @@ data class OwnerRollingPaperListResponse(
     val celebrantNickname: String?,
     @Schema(description = "파티 자체 종료 시각", example = "2026-05-12T14:30:00")
     val partyEndAt: LocalDateTime,
+    @Schema(description = "주최자의 롤링페이퍼 내용 열람 가능 여부. false면 items의 content가 null입니다.", example = "true")
+    val viewable: Boolean,
+    @Schema(description = "주최자가 롤링페이퍼 내용을 열람할 수 있는 시각", example = "2026-05-06T10:00:00")
+    val viewableAt: LocalDateTime,
     @Schema(description = "롤링페이퍼 목록")
     val items: List<OwnerRollingPaperListItemResult>,
     @Schema(description = "페이지네이션 정보")
@@ -53,6 +57,8 @@ data class OwnerRollingPaperListResponse(
             OwnerRollingPaperListResponse(
                 celebrantNickname = result.celebrantNickname,
                 partyEndAt = result.partyEndAt,
+                viewable = result.viewable,
+                viewableAt = result.viewableAt,
                 items = result.items,
                 pageInfo = result.pageInfo,
             )

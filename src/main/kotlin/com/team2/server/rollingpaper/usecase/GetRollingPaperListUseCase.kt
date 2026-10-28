@@ -69,22 +69,20 @@ class GetRollingPaperListUseCase(
                 ?: throw BusinessException(ErrorCode.PARTY_NOT_FOUND)
         validateOwner(party, userId)
 
-        val now = LocalDateTime.now()
-        if (!party.canHostViewRollingPapers(now)) {
-            throw BusinessException(ErrorCode.ROLLING_PAPER_NOT_VIEWABLE)
-        }
-
+        val viewable = party.canHostViewRollingPapers(LocalDateTime.now())
         val pageResult = getPageResult(party, page)
         return OwnerRollingPaperListResult(
             celebrantNickname = party.celebrantNickname,
             partyEndAt = party.endedAt(),
+            viewable = viewable,
+            viewableAt = party.hostViewableAt(),
             items =
                 pageResult.items.map { item ->
                     OwnerRollingPaperListItemResult(
                         rollingPaperId = item.rollingPaperId,
                         position = item.position,
                         writerNickname = item.writerNickname,
-                        content = item.content,
+                        content = item.content.takeIf { viewable },
                         toppingImageUrl = item.toppingImageUrl,
                     )
                 },
