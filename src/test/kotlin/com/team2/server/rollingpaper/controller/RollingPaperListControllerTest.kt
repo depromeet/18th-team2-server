@@ -33,6 +33,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -208,6 +209,8 @@ class RollingPaperListControllerTest
                     status { isOk() }
                     jsonPath("$.data.celebrantNickname") { value("홍길동") }
                     jsonPath("$.data.partyEndAt") { value("2020-01-08T00:00:00") }
+                    jsonPath("$.data.viewable") { value(true) }
+                    jsonPath("$.data.viewableAt") { value("2020-01-01T22:00:00") }
                     jsonPath("$.data.pageInfo.page") { value(1) }
                     jsonPath("$.data.pageInfo.totalCount") { value(1) }
                     jsonPath("$.data.pageInfo.totalPages") { value(1) }
@@ -238,20 +241,30 @@ class RollingPaperListControllerTest
         }
 
         @Test
-        fun `주최자용 목록은 열람 가능 전이면 403`() {
+        fun `주최자용 목록은 열람 가능 전이면 내용 없이 목록을 조회한다`() {
             val owner = saveUser("owner-before-open")
             val party =
                 saveRealtimeParty(
                     ownerId = owner.id,
                     startedAt = NOT_VIEWABLE_REALTIME_STARTED_AT,
                 )
+            val topping = saveToppingWithImages()
+            saveRollingPaper(party, topping, "축하요정", DEFAULT_NOW)
 
             mockMvc
                 .get("/api/v1/parties/${party.id}/rolling-papers") {
                     header("Authorization", "Bearer ${tokenProvider.issue(owner)}")
                 }.andExpect {
-                    status { isForbidden() }
-                    jsonPath("$.error.code") { value("ROLLING_PAPER_NOT_VIEWABLE") }
+                    status { isOk() }
+                    jsonPath("$.data.viewable") { value(false) }
+                    jsonPath(
+                        "$.data.viewableAt",
+                    ) { value(party.hostViewableAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)) }
+                    jsonPath("$.data.pageInfo.totalCount") { value(1) }
+                    jsonPath("$.data.items[0].position") { value(1) }
+                    jsonPath("$.data.items[0].writerNickname") { value("축하요정") }
+                    jsonPath("$.data.items[0].toppingImageUrl") { exists() }
+                    jsonPath("$.data.items[0].content") { value(null) }
                 }
         }
 

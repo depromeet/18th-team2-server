@@ -20,7 +20,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse as SwaggerApiResponse
 interface RollingPaperOwnerApi {
     @Operation(
         summary = "주최자용 롤링페이퍼 목록 조회",
-        description = "인증된 파티 소유자가 롤링페이퍼 목록과 상세 오버레이용 본문을 조회한다.",
+        description =
+            "인증된 파티 소유자가 롤링페이퍼 목록과 상세 오버레이용 본문을 조회한다. " +
+                "열람 가능 시각 전에는 viewable이 false이고 본문(content)은 null로 내려간다.",
         security = [SecurityRequirement(name = "Bearer Authentication")],
     )
     @SwaggerApiResponse(
@@ -30,7 +32,7 @@ interface RollingPaperOwnerApi {
     @AuthErrorResponses
     @SwaggerApiResponse(
         responseCode = "403",
-        description = "파티 권한 없음 또는 아직 열람 불가",
+        description = "파티 권한 없음",
         content = [
             Content(
                 mediaType = "application/json",
@@ -44,18 +46,6 @@ interface RollingPaperOwnerApi {
                               "error": {
                                 "code": "PARTY_FORBIDDEN",
                                 "message": "파티에 대한 권한이 없습니다"
-                              }
-                            }
-                        """,
-                    ),
-                    ExampleObject(
-                        name = "아직 열람 불가",
-                        value = """
-                            {
-                              "status": 403,
-                              "error": {
-                                "code": "ROLLING_PAPER_NOT_VIEWABLE",
-                                "message": "아직 롤링페이퍼를 확인할 수 없습니다"
                               }
                             }
                         """,
